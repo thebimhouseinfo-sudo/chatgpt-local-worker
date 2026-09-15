@@ -11,11 +11,18 @@ const requiredSkills = [
   "architecture-impact.md",
   "implementation-sequencing.md",
   "validation-and-risk.md",
+  "handoff-artifacts.md",
 ].map((name) => `skills/${name}`);
+const templates = [
+  "templates/ARCHITECTURE.md",
+  "templates/IMPLEMENTATION_PLAN.md",
+  "templates/TODO.md",
+  "templates/TASKS.md",
+];
 const requiredFiles = [
   ...requiredSkills,
-  "templates/DEV_PLAN.md",
-  "harness/plan-lint.mjs",
+  ...templates,
+  "harness/bundle-lint.mjs",
   "harness/validate.mjs",
 ];
 
@@ -30,7 +37,8 @@ for (const rel of requiredFiles) {
 
 result.dev_planing = {
   skills: requiredSkills.length,
-  template: "templates/DEV_PLAN.md",
+  planning_bundle: templates,
+  executable_task_ledger: true,
   source_editing: false,
 };
 
