@@ -11,8 +11,8 @@ const requiredSkills = [
 ].map((name) => `skills/${name}`);
 const requiredHarness = ["inspect-repo.mjs","quality-gate.mjs","diff-gate.mjs","change-audit.mjs","dependency-gate.mjs","completion-gate.mjs","validate.mjs"].map((name) => `harness/${name}`);
 for (const rel of [...requiredSkills, ...requiredHarness]) {
-  try { await fs.access(path.join(packDir, rel)); } catch { result.ok = false; result.errors.push(`missing coding component '${rel}'`); }
+  try { await fs.access(path.join(packDir, rel)); } catch { result.ok = false; result.errors.push(`missing dev-coding component '${rel}'`); }
 }
-result.coding = { skills: requiredSkills.length, harness_entrypoints: requiredHarness.length, formal_planning: false };
+result.dev_coding = { skills: requiredSkills.length, harness_entrypoints: requiredHarness.length, formal_planning: false };
 console.log(JSON.stringify(result, null, 2));
 if (!result.ok) process.exitCode = 1;
