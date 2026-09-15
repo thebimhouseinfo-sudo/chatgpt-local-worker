@@ -62,8 +62,8 @@ export async function buildInstructionContext(
     formatAutoMemoryForInstructions(autoMemory),
     formatProjectMemoryForInstructions(projectMemory),
     formatSkillsForInstructions(skills),
-    // Keep Worker policy last so it explicitly supersedes legacy Local Coder
-    // onboarding text that may still exist in AGENTS.md/project memory.
+    // Keep Worker policy last so cross-job Worker/runtime policy remains authoritative
+    // over project-local memory while still allowing project conventions underneath it.
     formatWorkerPolicyForInstructions(workerPolicy),
   ].filter(Boolean);
 
