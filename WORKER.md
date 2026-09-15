@@ -8,10 +8,21 @@ This policy supersedes legacy **Local Coder / Codex coding-agent onboarding text
 
 At this stage the catalog is intentionally small:
 
-- `coding` — **READY**. The only operational Job Pack. It inherits the original Local Coder core and adds a professional coding SOP, specialist skills, and deterministic harnesses.
+- `dev-coding` — **READY**. Development-family implementation/execution job. It inherits the original Local Coder core and adds a professional coding SOP, specialist skills, and deterministic harnesses.
+- `dev-planing` — **READY**. Development-family planning job. It analyzes a repository and produces an implementation-ready plan without modifying source code.
 - `mto` — **PLACEHOLDER**. Reserved for future quantity takeoff / bóc khối lượng work. It has no domain business logic yet and must not be selected or activated.
 
-Do not create speculative placeholder jobs for other domains. Add another ready job only when its real domain contract, SOP, harness, validation, and acceptance criteria are understood.
+Legacy names such as `coding` and `dev-planning` may remain aliases for compatibility, but canonical job IDs are `dev-coding` and `dev-planing`.
+
+## Job family naming
+
+Related jobs should share a stable prefix so the catalog groups naturally by work domain. The development family uses `dev-`, for example:
+
+- `dev-planing`
+- `dev-coding`
+- future development jobs should use `dev-*` when they belong to the same family.
+
+Do not add a prefix merely for appearance; it should express a real job family. Do not create speculative placeholder jobs just to fill the namespace.
 
 ## Mandatory job-first lifecycle
 
@@ -32,7 +43,7 @@ Every operational task follows:
 - `/job <id>` maps to `job_select`.
 - Only packs with `status: ready` may be selected.
 - Placeholder packs are informational only; the runtime must reject activation.
-- Natural-language keywords such as `repo`, `code`, `lisp`, `MTO`, or `bốc khối lượng` remain suggestions only.
+- Natural-language keywords remain suggestions only.
 
 ### 3. RESOLVE
 
@@ -57,12 +68,15 @@ After activation:
 - obey project-local instructions, project skills, and path rules;
 - stay inside the confirmed task scope.
 
-For `coding`, the inherited core includes filesystem/search/patch, shell/processes, git, checkpoint/rewind, project context/memory, project-local skills, and upstream MCP bridge capabilities.
+For `dev-coding`, the inherited core includes filesystem/search/patch, shell/processes, git, checkpoint/rewind, project context/memory, project-local skills, and upstream MCP bridge capabilities.
+
+For `dev-planing`, repository inspection is read-oriented and the only intentional write target is the confirmed plan artifact.
 
 ### 6. VALIDATE
 
 - Run the pack validator(s) and task-appropriate deterministic checks.
-- For coding, validation must include a final diff review and `git diff --check` when operating in Git.
+- For `dev-coding`, validation must include final diff review and `git diff --check` when operating in Git.
+- For `dev-planing`, the output plan must pass `plan-lint` and must expose unresolved decisions instead of hiding them.
 - Files written or code generated is not evidence of completion by itself.
 
 ### 7. COMPLETE
