@@ -97,8 +97,8 @@ const app = express();
 app.use(cors());
 app.use(express.json({ limit: "50mb" }));
 // ChatGPT co the goi "/" hoac "/mcp" — ho tro ca hai.
-// Neu dat MCP_TOKEN, endpoint doi thanh "/<token>" + "/mcp/<token>" va cac path
-// khong co token se tra 401 (chong scan tunnel URL / trang web goi vao localhost).
+// Neu dat MCP_TOKEN, endpoint doi thanh "/<token>" + "/mcp/<token>"; cac path
+// khong co token se tra 404 de client khong hieu nham la OAuth challenge.
 const MCP_PATHS = MCP_TOKEN ? [`/${MCP_TOKEN}`, `/mcp/${MCP_TOKEN}`] : ["/", "/mcp"];
 const MCP_PATHS_SET = new Set(MCP_PATHS);
 
@@ -157,7 +157,7 @@ if (MCP_TOKEN) {
 app.get("/health", (_req, res) => {
   res.json({
     status: "ok",
-    name: "codex-mcp-server",
+    name: "chatgpt-local-worker",
     workspace: workspaceRoot,
     defaultCwd: getDefaultCwd(),
     fullMachineAccess: true,
@@ -302,7 +302,7 @@ const adminServer = startAdminServer({
 const server = app.listen(PORT, HOST, () => {
   console.log("");
   console.log("========================================");
-  console.log("  Codex MCP Server");
+  console.log("  ChatGPT Local Worker");
   console.log("========================================");
   console.log(`  Local:     http://${HOST}:${PORT}`);
   console.log(`  MCP:       http://${HOST}:${PORT}${MCP_PATHS[0]}`);
@@ -312,7 +312,7 @@ const server = app.listen(PORT, HOST, () => {
   console.log(`  Default cwd: ${workspaceRoot}`);
   console.log(`  Full machine access: ON (no path restrictions)`);
   console.log(`  Session recovery: ${SESSION_RECOVERY ? "ON" : "OFF"}`);
-  console.log(`  Auth:      ${MCP_TOKEN ? "ON (MCP_TOKEN in URL path)" : "OFF — dat MCP_TOKEN trong .env!"}`);
+  console.log(`  Auth:      ${MCP_TOKEN ? "ON (MCP_TOKEN in URL path)" : "OFF — dat MCP_TOKEN trong .env neu can path token"}`);
   console.log(`  PID:       ${process.pid}`);
   console.log("========================================");
   console.log("  Dang chay... (Ctrl+C de dung)");
