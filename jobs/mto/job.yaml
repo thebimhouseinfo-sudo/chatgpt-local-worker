@@ -1,0 +1,21 @@
+{
+  "id": "mto",
+  "name": "MTO / Quantity Takeoff",
+  "version": "0.0.0",
+  "status": "placeholder",
+  "description": "PLACEHOLDER — reserved for future MTO / bóc khối lượng work. No quantity-takeoff business rules are implemented yet.",
+  "aliases": ["mto", "takeoff", "boc-khoi-luong", "bốc khối lượng"],
+  "keywords": ["mto", "takeoff", "quantity", "bóc khối lượng", "boq", "hvac"],
+  "inputs": [],
+  "outputs": [],
+  "permissions": {},
+  "confirmation": {
+    "required": true,
+    "template": "MTO hiện mới là placeholder và chưa được phép chạy."
+  },
+  "skills": [],
+  "harness": {
+    "entrypoints": ["harness/validate.mjs"]
+  },
+  "validators": ["harness/validate.mjs"]
+}

@@ -1,0 +1,60 @@
+{
+  "id": "coding",
+  "name": "Coding Agent",
+  "version": "1.0.0",
+  "status": "ready",
+  "description": "Professional repository engineering job that inherits the Local Coder filesystem, shell, git, checkpoint, project-context, project-skill, and MCP bridge core.",
+  "aliases": ["code", "coding", "dev", "software-development", "repo", "lisp", "debug", "refactor"],
+  "keywords": ["repo", "code", "coding", "lisp", "typescript", "javascript", "python", "git", "bug", "fix", "debug", "refactor", "test", "build", "frontend", "backend"],
+  "inputs": [
+    {
+      "key": "workspace",
+      "type": "repo",
+      "required": true,
+      "description": "Target repository or source workspace"
+    },
+    {
+      "key": "task",
+      "type": "string",
+      "required": true,
+      "description": "Concrete engineering task or acceptance objective"
+    }
+  ],
+  "outputs": [
+    {
+      "key": "delivery",
+      "type": "string",
+      "required": false,
+      "description": "Optional delivery expectation such as working tree changes, patch, branch, commit, or PR"
+    }
+  ],
+  "permissions": {
+    "filesystem": "read-write-after-confirm",
+    "shell": "allowed-after-confirm",
+    "git": "read-write-after-confirm",
+    "network": "only-when-required-by-task-and-available-through-existing-tools"
+  },
+  "confirmation": {
+    "required": true,
+    "template": "Tôi sẽ thực hiện task '{task}' trong repo {workspace}, dùng coding workflow + validation của repo và để kết quả theo yêu cầu '{delivery}'. Xác nhận chứ?"
+  },
+  "skills": [
+    "skills/repository-discovery.md",
+    "skills/implementation.md",
+    "skills/debugging.md",
+    "skills/validation.md",
+    "skills/git-review.md"
+  ],
+  "harness": {
+    "entrypoints": [
+      "harness/inspect-repo.mjs",
+      "harness/quality-gate.mjs",
+      "harness/diff-gate.mjs",
+      "harness/validate.mjs"
+    ]
+  },
+  "validators": [
+    "harness/validate.mjs",
+    "harness/diff-gate.mjs"
+  ]
+}
