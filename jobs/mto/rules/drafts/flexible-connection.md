@@ -1,8 +1,10 @@
 # Flexible Connection Schedule Rule
 
-> **DRAFT / NOT FINAL — requires real-project implementation and validation.**
+> **DRAFT / NOT FINAL — requires further real-project implementation and validation.**
 >
-> This rule has been reconciled against the current `Flexible Connection Schedule.xlsx` template and one real Lisp export (`EQM,SIZE,EXTINSU,INTINSU`). It is still non-operational until tested through a complete project update cycle.
+> This rule has been reconciled against the current `Flexible Connection Schedule.xlsx` template, one real Lisp export (`EQM,SIZE,EXTINSU,INTINSU`), and the corresponding completed project schedule produced from that export.
+>
+> It remains non-operational until the drawing-export resolver, controlled merge behavior, and harness are implemented and validated through additional project updates.
 >
 > **Do not add this rule to `equipment-registry.json` yet.**
 
@@ -10,9 +12,9 @@
 
 Use `drafts/_common/drawing-export-driven.md`.
 
-Primary project source: the single current WIP CSV/Excel export produced by the project Lisp from flexible-connection block attributes.
+Target primary source after the Lisp naming fix: `01 WIP/flex conn.csv` (or same canonical stem with the final export extension).
 
-Optional supplement: project input/design information when it provides exact missing data such as connection length, insulation requirement, or project notes. The live schedule may also contain valid manual values that are not present in the export and must be preserved during reconciliation.
+Legacy project-name export files such as `YAC.csv` are evidence only and must not become resolver convention.
 
 ## Template authority
 
@@ -25,167 +27,190 @@ Preserve the workbook structure and field order exactly:
 3. `LENGTH mm`
 4. `NOTES`
 
-Template examples include both rectangular and round connection notation; therefore `SIZE` is not restricted to rectangular `W x H` only.
+Although the SIZE subheader says `W x H`, the actual schedule supports both rectangular and round connection notation.
 
-## Real export evidence
+## Verified real-project evidence
 
-The supplied real Lisp export contains these columns:
+The supplied Lisp export contains:
 
 - `EQM`
 - `SIZE`
 - `EXTINSU`
 - `INTINSU`
 
-Observed examples include:
+Observed export records:
 
-- `OAF-01 OA` + `255x255`
-- duplicated identical `OAF-01 OA` + `255x255`
-- `OAF-02 OA` + `155x155`
-- `OAF-02 OA` + `155%%C`
-- the same rectangular + diameter-coded pattern for `OAF-03 OA` and `OAF-04 OA`
+- `OAF-01 OA | 255x255` twice;
+- `OAF-02 OA | 155x155`;
+- `OAF-02 OA | 155%%C`;
+- the same rectangular + diameter-coded pair for `OAF-03 OA` and `OAF-04 OA`.
 
-`%%C` is a CAD diameter control code in the export representation. Normalize it into the schedule's human-readable diameter convention only; do not preserve the raw control code in the live schedule.
+The corresponding completed schedule proves:
+
+- all 8 export records remain 8 schedule rows;
+- the duplicate `OAF-01 OA | 255x255` remains two separate rows;
+- `155%%C` becomes `155Dia`;
+- each row uses LENGTH `150`;
+- NOTES is `-` for the supplied sample where `EXTINSU`/`INTINSU` are blank.
+
+This completed result supersedes earlier provisional ideas about automatic `(2-OFF)` aggregation.
 
 ## Mapping from Lisp export
 
 ### SYSTEM
 
-- Primary mapping: `EQM` -> `SYSTEM`.
-- Preserve the explicit exported system text, including suffix/context such as `OA`, unless a project rule explicitly normalizes it.
-- Do not infer another system name from filename, row order, or equipment class.
+- Direct mapping: `EQM` -> `SYSTEM`.
+- Preserve explicit exported text such as `OAF-01 OA`.
+- Do not infer another system reference from filename, row order, equipment class, or tag parsing.
 
 ### SIZE
 
-Primary mapping: export `SIZE` -> schedule `SIZE`.
+Direct mapping: export `SIZE` -> schedule `SIZE`, with representation normalization only.
 
-Normalize representation only when semantics are explicit:
+Verified current convention:
 
-- rectangular `255x255` -> normalized rectangular form such as `255 x 255` according to live-schedule formatting convention;
-- CAD diameter form such as `155%%C` -> human-readable diameter form such as `155Dia` / `155 Dia` according to the project/template convention;
+- rectangular `255x255` -> `255x255`;
+- CAD diameter `155%%C` -> `155Dia`;
+- do not add spaces around `x` or before `Dia` in this schedule;
 - do not convert between rectangular and round geometry;
-- do not reorder width/height unless source axes are known.
+- do not reorder width/height unless source axes are explicitly known.
 
-The current template contains an example `600Dia ( 2-OFF )`, while the supplied Ver 1.0 rule proposes `600 Dia`. Exact spacing around `Dia` remains a formatting detail to validate in implementation; preserve the established live-template convention when possible.
+Raw CAD `%%C` must never remain in the final live schedule.
 
 ### LENGTH
 
-- The real export does **not** provide a `LENGTH` field.
-- Do not copy the template sample value `150` into project rows merely because sample rows use 150 mm.
-- For a new row, use an explicit project/export/input value if available; otherwise `-`.
-- When reconciling an existing live schedule, preserve an existing valid manually/project-entered length unless a higher-authority project source explicitly changes it.
-- A future company/project rule may establish a standard flexible-connection length, but that must be explicit before automation.
+The export does not contain LENGTH, while the completed schedule uses `150` mm for every exported connection.
+
+Current candidate business rule, supported by one real implementation:
+
+- default flexible-connection LENGTH = `150` mm when the export has no explicit length;
+- because the template column already carries `mm`, write numeric `150` only;
+- explicit project/user/source value overrides this default;
+- when reconciling an existing live schedule, preserve an intentional manual/project value that differs from 150 and report the discrepancy rather than silently overwriting it.
+
+This 150 mm default remains **not final** until validated on additional projects.
 
 ### NOTES
 
-- The real export provides `EXTINSU` and `INTINSU`, but the supplied sample has those fields blank; their exact business semantics and encoding have not yet been validated.
-- Do not infer roof-mounted status solely because an equipment/system name contains `RC`, `RF`, `OAF`, or another naming fragment.
-- Do not automatically write `EXTERNALLY INSULATE CONNECTION AND PROVIDE SUN SHIELDS` based on equipment-name heuristics.
-- Populate `NOTES` only from explicit export attributes, project rules, technical/design evidence, or an existing valid live-schedule value.
-- `EXTINSU`/`INTINSU` may eventually drive insulation-related notes once their value vocabulary and intended mapping are proven on a real project.
+The real export includes `EXTINSU` and `INTINSU`, but all supplied values are blank. The completed schedule uses `-` for NOTES on all supplied rows.
 
-## Duplicate and quantity behavior
+Therefore:
 
-The real export proves that multiple block records may share the same `EQM`.
+- blank `EXTINSU` + blank `INTINSU` -> `NOTES = -` for a new row unless another explicit source supplies a note;
+- do not infer roof-mounted status from `OAF`, `RF`, `RC`, or other name fragments;
+- do not automatically write `EXTERNALLY INSULATE CONNECTION AND PROVIDE SUN SHIELDS` from naming heuristics;
+- preserve an existing valid manual/project NOTES value during reconciliation when the export provides no replacement;
+- future nonblank `EXTINSU` / `INTINSU` values require real evidence before deterministic note mapping is defined.
 
-Do not treat every repeated system as a duplicate error.
+## Row cardinality and comparison identity
 
-### Exact duplicate candidates
+The completed result proves that **one export connection record corresponds to one schedule row** in the current workflow.
 
-If multiple export rows have the same normalized `SYSTEM` and same normalized `SIZE`, they may represent multiple identical flexible connections.
+### Repeated identical records
 
-Example observed:
+If the export contains the same `(SYSTEM, SIZE)` more than once, retain the same multiplicity in the schedule.
 
-- `OAF-01 OA | 255x255`
-- `OAF-01 OA | 255x255`
+Verified example:
 
-The template's `600Dia ( 2-OFF )` example shows that quantity notation inside `SIZE` is a supported schedule pattern. Therefore grouping identical `(SYSTEM, SIZE)` records into a quantity representation such as `( 2-OFF )` is a **provisional candidate rule**.
+- export contains `OAF-01 OA | 255x255` twice;
+- completed schedule contains two separate `OAF-01 OA | 255x255 | 150 | -` rows.
 
-Do not enable this automatically until one real project confirms that repeated identical export rows always mean count/quantity rather than duplicated extraction artifacts.
+Therefore:
+
+- do not deduplicate identical records;
+- do not aggregate them into `(2-OFF)` by default;
+- duplicate count is meaningful quantity evidence.
 
 ### Same system, different sizes
 
-If one `SYSTEM` has different connection sizes, do **not** collapse those rows into `2-OFF`.
+If one SYSTEM has multiple different SIZE values, retain one row per export record.
 
-Observed:
+Verified example:
 
 - `OAF-02 OA | 155x155`
 - `OAF-02 OA | 155%%C`
 
-This may represent two distinct connection geometries. The final schedule representation is not yet proven. Until implementation evidence resolves it:
+becomes:
 
-- preserve both source records during reconciliation;
-- flag the system for review if the template/live schedule expects one row per system;
-- do not concatenate sizes or create quantity notation by guesswork.
+- `OAF-02 OA | 155x155 | 150 | -`
+- `OAF-02 OA | 155Dia | 150 | -`
+
+Do not concatenate these sizes and do not turn them into quantity notation.
+
+### Reconciliation key
+
+`SYSTEM` alone is not unique, and `(SYSTEM, SIZE)` may also repeat.
+
+For deterministic comparison, treat the export as a **multiset of normalized connection records**. At minimum compare:
+
+`(normalized SYSTEM, normalized SIZE)` + occurrence count.
+
+A future Lisp-export unique block ID may provide a stronger stable key if it is added, but do not invent one.
 
 ## Initial vs update behavior
 
 Do not apply the old `CLEAR TEMPLATE BEFORE FILL` rule to an existing live schedule.
 
-- no live schedule: bootstrap from the read-only template, clear sample data rows only, then populate from the current export plus supported supplemental values;
-- existing live schedule: compare current export against the live schedule, produce the change report, then perform controlled merge;
-- preserve manual/enriched `LENGTH` and `NOTES` values when the export does not own them;
-- do not clear or rebuild the whole schedule from the CSV.
+- no live schedule: bootstrap from the read-only template, clear sample data rows only, then create one schedule row per export record;
+- existing live schedule: compare current export multiset against the live schedule, generate the change report, then controlled-merge export-owned changes;
+- preserve valid manual/enriched values when the export does not own those fields;
+- do not clear or rebuild the whole schedule merely because a new export exists.
 
 ## Change-report requirements
 
 A re-export run should report at least:
 
-- new systems/connections;
-- systems/connections missing from the new export;
-- changed `SYSTEM` or `SIZE` values;
-- exact duplicate-count changes;
-- same-system/multi-size review cases;
-- preserved manual `LENGTH` values;
-- preserved manual/enriched `NOTES` values;
-- any `EXTINSU` / `INTINSU` change that cannot yet be deterministically mapped;
-- conflicts requiring user review.
+- added connection rows;
+- connection rows missing from the new export;
+- changed SYSTEM/SIZE records when deterministically matchable;
+- count changes for repeated identical `(SYSTEM, SIZE)` records;
+- rectangular/round connection changes;
+- non-standard/manual LENGTH values preserved or conflicting with the 150 mm default;
+- preserved manual/enriched NOTES values;
+- any nonblank `EXTINSU` / `INTINSU` values whose mapping is not yet defined;
+- conflicts requiring review.
 
 Small changes edited manually in the live schedule without a new Lisp export produce no MTO run and no report; that is expected workflow.
 
-## Missing-data behavior
-
-- New row with no supported LENGTH -> `-`.
-- New row with no supported NOTES -> `-`.
-- Do not replace an existing valid live LENGTH/NOTES value with `-` because those fields are absent from the current export.
-- Do not invent insulation/sun-shield notes.
-
 ## Formatting
 
-- Preserve template structure exactly.
-- Normalize rectangular dimensions to the project's schedule convention with spaces around `x` when writing human-readable values.
-- Normalize CAD diameter control codes to the project's schedule diameter notation.
-- Preserve explicit quantity notation when it is source-supported or produced by an approved aggregation rule.
-- Do not leave required new-row cells blank; unsupported new values use `-`.
+Verified completed-project convention:
+
+- rectangular size: `255x255`;
+- diameter: `155Dia`;
+- LENGTH: numeric only, e.g. `150`;
+- missing NOTES: `-`;
+- preserve template structure, headers, merges, formatting, and column order.
+
+This schedule does **not** use the general prose preference of spaces around `x`; the actual completed-project convention takes precedence.
 
 ## Validation checklist
 
 Before a run can be considered complete:
 
-- exactly one current WIP export was resolved;
+- canonical current `flex conn` export was resolved from `01 WIP`;
 - template/live schedule structure is preserved;
-- export columns are recognized (`EQM`, `SIZE`, `EXTINSU`, `INTINSU`) or explicitly mapped by a project override;
-- every output connection is traceable to export/live/project evidence;
-- `SYSTEM` comes from `EQM` or another explicit source, not inference;
-- raw CAD `%%C` is not left in final schedule text;
-- identical repeated records are not blindly deduplicated;
-- same-system/different-size records are not falsely turned into quantity notation;
-- LENGTH is not invented from template sample rows;
+- export columns are recognized (`EQM`, `SIZE`, `EXTINSU`, `INTINSU`) or explicitly mapped by project override;
+- one schedule row exists for each current export record unless explicit project evidence says otherwise;
+- repeated identical export records retain multiplicity;
+- same-system/different-size records remain separate;
+- SYSTEM comes from `EQM` or another explicit source, not inference;
+- `%%C` is normalized to `Dia` notation;
+- rectangular size formatting matches verified no-space convention;
+- new rows use current candidate LENGTH standard `150` unless explicitly overridden;
 - roof/insulation NOTES are not inferred from naming heuristics;
-- manual/enriched live values outside export ownership are preserved;
+- manual/enriched live values outside export ownership are preserved/reported;
 - audit/report records current export path/hash and change summary.
 
 ## Promotion blockers
 
 Before moving this rule to `rules/flexible-connection.md` and registering it operationally, validate:
 
-1. exact WIP export location and candidate-file matching rule;
-2. whether `EQM` is the stable schedule identity or only a grouping key;
-3. whether identical `(EQM, SIZE)` rows should always aggregate to `( n-OFF )`;
-4. how one system with multiple different sizes is represented in the final schedule;
-5. exact normalization of `%%C` and `Dia` spacing;
-6. whether LENGTH has a company/project standard such as 150 mm or must always be source-driven;
-7. exact meaning/value vocabulary of `EXTINSU` and `INTINSU`;
-8. deterministic mapping from insulation attributes to NOTES, if any;
-9. disappeared-row behavior;
-10. compare/report/controlled-merge behavior with manual live edits;
-11. resolver/harness tests using a real export fixture.
+1. final Lisp extension and exact canonical path for `01 WIP/flex conn.*`;
+2. whether a unique block/connection ID should be added to the export for stronger reconciliation;
+3. whether the 150 mm LENGTH default is company-wide or project-specific;
+4. exact meaning/value vocabulary of nonblank `EXTINSU` and `INTINSU`;
+5. deterministic mapping from insulation attributes to NOTES, if any;
+6. disappeared-row behavior;
+7. compare/report/controlled-merge behavior across a second real update cycle with manual live edits;
+8. resolver/harness tests using real export fixtures.
