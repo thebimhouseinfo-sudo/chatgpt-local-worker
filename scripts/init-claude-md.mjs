@@ -55,9 +55,10 @@ ${stack.length ? stack.map((c) => `- \`${c}\``).join("\n") : "- <!-- add build/t
 ## Architecture
 <!-- Key directories and how they connect -->
 
-## ChatGPT + Codex MCP
+## ChatGPT + Local Worker
 - WORKSPACE_PATH should point to this directory
-- Tag connector **@Local Coder** in every ChatGPT message
+- Tag connector **@Local Worker** in ChatGPT when using the local worker
+- Worker/job policy comes from the Local Worker installation; keep this file project-specific
 `;
 
 if (await exists(target)) {
@@ -68,4 +69,4 @@ if (await exists(target)) {
 
 await fs.writeFile(target, template, "utf-8");
 console.log(`Created ${target}`);
-console.log("Edit Overview and Architecture, then restart MCP server.");
+console.log("Edit Overview and Architecture, then restart Local Worker if you need refreshed session instructions.");
