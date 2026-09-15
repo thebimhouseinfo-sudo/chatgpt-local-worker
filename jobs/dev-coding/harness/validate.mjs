@@ -17,6 +17,9 @@ result.dev_coding = {
   skills: requiredSkills.length,
   harness_entrypoints: requiredHarness.length,
   execution_planning: true,
+  context_first: true,
+  targeted_repository_discovery: true,
+  recommends_dev_planing_for_deep_planning: true,
   formal_plan_artifact_by_default: false,
 };
 console.log(JSON.stringify(result, null, 2));
