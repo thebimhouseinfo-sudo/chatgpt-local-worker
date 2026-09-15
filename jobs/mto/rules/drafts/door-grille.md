@@ -1,10 +1,10 @@
 # Door Grille Schedule Rule
 
-> **DRAFT / NOT FINAL — requires further real-project implementation and validation.**
+> **STATUS: DRAFT / NOT FINAL — RUNNABLE WITH CAREFUL REVIEW**
 >
 > This rule has been reconciled against the current `Door Grille Schedule.xlsx` template and the user-confirmed Lisp-export workflow: the export provides only the Door Grille name/tag and size.
 >
-> **Do not add this rule to `equipment-registry.json` yet.**
+> This rule is registered as `draft` and may be used on real projects. GPT must warn that the result needs careful review, and implementation findings should be fed back into the rule.
 
 ## Source model
 
@@ -146,7 +146,7 @@ Small changes made manually in the live schedule without a new Lisp export produ
 
 Before considering a run complete:
 
-- the current Door Grille export was explicitly resolved;
+- the current Door Grille export was explicitly/canonically resolved;
 - template structure/order preserved;
 - every row traces to the current export or another explicitly approved project source;
 - `REF. NO.` comes from the exported name/tag;
@@ -156,11 +156,12 @@ Before considering a run complete:
 - unsupported `TYPE` / `COLOUR` values are `-` for new rows;
 - `INSTALLED BY = BUILDER` unless explicit project responsibility evidence overrides it;
 - manual/live values outside export ownership are preserved;
-- audit/report records export path/hash and change summary.
+- audit/report records export path/hash and change summary;
+- report visibly states `DRAFT / NOT FINAL`.
 
 ## Promotion blockers
 
-Before moving this rule to `rules/door-grille.md` and registering it operationally, validate:
+Keep this rule `draft` while additional implementation evidence is needed for:
 
 1. exact raw export column names for tag/name and size;
 2. whether `REF. NO.` is always a unique stable identity;
@@ -169,4 +170,6 @@ Before moving this rule to `rules/door-grille.md` and registering it operational
 5. nominal-size formatting convention and axis order;
 6. disappeared-row behavior;
 7. compare/report/controlled-merge behavior with manual live edits;
-8. deterministic resolver/harness tests after the Lisp naming fix.
+8. deterministic resolver/harness behavior after the Lisp naming fix.
+
+Draft status does not block use. Promote to `stable` only after enough real-project evidence exists to remove the mandatory warning.
