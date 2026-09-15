@@ -14,6 +14,11 @@ import { appendAutoMemory, formatAutoMemoryForInstructions, loadAutoMemory } fro
 import { formatSkillsForInstructions, loadProjectSkills } from "./skills-loader.js";
 import { getChatGptToolProfile } from "./tool-profile.js";
 import { buildServerInstructions } from "./quickstart.js";
+import {
+  formatWorkerPolicyForInstructions,
+  loadWorkerPolicy,
+  type WorkerPolicyBundle,
+} from "./worker-policy.js";
 
 export interface InstructionContextOptions {
   workspaceRoot: string;
@@ -23,6 +28,7 @@ export interface InstructionContextOptions {
 }
 
 export interface InstructionContext {
+  workerPolicy: WorkerPolicyBundle;
   projectMemory: ProjectMemoryBundle;
   git: GitSnapshot;
   instructionsText: string;
@@ -32,7 +38,8 @@ export interface InstructionContext {
 export async function buildInstructionContext(
   opts: InstructionContextOptions
 ): Promise<InstructionContext> {
-  const [projectMemory, git, skills, autoMemory] = await Promise.all([
+  const [workerPolicy, projectMemory, git, skills, autoMemory] = await Promise.all([
+    loadWorkerPolicy(),
     loadProjectMemory(opts.workspaceRoot, { workspaceRoots: opts.workspaceRoots }),
     collectGitSnapshot(opts.workspaceRoot),
     loadProjectSkills(opts.workspaceRoot),
@@ -55,6 +62,9 @@ export async function buildInstructionContext(
     formatAutoMemoryForInstructions(autoMemory),
     formatProjectMemoryForInstructions(projectMemory),
     formatSkillsForInstructions(skills),
+    // Keep Worker policy last so it explicitly supersedes legacy Local Coder
+    // onboarding text that may still exist in AGENTS.md/project memory.
+    formatWorkerPolicyForInstructions(workerPolicy),
   ].filter(Boolean);
 
   const projectMemoryBlock = blocks.join("\n\n");
@@ -66,6 +76,7 @@ export async function buildInstructionContext(
   );
 
   return {
+    workerPolicy,
     projectMemory,
     git,
     instructionsText,
@@ -75,6 +86,12 @@ export async function buildInstructionContext(
 
 export function summarizeInstructionContext(ctx: InstructionContext): Record<string, unknown> {
   return {
+    worker_policy: {
+      path: ctx.workerPolicy.path,
+      loaded: ctx.workerPolicy.loaded,
+      truncated: ctx.workerPolicy.truncated,
+      bytes: ctx.workerPolicy.bytes,
+    },
     root: ctx.projectMemory.root,
     workspace_roots: ctx.projectMemory.workspace_roots,
     memory_files: ctx.projectMemory.sections.map((s) => ({
