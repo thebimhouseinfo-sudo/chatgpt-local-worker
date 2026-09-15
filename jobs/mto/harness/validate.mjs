@@ -1,5 +1,5 @@
-import fs from "node:fs/promises";
-import path from "node:path";
+import fs from "fs/promises";
+import path from "path";
 import { fileURLToPath } from "node:url";
 import { validateJobPack } from "../../../shared-harness/job-pack-validator.mjs";
 
@@ -13,11 +13,14 @@ const requiredFiles = [
   "rules/_common/drawing-reconciliation.md",
   "rules/_common/live-schedule-update.md",
   "rules/_common/conflict-and-audit.md",
+  "rules/_common/reporting.md",
   "rules/ac.md",
   "rules/fan.md",
+  "templates/TAKEOFF_REPORT.md",
   "harness/resolve-project.mjs",
   "harness/write-guard.mjs",
   "harness/audit-lint.mjs",
+  "harness/report-lint.mjs",
   "harness/validate.mjs"
 ];
 
@@ -59,9 +62,10 @@ result.mto = {
   write_root: "01 WIP/SCHEDULE/eqm",
   output_writes: false,
   revision_resolution: "explicit-or-latest-per-equipment",
+  report_model: "canonical-markdown-per-equipment+revision",
   rules_model: "base-common + base-equipment + project-overrides + explicit-user-instruction",
   skills: 0,
-  harness_entrypoints: 4
+  harness_entrypoints: 5
 };
 
 console.log(JSON.stringify(result, null, 2));
