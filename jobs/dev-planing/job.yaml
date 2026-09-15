@@ -1,11 +1,11 @@
 {
-  "id": "dev-planning",
-  "name": "Development Planning",
+  "id": "dev-planing",
+  "name": "Dev Planing",
   "version": "1.0.0",
   "status": "ready",
   "description": "Repository-aware development planning job that analyzes code and produces an implementation plan without modifying source code.",
-  "aliases": ["plan", "dev-plan", "planning", "implementation-plan", "architecture-plan"],
-  "keywords": ["plan", "planning", "implementation plan", "architecture", "design", "scope", "impact", "migration plan", "technical plan", "dev plan"],
+  "aliases": ["dev-planning", "plan", "dev-plan", "planning", "implementation-plan", "architecture-plan"],
+  "keywords": ["plan", "planing", "planning", "dev plan", "implementation plan", "architecture", "design", "scope", "impact", "migration plan", "technical plan"],
   "inputs": [
     {"key":"workspace","type":"repo","required":true,"description":"Target repository to analyze"},
     {"key":"objective","type":"string","required":true,"description":"Feature, fix, migration, or engineering objective to plan"},
