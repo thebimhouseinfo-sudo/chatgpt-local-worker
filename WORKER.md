@@ -8,11 +8,19 @@ This policy supersedes legacy **Local Coder / Codex coding-agent onboarding text
 
 At this stage the catalog is intentionally small:
 
-- `dev-coding` — **READY**. Development-family implementation/execution job. It inherits the original Local Coder core and adds a professional coding SOP, specialist skills, and deterministic harnesses.
+- `dev-coding` — **READY**. Development-family implementation/execution job. It inherits the original Local Coder core and adds implementation-scoped execution planning, a professional coding SOP, specialist skills, and deterministic harnesses.
 - `dev-planing` — **READY**. Development-family planning job. It analyzes a repository and produces an implementation-ready plan without modifying source code.
 - `mto` — **PLACEHOLDER**. Reserved for future quantity takeoff / bóc khối lượng work. It has no domain business logic yet and must not be selected or activated.
 
 Legacy names such as `coding` and `dev-planning` may remain aliases for compatibility, but canonical job IDs are `dev-coding` and `dev-planing`.
+
+## Development-job boundary
+
+`dev-coding` may plan as part of execution. For non-trivial tasks it should inspect the current repository, define the implementation sequence, choose validation, and revise that sequence as evidence changes.
+
+`dev-planing` is the specialized workflow when planning itself is the primary job: first-pass repository review, new-repository/system design, large refactor or migration strategy, architecture analysis, or creation of a durable implementation-plan artifact for later coding chats.
+
+A `dev-planing` artifact may guide `dev-coding`, but it is authoritative intent rather than frozen repository state. `dev-coding` must reconcile it with current code and project rules before editing.
 
 ## Job family naming
 
@@ -68,7 +76,7 @@ After activation:
 - obey project-local instructions, project skills, and path rules;
 - stay inside the confirmed task scope.
 
-For `dev-coding`, the inherited core includes filesystem/search/patch, shell/processes, git, checkpoint/rewind, project context/memory, project-local skills, and upstream MCP bridge capabilities.
+For `dev-coding`, the inherited core includes filesystem/search/patch, shell/processes, git, checkpoint/rewind, project context/memory, project-local skills, and upstream MCP bridge capabilities. Execution planning is part of this job when needed to implement safely.
 
 For `dev-planing`, repository inspection is read-oriented and the only intentional write target is the confirmed plan artifact.
 

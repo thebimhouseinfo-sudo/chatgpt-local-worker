@@ -14,13 +14,13 @@ The repository is intentionally not populated with fake jobs.
 
 | Job | Status | Purpose |
 |---|---|---|
-| `dev-coding` | **ready** | Execute concrete repository/code changes and validate them; no formal development planning |
+| `dev-coding` | **ready** | Execute repository/code changes with implementation-scoped planning and validation |
 | `dev-planing` | **ready** | Analyze a repository and produce an implementation-ready development plan without editing source code |
 | `mto` | **placeholder** | Reserved for future MTO / quantity takeoff; no business logic exists yet |
 
 `coding` and `dev-planning` remain compatibility aliases only. Canonical development job IDs use the shared `dev-` prefix.
 
-For non-trivial development work the intended handoff is:
+For development work that benefits from a dedicated planning pass, the intended handoff is:
 
 ```text
 dev-planing
@@ -29,10 +29,10 @@ dev-planing
               │
               ▼
         dev-coding
-   implementation + validation
+   execution planning + implementation + validation
 ```
 
-This handoff is optional. A small, already-concrete coding task can go directly to `dev-coding`.
+This handoff is optional. Once architecture/direction is established, ordinary implementation work can stay entirely in `dev-coding`, which still performs the local execution planning needed for each task.
 
 ## Job family naming
 
@@ -91,7 +91,7 @@ Control tools:
 
 ## Dev Coding Job
 
-`jobs/dev-coding/` is the execution Job Pack inherited from the original Local Coder capability. It does **not** perform formal development planning.
+`jobs/dev-coding/` is the implementation Job Pack inherited from the original Local Coder capability. It includes **implementation-scoped execution planning**: enough repository review, sequencing, risk identification, and validation planning to safely execute a concrete task.
 
 Inputs:
 
@@ -100,13 +100,14 @@ Inputs:
 - `plan` — optional plan artifact from `dev-planing` or the user
 - `delivery` — optional branch/commit/PR/working-tree delivery expectation
 
-Its specialist skills cover repository discovery, implementation, debugging, testing, validation, refactoring/migrations, dependencies/APIs, security, performance, documentation/release hygiene, and git/diff review.
+Its specialist skills cover repository discovery, execution planning, implementation, debugging, testing, validation, refactoring/migrations, dependencies/APIs, security, performance, documentation/release hygiene, and git/diff review.
 
-If a task requires unresolved product or architecture decisions, `dev-coding` must surface that gap rather than silently becoming a planner. Use `dev-planing` for formal repository-aware design work.
+A supplied plan is treated as authoritative intent rather than frozen repository state; `dev-coding` verifies assumptions and adapts implementation details to the current workspace. Use `dev-planing` when planning itself is the job: first-pass repository review, new-repository/system design, large architecture/refactor/migration strategy, or a durable implementation plan for later coding chats.
 
 ### Dev Coding harness
 
 - `inspect-repo.mjs` — repository inventory and stack/git signals.
+- `execution-preflight.mjs` — deterministic repository + validation evidence for local execution planning; does not generate architecture or a formal plan.
 - `quality-gate.mjs` — discovers repository-native format/lint/type/test/build checks; execution requires explicit `--run`.
 - `diff-gate.mjs` — staged/unstaged whitespace, conflict, and scope checks.
 - `change-audit.mjs` — catches merge markers, sensitive material, machine paths, debugger leftovers, and oversized artifacts.
@@ -182,48 +183,29 @@ Validate Job Pack structure:
 npm run validate:jobs
 ```
 
-Run the full inherited + Local Worker suite:
+Run the full test suite:
 
 ```bash
 npm test
 ```
 
-The suite builds TypeScript, tests Job Runtime activation/placeholder behavior, tests both `dev-coding` and `dev-planing` harnesses, then runs the inherited upstream tests.
+The CI workflow runs both on pushes to `main` and on pull requests.
 
-## Confirmation boundary
+## Adding a future Job Pack
 
-For ready packs, `job_select` is two-phase:
+Do **not** add a Job Pack merely because a domain name exists.
 
-1. Select the job and provide its concrete required bindings.
-2. Runtime returns a resolved confirmation prompt and opaque token.
-3. ChatGPT presents the prompt to the user.
-4. Only after explicit confirmation may it call `job_select` again with `confirmed=true` and that token.
-5. Pack-local skill/harness paths are exposed only after activation.
+A real pack should be based on known work:
 
-Placeholder packs are rejected before this flow begins.
+1. real input artifacts;
+2. actual output requirements;
+3. domain rules and ambiguity policy;
+4. SOP/skills that reduce model improvisation;
+5. deterministic harness/validation where deterministic checks are possible;
+6. explicit completion criteria.
 
-## Repository structure
+Until those are known, leave the job unimplemented. `mto` is the single intentional placeholder because that domain is already planned for later design.
 
-```text
-chatgpt-local-worker/
-├─ WORKER.md
-├─ jobs/
-│  ├─ dev-coding/        # ready: implementation
-│  ├─ dev-planing/       # ready: planning only
-│  └─ mto/               # placeholder, non-runnable
-├─ shared-harness/
-├─ profiles/
-├─ src/
-│  ├─ jobs/              # Job Runtime
-│  ├─ tools/             # existing core + job control tools
-│  └─ lib/
-└─ scripts/
-```
+## Attribution
 
-## Design rule for future jobs
-
-Do not add a new Job Pack just because a domain name exists. Add it only when the domain has enough real evidence to define its inputs/outputs, rules, SOP, deterministic harness, and completion criteria without guessing. Related jobs should share a meaningful family prefix.
-
-## Upstream and license
-
-Core MCP implementation is based on [`hoangcoderr/chatgpt-local-coder`](https://github.com/hoangcoderr/chatgpt-local-coder) and remains under the repository's MIT license.
+The repository started from [`hoangcoderr/chatgpt-local-coder`](https://github.com/hoangcoderr/chatgpt-local-coder). Upstream attribution is preserved while the product identity and workflow have changed to **ChatGPT Local Worker**.

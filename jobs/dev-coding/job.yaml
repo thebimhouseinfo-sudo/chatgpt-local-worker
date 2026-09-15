@@ -1,9 +1,9 @@
 {
   "id": "dev-coding",
   "name": "Dev Coding",
-  "version": "1.2.0",
+  "version": "1.3.0",
   "status": "ready",
-  "description": "Professional code-execution job that implements a concrete task or supplied development plan using the Local Coder filesystem, shell, git, checkpoint, project-context, project-skill, and MCP bridge core.",
+  "description": "Professional code-execution job that plans and implements a concrete engineering task or supplied development plan using the Local Coder filesystem, shell, git, checkpoint, project-context, project-skill, and MCP bridge core.",
   "aliases": ["coding", "code", "dev-code", "dev", "software-development", "repo", "lisp", "debug", "refactor"],
   "keywords": ["repo", "code", "coding", "dev coding", "lisp", "typescript", "javascript", "python", "git", "bug", "fix", "debug", "refactor", "test", "build", "frontend", "backend", "migration", "security", "performance"],
   "inputs": [
@@ -22,10 +22,11 @@
   },
   "confirmation": {
     "required": true,
-    "template": "Tôi sẽ thực hiện task '{task}' trong repo {workspace} theo yêu cầu/plan đã cung cấp, sửa code theo quy ước của repo và chạy validation phù hợp. Xác nhận chứ?"
+    "template": "Tôi sẽ thực hiện task '{task}' trong repo {workspace} theo yêu cầu/plan đã cung cấp, lập execution plan phù hợp, sửa code theo quy ước của repo và chạy validation cần thiết. Xác nhận chứ?"
   },
   "skills": [
     "skills/repository-discovery.md",
+    "skills/execution-planning.md",
     "skills/implementation.md",
     "skills/debugging.md",
     "skills/testing.md",
@@ -40,6 +41,7 @@
   "harness": {
     "entrypoints": [
       "harness/inspect-repo.mjs",
+      "harness/execution-preflight.mjs",
       "harness/quality-gate.mjs",
       "harness/diff-gate.mjs",
       "harness/change-audit.mjs",

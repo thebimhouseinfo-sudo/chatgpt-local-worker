@@ -15,9 +15,17 @@ const validation = run("validate.mjs");
 assert.equal(validation.ok, true);
 assert.equal(validation.id, "dev-coding");
 assert.equal(validation.status, "ready");
-assert.equal(validation.dev_coding.skills, 11);
-assert.equal(validation.dev_coding.harness_entrypoints >= 7, true);
-assert.equal(validation.dev_coding.formal_planning, false);
+assert.equal(validation.dev_coding.skills, 12);
+assert.equal(validation.dev_coding.harness_entrypoints >= 8, true);
+assert.equal(validation.dev_coding.execution_planning, true);
+assert.equal(validation.dev_coding.formal_plan_artifact_by_default, false);
+
+const preflight = run("execution-preflight.mjs", ["--cwd", repoRoot]);
+assert.equal(preflight.ok, true);
+assert.equal(preflight.purpose, "dev-coding-execution-preflight");
+assert.equal(preflight.repository.git !== null, true);
+assert.equal(Array.isArray(preflight.validation_candidates), true);
+assert.equal(Array.isArray(preflight.planning_hints), true);
 
 const inspection = run("inspect-repo.mjs", ["--cwd", repoRoot]);
 assert.equal(inspection.ok, true);
