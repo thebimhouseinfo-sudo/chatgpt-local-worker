@@ -2,7 +2,7 @@
 
 > **DRAFT / NOT FINAL — requires further real-project implementation and validation.**
 >
-> This rule has been reconciled against the current `Door Grille Schedule.xlsx` template and the user-confirmed Lisp-export workflow: the export provides only the door-grille name/tag and size. Remaining schedule fields come from project/company convention, live schedule values, or explicit supplemental evidence.
+> This rule has been reconciled against the current `Door Grille Schedule.xlsx` template and the user-confirmed Lisp-export workflow: the export provides only the Door Grille name/tag and size.
 >
 > **Do not add this rule to `equipment-registry.json` yet.**
 
@@ -18,13 +18,9 @@ Target filename convention after the Lisp naming fix:
 
 The current project-name-based export filename is a Lisp bug and must not become an MTO convention.
 
-Exactly one current Door Grille export is expected for a run:
+Do not resolve a latest file by timestamp. The user keeps only the current export.
 
-- 0 matching files -> `MISSING_DRAWING_EXPORT`;
-- 1 matching file -> use it;
-- >1 matching files -> `AMBIGUOUS_DRAWING_EXPORT`.
-
-Do not resolve a latest file by timestamp.
+Optional supplement: current project input/technical data when it contains useful Door Grille information. In many projects this information is absent because supplier/manufacturer selection is made later by the PM during construction/procurement. That absence is normal and is not a run failure.
 
 ## Template authority
 
@@ -38,13 +34,9 @@ Preserve the workbook structure and field order exactly:
 4. `COLOUR`
 5. `INSTALLED BY`
 
-Current template examples use:
+The template sample currently shows values such as `CHEVRON`, `ARCHITECT`, and `BUILDER`. These are **sample/template values only** and are not project defaults.
 
-- `TYPE = CHEVRON`
-- `COLOUR = ARCHITECT`
-- `INSTALLED BY = BUILDER`
-
-The supplied Ver 1.0 text states `TYPE = "-"`, but that conflicts with both the template and its own output sample. The draft therefore treats `CHEVRON` as the current provisional project/company default pending real-project confirmation.
+Do not copy them into a project row unless supported by actual project input, a project rule, an existing valid live-schedule value, or explicit user instruction.
 
 ## Export ownership
 
@@ -53,34 +45,35 @@ The user-confirmed Lisp export owns only two semantic fields:
 - exported name/tag -> `REF. NO.`
 - exported size -> `NOMINAL SIZE`
 
-The export does **not** own `TYPE`, `COLOUR`, or `INSTALLED BY` unless a later Lisp version explicitly exports them.
+The export does **not** own:
 
-When reconciling against an existing live schedule, preserve valid manual/project values in non-export-owned fields unless an explicit project rule changes them.
+- `TYPE`
+- `COLOUR`
+- `INSTALLED BY`
+
+For those non-export-owned fields:
+
+1. preserve an existing valid live-schedule value during reconciliation;
+2. otherwise check current project input/technical data and project rules for explicit support;
+3. otherwise use `-`.
+
+Do not infer a value merely because the template sample contains one.
 
 ## Field semantics
 
 ### REF. NO.
 
-- Primary source: exported door-grille name/tag.
+- Primary source: exported Door Grille name/tag.
 - Preserve the project tag exactly except for explicitly approved normalization.
-- Do not invent or renumber door-grille tags.
+- Do not invent or renumber tags.
 - Candidate stable row identity: `REF. NO.`, pending duplicate-tag validation on a real export.
 
 ### TYPE
 
-Current candidate default:
-
-- `CHEVRON`
-
-Rationale:
-
-- the current template uses `CHEVRON` for all provided sample rows;
-- the supplied Ver 1.0 output sample also uses `CHEVRON`;
-- the contradictory instruction `TYPE = "-"` is therefore not adopted.
-
-This is still a **provisional company/project rule** until a real implementation confirms Door Grille type is always CHEVRON across the intended project set.
-
-If a project/live schedule explicitly provides another supported type, preserve/use that explicit value instead of forcing CHEVRON.
+- Use an explicit value from project input, technical data, project rule, user instruction, or an existing valid live schedule.
+- If unsupported, use `-`.
+- Do **not** default to `CHEVRON` from the template sample.
+- The supplied Ver 1.0 text and sample are contradictory (`TYPE = -` vs sample `CHEVRON`), so neither is accepted as a universal rule without project evidence.
 
 ### NOMINAL SIZE
 
@@ -93,31 +86,23 @@ If a project/live schedule explicitly provides another supported type, preserve/
 
 ### COLOUR
 
-Current candidate default:
-
-- `ARCHITECT`
-
-This is treated as a project/company instruction meaning the final colour is by architectural selection, not as a literal colour value.
-
-If an existing live schedule or explicit project input provides another value, preserve/use that explicit value.
+- Use an explicit value from project/architectural input, technical data, project rule, user instruction, or an existing valid live schedule.
+- If unsupported, use `-`.
+- Do **not** default to `ARCHITECT` merely because the template sample uses it.
 
 ### INSTALLED BY
 
-Current candidate default:
-
-- `BUILDER`
-
-Treat this as a provisional project/company responsibility rule, not a universal engineering fact.
-
-If an explicit project rule or live schedule states another installer, preserve/use the explicit value.
+- Use an explicit responsibility value from project input/rules, user instruction, or an existing valid live schedule.
+- If unsupported, use `-`.
+- Do **not** default to `BUILDER` merely because the template sample uses it.
 
 ## Initial vs update behavior
 
 Do not apply the old `CLEAR TEMPLATE BEFORE FILL` rule to an existing live schedule.
 
-- No live Door Grille schedule: copy the read-only template, remove sample data rows only, populate rows from the current export, then apply supported provisional/project defaults.
+- No live Door Grille schedule: copy the read-only template, remove sample data rows only, populate `REF. NO.` and `NOMINAL SIZE` from the current export, check optional current input for the remaining fields, and use `-` where unsupported.
 - Existing live schedule: compare current export to live schedule, produce the change report, then perform controlled merge.
-- Preserve manual/non-export-owned values where the export has no authority.
+- Preserve valid manual/non-export-owned values where the export has no authority.
 - Do not clear or rebuild the whole schedule blindly.
 
 ## Change-report requirements
@@ -128,17 +113,19 @@ For a re-export run, report at minimum:
 - tags missing from the new export;
 - changed nominal sizes;
 - unchanged counts/rows;
-- preserved manual `TYPE`, `COLOUR`, or `INSTALLED BY` values when they differ from defaults;
+- preserved manual/project values for `TYPE`, `COLOUR`, and `INSTALLED BY`;
+- newly supplemented values from current project input, when any;
 - conflicts/review items.
 
 Small changes made manually in the live schedule without a new Lisp export produce no MTO run and no report; that is expected workflow.
 
-## Missing and disappeared rows
+## Missing data
 
-- Missing supplementary technical data is normal and not a run failure.
-- New-row values not owned by the export may use approved defaults above; otherwise `-`.
-- Do not replace a valid live manual value with `-` because the export lacks that field.
-- Disappeared-row behavior is still **TBC** until one real replacement-export cycle is validated. Do not auto-delete rows yet.
+- Missing Door Grille technical/vendor data is normal and not a run failure.
+- For a new row, unsupported `TYPE`, `COLOUR`, or `INSTALLED BY` -> `-`.
+- Do not create a mandatory RFI solely because these optional late-selection fields are unavailable.
+- Do not replace a valid existing live value with `-` because the new export does not contain that field.
+- Supplier/manufacturer information may only become available later in construction/procurement; if such information appears in a later input, it may be used to enrich the live schedule then.
 
 ## Formatting
 
@@ -151,14 +138,15 @@ Small changes made manually in the live schedule without a new Lisp export produ
 
 Before considering a run complete:
 
-- exactly one current Door Grille export was resolved;
+- the canonical current Door Grille export was resolved;
 - template structure/order preserved;
 - every row traces to the current export or another explicitly approved project source;
 - `REF. NO.` comes from the exported name/tag;
 - `NOMINAL SIZE` comes from the exported size;
 - no invented tag or size;
-- `TYPE = CHEVRON`, `COLOUR = ARCHITECT`, and `INSTALLED BY = BUILDER` are treated as provisional project/company defaults, not universal facts;
-- manual live values outside export ownership are preserved;
+- no template-sample defaults are copied into `TYPE`, `COLOUR`, or `INSTALLED BY` without support;
+- unsupported non-export-owned fields are `-` for new rows;
+- manual/live values outside export ownership are preserved;
 - audit/report records export path/hash and change summary.
 
 ## Promotion blockers
@@ -168,10 +156,9 @@ Before moving this rule to `rules/door-grille.md` and registering it operational
 1. exact WIP export location and final canonical filename (`door grille.csv` or equivalent extension);
 2. exact raw export column names for tag/name and size;
 3. whether `REF. NO.` is always a unique stable identity;
-4. whether `TYPE = CHEVRON` is truly the standard default;
-5. whether `COLOUR = ARCHITECT` is standard across projects;
-6. whether `INSTALLED BY = BUILDER` is standard across projects;
-7. nominal-size formatting convention and axis order;
-8. disappeared-row behavior;
-9. compare/report/controlled-merge behavior with manual live edits;
-10. resolver/harness tests using a real export fixture.
+4. how later vendor/project input maps to `TYPE` and `COLOUR` when available;
+5. whether `INSTALLED BY` normally comes from a project responsibility rule or remains `-`;
+6. nominal-size formatting convention and axis order;
+7. disappeared-row behavior;
+8. compare/report/controlled-merge behavior with manual live edits;
+9. resolver/harness tests using a real export fixture.
