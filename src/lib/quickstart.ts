@@ -1,5 +1,15 @@
 export const MCP_QUICKSTART = `
-## Tool workflow (when agent_status is called)
+## Job-first workflow
+1. Call job_status before starting job-specific work.
+2. If idle, call job_list. Keywords only suggest a job; they never select one.
+3. Select explicitly with job_select (or map /job <id> to job_select).
+4. Resolve all required input/output bindings.
+5. Present the returned confirmation_prompt to the user.
+6. Only after explicit confirmation, call job_select again with confirmed=true + confirmation_token.
+7. Execute with the existing core tools, then run the active Job Pack validators.
+8. Use job_switch to change jobs (it clears old state) or job_stop to end/clear the job.
+
+## Core tool workflow (after the job is active)
 1. Project memory + git state are already in MCP instructions from WORKSPACE_PATH.
 2. Call project_context(path) only for a different repo than WORKSPACE_PATH.
 3. Explore with glob (file names) and grep (content), then read_text_file.
@@ -11,6 +21,7 @@ export const MCP_QUICKSTART = `
 All tools return JSON: { ok, tool, summary, data }
 
 ## Tool cheat sheet
+- job_list / job_select / job_status / job_switch / job_stop: controlled Job Runtime
 - glob / grep / read_text_file: explore (offset+limit for partial reads)
 - apply_patch: single-file @@ hunks OR multi-file *** Begin Patch format
 - create_directory / delete_directory / copy_file / move_file / delete_file
@@ -46,16 +57,19 @@ export function buildServerInstructions(
   contextBlock?: string
 ): string {
   const header = [
-    "# Codex Local Coder MCP",
+    "# ChatGPT Local Worker MCP",
     `Default project: ${workspaceRoot}`,
     "Full machine access: ON. Tag this connector in ChatGPT before every task.",
+    "Mandatory: choose/confirm a Job Pack before job-specific execution.",
   ].join("\n");
 
   const footer = [
     "## Quick pointers",
     `Workspace roots: ${workspaceRoots.join("; ")}`,
-    "agent_status — full tool cheat sheet + apply_patch format",
-    "project_context(path) — load CLAUDE.md from another repo",
+    "job_list — list/suggest jobs; never auto-select from keywords",
+    "job_status — current per-session job state",
+    "agent_status — full core-tool cheat sheet + apply_patch format",
+    "project_context(path) — load project instructions from another repo",
   ].join("\n");
 
   const body = contextBlock?.trim();
