@@ -4,18 +4,30 @@ Use this skill when `dev-coding` needs to decide **how to execute** a concrete e
 
 ## Goal
 
-Produce a concise, evidence-grounded execution sequence that reduces blind editing and validation gaps while keeping implementation as the primary job.
+Produce a concise execution sequence from existing implementation intent and architecture constraints, then inspect only the repository surface necessary to implement and validate the task.
+
+## Context priority
+
+Use context in this order:
+
+1. current explicit user instructions;
+2. supplied or canonical implementation plan for the active work;
+3. supplied architecture/design documents and documents referenced by the plan;
+4. repository/project instructions, project skills, and path rules;
+5. targeted source/tests/config/dependency evidence needed to execute the plan.
+
+Do not make broad repository discovery the default first step. `dev-coding` should normally arrive after architecture/direction has already been established, especially for mature projects.
 
 ## When to use
 
 Use for any of the following:
 
 - a task touches multiple files/modules;
-- the correct implementation surface is not immediately obvious;
-- the task is a refactor, migration, dependency/API change, or behavior change with meaningful regression risk;
-- a `dev-planing` artifact or user-supplied plan must be implemented;
+- an implementation plan must be executed;
 - implementation order matters;
-- validation requires more than one targeted check.
+- the task is a bounded refactor, migration step, dependency/API change, or behavior change with meaningful regression risk;
+- validation requires more than one targeted check;
+- the correct implementation detail is not fully specified by the plan/architecture and needs targeted inspection.
 
 For a tiny, obvious fix, a one- or two-step mental sequence is enough; do not create ceremony.
 
@@ -25,49 +37,65 @@ For a tiny, obvious fix, a one- or two-step mental sequence is enough; do not cr
    - Identify the requested outcome, explicit constraints, non-goals, and delivery expectation.
    - Do not invent product behavior or acceptance criteria.
 
-2. **Ground the plan in the current repository**
-   - Read repository/project instructions and relevant project skills/path rules.
+2. **Read implementation intent first**
+   - Read the active implementation plan before source-code exploration when a plan exists.
+   - Read the architecture/design documents governing the affected subsystem, especially those referenced by the plan.
+   - Extract affected modules, interfaces, sequencing constraints, validation expectations, and known non-goals.
+
+3. **Load repository rules**
+   - Read project/repository instructions and relevant project skills/path rules.
    - Inspect git/worktree state and protect unrelated user changes.
-   - Locate entrypoints, callers, tests, types/contracts, config, and equivalent implementations.
-   - Use `execution-preflight.mjs` when deterministic repo/validation signals are useful.
+   - Use `execution-preflight.mjs` for deterministic root-level repo/validation signals when useful.
 
-3. **Reconcile supplied plans with reality**
+4. **Perform targeted verification**
+   - Verify only the plan/architecture assumptions necessary for implementation.
+   - Locate named files/modules/interfaces and direct callers/callees.
+   - Read nearby tests and equivalent implementations where they materially constrain the change.
+   - Avoid unrelated subsystem inventory or repository-wide archaeology.
+
+5. **Reconcile supplied plans with reality**
    - Treat a supplied plan as authoritative intent, not authoritative repository state.
-   - Verify referenced files, APIs, dependencies, assumptions, and test commands before editing.
-   - Preserve the intended outcome when implementation details have drifted.
+   - If referenced files/APIs changed, adapt implementation details while preserving the intended outcome and architecture constraints.
+   - If the mismatch requires a new architecture/product decision rather than a local implementation adjustment, do not invent the decision.
 
-4. **Bound the implementation surface**
+6. **Bound and sequence the implementation**
    - Name the smallest modules/files/interfaces that must change.
-   - Identify compatibility boundaries, generated files, migrations, public APIs, and data/schema effects.
-   - Exclude unrelated cleanup unless it is causally required.
-
-5. **Sequence the work**
    - Order changes so contracts/foundations precede dependents.
    - Prefer reversible, testable increments.
    - Insert targeted validation after risky milestones rather than waiting until the end.
 
-6. **Choose validation before coding**
+7. **Choose validation before coding**
    - Identify the cheapest check that can falsify each major assumption.
    - Plan targeted tests first, then affected-package/repo checks, build/smoke checks, and final diff review as appropriate.
 
-7. **Revise when evidence changes**
-   - An execution plan is not immutable. Update scope/order when repository evidence disproves an assumption.
-   - Do not keep implementing a stale plan merely for consistency.
+8. **Revise without redesigning**
+   - Update scope/order when implementation evidence disproves a local assumption.
+   - Do not silently expand a coding task into repository-wide redesign.
 
 ## Boundary with `dev-planing`
 
-Stay in `dev-coding` when planning exists to support execution of a concrete task.
+Stay in `dev-coding` when planning exists to support execution of a concrete task whose architecture/direction is already sufficiently established.
 
-A separate `dev-planing` chat is usually better when planning itself is the deliverable or when the work requires deep first-pass repository review, new-system/repository design, repository-wide refactor strategy, major migration architecture, broad option comparison, or a durable implementation plan for later coding chats.
+Recommend a new `dev-planing` chat when the user's request primarily requires:
 
-Do not automatically refuse a concrete coding task just because the repository is unfamiliar. Perform enough discovery to execute safely. Escalate only when unresolved design decisions materially prevent responsible implementation.
+- first-pass review of an unfamiliar repository;
+- new repository/system architecture;
+- repository-wide architecture reconstruction;
+- broad option comparison before an approach is selected;
+- large refactor/migration strategy without a settled target design;
+- a formal durable implementation plan as the main output.
+
+If implementation hits a blocking architecture/product decision not answered by the plan, architecture docs, project rules, or targeted code evidence, stop speculative edits and tell the user that `dev-planing` is the better Job Pack for resolving that decision.
+
+Do not escalate merely because a concrete implementation detail needs normal code inspection.
 
 ## Output shape
 
 A useful execution plan is normally short:
 
 - objective / acceptance signal;
-- files/modules or discovery targets;
+- governing plan/architecture constraints;
+- affected files/modules or narrow discovery targets;
 - ordered implementation steps;
 - validation steps;
 - material risks or assumptions.
