@@ -44,6 +44,7 @@
   ],
   "harness": {
     "entrypoints": [
+      "harness/planning-bundle-check.mjs",
       "harness/inspect-repo.mjs",
       "harness/execution-preflight.mjs",
       "harness/task-plan-lint.mjs",
