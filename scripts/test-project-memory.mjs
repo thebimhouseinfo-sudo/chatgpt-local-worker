@@ -36,10 +36,15 @@ try {
   if (!ctx.workerPolicy.loaded) {
     throw new Error(`WORKER.md was not loaded from ${ctx.workerPolicy.path}`);
   }
-  if (!ctx.instructionsText.includes("Mandatory job-first lifecycle")) {
-    throw new Error("missing WORKER.md job-first policy");
+  if (
+    !ctx.instructionsText.includes("Mandatory preflight") ||
+    !ctx.instructionsText.includes("JOB") ||
+    !ctx.instructionsText.includes("FOLDER") ||
+    !ctx.instructionsText.includes("Xác nhận bắt đầu?")
+  ) {
+    throw new Error("missing GPTWorker JOB/FOLDER confirmation policy");
   }
-  ok("WORKER.md policy loaded separately from project memory");
+  ok("WORKER.md GPTWorker preflight policy loaded separately from project memory");
 
   if (!ctx.instructionsText.includes("## Environment")) {
     throw new Error("missing environment block");
