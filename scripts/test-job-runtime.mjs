@@ -8,12 +8,12 @@ const runtime = new JobRuntime(repoRoot, path.join(repoRoot, "jobs"));
 
 const listing = await runtime.list("repo lisp");
 assert.equal(listing.jobs.length, 3);
-assert.deepEqual(listing.jobs.map((job) => job.id).sort(), ["coding", "dev-planning", "mto"]);
-assert.equal(listing.suggested_job_ids.includes("coding"), true);
-assert.equal(listing.jobs.find((job) => job.id === "coding")?.status, "ready");
-assert.equal(listing.jobs.find((job) => job.id === "coding")?.skill_count, 11);
-assert.equal(listing.jobs.find((job) => job.id === "dev-planning")?.status, "ready");
-assert.equal(listing.jobs.find((job) => job.id === "dev-planning")?.skill_count, 5);
+assert.deepEqual(listing.jobs.map((job) => job.id).sort(), ["dev-coding", "dev-planing", "mto"]);
+assert.equal(listing.suggested_job_ids.includes("dev-coding"), true);
+assert.equal(listing.jobs.find((job) => job.id === "dev-coding")?.status, "ready");
+assert.equal(listing.jobs.find((job) => job.id === "dev-coding")?.skill_count, 11);
+assert.equal(listing.jobs.find((job) => job.id === "dev-planing")?.status, "ready");
+assert.equal(listing.jobs.find((job) => job.id === "dev-planing")?.skill_count, 5);
 assert.equal(listing.jobs.find((job) => job.id === "mto")?.status, "placeholder");
 
 await assert.rejects(
@@ -22,7 +22,7 @@ await assert.rejects(
 );
 
 const partial = await runtime.select({
-  job: "coding",
+  job: "dev-coding",
   bindings: { workspace: "." },
 });
 assert.equal(partial.state.phase, "selected");
@@ -31,10 +31,10 @@ assert.deepEqual(partial.skills, []);
 assert.deepEqual(partial.harness, []);
 
 const selected = await runtime.select({
-  job: "coding",
+  job: "dev-coding",
   bindings: {
     workspace: ".",
-    task: "Validate the coding Job Runtime lifecycle",
+    task: "Validate the dev-coding Job Runtime lifecycle",
   },
 });
 assert.equal(selected.state.phase, "awaiting_confirmation");
@@ -43,15 +43,16 @@ assert.deepEqual(selected.skills, []);
 assert.deepEqual(selected.harness, []);
 
 const active = await runtime.select({
-  job: "coding",
+  job: "dev-coding",
   bindings: {
     workspace: ".",
-    task: "Validate the coding Job Runtime lifecycle",
+    task: "Validate the dev-coding Job Runtime lifecycle",
   },
   confirmed: true,
   confirmationToken: selected.confirmation_token,
 });
 assert.equal(active.state.phase, "active");
+assert.equal(active.job.id, "dev-coding");
 assert.equal(active.job.status, "ready");
 assert.equal(active.skills.length, 11);
 assert.equal(active.harness.length, 7);
@@ -60,7 +61,7 @@ assert.equal(active.validators.length, 2);
 runtime.stop();
 
 const planSelected = await runtime.select({
-  job: "dev-planning",
+  job: "dev-planing",
   bindings: {
     workspace: ".",
     objective: "Plan a safe runtime change",
@@ -72,7 +73,7 @@ assert.equal(typeof planSelected.confirmation_token, "string");
 assert.deepEqual(planSelected.skills, []);
 
 const planActive = await runtime.select({
-  job: "dev-planning",
+  job: "dev-planing",
   bindings: {
     workspace: ".",
     objective: "Plan a safe runtime change",
@@ -82,6 +83,7 @@ const planActive = await runtime.select({
   confirmationToken: planSelected.confirmation_token,
 });
 assert.equal(planActive.state.phase, "active");
+assert.equal(planActive.job.id, "dev-planing");
 assert.equal(planActive.job.status, "ready");
 assert.equal(planActive.skills.length, 5);
 assert.equal(planActive.harness.length, 2);
