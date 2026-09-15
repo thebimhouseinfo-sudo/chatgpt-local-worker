@@ -1,10 +1,15 @@
 # MTO TAKEOFF REPORT — {{EQUIPMENT}}
 
+{{RULE_WARNING}}
+
 ## RUN SUMMARY
 
 - Project: {{PROJECT}}
-- Equipment: {{EQUIPMENT}}
+- Equipment / Schedule: {{EQUIPMENT}}
+- Rule Status: {{RULE_STATUS}}
+- Source Model: {{SOURCE_MODEL}}
 - Input Revision: {{INPUT_REV}}
+- Drawing Export Source: {{DRAWING_EXPORT_SOURCE}}
 - Schedule Mode: {{SCHEDULE_MODE}}
 - Live Schedule: {{LIVE_SCHEDULE}}
 - Run Timestamp: {{RUN_TIMESTAMP}}
