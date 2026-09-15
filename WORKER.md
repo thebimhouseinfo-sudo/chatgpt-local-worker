@@ -8,11 +8,37 @@ This policy supersedes legacy **Local Coder / Codex coding-agent onboarding text
 
 At this stage the catalog is intentionally small:
 
-- `dev-coding` — **READY**. Development-family implementation/execution job. It inherits the original Local Coder core and adds a professional coding SOP, specialist skills, and deterministic harnesses.
-- `dev-planing` — **READY**. Development-family planning job. It analyzes a repository and produces an implementation-ready plan without modifying source code.
+- `dev-coding` — **READY**. Development-family implementation/execution job. It inherits the original Local Coder core and adds planning-bundle-first execution, task-ledger progress tracking, bounded task-local planning, targeted repository discovery, specialist skills, and deterministic harnesses.
+- `dev-planing` — **READY**. Development-family planning job. It may deeply review a repository and produces a durable planning bundle without modifying source code.
 - `mto` — **PLACEHOLDER**. Reserved for future quantity takeoff / bóc khối lượng work. It has no domain business logic yet and must not be selected or activated.
 
 Legacy names such as `coding` and `dev-planning` may remain aliases for compatibility, but canonical job IDs are `dev-coding` and `dev-planing`.
+
+## Development-job boundary
+
+### Dev Planing
+
+Use `dev-planing` when planning itself is the primary job: first-pass repository review, new-repository/system design, repository-wide architecture reconstruction, broad option analysis, large refactor/migration strategy, or creation/major revision of durable planning artifacts.
+
+Its standard output bundle inside the confirmed `planning_dir` is:
+
+- `ARCHITECTURE.md`
+- `IMPLEMENTATION_PLAN.md`
+- `TODO.md`
+- `TASKS.md`
+- optional `task-plans/`
+
+`ARCHITECTURE.md` and `IMPLEMENTATION_PLAN.md` capture durable project direction. `TODO.md` is backlog/deferred/future scope. `TASKS.md` is the executable task ledger for coding chats.
+
+### Dev Coding
+
+`dev-coding` plans as part of execution, but it should normally **read the active planning bundle before source-code exploration**. The order is architecture → general implementation plan → TODO → task ledger → project rules → targeted source/tests/config.
+
+It must not default to re-reviewing the whole repository for every coding chat. It updates `TASKS.md` as progress changes and marks a task `DONE` only after acceptance/validation evidence exists.
+
+If implementation discovers a bounded branch that remains inside settled architecture/scope, `dev-coding` may create a task-local plan under `task-plans/`, link/update the task ledger, and continue.
+
+If a branch requires a new architecture/product decision, repository-wide re-plan, or material scope expansion, `dev-coding` must not silently invent that work. It should mark the affected task `BLOCKED`, record the missing decision, and recommend opening a `dev-planing` chat for better results.
 
 ## Job family naming
 
@@ -68,20 +94,20 @@ After activation:
 - obey project-local instructions, project skills, and path rules;
 - stay inside the confirmed task scope.
 
-For `dev-coding`, the inherited core includes filesystem/search/patch, shell/processes, git, checkpoint/rewind, project context/memory, project-local skills, and upstream MCP bridge capabilities.
+For `dev-coding`, the inherited core includes filesystem/search/patch, shell/processes, git, checkpoint/rewind, project context/memory, project-local skills, and upstream MCP bridge capabilities. When a planning bundle exists, read it first; then inspect only implementation-relevant source. Routine coding may update `TASKS.md` and bounded `task-plans/`, but should not rewrite project architecture/general plan.
 
-For `dev-planing`, repository inspection is read-oriented and the only intentional write target is the confirmed plan artifact.
+For `dev-planing`, repository inspection is read-oriented and intentional writes are limited to the confirmed planning bundle directory.
 
 ### 6. VALIDATE
 
 - Run the pack validator(s) and task-appropriate deterministic checks.
-- For `dev-coding`, validation must include final diff review and `git diff --check` when operating in Git.
-- For `dev-planing`, the output plan must pass `plan-lint` and must expose unresolved decisions instead of hiding them.
+- For `dev-coding`, validation must include final diff review and `git diff --check` when operating in Git. Bundle-backed work must leave `TASKS.md` reflecting real status/progress.
+- For `dev-planing`, the planning bundle must pass `bundle-lint` and must expose unresolved decisions instead of hiding them.
 - Files written or code generated is not evidence of completion by itself.
 
 ### 7. COMPLETE
 
-Report outputs, validation evidence, skipped/failed checks, and real unresolved risks. Do not claim completion when required validation failed or was not run.
+Report outputs, validation evidence, skipped/failed checks, task status, and real unresolved risks. Do not claim completion when required validation failed or was not run.
 
 ## State isolation
 

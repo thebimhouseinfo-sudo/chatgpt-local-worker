@@ -11,9 +11,9 @@ assert.equal(listing.jobs.length, 3);
 assert.deepEqual(listing.jobs.map((job) => job.id).sort(), ["dev-coding", "dev-planing", "mto"]);
 assert.equal(listing.suggested_job_ids.includes("dev-coding"), true);
 assert.equal(listing.jobs.find((job) => job.id === "dev-coding")?.status, "ready");
-assert.equal(listing.jobs.find((job) => job.id === "dev-coding")?.skill_count, 11);
+assert.equal(listing.jobs.find((job) => job.id === "dev-coding")?.skill_count, 13);
 assert.equal(listing.jobs.find((job) => job.id === "dev-planing")?.status, "ready");
-assert.equal(listing.jobs.find((job) => job.id === "dev-planing")?.skill_count, 5);
+assert.equal(listing.jobs.find((job) => job.id === "dev-planing")?.skill_count, 6);
 assert.equal(listing.jobs.find((job) => job.id === "mto")?.status, "placeholder");
 
 await assert.rejects(
@@ -35,6 +35,8 @@ const selected = await runtime.select({
   bindings: {
     workspace: ".",
     task: "Validate the dev-coding Job Runtime lifecycle",
+    planning_dir: "./.worker/dev",
+    task_id: "TASK-001",
   },
 });
 assert.equal(selected.state.phase, "awaiting_confirmation");
@@ -47,6 +49,8 @@ const active = await runtime.select({
   bindings: {
     workspace: ".",
     task: "Validate the dev-coding Job Runtime lifecycle",
+    planning_dir: "./.worker/dev",
+    task_id: "TASK-001",
   },
   confirmed: true,
   confirmationToken: selected.confirmation_token,
@@ -54,8 +58,8 @@ const active = await runtime.select({
 assert.equal(active.state.phase, "active");
 assert.equal(active.job.id, "dev-coding");
 assert.equal(active.job.status, "ready");
-assert.equal(active.skills.length, 11);
-assert.equal(active.harness.length, 7);
+assert.equal(active.skills.length, 13);
+assert.equal(active.harness.length, 10);
 assert.equal(active.validators.length, 2);
 
 runtime.stop();
@@ -65,7 +69,7 @@ const planSelected = await runtime.select({
   bindings: {
     workspace: ".",
     objective: "Plan a safe runtime change",
-    plan: "./DEV_PLAN.test.md",
+    planning_dir: "./DEV_PLAN.test",
   },
 });
 assert.equal(planSelected.state.phase, "awaiting_confirmation");
@@ -77,7 +81,7 @@ const planActive = await runtime.select({
   bindings: {
     workspace: ".",
     objective: "Plan a safe runtime change",
-    plan: "./DEV_PLAN.test.md",
+    planning_dir: "./DEV_PLAN.test",
   },
   confirmed: true,
   confirmationToken: planSelected.confirmation_token,
@@ -85,7 +89,7 @@ const planActive = await runtime.select({
 assert.equal(planActive.state.phase, "active");
 assert.equal(planActive.job.id, "dev-planing");
 assert.equal(planActive.job.status, "ready");
-assert.equal(planActive.skills.length, 5);
+assert.equal(planActive.skills.length, 6);
 assert.equal(planActive.harness.length, 2);
 assert.equal(planActive.validators.length, 2);
 

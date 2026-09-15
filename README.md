@@ -14,25 +14,42 @@ The repository is intentionally not populated with fake jobs.
 
 | Job | Status | Purpose |
 |---|---|---|
-| `dev-coding` | **ready** | Execute concrete repository/code changes and validate them; no formal development planning |
-| `dev-planing` | **ready** | Analyze a repository and produce an implementation-ready development plan without editing source code |
+| `dev-coding` | **ready** | Read the planning bundle first, execute targeted code tasks, update task progress, validate changes |
+| `dev-planing` | **ready** | Deep repository review and creation of architecture + general implementation plan + TODO + executable task list |
 | `mto` | **placeholder** | Reserved for future MTO / quantity takeoff; no business logic exists yet |
 
 `coding` and `dev-planning` remain compatibility aliases only. Canonical development job IDs use the shared `dev-` prefix.
 
-For non-trivial development work the intended handoff is:
+## Development handoff
+
+For first-pass repository work, new systems, architecture changes, or major refactor/migration planning:
 
 ```text
 dev-planing
    │
-   └─ development plan artifact
+   ├─ ARCHITECTURE.md
+   ├─ IMPLEMENTATION_PLAN.md
+   ├─ TODO.md
+   └─ TASKS.md
               │
               ▼
         dev-coding
+   read bundle
+      ↓
+   select TASK-*
+      ↓
+   targeted source inspection
+      ↓
+   execution planning
+      ↓
    implementation + validation
+      ↓
+   update TASKS.md
 ```
 
-This handoff is optional. A small, already-concrete coding task can go directly to `dev-coding`.
+The planning pass is optional for small/concrete work. Once project architecture/direction is established, ordinary development can stay in `dev-coding` across new chats without re-reviewing the whole repository.
+
+If coding discovers a bounded branch that needs more detail, it may create `task-plans/<TASK-ID>.md`, link it from `TASKS.md`, and continue. If the branch requires a new architecture/product decision or project-wide re-plan, the task is marked `BLOCKED` and the user is directed back to `dev-planing`.
 
 ## Job family naming
 
@@ -91,44 +108,55 @@ Control tools:
 
 ## Dev Coding Job
 
-`jobs/dev-coding/` is the execution Job Pack inherited from the original Local Coder capability. It does **not** perform formal development planning.
+`jobs/dev-coding/` is the implementation Job Pack inherited from the original Local Coder capability. Its default workflow is **planning-bundle first, targeted-code second**.
+
+When a planning bundle is supplied, read before source exploration:
+
+1. `ARCHITECTURE.md`
+2. `IMPLEMENTATION_PLAN.md`
+3. `TODO.md`
+4. `TASKS.md`
+5. repository/project instructions, skills, and path rules
+6. only then, source/tests/config relevant to the selected task
 
 Inputs:
 
 - `workspace` — target repository/workspace
-- `task` — concrete engineering objective to execute
-- `plan` — optional plan artifact from `dev-planing` or the user
-- `delivery` — optional branch/commit/PR/working-tree delivery expectation
+- `task` — concrete engineering objective
+- `planning_dir` — optional standard planning bundle directory
+- `task_id` — optional `TASK-*` entry to execute/update
+- `plan` / `architecture` — optional explicit context files when not using the standard bundle
+- `delivery` — optional branch/commit/PR/working-tree expectation
 
-Its specialist skills cover repository discovery, implementation, debugging, testing, validation, refactoring/migrations, dependencies/APIs, security, performance, documentation/release hygiene, and git/diff review.
+`TASKS.md` is the execution ledger. Status values are `TODO`, `READY`, `IN_PROGRESS`, `BLOCKED`, `DONE`. Coding updates progress at meaningful milestones and marks `DONE` only after acceptance/validation evidence exists.
 
-If a task requires unresolved product or architecture decisions, `dev-coding` must surface that gap rather than silently becoming a planner. Use `dev-planing` for formal repository-aware design work.
+A bounded newly discovered implementation branch may use `skills/task-branch-planning.md`, `templates/TASK_PLAN.md`, and `harness/task-plan-lint.mjs`. Project-level architecture/general planning still belongs to `dev-planing`.
 
 ### Dev Coding harness
 
-- `inspect-repo.mjs` — repository inventory and stack/git signals.
-- `quality-gate.mjs` — discovers repository-native format/lint/type/test/build checks; execution requires explicit `--run`.
+- `planning-bundle-check.mjs` — verify the four standard planning artifacts and optional active task ID.
+- `inspect-repo.mjs` — root-level repository inventory and stack/git signals; not full repository archaeology.
+- `execution-preflight.mjs` — root/validation signals for local execution planning.
+- `task-plan-lint.mjs` — validate bounded task-local plans.
+- `quality-gate.mjs` — discover repository-native format/lint/type/test/build checks; execution requires explicit `--run`.
 - `diff-gate.mjs` — staged/unstaged whitespace, conflict, and scope checks.
-- `change-audit.mjs` — catches merge markers, sensitive material, machine paths, debugger leftovers, and oversized artifacts.
-- `dependency-gate.mjs` — checks common manifest/lockfile consistency problems.
+- `change-audit.mjs` — catch merge markers, sensitive material, machine paths, debugger leftovers, and oversized artifacts.
+- `dependency-gate.mjs` — check common manifest/lockfile consistency problems.
 - `completion-gate.mjs` — aggregate structural completion gate.
-- `validate.mjs` — validates the Dev Coding Job Pack itself.
+- `validate.mjs` — validate the Dev Coding Job Pack itself.
 
 ## Dev Planing Job
 
-`jobs/dev-planing/` is a separate read-oriented planning workflow.
+`jobs/dev-planing/` is the deep read-oriented planning workflow. It may inspect source, tests, config, repository history, project instructions, and related evidence, but it does not implement source changes.
 
-It may inspect source, tests, config, repository history, project instructions, and related evidence. Its only intentional write target is the confirmed `plan` output artifact.
+Its required output is a planning bundle inside the confirmed `planning_dir`:
 
-Specialist skills cover:
+- `ARCHITECTURE.md` — current/target architecture, boundaries, invariants, integration points, decisions, evidence
+- `IMPLEMENTATION_PLAN.md` — general strategy, phases, migration/compatibility, validation, risks, task mapping
+- `TODO.md` — backlog/deferred/future/out-of-scope work
+- `TASKS.md` — stable executable task ledger for later coding chats
 
-- repository analysis
-- scope & constraints
-- architecture/impact analysis
-- implementation sequencing
-- validation & risk planning
-
-The output follows `templates/DEV_PLAN.md` and is checked by `harness/plan-lint.mjs`. The plan must separate repository evidence, constraints, non-goals, implementation steps, validation, risks, and open questions. Missing product/architecture decisions remain explicit instead of being guessed.
+Specialist skills cover repository analysis, scope/constraints, architecture/impact, implementation sequencing, validation/risk, and handoff-artifact design. The bundle is checked by `harness/bundle-lint.mjs`.
 
 ## MTO placeholder
 
@@ -208,8 +236,8 @@ Placeholder packs are rejected before this flow begins.
 chatgpt-local-worker/
 ├─ WORKER.md
 ├─ jobs/
-│  ├─ dev-coding/        # ready: implementation
-│  ├─ dev-planing/       # ready: planning only
+│  ├─ dev-coding/        # ready: bundle-aware implementation
+│  ├─ dev-planing/       # ready: deep planning + bundle authoring
 │  └─ mto/               # placeholder, non-runnable
 ├─ shared-harness/
 ├─ profiles/
