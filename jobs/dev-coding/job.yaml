@@ -7,7 +7,7 @@
   "aliases": ["coding", "code", "dev-code", "dev", "software-development", "repo", "lisp", "debug", "refactor"],
   "keywords": ["repo", "code", "coding", "dev coding", "lisp", "typescript", "javascript", "python", "git", "bug", "fix", "debug", "refactor", "test", "build", "frontend", "backend", "migration", "security", "performance"],
   "inputs": [
-    {"key":"workspace","type":"repo","required":true,"description":"Target repository or source workspace"},
+    {"key":"workspace","type":"repo","required":true,"description":"Target local repository/source folder. This becomes the active workspace after confirmation."},
     {"key":"task","type":"string","required":true,"description":"Concrete engineering task or acceptance objective to execute"},
     {"key":"planning_dir","type":"path","required":false,"description":"Optional planning bundle directory containing ARCHITECTURE.md, IMPLEMENTATION_PLAN.md, TODO.md and TASKS.md"},
     {"key":"task_id","type":"string","required":false,"description":"Optional TASK-* identifier in TASKS.md to execute/update"},
@@ -25,7 +25,7 @@
   },
   "confirmation": {
     "required": true,
-    "template": "Tôi sẽ thực hiện task '{task}' trong repo {workspace}, đọc planning context áp dụng trước, cập nhật task progress khi có ledger, chỉ inspect code cần thiết, rồi implement và validate. Xác nhận chứ?"
+    "template": "JOB: coding\nFOLDER: {workspace}\n\nXác nhận bắt đầu?"
   },
   "skills": [
     "skills/repository-discovery.md",
