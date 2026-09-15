@@ -7,7 +7,7 @@
   "aliases": ["mto", "takeoff", "quantity-takeoff", "boc-khoi-luong", "bốc khối lượng", "eqm", "eqm-takeoff"],
   "keywords": ["mto", "takeoff", "quantity", "bóc khối lượng", "boq", "hvac", "eqm", "equipment schedule", "grille", "fan", "ac"],
   "inputs": [
-    {"key":"workspace","type":"directory","required":true,"description":"Project root containing 00 Input, 01 WIP and 02 Output"},
+    {"key":"workspace","type":"directory","required":true,"description":"Local project root containing 00 Input, 01 WIP and 02 Output. This becomes the active workspace after confirmation."},
     {"key":"task","type":"string","required":true,"description":"Concrete takeoff/update instruction from the user"},
     {"key":"equipment","type":"string","required":true,"description":"Explicit equipment/schedule scope. Stable and draft registry rules are both runnable; MTO must not invent additional scope."},
     {"key":"input_revision","type":"string","required":false,"description":"Selection-driven: explicit YYYY MM DD or 'latest' (omitted defaults to latest). Drawing-export: optional only when supplemental 00 Input data should be considered."},
@@ -24,7 +24,7 @@
   },
   "confirmation": {
     "required": true,
-    "template": "Tôi sẽ xử lý MTO trong {workspace}, scope '{equipment}', chỉ ghi vào 01 WIP/SCHEDULE/eqm và không đụng 02 Output. Nếu rule được resolve là DRAFT / NOT FINAL, tôi sẽ cảnh báo rõ và kết quả phải được kiểm tra kỹ. Xác nhận chứ?"
+    "template": "JOB: mto\nFOLDER: {workspace}\n\nXác nhận bắt đầu?"
   },
   "skills": [],
   "harness": {
