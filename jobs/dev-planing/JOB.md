@@ -23,10 +23,10 @@ The required bundle is:
 ## Artifact responsibilities
 
 ### ARCHITECTURE.md
-Capture current/target architecture, module responsibilities, invariants, integration points, important design decisions, and repository evidence.
+Capture current/target architecture, module responsibilities, invariants, integration points, important design decisions, and repository evidence. This should preserve enough system understanding that normal coding chats do not need to reconstruct the whole repo.
 
 ### IMPLEMENTATION_PLAN.md
-Capture the overall implementation strategy, phases, dependency order, migration/compatibility strategy, validation, risk, and mapping to executable tasks.
+Capture the overall implementation strategy, phases, dependency order, migration/compatibility strategy, validation, risk, and mapping to executable tasks. It is intentionally more general than a task-local coding subplan.
 
 ### TODO.md
 Capture known backlog, deferred work, optional/future work, and explicit out-of-scope items. TODO is not the progress ledger.
@@ -50,6 +50,8 @@ A dev-planing job is complete only when:
 
 ## Handoff contract
 
-A fresh `dev-coding` chat should start from this bundle, not from a fresh full-repository review. Coding reads architecture + implementation plan + TODO + task ledger first, selects the relevant task, inspects only implementation-relevant source/tests/config, updates `TASKS.md` as progress changes, and may create a bounded task-local subplan when a task branch needs more detail.
+A fresh `dev-coding` chat starts from this bundle, not from a fresh full-repository review. Coding reads architecture → general implementation plan → TODO → task ledger, selects the relevant task, then inspects only implementation-relevant source/tests/config.
 
-If a branch requires a new architecture/product decision or changes repository-wide scope, `dev-coding` should mark the task blocked/planning-required and recommend returning to `dev-planing` rather than silently redesigning the system.
+Coding updates `TASKS.md` as work progresses. If a required implementation branch is still inside settled architecture/scope but needs more detail, coding may create a bounded `task-plans/<TASK-ID>.md` and link it from the ledger.
+
+If a branch requires a new architecture/product decision or changes repository-wide scope, `dev-coding` should mark the task `BLOCKED`/planning-required and recommend returning to `dev-planing` rather than silently redesigning the system.
