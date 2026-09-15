@@ -20,12 +20,22 @@ assert.equal(validation.dev_coding.harness_entrypoints >= 8, true);
 assert.equal(validation.dev_coding.execution_planning, true);
 assert.equal(validation.dev_coding.formal_plan_artifact_by_default, false);
 
-const preflight = run("execution-preflight.mjs", ["--cwd", repoRoot]);
+const preflight = run("execution-preflight.mjs", [
+  "--cwd", repoRoot,
+  "--plan", "README.md",
+  "--architecture", "WORKER.md",
+]);
 assert.equal(preflight.ok, true);
 assert.equal(preflight.purpose, "dev-coding-execution-preflight");
+assert.equal(preflight.context_files.plan.supplied, true);
+assert.equal(preflight.context_files.plan.exists, true);
+assert.equal(preflight.context_files.architecture.supplied, true);
+assert.equal(preflight.context_files.architecture.exists, true);
+assert.equal(preflight.planning_hints.includes("read-implementation-plan-before-source-inspection"), true);
+assert.equal(preflight.planning_hints.includes("read-architecture-before-source-inspection"), true);
+assert.equal(preflight.planning_hints.includes("prefer-targeted-implementation-discovery-over-full-repository-review"), true);
 assert.equal(preflight.repository.git !== null, true);
 assert.equal(Array.isArray(preflight.validation_candidates), true);
-assert.equal(Array.isArray(preflight.planning_hints), true);
 
 const inspection = run("inspect-repo.mjs", ["--cwd", repoRoot]);
 assert.equal(inspection.ok, true);
