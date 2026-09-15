@@ -1,8 +1,8 @@
 # EVAPORATIVE COOLER SCHEDULE — DRAFT RULE
 
-> **STATUS: DRAFT / NOT FINAL — REQUIRES REAL-PROJECT IMPLEMENTATION AND VALIDATION**
+> **STATUS: DRAFT / NOT FINAL — RUNNABLE WITH CAREFUL REVIEW**
 >
-> Reconciled against the current `Evaporative Cooler Schedule.xlsx` template and supplied Ver 1.0 rule. Do not register as operational until validated on real project data.
+> Reconciled against the current `Evaporative Cooler Schedule.xlsx` template and supplied Ver 1.0 rule. This rule is registered as `draft` and may be used on real projects. GPT must warn that the result needs careful review, and findings from each implementation should be fed back into this rule.
 
 ## Scope and authority
 
@@ -79,4 +79,6 @@ Preserve exact template schema/layout/merge structure/formatting. Missing → `-
 - pressure and airflow semantics validated at real duty point;
 - dimensions orientation verified;
 - isolation logic validated;
-- at least one real project confirms live-update and report/audit behavior.
+- real project implementations confirm live-update and report/audit behavior.
+
+This rule stays `draft` until enough implementation evidence exists to remove the warning. Draft status does not block use; it requires explicit warning and careful review.
