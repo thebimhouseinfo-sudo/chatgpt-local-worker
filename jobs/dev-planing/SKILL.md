@@ -70,7 +70,14 @@ The planning job is not complete while the bundle validator fails or material ar
 
 ## Handoff to Dev Coding
 
-A later `dev-coding` chat should read the bundle before source inspection, then inspect only code/tests/config relevant to the selected task.
+A later `dev-coding` chat should read the bundle in this order before source inspection:
+
+1. `ARCHITECTURE.md`
+2. `IMPLEMENTATION_PLAN.md`
+3. `TODO.md`
+4. `TASKS.md`
+
+Then it should select the relevant task and inspect only implementation-related source/tests/config.
 
 `dev-coding` may:
 
@@ -79,4 +86,6 @@ A later `dev-coding` chat should read the bundle before source inspection, then 
 - create a task-local subplan under `task-plans/` when a branch needs deeper implementation sequencing;
 - adapt local implementation details when current repository evidence differs from the older plan.
 
-`dev-coding` should **not** silently rewrite the architecture or general implementation strategy. When a branch requires a new architecture/product decision, broad scope change, or repository-wide re-plan, it should mark the task blocked/planning-required and recommend a dedicated `dev-planing` chat.
+A task-local subplan is intentionally narrower than this Job Pack's planning bundle. It refines one settled task; it does not redefine architecture or general project direction.
+
+`dev-coding` should **not** silently rewrite the architecture or general implementation strategy. When a branch requires a new architecture/product decision, broad scope change, or repository-wide re-plan, it should mark the task `BLOCKED`/planning-required and recommend a dedicated `dev-planing` chat.
