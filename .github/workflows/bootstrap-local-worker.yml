@@ -4,6 +4,8 @@ on:
   push:
     branches:
       - bootstrap/job-runtime-v0.1
+    paths:
+      - .bootstrap-ready
 
 permissions:
   contents: write
@@ -21,15 +23,23 @@ jobs:
         run: |
           git clone --depth 1 https://github.com/hoangcoderr/chatgpt-local-coder.git "$RUNNER_TEMP/upstream"
 
+      - name: Reassemble overlay archive
+        run: |
+          cat .bootstrap-payload/part-* > "$RUNNER_TEMP/overlay.b64"
+          base64 --decode "$RUNNER_TEMP/overlay.b64" > "$RUNNER_TEMP/overlay.zip"
+          mkdir -p "$RUNNER_TEMP/overlay"
+          unzip -q "$RUNNER_TEMP/overlay.zip" -d "$RUNNER_TEMP/overlay"
+
       - name: Seed upstream and apply Local Worker overlay
         run: |
           rsync -a --delete \
             --exclude='.git/' \
             --exclude='.github/workflows/bootstrap-local-worker.yml' \
-            --exclude='.bootstrap-overlay/' \
+            --exclude='.bootstrap-payload/' \
+            --exclude='.bootstrap-ready' \
             "$RUNNER_TEMP/upstream/" ./
-          rsync -a .bootstrap-overlay/ ./
-          rm -rf .bootstrap-overlay
+          rsync -a "$RUNNER_TEMP/overlay/" ./
+          rm -rf .bootstrap-payload .bootstrap-ready
 
       - name: Install dependencies
         run: npm install
