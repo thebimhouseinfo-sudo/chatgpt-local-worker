@@ -2,9 +2,9 @@
 
 ## Goal
 
-Operate on a local HVAC project folder and execute a user-requested equipment takeoff/update without forcing the user to remember internal paths, revision folders, schedule filenames, or audit locations.
+Operate on a local HVAC project folder and execute a user-requested equipment takeoff/update without forcing the user to remember internal paths, revision folders, schedule filenames, report locations, or audit locations.
 
-The user defines the work intent and equipment scope. The MTO Job Pack resolves project structure, input revision, matching schedules, equipment rules, and allowed write locations from the known project convention.
+The user defines the work intent and equipment scope. The MTO Job Pack resolves project structure, input revision, matching schedules, equipment rules, report path, and allowed write locations from the known project convention.
 
 ## V1 scope
 
@@ -28,7 +28,8 @@ Other equipment types are out of scope until explicit rules are added and valida
 │  └─ SCHEDULE/
 │     ├─ *.xlsx
 │     └─ eqm/
-│        └─ _audit/
+│        ├─ _audit/
+│        └─ _reports/
 ├─ 02 Output/
 └─ qto-rules/                  # optional project overrides
 ```
@@ -133,7 +134,27 @@ The file representation is a JSON array of run objects so history remains valid 
 - `unmatched_drawing_vs_selection`
 - disappeared/review-required rows where relevant
 
-Audit exists for human review; do not bury unresolved issues inside workbook cells only.
+Audit is machine-readable run/change history. Do not bury unresolved issues inside workbook cells only.
+
+## Takeoff report
+
+Every completed equipment takeoff/update also produces a human-readable Markdown report:
+
+`01 WIP/SCHEDULE/eqm/_reports/<input_rev>/<equipment>.md`
+
+The report complements, rather than replaces, the Excel schedule and audit JSON.
+
+Required content:
+
+- run/revision summary;
+- readable snapshot of the resulting equipment schedule;
+- change summary versus previous live EQM (or bootstrap summary);
+- tag-level traceability with real source/page/sheet/cell evidence where available;
+- drawing reconciliation result;
+- conflicts/TBC/unmatched/review-required items;
+- Query List / RFI for decisions requiring human/PM/design confirmation.
+
+One equipment + input revision has one canonical report. A rerun of the same revision updates that report in place; the audit JSON preserves run-by-run history.
 
 ## Completion criteria
 
@@ -148,5 +169,6 @@ An MTO task is complete only when:
 7. all writes stayed inside `01 WIP/SCHEDULE/eqm/**`;
 8. live schedules were updated/bootstrapped without modifying templates;
 9. audit records were updated and validate as JSON;
-10. conflicts/TBC/unmatched/disappeared items are surfaced explicitly;
-11. `02 Output/**` was not modified.
+10. takeoff report was created/updated and passes report validation;
+11. traceability and RFI/review items expose unresolved issues clearly;
+12. `02 Output/**` was not modified.
