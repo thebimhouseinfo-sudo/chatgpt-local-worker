@@ -4,7 +4,7 @@ import { fileURLToPath } from "node:url";
 import { spawnSync } from "node:child_process";
 
 const repoRoot = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
-const harnessRoot = path.join(repoRoot, "jobs", "coding", "harness");
+const harnessRoot = path.join(repoRoot, "jobs", "dev-coding", "harness");
 function run(script, args = []) {
   const result = spawnSync(process.execPath, [path.join(harnessRoot, script), ...args], { cwd: repoRoot, encoding: "utf8" });
   assert.equal(result.status, 0, `${script} failed:\n${result.stderr || result.stdout}`);
@@ -13,11 +13,11 @@ function run(script, args = []) {
 
 const validation = run("validate.mjs");
 assert.equal(validation.ok, true);
-assert.equal(validation.id, "coding");
+assert.equal(validation.id, "dev-coding");
 assert.equal(validation.status, "ready");
-assert.equal(validation.coding.skills, 11);
-assert.equal(validation.coding.harness_entrypoints >= 7, true);
-assert.equal(validation.coding.formal_planning, false);
+assert.equal(validation.dev_coding.skills, 11);
+assert.equal(validation.dev_coding.harness_entrypoints >= 7, true);
+assert.equal(validation.dev_coding.formal_planning, false);
 
 const inspection = run("inspect-repo.mjs", ["--cwd", repoRoot]);
 assert.equal(inspection.ok, true);
@@ -51,4 +51,4 @@ assert.equal(completion.quality_executed, false);
 assert.equal(completion.gates.validation.ok, true);
 assert.equal(completion.gates.diff.ok, true);
 
-console.log("test-coding-harness: ok");
+console.log("test-dev-coding-harness: ok");
