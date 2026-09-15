@@ -1,8 +1,8 @@
 # VAV SCHEDULE — DRAFT RULE
 
-> **STATUS: DRAFT / NOT FINAL — REQUIRES REAL-PROJECT IMPLEMENTATION AND VALIDATION**
+> **STATUS: DRAFT / NOT FINAL — RUNNABLE WITH CAREFUL REVIEW**
 >
-> Reconciled against the current `VAV Schedule.xlsx` template and supplied Ver 1.0 rule. Do not register VAV as operational until validated on real project inputs.
+> Reconciled against the current `VAV Schedule.xlsx` template and supplied Ver 1.0 rule. This rule is registered as `draft` and may be used on real projects. GPT must warn that the result needs careful review, and findings from each implementation should be fed back into this rule.
 
 ## Scope and authority
 
@@ -90,4 +90,6 @@ Do not apply the old blanket `CLEAR TEMPLATE BEFORE FILL` behavior to an existin
 - capacity semantic and in-cell unit convention confirmed;
 - system mapping validated against drawing/selection rather than tag pattern;
 - inlet/outlet/overall dimension order confirmed;
-- at least one real project validates live update, audit, and report behavior.
+- real project implementations validate live update, audit, and report behavior.
+
+This rule stays `draft` until enough implementation evidence exists to remove the warning. Draft status does not block use; it requires explicit warning and careful review.
