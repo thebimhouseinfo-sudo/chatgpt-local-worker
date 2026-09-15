@@ -1,4 +1,4 @@
-# Coding Agent
+# Dev Coding
 
 ## Goal
 
@@ -6,7 +6,7 @@ Operate as a professional coding agent on one confirmed repository/workspace. Th
 
 ## Scope
 
-The job may inspect, debug, implement, refactor, test, review, and prepare software changes that are within the user's confirmed task.
+The job may inspect, debug, implement, refactor, test, review, and prepare software changes that are within the user's confirmed task or supplied plan.
 
 It may use the existing MCP core for:
 
@@ -20,6 +20,7 @@ It may use the existing MCP core for:
 
 ## Non-goals
 
+- Do not create a formal development plan; use `dev-planing` for that role.
 - Do not invent product requirements or hidden acceptance criteria.
 - Do not rewrite unrelated code while touching a file.
 - Do not create a second filesystem/shell/git framework in this Job Pack.
@@ -28,7 +29,7 @@ It may use the existing MCP core for:
 
 ## Completion criteria
 
-A coding task is complete only when:
+A dev-coding task is complete only when:
 
 1. The target workspace and requested behavior are concrete.
 2. Repository instructions and relevant project skills/rules were loaded before editing affected areas.
