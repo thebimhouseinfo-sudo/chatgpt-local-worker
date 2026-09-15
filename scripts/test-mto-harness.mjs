@@ -22,36 +22,62 @@ assert.equal(validation.ok, true);
 assert.equal(validation.id, "mto");
 assert.equal(validation.status, "ready");
 assert.equal(validation.mto.operational, true);
-assert.deepEqual(validation.mto.equipment.sort(), ["ac", "fan"]);
+assert.deepEqual(validation.mto.stable_equipment, ["ac", "fan"]);
+assert.deepEqual(validation.mto.draft_equipment, [
+  "attenuator",
+  "chiller",
+  "chw-pump",
+  "door-grille",
+  "erv-hrv",
+  "evaporative-cooler",
+  "flexible-connection",
+  "fume-cupboard",
+  "grille",
+  "vav",
+]);
+assert.equal(validation.mto.draft_policy, "runnable-with-mandatory-warning-and-careful-review");
+assert.deepEqual(validation.mto.source_models, ["drawing-export", "selection"]);
 assert.equal(validation.mto.write_root, "01 WIP/SCHEDULE/eqm");
 assert.equal(validation.mto.output_writes, false);
-assert.equal(validation.mto.report_model, "canonical-markdown-per-equipment+revision");
 assert.equal(validation.mto.harness_entrypoints, 5);
 
 const tmp = await fs.mkdtemp(path.join(os.tmpdir(), "local-worker-mto-"));
 try {
   const input = path.join(tmp, "00 Input");
-  const schedule = path.join(tmp, "01 WIP", "SCHEDULE");
+  const wip = path.join(tmp, "01 WIP");
+  const schedule = path.join(wip, "SCHEDULE");
   const eqm = path.join(schedule, "eqm");
   await fs.mkdir(path.join(input, "2026 07 02", "ac"), { recursive: true });
   await fs.mkdir(path.join(input, "2026 07 02", "fan"), { recursive: true });
   await fs.mkdir(path.join(input, "2026 08 11", "ac"), { recursive: true });
   await fs.mkdir(path.join(input, "2026 08 15", "fan"), { recursive: true });
-  await fs.mkdir(path.join(tmp, "01 WIP", "DESIGN DRAWING"), { recursive: true });
-  await fs.mkdir(path.join(tmp, "01 WIP", "REVIT"), { recursive: true });
+  await fs.mkdir(path.join(input, "2026 08 20", "hrv"), { recursive: true });
+  await fs.mkdir(path.join(wip, "DESIGN DRAWING"), { recursive: true });
+  await fs.mkdir(path.join(wip, "REVIT"), { recursive: true });
   await fs.mkdir(eqm, { recursive: true });
   await fs.mkdir(path.join(tmp, "02 Output"), { recursive: true });
   await fs.mkdir(path.join(tmp, "qto-rules", "_common"), { recursive: true });
   await fs.writeFile(path.join(tmp, "qto-rules", "_common", "tag-mapping.md"), "AC-1 = ACU 1\n", "utf8");
   await fs.writeFile(path.join(tmp, "qto-rules", "fan.md"), "# Project Fan Overrides\n", "utf8");
-  await fs.writeFile(path.join(schedule, "AC Equipment Schedule.xlsx"), "template-ac", "utf8");
-  await fs.writeFile(path.join(schedule, "Fan Equipment Schedule.xlsx"), "template-fan", "utf8");
+
+  for (const name of [
+    "AC Equipment Schedule.xlsx",
+    "Fan Equipment Schedule.xlsx",
+    "ERV-HRV Schedule.xlsx",
+    "Grille Schedule.xlsx",
+    "Door Grille Schedule.xlsx",
+    "Flexible Connection Schedule.xlsx",
+  ]) {
+    await fs.writeFile(path.join(schedule, name), `template:${name}`, "utf8");
+  }
 
   const latest = run("resolve-project.mjs", ["--project", tmp, "--equipment", "ac,fan", "--revision", "latest"]);
   assert.equal(latest.ok, true);
   assert.deepEqual(latest.requested_equipment, ["ac", "fan"]);
   const ac = latest.equipment.find((item) => item.equipment === "ac");
   const fan = latest.equipment.find((item) => item.equipment === "fan");
+  assert.equal(ac.rule_status, "stable");
+  assert.equal(ac.source_model, "selection");
   assert.equal(ac.revision, "2026 08 11");
   assert.equal(fan.revision, "2026 08 15");
   assert.equal(ac.schedule_mode, "bootstrap");
@@ -67,11 +93,46 @@ try {
   assert.equal(explicit.equipment[0].revision, "2026 07 02");
   assert.equal(explicit.equipment[0].schedule_mode, "update");
 
+  // Draft selection-driven rule is runnable and emits a mandatory warning.
+  const draftSelection = run("resolve-project.mjs", ["--project", tmp, "--equipment", "hrv"]);
+  assert.equal(draftSelection.ok, true);
+  assert.deepEqual(draftSelection.requested_equipment, ["erv-hrv"]);
+  assert.equal(draftSelection.equipment[0].rule_status, "draft");
+  assert.equal(draftSelection.equipment[0].source_model, "selection");
+  assert.equal(draftSelection.equipment[0].revision, "2026 08 20");
+  assert.match(draftSelection.equipment[0].required_warning, /DRAFT \/ NOT FINAL/);
+  assert.equal(draftSelection.warnings.some((w) => w.includes("DRAFT / NOT FINAL")), true);
+
+  // Canonically named drawing export is runnable with no input revision.
+  await fs.writeFile(path.join(wip, "grille.csv"), "NAME,SIZE\nG1,300x300\n", "utf8");
+  const draftDrawing = run("resolve-project.mjs", ["--project", tmp, "--equipment", "grille"]);
+  assert.equal(draftDrawing.ok, true);
+  assert.equal(draftDrawing.equipment[0].rule_status, "draft");
+  assert.equal(draftDrawing.equipment[0].source_model, "drawing-export");
+  assert.equal(draftDrawing.equipment[0].revision, null);
+  assert.equal(draftDrawing.equipment[0].source_file, path.join(wip, "grille.csv"));
+  assert.equal(draftDrawing.equipment[0].report_file, path.join(eqm, "_reports", "drawing-export", "grille.md"));
+  assert.match(draftDrawing.equipment[0].required_warning, /checked carefully/i);
+
+  // Legacy project-name export remains usable when explicitly identified.
+  await fs.writeFile(path.join(wip, "PROJECT-X.csv"), "NAME,SIZE\nDG-1,600x150\n", "utf8");
+  const legacyDrawing = run("resolve-project.mjs", [
+    "--project", tmp,
+    "--equipment", "door grille",
+    "--source-file", path.join(wip, "PROJECT-X.csv"),
+  ]);
+  assert.equal(legacyDrawing.ok, true);
+  assert.equal(legacyDrawing.equipment[0].source_file, path.join(wip, "PROJECT-X.csv"));
+  assert.equal(legacyDrawing.equipment[0].revision, null);
+
   const allowed = run("write-guard.mjs", ["--project", tmp, "--path", path.join(eqm, "Fan Equipment Schedule.xlsx")]);
   assert.equal(allowed.allowed, true);
 
   const allowedReport = run("write-guard.mjs", ["--project", tmp, "--path", fan.report_file]);
   assert.equal(allowedReport.allowed, true);
+
+  const allowedDrawingReport = run("write-guard.mjs", ["--project", tmp, "--path", draftDrawing.equipment[0].report_file]);
+  assert.equal(allowedDrawingReport.allowed, true);
 
   const deniedTemplate = run("write-guard.mjs", ["--project", tmp, "--path", path.join(schedule, "Fan Equipment Schedule.xlsx")], 1);
   assert.equal(deniedTemplate.allowed, false);
@@ -103,12 +164,12 @@ try {
   const report = run("report-lint.mjs", ["--file", fan.report_file]);
   assert.equal(report.ok, true);
 
-  const unsupported = run("resolve-project.mjs", ["--project", tmp, "--equipment", "hrv", "--revision", "latest"], 1);
+  const unsupported = run("resolve-project.mjs", ["--project", tmp, "--equipment", "boiler"], 1);
   assert.equal(unsupported.ok, false);
-  assert.equal(unsupported.errors.some((e) => e.includes("unsupported equipment")), true);
+  assert.equal(unsupported.errors.some((e) => e.includes("unsupported equipment/schedule")), true);
 
   await fs.mkdir(path.join(input, "2026 13 01"), { recursive: true });
-  const invalidDate = run("resolve-project.mjs", ["--project", tmp, "--equipment", "fan", "--revision", "latest"], 1);
+  const invalidDate = run("resolve-project.mjs", ["--project", tmp, "--equipment", "fan"], 1);
   assert.equal(invalidDate.ok, false);
   assert.equal(invalidDate.errors.some((e) => e.includes("invalid input revision date folder")), true);
 } finally {

@@ -1,9 +1,11 @@
 {
-  "version": 1,
+  "version": 2,
   "equipment": {
     "ac": {
+      "status": "stable",
+      "source_model": "selection",
       "aliases": ["ac", "air-conditioning", "air conditioning", "aircon"],
-      "input_folder": "ac",
+      "input_folders": ["ac"],
       "template": "AC Equipment Schedule.xlsx",
       "live_schedule": "AC Equipment Schedule.xlsx",
       "base_rule": "rules/ac.md",
@@ -11,13 +13,128 @@
       "audit_file": "ac.json"
     },
     "fan": {
+      "status": "stable",
+      "source_model": "selection",
       "aliases": ["fan", "fans"],
-      "input_folder": "fan",
+      "input_folders": ["fan", "fans"],
       "template": "Fan Equipment Schedule.xlsx",
       "live_schedule": "Fan Equipment Schedule.xlsx",
       "base_rule": "rules/fan.md",
       "project_rule": "qto-rules/fan.md",
       "audit_file": "fan.json"
+    },
+    "chw-pump": {
+      "status": "draft",
+      "source_model": "selection",
+      "aliases": ["chw-pump", "chw pump", "chilled-water-pump", "chilled water pump", "pump"],
+      "input_folders": ["chw-pump", "chw pump", "pump"],
+      "template": "CHW Pump Schedule.xlsx",
+      "live_schedule": "CHW Pump Schedule.xlsx",
+      "base_rule": "rules/drafts/chw-pump.md",
+      "project_rule": "qto-rules/chw-pump.md",
+      "audit_file": "chw-pump.json"
+    },
+    "chiller": {
+      "status": "draft",
+      "source_model": "selection",
+      "aliases": ["chiller", "chillers"],
+      "input_folders": ["chiller", "chillers"],
+      "template": "Chiller Equipment Schedule.xlsx",
+      "live_schedule": "Chiller Equipment Schedule.xlsx",
+      "base_rule": "rules/drafts/chiller.md",
+      "project_rule": "qto-rules/chiller.md",
+      "audit_file": "chiller.json"
+    },
+    "erv-hrv": {
+      "status": "draft",
+      "source_model": "selection",
+      "aliases": ["erv-hrv", "erv/hrv", "erv", "hrv", "heat recovery ventilator", "energy recovery ventilator"],
+      "input_folders": ["erv-hrv", "erv", "hrv"],
+      "template": "ERV-HRV Schedule.xlsx",
+      "live_schedule": "ERV-HRV Schedule.xlsx",
+      "base_rule": "rules/drafts/erv-hrv.md",
+      "project_rule": "qto-rules/erv-hrv.md",
+      "audit_file": "erv-hrv.json"
+    },
+    "evaporative-cooler": {
+      "status": "draft",
+      "source_model": "selection",
+      "aliases": ["evaporative-cooler", "evaporative cooler", "evap cooler"],
+      "input_folders": ["evaporative-cooler", "evaporative cooler", "evap cooler"],
+      "template": "Evaporative Cooler Schedule.xlsx",
+      "live_schedule": "Evaporative Cooler Schedule.xlsx",
+      "base_rule": "rules/drafts/evaporative-cooler.md",
+      "project_rule": "qto-rules/evaporative-cooler.md",
+      "audit_file": "evaporative-cooler.json"
+    },
+    "fume-cupboard": {
+      "status": "draft",
+      "source_model": "selection",
+      "aliases": ["fume-cupboard", "fume cupboard", "fume"],
+      "input_folders": ["fume-cupboard", "fume cupboard", "fume"],
+      "template": "FUME CUPBOARD Schedule.xlsx",
+      "live_schedule": "FUME CUPBOARD Schedule.xlsx",
+      "base_rule": "rules/drafts/fume-cupboard.md",
+      "project_rule": "qto-rules/fume-cupboard.md",
+      "audit_file": "fume-cupboard.json"
+    },
+    "vav": {
+      "status": "draft",
+      "source_model": "selection",
+      "aliases": ["vav", "vav box", "vav terminal"],
+      "input_folders": ["vav", "vav box", "vav terminal"],
+      "template": "VAV Schedule.xlsx",
+      "live_schedule": "VAV Schedule.xlsx",
+      "base_rule": "rules/drafts/vav.md",
+      "project_rule": "qto-rules/vav.md",
+      "audit_file": "vav.json"
+    },
+    "attenuator": {
+      "status": "draft",
+      "source_model": "selection",
+      "aliases": ["attenuator", "attenuators", "silencer", "duct silencer"],
+      "input_folders": ["attenuator", "attenuators", "silencer"],
+      "template": "Attenuator Schedule.xlsx",
+      "live_schedule": "Attenuator Schedule.xlsx",
+      "base_rule": "rules/drafts/attenuator.md",
+      "project_rule": "qto-rules/attenuator.md",
+      "audit_file": "attenuator.json"
+    },
+    "grille": {
+      "status": "draft",
+      "source_model": "drawing-export",
+      "aliases": ["grille", "grilles", "grille schedule"],
+      "export_stem": "grille",
+      "supplement_input_folders": ["grille", "grilles"],
+      "template": "Grille Schedule.xlsx",
+      "live_schedule": "Grille Schedule.xlsx",
+      "base_rule": "rules/drafts/grille.md",
+      "project_rule": "qto-rules/grille.md",
+      "audit_file": "grille.json"
+    },
+    "door-grille": {
+      "status": "draft",
+      "source_model": "drawing-export",
+      "aliases": ["door-grille", "door grille", "door grille schedule"],
+      "export_stem": "door grille",
+      "supplement_input_folders": ["door-grille", "door grille"],
+      "template": "Door Grille Schedule.xlsx",
+      "live_schedule": "Door Grille Schedule.xlsx",
+      "base_rule": "rules/drafts/door-grille.md",
+      "project_rule": "qto-rules/door-grille.md",
+      "audit_file": "door-grille.json"
+    },
+    "flexible-connection": {
+      "status": "draft",
+      "source_model": "drawing-export",
+      "aliases": ["flexible-connection", "flexible connection", "flex conn", "flexible connection schedule"],
+      "export_stem": "flex conn",
+      "supplement_input_folders": ["flexible-connection", "flexible connection", "flex conn"],
+      "template": "Flexible Connection Schedule.xlsx",
+      "live_schedule": "Flexible Connection Schedule.xlsx",
+      "base_rule": "rules/drafts/flexible-connection.md",
+      "project_rule": "qto-rules/flexible-connection.md",
+      "audit_file": "flexible-connection.json"
     }
   }
 }

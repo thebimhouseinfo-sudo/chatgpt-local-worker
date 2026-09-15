@@ -1,8 +1,8 @@
 # FUME CUPBOARD SCHEDULE — DRAFT RULE
 
-> **STATUS: DRAFT / NOT FINAL — REQUIRES REAL-PROJECT IMPLEMENTATION AND VALIDATION**
+> **STATUS: DRAFT / NOT FINAL — RUNNABLE WITH CAREFUL REVIEW**
 >
-> Reconciled against the current `FUME CUPBOARD Schedule.xlsx` template and supplied Ver 1.0 rule. Do not register as operational until validated on real project data.
+> Reconciled against the current `FUME CUPBOARD Schedule.xlsx` template and supplied Ver 1.0 rule. This rule is registered as `draft` and may be used on real projects. GPT must warn that the result needs careful review, and findings from each implementation should be fed back into this rule.
 
 ## Scope and authority
 
@@ -73,4 +73,6 @@ Preserve grouped headers, sub-columns, template layout/merge structure/formattin
 - all three airflow fields are independently sourced/mapped;
 - POWER semantics are confirmed for the actual project schedule;
 - connection and dimension formats are validated;
-- live update + report/audit behavior tested on at least one real project.
+- live update + report/audit behavior tested on real projects.
+
+This rule stays `draft` until enough implementation evidence exists to remove the warning. Draft status does not block use; it requires explicit warning and careful review.

@@ -1,8 +1,8 @@
 # ATTENUATOR SCHEDULE — DRAFT RULE
 
-> **STATUS: DRAFT / NOT FINAL — REQUIRES REAL-PROJECT IMPLEMENTATION AND VALIDATION**
+> **STATUS: DRAFT / NOT FINAL — RUNNABLE WITH CAREFUL REVIEW**
 >
-> Reconciled against the current `Attenuator Schedule.xlsx` template and the supplied Ver 1.0 rule. Do not add Attenuator to `equipment-registry.json` until validated on a real takeoff/update.
+> Reconciled against the current `Attenuator Schedule.xlsx` template and the supplied Ver 1.0 rule. This rule is registered as `draft` and may be used on real projects. GPT must warn that the result needs careful review, and findings from each implementation should be fed back into this rule.
 
 ## Scope and authority
 
@@ -91,4 +91,6 @@ Follow common MTO update semantics, not the old blanket `CLEAR TEMPLATE BEFORE F
 - pressure loss is validated at the relevant airflow/duty;
 - size orientation is evidence-based;
 - joint type/size is source-supported rather than sample-derived;
-- at least one real takeoff confirms exact-model acoustic data and live-update behavior.
+- real takeoffs confirm exact-model acoustic data and live-update behavior.
+
+This rule stays `draft` until enough implementation evidence exists to remove the warning. Draft status does not block use; it requires explicit warning and careful review.

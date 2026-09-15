@@ -1,19 +1,20 @@
 {
   "id": "mto",
   "name": "MTO / Quantity Takeoff",
-  "version": "1.1.0",
+  "version": "1.2.0",
   "status": "ready",
-  "description": "Local, user-triggered HVAC equipment quantity-takeoff job. Resolves project structure/revisions deterministically, applies equipment rules, updates live EQM schedules in place, and produces audit plus human-readable takeoff reports.",
+  "description": "Local, user-triggered HVAC quantity-takeoff job. Supports stable and draft rules, selection-driven and drawing-export-driven schedules, controlled live-schedule updates, audit history, and human-readable change reports.",
   "aliases": ["mto", "takeoff", "quantity-takeoff", "boc-khoi-luong", "bốc khối lượng", "eqm", "eqm-takeoff"],
-  "keywords": ["mto", "takeoff", "quantity", "bóc khối lượng", "boq", "hvac", "eqm", "equipment schedule", "fan", "ac", "air conditioning"],
+  "keywords": ["mto", "takeoff", "quantity", "bóc khối lượng", "boq", "hvac", "eqm", "equipment schedule", "grille", "fan", "ac"],
   "inputs": [
     {"key":"workspace","type":"directory","required":true,"description":"Project root containing 00 Input, 01 WIP and 02 Output"},
     {"key":"task","type":"string","required":true,"description":"Concrete takeoff/update instruction from the user"},
-    {"key":"equipment","type":"string","required":true,"description":"Explicit equipment scope, e.g. fan, ac, or fan,ac. MTO must not invent additional equipment scope."},
-    {"key":"input_revision","type":"string","required":true,"description":"Explicit YYYY MM DD revision or 'latest'. For latest, resolver finds the latest valid revision containing each requested equipment folder."}
+    {"key":"equipment","type":"string","required":true,"description":"Explicit equipment/schedule scope. Stable and draft registry rules are both runnable; MTO must not invent additional scope."},
+    {"key":"input_revision","type":"string","required":false,"description":"Selection-driven: explicit YYYY MM DD or 'latest' (omitted defaults to latest). Drawing-export: optional only when supplemental 00 Input data should be considered."},
+    {"key":"source_file","type":"string","required":false,"description":"Optional current WIP export path for one drawing-export schedule while legacy Lisp filenames are still in use. Not needed after canonical grille/door grille/flex conn naming is deployed."}
   ],
   "outputs": [
-    {"key":"delivery","type":"string","required":false,"description":"Optional delivery/report expectation. Live EQM, report and audit paths are resolved from project structure, not supplied by the user."}
+    {"key":"delivery","type":"string","required":false,"description":"Optional delivery/report expectation. Live schedule, report and audit paths are resolved from project structure, not supplied by the user."}
   ],
   "permissions": {
     "filesystem": "read-project-write-only-01-WIP-SCHEDULE-eqm-after-confirm",
@@ -23,7 +24,7 @@
   },
   "confirmation": {
     "required": true,
-    "template": "Tôi sẽ xử lý MTO trong {workspace}, scope thiết bị '{equipment}', input '{input_revision}', chỉ ghi vào 01 WIP/SCHEDULE/eqm và không đụng 02 Output. Xác nhận chứ?"
+    "template": "Tôi sẽ xử lý MTO trong {workspace}, scope '{equipment}', chỉ ghi vào 01 WIP/SCHEDULE/eqm và không đụng 02 Output. Nếu rule được resolve là DRAFT / NOT FINAL, tôi sẽ cảnh báo rõ và kết quả phải được kiểm tra kỹ. Xác nhận chứ?"
   },
   "skills": [],
   "harness": {

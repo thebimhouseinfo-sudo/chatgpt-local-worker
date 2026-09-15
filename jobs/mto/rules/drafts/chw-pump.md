@@ -1,8 +1,8 @@
 # CHILLED WATER PUMP SCHEDULE — DRAFT RULE
 
-> **STATUS: DRAFT / NOT FINAL — REQUIRES REAL-PROJECT IMPLEMENTATION AND VALIDATION**
+> **STATUS: DRAFT / NOT FINAL — RUNNABLE WITH CAREFUL REVIEW**
 >
-> Reconciled against the current `CHW Pump Schedule.xlsx` template and the supplied Ver 1.0 rule. Do not add CHW Pump to `equipment-registry.json` until this rule has been exercised on real selection + technical data + drawing + live schedule + audit + report output.
+> Reconciled against the current `CHW Pump Schedule.xlsx` template and the supplied Ver 1.0 rule. This rule is registered as `draft` and may be used on real projects. GPT must warn that the result needs careful review, and findings from each implementation should be fed back into this rule.
 
 ## Scope and authority
 
@@ -101,4 +101,4 @@ Do not apply the old `CLEAR TEMPLATE BEFORE FILL` rule to every run.
 - isolation default validated against real mounting cases;
 - conflicts/TBC/template defects appear in audit/report.
 
-This rule remains DRAFT until at least one real CHW Pump implementation validates the unresolved semantics and update behavior.
+This rule stays `draft` until enough real CHW Pump implementations validate the unresolved semantics and update behavior. Draft status does not block use; it requires explicit warning and careful review.

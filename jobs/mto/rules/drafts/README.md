@@ -1,8 +1,20 @@
 # MTO Draft Rules
 
-Files in this directory are **not operational equipment rules**.
+Files in this directory are **runnable development rules**, not disabled placeholders.
 
-They capture equipment logic that has been reviewed against available templates/source evidence but has **not yet been fully validated through real project implementation**.
+They capture equipment/schedule logic that has been reviewed against available templates/source evidence but has **not yet been fully validated/finalized through enough real project implementations**.
+
+The purpose of using a draft rule on real work is to produce usable output **and** gather implementation evidence to improve the rule.
+
+## Mandatory draft warning
+
+Whenever GPT uses any rule from `rules/drafts/`, it must tell the user before execution:
+
+> **DRAFT / NOT FINAL — this rule is usable, but the result must be checked carefully. Findings from this project should be fed back into the rule.**
+
+The same status must be visible in the takeoff/change report and completion summary.
+
+`draft` therefore means **runnable with mandatory warning + careful review**. It does not mean unsupported.
 
 ## Draft families
 
@@ -18,38 +30,53 @@ These follow the normal MTO pattern where project selection is primary and techn
 - `vav.md`
 - `attenuator.md`
 
+They are registered with `status: draft` and may be selected normally. Input/revision resolution works like other selection-driven equipment.
+
 ### Drawing-export-driven schedule drafts
 
-These use the finished design drawing through a Lisp block-attribute export as the primary project snapshot:
+These use the already-operational `rules/_common/drawing-export-driven.md` source model:
 
-- `_common/drawing-export-driven.md` — shared source/update contract;
-- `grille.md`;
-- `door-grille.md`;
-- `flexible-connection.md`.
+- `grille.md`
+- `door-grille.md`
+- `flexible-connection.md`
 
-The drawing-export-driven family is intentionally different from selection-driven equipment:
+The user keeps one current Lisp export in `01 WIP`; the export is a drawing snapshot, not a revision history store. Live schedules may contain valid manual edits/enrichment and must not be blindly rebuilt.
 
-- the user keeps one current schedule-specific Lisp export in `01 WIP`;
-- the export is a drawing snapshot, not a revision history store;
-- live schedules may contain valid manual edits and enrichment and must not be blindly rebuilt;
-- normal update flow is `current export -> compare -> change report -> controlled merge`;
-- optional `00 Input` technical data may supplement missing values but is often absent and is not required for a valid run.
+Normal update flow:
 
-Target Lisp export stems after the known project-name export bug is fixed:
+`current export -> compare -> change report -> controlled merge`
+
+Optional `00 Input` technical data may supplement missing values but is often absent and is not required for a valid drawing-export run.
+
+Target Lisp export stems after the known naming bug is fixed:
 
 - `grille`
 - `door grille`
 - `flex conn`
 
-The final extension may be configured separately.
+Until then, the user may explicitly identify/provide the current legacy WIP export file.
 
 ## Draft safety
 
 Rules in `drafts/`:
 
-- must not be added to `equipment-registry.json` merely because a draft exists;
-- must not make an equipment type selectable/runnable in MTO;
+- are selectable/runnable through `equipment-registry.json` with `status: draft`;
 - may contain explicit `TBC`, provisional rules, template defects, and unresolved semantics;
-- must be revised from implementation evidence, not filled in by guesswork.
+- must never have missing engineering policy silently invented by GPT;
+- must preserve/flag uncertainty when the rule says behavior is unresolved;
+- must be revised from real implementation evidence;
+- require stronger human review than stable rules.
 
-Promotion to an operational rule requires moving/refining the rule into `rules/<equipment>.md`, adding the equipment registry mapping, and extending deterministic harness/tests for that source model.
+## Promotion to stable
+
+Promotion does **not** mean “first time the rule becomes usable.” It means the rule has accumulated enough evidence to remove the draft warning.
+
+Promote `draft -> stable` when:
+
+- field semantics are sufficiently proven;
+- important TBC/defaults are resolved or intentionally documented;
+- source mapping and update/merge behavior have real-project evidence;
+- audit/report behavior is satisfactory;
+- deterministic harness/tests cover the source model adequately.
+
+Until then, keep the rule runnable as `draft` and use project feedback to develop it.

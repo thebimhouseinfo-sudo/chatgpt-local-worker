@@ -102,7 +102,7 @@ const mtoPartial = await runtime.select({
   },
 });
 assert.equal(mtoPartial.state.phase, "selected");
-assert.deepEqual(mtoPartial.missing_bindings, ["equipment", "input_revision"]);
+assert.deepEqual(mtoPartial.missing_bindings, ["equipment"]);
 assert.deepEqual(mtoPartial.harness, []);
 
 const mtoSelected = await runtime.select({

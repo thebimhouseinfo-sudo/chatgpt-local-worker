@@ -39,10 +39,35 @@ async function listDirs(root) {
   }
 }
 
-async function findChildDirCaseInsensitive(root, wanted) {
+async function listFiles(root) {
+  try {
+    const entries = await fs.readdir(root, { withFileTypes: true });
+    return entries.filter((e) => e.isFile()).map((e) => e.name);
+  } catch {
+    return [];
+  }
+}
+
+async function findChildDirCaseInsensitiveAny(root, wanted) {
   const entries = await listDirs(root);
-  const found = entries.find((name) => name.toLowerCase() === wanted.toLowerCase());
-  return found ? path.join(root, found) : null;
+  const byLower = new Map(entries.map((name) => [name.toLowerCase(), name]));
+  for (const candidate of wanted || []) {
+    const found = byLower.get(String(candidate).toLowerCase());
+    if (found) return path.join(root, found);
+  }
+  return null;
+}
+
+async function findCanonicalExport(wipRoot, stem) {
+  const files = await listFiles(wipRoot);
+  const acceptedExtensions = new Set([".csv", ".xlsx", ".xls"]);
+  const matches = files.filter((name) => {
+    const ext = path.extname(name).toLowerCase();
+    const base = path.basename(name, ext).toLowerCase();
+    return acceptedExtensions.has(ext) && base === String(stem).toLowerCase();
+  });
+  if (matches.length === 1) return { file: path.join(wipRoot, matches[0]), matches };
+  return { file: null, matches };
 }
 
 async function listMarkdown(root) {
@@ -57,10 +82,17 @@ async function listMarkdown(root) {
   }
 }
 
+function isWithin(child, parent) {
+  const rel = path.relative(parent, child);
+  return rel === "" || (!rel.startsWith("..") && !path.isAbsolute(rel));
+}
+
 const packDir = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
 const project = path.resolve(arg("--project", process.cwd()));
 const equipmentArg = arg("--equipment", "");
-const revisionArg = (arg("--revision", "latest") || "latest").trim();
+const revisionArgRaw = arg("--revision", null);
+const revisionArg = revisionArgRaw ? revisionArgRaw.trim() : null;
+const explicitSourceFileArg = arg("--source-file", null);
 const errors = [];
 const warnings = [];
 
@@ -84,7 +116,7 @@ const equipmentIds = [];
 for (const raw of rawEquipment) {
   const id = aliasToId.get(raw.toLowerCase());
   if (!id) {
-    errors.push(`unsupported equipment '${raw}'. Supported: ${Object.keys(registry.equipment || {}).join(", ")}`);
+    errors.push(`unsupported equipment/schedule '${raw}'. Supported runnable rules: ${Object.keys(registry.equipment || {}).join(", ")}`);
   } else if (!equipmentIds.includes(id)) {
     equipmentIds.push(id);
   }
@@ -123,10 +155,10 @@ for (const name of revisionDirs) {
 parsedRevisions.sort((a, b) => b.value - a.value);
 
 let explicitRevision = null;
-if (revisionArg.toLowerCase() !== "latest") {
+if (revisionArg && revisionArg.toLowerCase() !== "latest") {
   const parsed = parseRevision(revisionArg);
   if (!parsed.format || !parsed.valid) {
-    errors.push(`revision '${revisionArg}' must be a valid YYYY MM DD date or 'latest'`);
+    errors.push(`revision '${revisionArg}' must be a valid YYYY MM DD date, 'latest', or omitted for drawing-export schedules`);
   } else {
     explicitRevision = revisionArg;
     if (!parsedRevisions.some((item) => item.name === explicitRevision)) {
@@ -135,34 +167,114 @@ if (revisionArg.toLowerCase() !== "latest") {
   }
 }
 
+const drawingIds = equipmentIds.filter((id) => registry.equipment[id]?.source_model === "drawing-export");
+let explicitSourceFile = null;
+if (explicitSourceFileArg) {
+  if (drawingIds.length !== 1) {
+    errors.push("--source-file may only be used when exactly one drawing-export schedule is requested");
+  } else {
+    explicitSourceFile = path.resolve(project, explicitSourceFileArg);
+    if ((await statKind(explicitSourceFile)) !== "file") {
+      errors.push(`drawing export source file not found: ${explicitSourceFile}`);
+    } else if (!isWithin(explicitSourceFile, wipRoot)) {
+      errors.push(`drawing export source file must be inside 01 WIP: ${explicitSourceFile}`);
+    }
+  }
+}
+
 const baseCommonRules = await listMarkdown(path.join(packDir, "rules", "_common"));
 const projectCommonRules = await listMarkdown(path.join(projectRulesRoot, "_common"));
 const resolved = [];
 
-for (const id of equipmentIds) {
-  const meta = registry.equipment[id];
+async function resolveSelectionInput(meta, id) {
+  const requested = revisionArg || "latest";
+  const folders = meta.input_folders || [];
   let revision = explicitRevision;
   let equipmentInput = null;
 
   if (revision) {
-    equipmentInput = await findChildDirCaseInsensitive(path.join(inputRoot, revision), meta.input_folder);
-    if (!equipmentInput) errors.push(`revision '${revision}' does not contain requested equipment folder '${meta.input_folder}'`);
+    equipmentInput = await findChildDirCaseInsensitiveAny(path.join(inputRoot, revision), folders);
+    if (!equipmentInput) errors.push(`revision '${revision}' does not contain requested '${id}' input folder (accepted: ${folders.join(", ")})`);
   } else {
     for (const candidate of parsedRevisions) {
-      const found = await findChildDirCaseInsensitive(path.join(inputRoot, candidate.name), meta.input_folder);
+      const found = await findChildDirCaseInsensitiveAny(path.join(inputRoot, candidate.name), folders);
       if (found) {
         revision = candidate.name;
         equipmentInput = found;
         break;
       }
     }
-    if (!revision || !equipmentInput) errors.push(`no valid input revision contains requested equipment '${id}'`);
+    if (!revision || !equipmentInput) errors.push(`no valid input revision contains requested '${id}' input folder (accepted: ${folders.join(", ")})`);
+  }
+
+  return { requested_revision: requested, revision, input_dir: equipmentInput };
+}
+
+async function resolveOptionalSupplement(meta) {
+  if (!revisionArg) return { revision: null, input_dir: null };
+  const folders = meta.supplement_input_folders || [];
+  if (!folders.length) return { revision: null, input_dir: null };
+
+  if (explicitRevision) {
+    const found = await findChildDirCaseInsensitiveAny(path.join(inputRoot, explicitRevision), folders);
+    if (!found) warnings.push(`no optional supplemental input for drawing-export schedule in revision '${explicitRevision}' (accepted folders: ${folders.join(", ")})`);
+    return { revision: found ? explicitRevision : null, input_dir: found };
+  }
+
+  for (const candidate of parsedRevisions) {
+    const found = await findChildDirCaseInsensitiveAny(path.join(inputRoot, candidate.name), folders);
+    if (found) return { revision: candidate.name, input_dir: found };
+  }
+  warnings.push(`no optional supplemental input found for drawing-export schedule (accepted folders: ${folders.join(", ")})`);
+  return { revision: null, input_dir: null };
+}
+
+for (const id of equipmentIds) {
+  const meta = registry.equipment[id];
+  const status = meta.status || "stable";
+  const sourceModel = meta.source_model || "selection";
+  const requiredWarning = status === "draft"
+    ? `RULE DRAFT / NOT FINAL — '${id}' is runnable for real-project development, but results must be checked carefully and implementation feedback should be used to refine the rule.`
+    : null;
+  if (requiredWarning) warnings.push(requiredWarning);
+
+  let revision = null;
+  let equipmentInput = null;
+  let sourceFile = null;
+  let requestedRevision = revisionArg;
+
+  if (sourceModel === "selection") {
+    const selection = await resolveSelectionInput(meta, id);
+    revision = selection.revision;
+    equipmentInput = selection.input_dir;
+    requestedRevision = selection.requested_revision;
+  } else if (sourceModel === "drawing-export") {
+    if (explicitSourceFile && drawingIds[0] === id) {
+      sourceFile = explicitSourceFile;
+    } else {
+      const canonical = await findCanonicalExport(wipRoot, meta.export_stem);
+      if (canonical.matches.length > 1) {
+        errors.push(`multiple canonical drawing exports found for '${id}': ${canonical.matches.join(", ")}`);
+      } else if (!canonical.file) {
+        errors.push(`drawing export not found for '${id}'. Expected 01 WIP/${meta.export_stem}.csv|xlsx|xls, or provide the current legacy WIP export with --source-file`);
+      } else {
+        sourceFile = canonical.file;
+      }
+    }
+
+    const supplement = await resolveOptionalSupplement(meta);
+    revision = supplement.revision;
+    equipmentInput = supplement.input_dir;
+  } else {
+    errors.push(`unsupported source_model '${sourceModel}' for '${id}'`);
   }
 
   const template = path.join(scheduleRoot, meta.template);
   const liveSchedule = path.join(eqmRoot, meta.live_schedule);
   const auditFile = path.join(auditRoot, meta.audit_file);
-  const reportFile = revision ? path.join(reportRoot, revision, `${id}.md`) : null;
+  const reportFile = sourceModel === "drawing-export"
+    ? path.join(reportRoot, "drawing-export", `${id}.md`)
+    : revision ? path.join(reportRoot, revision, `${id}.md`) : null;
   const baseRule = path.join(packDir, meta.base_rule);
   const projectRule = path.join(project, meta.project_rule);
   const templateExists = (await statKind(template)) === "file";
@@ -171,12 +283,17 @@ for (const id of equipmentIds) {
   const projectRuleExists = (await statKind(projectRule)) === "file";
 
   if (!templateExists) errors.push(`schedule template missing for '${id}': ${template}`);
-  if (!baseRuleExists) errors.push(`base equipment rule missing for '${id}': ${baseRule}`);
+  if (!baseRuleExists) errors.push(`base rule missing for '${id}': ${baseRule}`);
 
   resolved.push({
     equipment: id,
+    rule_status: status,
+    required_warning: requiredWarning,
+    source_model: sourceModel,
+    requested_revision: requestedRevision,
     revision,
     input_dir: equipmentInput,
+    source_file: sourceFile,
     template,
     live_schedule: liveSchedule,
     schedule_mode: liveExists ? "update" : "bootstrap",
@@ -200,6 +317,7 @@ const result = {
   requested_equipment: equipmentIds,
   structure: {
     input_root: inputRoot,
+    wip_root: wipRoot,
     drawing_root: drawingRoot,
     revit_root: revitRoot,
     schedule_root: scheduleRoot,
@@ -214,7 +332,7 @@ const result = {
   equipment: resolved,
   warnings,
   errors,
-  note: "User selects equipment scope. 'latest' is resolved independently for each requested equipment from valid YYYY MM DD folders. Report path is canonical per equipment+revision. No writes are performed by this harness."
+  note: "Stable and draft rules are runnable. Draft rules require an explicit user-facing warning and careful result review. Selection-driven rules resolve input revision; drawing-export rules use the current WIP export and do not require a synthetic input revision. No writes are performed by this harness."
 };
 
 console.log(JSON.stringify(result, null, 2));

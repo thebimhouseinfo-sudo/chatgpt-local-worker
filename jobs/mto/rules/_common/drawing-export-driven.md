@@ -1,32 +1,37 @@
 # Drawing-Export-Driven Schedule Source Model
 
-> **DRAFT / NOT FINAL — requires real-project implementation and validation.**
+> **OPERATIONAL SOURCE MODEL.**
 >
-> This source model is not operational by itself and must not be added to `equipment-registry.json` merely because a draft rule references it.
+> This workflow is already used in real project work. Individual schedule rules may still remain draft while their field-level business rules are refined.
 
 ## Purpose
 
-Some MTO schedules are completed primarily from finished design drawings rather than from PM/vendor equipment selections. For these schedules, a project Lisp exports block attributes from the drawing into a CSV/Excel file under `01 WIP`. That export is the primary drawing snapshot used by MTO.
+Some MTO schedules are driven primarily from finished design drawings rather than PM/vendor equipment selection. A project Lisp exports block attributes from the drawing into a CSV/Excel file under `01 WIP`; that export is the primary drawing snapshot used by MTO.
 
-Current candidate users:
+Current users of this source model:
 
 - Grille Schedule
 - Door Grille Schedule
 - Flexible Connection Schedule
 
-## Target export naming convention
+## Current and target export naming
 
-The current Lisp has a legacy bug: it exports using the project name (for example `BLOCK N.csv` or `YAC.csv`) rather than the schedule type. This legacy naming is **not** the intended MTO contract.
+The current Lisp is usable but has a naming bug: it may export using the project name (for example `BLOCK N.csv` or `YAC.csv`) instead of the schedule type.
 
-The user will revise the Lisp so the current export is named by schedule type. Target canonical export names in the `01 WIP` root are:
+This naming defect does **not** make the drawing-export workflow non-operational.
+
+Current supported use:
+
+- when the export still has the legacy project-name filename, the user explicitly identifies/provides the current file for the requested schedule;
+- MTO uses that file as the current drawing snapshot and does not guess another file by timestamp.
+
+Target naming after the Lisp fix:
 
 - `grille.csv`
 - `door grille.csv`
 - `flex conn.csv`
 
-If the final Lisp uses another extension, resolver configuration may change the extension while preserving these canonical schedule-type stems.
-
-MTO must not infer schedule type from a project-name export such as `BLOCK N` or `YAC`. Legacy project-name exports are implementation evidence only, not the future resolver convention.
+The extension may change, but the schedule-specific stem should remain deterministic. Once the naming fix is deployed, the resolver may auto-resolve the canonical schedule-specific file.
 
 ## Single-current-export contract
 
@@ -36,20 +41,12 @@ The user controls this source manually:
 
 1. when a sufficiently large drawing change needs MTO reconciliation, the old export is deleted;
 2. the user runs the Lisp again;
-3. one new/current schedule-specific export is placed in `01 WIP`;
+3. one new/current export is placed in WIP;
 4. MTO is invoked to reconcile/update the corresponding schedule.
 
-Small changes may be edited directly by the user in the live schedule without producing a new Lisp export or MTO run. That is normal workflow.
+Small changes may be edited directly in the live schedule without producing a new Lisp export or MTO run. That is normal workflow.
 
-Therefore MTO must not implement a `latest export` resolver based on modified time, lexical ordering, or filename date parsing.
-
-For a drawing-export-driven run:
-
-- resolve the canonical schedule-specific export path;
-- if the expected current export is absent -> stop and report `MISSING_DRAWING_EXPORT`;
-- do not fall back to unrelated project-name CSV files by guessing;
-- do not choose a different file merely because it is newer;
-- the current export filename does not need a revision/date suffix.
+MTO must not implement a `latest export` resolver based on modified time, lexical ordering, or filename date parsing.
 
 ## Source authority
 
@@ -58,16 +55,16 @@ For a drawing-export-driven run:
    - sample rows are examples only and are not project truth;
    - never overwrite the read-only template.
 2. **Current WIP Lisp Export = Primary Project/Drawing Snapshot**
-   - contains drawing-derived block attributes such as tag, system, airflow, sizes, type, comments, and other attributes exposed by the Lisp;
+   - contains drawing-derived block attributes exposed by the Lisp;
    - acts like `eqm selection` for fields the export actually owns;
-   - represents the current drawing snapshot chosen by the user through delete-and-re-export workflow.
+   - represents the current drawing snapshot selected by the user through the delete-and-re-export workflow.
 3. **Live Schedule = Working Truth / Manual-Enrichment Surface**
    - may contain valid manual edits between MTO runs;
    - may contain technical-data enrichment or prior project decisions absent from the Lisp export;
    - must not be blindly replaced by the new export.
 4. **00 Input Technical Data = Optional Supplement Authority**
    - may fill missing manufacturer/product/project fields when exact matching is sufficiently supported;
-   - absence of useful technical data is normal for these schedule types and is not a run failure.
+   - absence of useful technical data is normal for these schedules and is not a run failure.
 5. **Design Drawing = Upstream/Reconciliation Evidence**
    - direct drawing inspection is fallback/reconciliation evidence, not the normal extraction path when a valid export exists.
 6. **Project Rules / Explicit User Instruction**
@@ -80,7 +77,7 @@ The export owns only fields it actually contains or fields deterministically der
 
 When reconciling a new export against the live schedule:
 
-- export-owned fields: compare current live value vs new export value and report material changes;
+- export-owned fields: compare current live value against the new export and report material changes;
 - live-only/manual/enriched fields absent from the export: preserve them;
 - where live and export disagree, surface the discrepancy in the change report instead of silently destroying a manual edit;
 - a new export is a reconciliation source, not permission to rebuild the whole live schedule.
@@ -89,7 +86,7 @@ Normal run sequence:
 
 `current export -> compare to live schedule -> change report -> controlled merge -> validation`
 
-Never use clear-and-rebuild for an existing drawing-export-driven live schedule.
+Never clear-and-rebuild an existing drawing-export-driven live schedule.
 
 ## Missing-data behavior
 
@@ -110,15 +107,13 @@ For a re-export run, the human-readable report should separate at minimum:
 - conflicts/review items;
 - optional technical-data enrichment in the same run.
 
-The report exists so the user can review changes in long schedules without manually comparing every row.
-
 ## Run identity and audit
 
 A dated `00 Input/<rev>/...` revision is not required for the primary drawing export.
 
 Record at minimum:
 
-- actual canonical current export path/filename;
+- actual current export path/filename;
 - run timestamp;
 - schedule type;
 - added/updated/unchanged/review-required rows;
@@ -126,17 +121,15 @@ Record at minimum:
 - optional supplementary `00 Input` revision(s), if used;
 - conflicts/review details.
 
-Recording a content hash of the current export is preferred once deterministic tooling is implemented. Do not invent a synthetic `input_rev` for the primary Lisp export.
+Recording a content hash of the current export is preferred when deterministic tooling is available. Do not invent a synthetic `input_rev` for the primary Lisp export.
 
-## Promotion blockers
+## Automation improvements still pending
 
-Before this source model becomes operational, validate:
+The source model is operational even though some automation conveniences are still pending:
 
-1. final Lisp filenames/extensions for `grille`, `door grille`, and `flex conn`;
-2. deterministic canonical-path resolver in `01 WIP`;
-3. stable row identity/cardinality rules for each schedule;
-4. exact exported block-attribute names and mapping to schedule fields;
-5. disappeared-row semantics for each schedule;
-6. field-ownership/manual-edit merge behavior;
-7. audit/report source path/hash behavior;
-8. deterministic resolver and harness tests for source discovery and write boundaries.
+1. deploy the Lisp naming fix for `grille`, `door grille`, and `flex conn`;
+2. add deterministic canonical-path auto-resolution after that naming fix;
+3. add/extend harness fixtures for the schedule-specific exports;
+4. refine individual schedule rules from further project evidence.
+
+These are implementation improvements, not blockers to using the drawing-export workflow itself.

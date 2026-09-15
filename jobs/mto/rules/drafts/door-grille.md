@@ -1,14 +1,16 @@
 # Door Grille Schedule Rule
 
-> **DRAFT / NOT FINAL — requires further real-project implementation and validation.**
+> **STATUS: DRAFT / NOT FINAL — RUNNABLE WITH CAREFUL REVIEW**
 >
 > This rule has been reconciled against the current `Door Grille Schedule.xlsx` template and the user-confirmed Lisp-export workflow: the export provides only the Door Grille name/tag and size.
 >
-> **Do not add this rule to `equipment-registry.json` yet.**
+> This rule is registered as `draft` and may be used on real projects. GPT must warn that the result needs careful review, and implementation findings should be fed back into the rule.
 
 ## Source model
 
-Use `drafts/_common/drawing-export-driven.md`.
+Use `rules/_common/drawing-export-driven.md`.
+
+The drawing-export source model itself is operational. This Door Grille rule remains draft only because some field-level defaults and update semantics still need further project validation.
 
 Primary project source: the single current WIP Lisp export for Door Grille.
 
@@ -16,7 +18,7 @@ Target filename convention after the Lisp naming fix:
 
 - `door grille.csv` (canonical stem `door grille`)
 
-The current project-name-based export filename is a Lisp bug and must not become an MTO convention.
+The current project-name-based export filename is a Lisp bug and must not become an MTO convention. Until the naming fix is deployed, the user may explicitly identify/provide the current Door Grille export.
 
 Do not resolve a latest file by timestamp. The user keeps only the current export.
 
@@ -144,7 +146,7 @@ Small changes made manually in the live schedule without a new Lisp export produ
 
 Before considering a run complete:
 
-- the canonical current Door Grille export was resolved;
+- the current Door Grille export was explicitly/canonically resolved;
 - template structure/order preserved;
 - every row traces to the current export or another explicitly approved project source;
 - `REF. NO.` comes from the exported name/tag;
@@ -154,18 +156,20 @@ Before considering a run complete:
 - unsupported `TYPE` / `COLOUR` values are `-` for new rows;
 - `INSTALLED BY = BUILDER` unless explicit project responsibility evidence overrides it;
 - manual/live values outside export ownership are preserved;
-- audit/report records export path/hash and change summary.
+- audit/report records export path/hash and change summary;
+- report visibly states `DRAFT / NOT FINAL`.
 
 ## Promotion blockers
 
-Before moving this rule to `rules/door-grille.md` and registering it operationally, validate:
+Keep this rule `draft` while additional implementation evidence is needed for:
 
-1. exact WIP export location and final canonical filename (`door grille.csv` or equivalent extension);
-2. exact raw export column names for tag/name and size;
-3. whether `REF. NO.` is always a unique stable identity;
-4. how later vendor/project input maps to `TYPE` and `COLOUR` when available;
-5. whether any project family overrides the default `INSTALLED BY = BUILDER` scope;
-6. nominal-size formatting convention and axis order;
-7. disappeared-row behavior;
-8. compare/report/controlled-merge behavior with manual live edits;
-9. resolver/harness tests using a real export fixture.
+1. exact raw export column names for tag/name and size;
+2. whether `REF. NO.` is always a unique stable identity;
+3. how later vendor/project input maps to `TYPE` and `COLOUR` when available;
+4. whether any project family overrides the default `INSTALLED BY = BUILDER` scope;
+5. nominal-size formatting convention and axis order;
+6. disappeared-row behavior;
+7. compare/report/controlled-merge behavior with manual live edits;
+8. deterministic resolver/harness behavior after the Lisp naming fix.
+
+Draft status does not block use. Promote to `stable` only after enough real-project evidence exists to remove the mandatory warning.

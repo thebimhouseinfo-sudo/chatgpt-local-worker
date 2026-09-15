@@ -7,11 +7,13 @@ function arg(name, fallback = null) {
 }
 
 const fileArg = arg("--file");
+const ruleStatus = (arg("--rule-status", "") || "").trim().toLowerCase();
 const errors = [];
 const warnings = [];
 
-if (!fileArg) {
-  errors.push("missing --file <takeoff-report.md>");
+if (!fileArg) errors.push("missing --file <takeoff-report.md>");
+if (ruleStatus && !["stable", "draft"].includes(ruleStatus)) {
+  errors.push("--rule-status must be 'stable' or 'draft' when provided");
 }
 
 let text = "";
@@ -48,12 +50,18 @@ if (unresolvedPlaceholders.length) {
   errors.push(`unresolved template placeholders: ${[...new Set(unresolvedPlaceholders)].join(", ")}`);
 }
 
-if (text && !/^\s*-\s+Input Revision:\s*\S/m.test(text)) {
-  errors.push("RUN SUMMARY must include Input Revision");
+const hasInputRevision = /^\s*-\s+Input Revision:\s*\S/m.test(text);
+const hasDrawingExportSource = /^\s*-\s+Drawing Export Source:\s*\S/m.test(text);
+if (text && !hasInputRevision && !hasDrawingExportSource) {
+  errors.push("RUN SUMMARY must include either Input Revision or Drawing Export Source");
 }
 
 if (text && !/^\s*-\s+Run Timestamp:\s*\S/m.test(text)) {
   errors.push("RUN SUMMARY must include Run Timestamp");
+}
+
+if (ruleStatus === "draft" && text && !/DRAFT\s*\/\s*NOT FINAL/i.test(text)) {
+  errors.push("draft-rule report must visibly state 'DRAFT / NOT FINAL'");
 }
 
 if (text && !/\|[^\n]+\|/.test(text.split("## CHANGE SUMMARY")[0] || "")) {
@@ -63,6 +71,8 @@ if (text && !/\|[^\n]+\|/.test(text.split("## CHANGE SUMMARY")[0] || "")) {
 const result = {
   ok: errors.length === 0,
   file,
+  rule_status: ruleStatus || null,
+  run_identity: hasInputRevision ? "input-revision" : hasDrawingExportSource ? "drawing-export-source" : null,
   required_headings: requiredHeadings,
   warnings,
   errors
