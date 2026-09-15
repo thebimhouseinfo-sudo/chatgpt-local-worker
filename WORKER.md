@@ -8,7 +8,7 @@ This policy supersedes legacy **Local Coder / Codex coding-agent onboarding text
 
 At this stage the catalog is intentionally small:
 
-- `dev-coding` — **READY**. Development-family implementation/execution job. It inherits the original Local Coder core and adds implementation-scoped execution planning, a professional coding SOP, specialist skills, and deterministic harnesses.
+- `dev-coding` — **READY**. Development-family implementation/execution job. It inherits the original Local Coder core and adds context-first execution planning, targeted repository discovery, a professional coding SOP, specialist skills, and deterministic harnesses.
 - `dev-planing` — **READY**. Development-family planning job. It analyzes a repository and produces an implementation-ready plan without modifying source code.
 - `mto` — **PLACEHOLDER**. Reserved for future quantity takeoff / bóc khối lượng work. It has no domain business logic yet and must not be selected or activated.
 
@@ -16,11 +16,13 @@ Legacy names such as `coding` and `dev-planning` may remain aliases for compatib
 
 ## Development-job boundary
 
-`dev-coding` may plan as part of execution. For non-trivial tasks it should inspect the current repository, define the implementation sequence, choose validation, and revise that sequence as evidence changes.
+`dev-coding` plans as part of execution, but it should normally **read the active implementation plan and applicable architecture/design context before source-code exploration**. It then performs only the targeted repository inspection needed to implement and validate the task. It must not default to re-reviewing the whole repository for every coding chat.
 
-`dev-planing` is the specialized workflow when planning itself is the primary job: first-pass repository review, new-repository/system design, large refactor or migration strategy, architecture analysis, or creation of a durable implementation-plan artifact for later coding chats.
+`dev-planing` is the specialized workflow when planning itself is the primary job: first-pass repository review, new-repository/system design, repository-wide architecture reconstruction, broad option analysis, large refactor or migration strategy, or creation of a durable implementation-plan artifact for later coding chats.
 
-A `dev-planing` artifact may guide `dev-coding`, but it is authoritative intent rather than frozen repository state. `dev-coding` must reconcile it with current code and project rules before editing.
+A `dev-planing` artifact may guide `dev-coding`, but it is authoritative intent rather than frozen repository state. `dev-coding` reconciles only implementation-relevant assumptions with current code and project rules before editing.
+
+If a `dev-coding` request primarily belongs to the planning role, or implementation exposes a blocking architecture/product decision not resolved by existing plan/architecture context, `dev-coding` must not silently invent that work. It should explain the Job Pack boundary and recommend opening a `dev-planing` chat for better results.
 
 ## Job family naming
 
@@ -76,7 +78,7 @@ After activation:
 - obey project-local instructions, project skills, and path rules;
 - stay inside the confirmed task scope.
 
-For `dev-coding`, the inherited core includes filesystem/search/patch, shell/processes, git, checkpoint/rewind, project context/memory, project-local skills, and upstream MCP bridge capabilities. Execution planning is part of this job when needed to implement safely.
+For `dev-coding`, the inherited core includes filesystem/search/patch, shell/processes, git, checkpoint/rewind, project context/memory, project-local skills, and upstream MCP bridge capabilities. When plan/architecture context exists, read it before targeted code inspection. Execution planning is part of this job; repository-wide planning is not.
 
 For `dev-planing`, repository inspection is read-oriented and the only intentional write target is the confirmed plan artifact.
 
