@@ -97,6 +97,7 @@ const revitRoot = path.join(wipRoot, "REVIT");
 const scheduleRoot = path.join(wipRoot, "SCHEDULE");
 const eqmRoot = path.join(scheduleRoot, "eqm");
 const auditRoot = path.join(eqmRoot, "_audit");
+const reportRoot = path.join(eqmRoot, "_reports");
 const outputRoot = path.join(project, "02 Output");
 const projectRulesRoot = path.join(project, "qto-rules");
 
@@ -161,6 +162,7 @@ for (const id of equipmentIds) {
   const template = path.join(scheduleRoot, meta.template);
   const liveSchedule = path.join(eqmRoot, meta.live_schedule);
   const auditFile = path.join(auditRoot, meta.audit_file);
+  const reportFile = revision ? path.join(reportRoot, revision, `${id}.md`) : null;
   const baseRule = path.join(packDir, meta.base_rule);
   const projectRule = path.join(project, meta.project_rule);
   const templateExists = (await statKind(template)) === "file";
@@ -179,6 +181,8 @@ for (const id of equipmentIds) {
     live_schedule: liveSchedule,
     schedule_mode: liveExists ? "update" : "bootstrap",
     audit_file: auditFile,
+    report_file: reportFile,
+    report_template: path.join(packDir, "templates", "TAKEOFF_REPORT.md"),
     rules: {
       base_common: baseCommonRules,
       base_equipment: baseRule,
@@ -201,6 +205,7 @@ const result = {
     schedule_root: scheduleRoot,
     eqm_write_root: eqmRoot,
     audit_root: auditRoot,
+    report_root: reportRoot,
     output_forbidden_root: outputRoot,
     project_rules_root: projectRulesRoot,
     eqm_root_exists: (await statKind(eqmRoot)) === "dir"
@@ -209,7 +214,7 @@ const result = {
   equipment: resolved,
   warnings,
   errors,
-  note: "User selects equipment scope. 'latest' is resolved independently for each requested equipment from valid YYYY MM DD folders. No writes are performed by this harness."
+  note: "User selects equipment scope. 'latest' is resolved independently for each requested equipment from valid YYYY MM DD folders. Report path is canonical per equipment+revision. No writes are performed by this harness."
 };
 
 console.log(JSON.stringify(result, null, 2));
