@@ -42,8 +42,11 @@
       "harness/inspect-repo.mjs",
       "harness/quality-gate.mjs",
       "harness/diff-gate.mjs",
+      "harness/change-audit.mjs",
+      "harness/dependency-gate.mjs",
+      "harness/completion-gate.mjs",
       "harness/validate.mjs"
     ]
   },
-  "validators": ["harness/validate.mjs", "harness/diff-gate.mjs"]
+  "validators": ["harness/validate.mjs", "harness/completion-gate.mjs"]
 }

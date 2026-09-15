@@ -1,37 +1,45 @@
-import path from "node:path";
-import { spawnSync } from "node:child_process";
+import { arg, run, lines, resolveCwd, emit } from "./lib/common.mjs";
 
-function arg(name, fallback) {
-  const index = process.argv.indexOf(name);
-  return index >= 0 && process.argv[index + 1] ? process.argv[index + 1] : fallback;
-}
-function run(cwd, args) {
-  const result = spawnSync("git", args, { cwd, encoding: "utf8", shell: false });
-  return { status: result.status, ok: result.status === 0, stdout: (result.stdout || "").trim(), stderr: (result.stderr || "").trim() };
-}
-
-const cwd = path.resolve(arg("--cwd", process.cwd()));
-const inside = run(cwd, ["rev-parse", "--is-inside-work-tree"]);
+const cwd = resolveCwd();
+const base = arg("--base", null);
+const inside = run(cwd, "git", ["rev-parse", "--is-inside-work-tree"]);
 if (!inside.ok || inside.stdout !== "true") {
-  console.log(JSON.stringify({ ok: true, cwd, git: false, note: "Not a Git worktree; diff gate skipped." }, null, 2));
+  emit({ ok: true, cwd, git: false, note: "Not a Git worktree; diff gate skipped." });
   process.exit(0);
 }
 
-const check = run(cwd, ["diff", "--check"]);
-const status = run(cwd, ["status", "--short"]);
-const stat = run(cwd, ["diff", "--stat"]);
-const names = run(cwd, ["diff", "--name-only"]);
-const stagedStat = run(cwd, ["diff", "--cached", "--stat"]);
-const stagedNames = run(cwd, ["diff", "--cached", "--name-only"]);
-const ok = check.ok;
+const unstagedCheck = run(cwd, "git", ["diff", "--check"]);
+const stagedCheck = run(cwd, "git", ["diff", "--cached", "--check"]);
+const conflicts = run(cwd, "git", ["diff", "--name-only", "--diff-filter=U"]);
+const status = run(cwd, "git", ["status", "--short", "--untracked-files=all"]);
+const unstagedNames = run(cwd, "git", ["diff", "--name-only"]);
+const stagedNames = run(cwd, "git", ["diff", "--cached", "--name-only"]);
+const branch = run(cwd, "git", ["branch", "--show-current"]).stdout;
+const head = run(cwd, "git", ["rev-parse", "HEAD"]).stdout;
+let baseDiff = null;
+if (base) {
+  const mergeBase = run(cwd, "git", ["merge-base", base, "HEAD"]);
+  baseDiff = mergeBase.ok ? {
+    base,
+    merge_base: mergeBase.stdout,
+    files: lines(run(cwd, "git", ["diff", "--name-only", `${mergeBase.stdout}...HEAD`]).stdout),
+    stat: run(cwd, "git", ["diff", "--stat", `${mergeBase.stdout}...HEAD`]).stdout,
+  } : { base, error: mergeBase.stderr || "Unable to resolve merge-base" };
+}
+const conflictFiles = lines(conflicts.stdout);
+const ok = unstagedCheck.ok && stagedCheck.ok && conflictFiles.length === 0;
 
-console.log(JSON.stringify({
+emit({
   ok,
   cwd,
   git: true,
-  whitespace_check: check,
-  status: status.stdout.split(/\r?\n/).filter(Boolean),
-  unstaged: { stat: stat.stdout, files: names.stdout.split(/\r?\n/).filter(Boolean) },
-  staged: { stat: stagedStat.stdout, files: stagedNames.stdout.split(/\r?\n/).filter(Boolean) }
-}, null, 2));
+  branch,
+  head,
+  whitespace_check: { unstaged: unstagedCheck, staged: stagedCheck },
+  unresolved_conflicts: conflictFiles,
+  status: lines(status.stdout),
+  unstaged: { files: lines(unstagedNames.stdout), stat: run(cwd, "git", ["diff", "--stat"]).stdout },
+  staged: { files: lines(stagedNames.stdout), stat: run(cwd, "git", ["diff", "--cached", "--stat"]).stdout },
+  base_diff: baseDiff,
+});
 if (!ok) process.exitCode = 1;
