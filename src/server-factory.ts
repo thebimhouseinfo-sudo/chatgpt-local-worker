@@ -4,6 +4,7 @@ import { registerFilesystemTools } from "./tools/filesystem.js";
 import { registerShellTools } from "./tools/shell.js";
 import { registerGitTools } from "./tools/git.js";
 import { registerContextTools } from "./tools/context.js";
+import { registerJobTools } from "./tools/jobs.js";
 import { registerRewindTools } from "./tools/rewind.js";
 import { registerMcpBridgeTools } from "./tools/mcp-bridge.js";
 import { registerNodeReplTool } from "./tools/node-repl.js";
@@ -12,6 +13,7 @@ import { buildServerInstructions } from "./lib/quickstart.js";
 import type { McpUpstreamManager } from "./lib/mcp-upstream-manager.js";
 import { getChatGptToolProfile, shouldExposeTool } from "./lib/tool-profile.js";
 import { TOOL_RESULT_OUTPUT_SCHEMA } from "./lib/tool-result.js";
+import { JobRuntime } from "./jobs/job-runtime.js";
 
 const NOOP_TOOL = {
   remove: () => {},
@@ -35,10 +37,8 @@ function configureToolRegistration(server: McpServer): void {
       return NOOP_TOOL;
     }
 
-    // Every native Local Coder tool already returns the stable
-    // { ok, tool, summary, data } structuredContent envelope. Advertise that
-    // contract so MCP clients (including ChatGPT) can validate/use structured
-    // output instead of treating every result as opaque text.
+    // Every native Local Worker tool returns the stable
+    // { ok, tool, summary, data } structuredContent envelope.
     const nextConfig =
       !isUpstreamProxy && !config.outputSchema
         ? { ...config, outputSchema: TOOL_RESULT_OUTPUT_SCHEMA }
@@ -58,8 +58,8 @@ export function createMcpServer(
 ): McpServer {
   const server = new McpServer(
     {
-      name: "codex-mcp-server",
-      version: "2.0.0",
+      name: "local-worker-mcp-server",
+      version: "2.1.0",
     },
     {
       capabilities: {
@@ -77,6 +77,10 @@ export function createMcpServer(
 
   configureToolRegistration(server);
 
+  // Per-MCP-session state. Switching/stopping a job clears only this session.
+  const jobRuntime = new JobRuntime(workspaceRoot);
+
+  registerJobTools(server, jobRuntime);
   registerFilesystemTools(server);
   registerShellTools(server, workspaceRoot, shellTimeout);
   registerGitTools(server, workspaceRoot);
