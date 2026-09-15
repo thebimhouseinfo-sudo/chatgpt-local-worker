@@ -28,7 +28,7 @@ if not exist "worker-state.json" (
 start "GPTWorker Server" /min powershell -NoProfile -ExecutionPolicy Bypass -NoExit -File "%~dp0start.ps1" -Force
 
 echo Waiting for local Worker...
-powershell -NoProfile -Command "$ok=$false; 1..20 ^| %% { try { $r=Invoke-WebRequest 'http://127.0.0.1:3000/health' -UseBasicParsing -TimeoutSec 1; if ($r.StatusCode -eq 200) { $ok=$true; break } } catch {}; Start-Sleep -Milliseconds 500 }; if (-not $ok) { exit 1 }"
+powershell -NoProfile -Command "$ok=$false; foreach ($i in 1..20) { try { $r=Invoke-WebRequest 'http://127.0.0.1:3000/health' -UseBasicParsing -TimeoutSec 1; if ($r.StatusCode -eq 200) { $ok=$true; break } } catch {}; Start-Sleep -Milliseconds 500 }; if (-not $ok) { exit 1 }"
 if errorlevel 1 (
   echo [ERROR] Local Worker did not become ready.
   echo Check the GPTWorker Server window.
