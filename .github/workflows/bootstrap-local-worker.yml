@@ -20,35 +20,22 @@ jobs:
           fetch-depth: 0
 
       - name: Fetch upstream Local Coder
-        run: |
-          git clone --depth 1 https://github.com/hoangcoderr/chatgpt-local-coder.git "$RUNNER_TEMP/upstream"
+        run: git clone --depth 1 https://github.com/hoangcoderr/chatgpt-local-coder.git "$RUNNER_TEMP/upstream"
 
-      - name: Reassemble overlay archive
-        run: |
-          cat .bootstrap-payload/part-* > "$RUNNER_TEMP/overlay.b64"
-          base64 --decode "$RUNNER_TEMP/overlay.b64" > "$RUNNER_TEMP/overlay.zip"
-          mkdir -p "$RUNNER_TEMP/overlay"
-          unzip -q "$RUNNER_TEMP/overlay.zip" -d "$RUNNER_TEMP/overlay"
-
-      - name: Seed upstream and apply Local Worker overlay
+      - name: Seed upstream snapshot
         run: |
           rsync -a --delete \
             --exclude='.git/' \
             --exclude='.github/workflows/bootstrap-local-worker.yml' \
-            --exclude='.bootstrap-payload/' \
             --exclude='.bootstrap-ready' \
             "$RUNNER_TEMP/upstream/" ./
-          rsync -a "$RUNNER_TEMP/overlay/" ./
-          rm -rf .bootstrap-payload .bootstrap-ready
+          rm -f .bootstrap-ready
 
       - name: Install dependencies
         run: npm install
 
-      - name: Build
+      - name: Build upstream baseline
         run: npm run build
-
-      - name: Validate Job Packs
-        run: npm run validate:jobs
 
       - name: Run upstream tests
         run: npm test
@@ -56,14 +43,10 @@ jobs:
       - name: Remove one-shot bootstrap workflow
         run: rm -f .github/workflows/bootstrap-local-worker.yml
 
-      - name: Commit bootstrapped worker
+      - name: Commit upstream baseline
         run: |
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
           git add -A
-          if git diff --cached --quiet; then
-            echo "No changes to commit"
-            exit 0
-          fi
-          git commit -m "feat: bootstrap general local worker job runtime"
+          git commit -m "chore: seed upstream local coder baseline"
           git push origin HEAD
