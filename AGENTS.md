@@ -1,182 +1,167 @@
-# Codex MCP Server — Agent Onboarding
+# ChatGPT Local Worker — Repository Agent Instructions
 
-MCP server local giống Codex: đọc/ghi file, chạy lệnh, git. Dùng với ChatGPT Developer Mode hoặc bất kỳ MCP client nào.
+This file is for agents **modifying this repository**. It is intentionally concise because root `AGENTS.md` is auto-loaded into project context.
 
-## Lần đầu kết nối — gọi ngay 2 tool này
+For operator/setup documentation, read `README.md`.
+For runtime/job policy, `WORKER.md` is authoritative.
 
-1. **`agent_status`** — xem quyền, full disk access, workspace roots
-2. **`project_context`** — đọc AGENTS.md, README, CLAUDE.md trong project
+## Repository identity
 
-## Quyền truy cập
+This is a **General Local Worker**, not a coding-only agent.
 
-- **Full machine access** — không giới hạn path, không chặn lệnh
-- Dùng absolute path bất kỳ: `C:\`, `D:\Projects\...` (Windows) · `/Users/you/projects/...` (macOS) · `/home/you/...` (Linux)
-- `WORKSPACE_PATH` chỉ là thư mục mặc định cho path tương đối và shell/git
-- `CHATGPT_AUTO_APPROVE=true` — giảm popup xác nhận trên ChatGPT
+The architecture is:
 
-## ChatGPT: tránh popup + lỗi "Luôn cho phép phải kết nối lại"
-
-### Cách đúng (làm TRƯỚC khi chat)
-
-1. **Settings → Apps → Connectors** → chọn connector **Codex Local**
-2. Đặt quyền app: **Chỉ hỏi trước thay đổi quan trọng** hoặc **Hỏi trước khi thay đổi**
-3. Bấm **Refresh** connector (sau mỗi lần update server)
-4. Mở chat mới, chọn connector, rồi mới gửi prompt
-
-### KHÔNG bấm "Luôn cho phép" trên popup
-
-Đây là bug/UI ChatGPT: bấm **Luôn cho phép** thường **đóng MCP session** → tunnel log `stream canceled` → phải kết nối lại.
-
-Thay vào đó:
-- Bấm **Cho phép một lần** khi cần, hoặc
-- Cấu hình quyền ở **Settings → Apps** (bước trên) để ít hỏi hơn
-
-### Lỗi tunnel `stream canceled by remote`
-
-Bình thường khi:
-- Server restart (`stop.ps1` / `start.ps1`, hoặc Ctrl+C `npm start`) trong lúc ChatGPT đang kết nối
-- ChatGPT đóng stream SSE sau khi đổi quyền
-- Tunnel URL đổi (chạy lại `tunnel.ps1` cloudflared) mà chưa update Connector URL
-
-**Fix:** Giữ server + tunnel chạy ổn định, không restart giữa chừng. Nếu restart → Refresh connector + chat mới.
-
-**Khuyến nghị:** Dùng OpenAI Secure MCP Tunnel — `tunnel_id` cố định, không cần đổi URL connector mỗi lần. Trên Windows: `openai-tunnel.ps1`. Trên macOS/Linux script này không chạy (PowerShell + bản Windows), phải tự tải binary từ [openai/tunnel-client](https://github.com/openai/tunnel-client/releases).
-
-## Tool profile — `slim` (mặc định) vs `full`
-
-`CHATGPT_TOOL_PROFILE` trong `.env` quyết định agent thấy bao nhiêu tool:
-
-| Profile | Số tool | Dùng khi |
-|---|---|---|
-| `slim` *(mặc định)* | **23** | ChatGPT web — payload `tools/list` nhỏ, ít lỗi discovery |
-| `full` | **47** | MCP client khác, hoặc khi cần nhóm tool bên dưới |
-
-**Chỉ có ở `full`** — gọi các tool này ở `slim` sẽ báo *tool not found*:
-
-`delete_file` · `delete_directory` · `move_file` · `replace_regex` · `list_allowed_directories` · `mcp_tools` · `mcp_call` · `git_log` · `git_branch` · `git_stash` · `git_reset` · `git_pull` · `git_push` · `git_checkout`
-
-Ở `slim`, thay thế bằng `run_command` (`git log`, `git push`, `rm`, `mv`, …). Gọi `agent_status` để biết profile đang chạy.
-
-## Mapping Claude Code ↔ Codex MCP
-
-| Claude Code | Codex MCP | Ghi chú |
-|---|---|---|
-| `Read` | `read_text_file` | Có `offset`+`limit` (line numbers) |
-| `Write` | `write_file` | |
-| `Edit` | `edit_file` | Có `replace_all` |
-| `MultiEdit` | `multi_edit` | |
-| `Glob` | `glob` | Sort theo mtime |
-| `Grep` | `grep` | content / files_with_matches / count |
-| `LS` | `list_directory` | Có `ignore` globs |
-| `Bash` | `run_command` | Lệnh ngắn, chờ xong |
-| Background shell | `start_process` + `process_output` | |
-| `Rewind` | `rewind` | `list` / `preview` / `restore` — undo file edits qua checkpoint tự động |
-| — | `<server>__<tool>` | MCP upstream đang `enabled` được expose trực tiếp, ví dụ `chrome-devtools__list_pages`, `linear__get_user` |
-| — | `mcp_servers`, `mcp_tools`, `mcp_call` | Diagnostic/fallback cho MCP upstream. `mcp_tools`/`mcp_call` chỉ có ở `full` |
-| — | Admin UI `:<ADMIN_PORT>/ui` | Import MCP từ Cursor / Claude Code / OpenCode (mặc định 3001) |
-| — | `apply_patch` | Codex/OpenAI style (thêm so với Claude) |
-| — | `git_*`, `git_restore` | Git tools riêng (Claude dùng Bash) |
-| — | `project_context` | Đọc AGENTS.md / CLAUDE.md |
-
-**Không có trong MCP này** (ChatGPT built-in hoặc MCP khác): `WebSearch`, `WebFetch`, `Task`/subagent, `NotebookEdit`, `LSP`.
-
-## Sửa code — tool nào dùng khi nào
-
-| Việc cần làm | Tool |
-|---|---|
-| Tìm file theo tên | `glob` |
-| Tìm nội dung | `grep` |
-| Đọc file | `read_text_file` |
-| Liệt kê thư mục | `list_directory` |
-| Sửa bằng diff/patch | `apply_patch` (ưu tiên) |
-| Sửa nhiều đoạn | `multi_edit` |
-| Sửa bằng regex | `replace_regex` *(full)* |
-| Tạo file mới | `write_file` |
-| Xóa / đổi tên | `delete_file`, `move_file` *(full)* — ở `slim` dùng `run_command` |
-| Chạy lệnh ngắn | `run_command` |
-| Build/test dài | `start_process` → `process_output` |
-| Git | `git_status`, `git_diff`, `git_commit`, `git_restore` |
-| Restore file từ commit | `git_restore` (không dùng `git_checkout` cho file) |
-| Undo edits trong session | `rewind` action `list` → `preview` → `restore` (không track bash) |
-| Switch branch | `git_checkout` / `git_branch` *(full)* — ở `slim` dùng `run_command "git switch <branch>"` |
-
-## ChatGPT safety layer — tool bị chặn ngẫu nhiên
-
-Một số tool wrapper đôi khi bị OpenAI chặn với *"Lệnh gọi công cụ này đã bị chặn bởi cơ chế kiểm tra an toàn"* — **không phải lỗi server**. Cùng thao tác qua `run_command` thường vẫn chạy được.
-
-| Tool hay bị chặn | Fallback `run_command` |
-|---|---|
-| `git_push` | `git push -u origin <branch>` |
-| `git_checkout` | `git switch <branch>` |
-| `git_restore` | `git restore -- <files>` |
-| `delete_directory` | `Remove-Item -Recurse -Force <path>` (Windows) · `rm -rf <path>` (macOS/Linux) |
-
-Tool response có thể chứa `run_command_fallback` — dùng lệnh đó nếu wrapper bị chặn.
-
-> Cả 4 tool trong bảng trên đều **chỉ có ở profile `full`**. Ở `slim` (mặc định) chúng không tồn tại — dùng thẳng `run_command`.
-
-**Ổn định:** `git_status`, `git_diff`, `git_add`, `git_commit` (có ở cả `slim` và `full`) · `git_log`, `git_branch`, `git_stash`, `git_reset`, `git_pull` (chỉ `full`).
-
-## Format `apply_patch` (Codex-style)
-
-```
-@@
--old line to remove
-+new line to add
- context line unchanged
+```text
+ChatGPT
+  → Job Runtime
+  → shared Local Worker execution core
+  → one active Job Pack
+  → actual project work
 ```
 
-Hoặc unified diff chuẩn:
+The execution core owns generic capabilities such as filesystem/search/edit, shell/processes, git, checkpoint/rewind, project context/memory, skills/path rules, and upstream MCP bridging.
 
+Job Packs own workflow/policy/SOP, specialist skills or business rules, deterministic harnesses, and completion criteria.
+
+Do not create a multi-agent hierarchy and do not duplicate the core filesystem/shell/git framework inside Job Packs.
+
+## Authority and document roles
+
+When documents overlap, use this order:
+
+1. explicit current user instruction;
+2. `WORKER.md` for Worker/job policy;
+3. active Job Pack `JOB.md` + `SKILL.md`;
+4. relevant Job Pack skills/rules/templates;
+5. this `AGENTS.md` for repository-development conventions;
+6. `README.md` for operator-facing documentation.
+
+Do not use stale compatibility wording to override current Worker policy.
+
+## Current Job catalog
+
+Canonical ready Job Packs:
+
+- `dev-coding`
+- `dev-planing`
+- `mto`
+
+Compatibility aliases may remain, but do not introduce new canonical names casually.
+
+The mandatory runtime lifecycle is:
+
+```text
+DISCOVER → SELECT → RESOLVE → CONFIRM → EXECUTE → VALIDATE → COMPLETE
 ```
-@@ -10,3 +10,4 @@
- context
--old
-+new
+
+Keyword matches may suggest a job; they are never permission to activate one.
+
+## Before changing code
+
+1. Read the relevant source and nearby tests before editing.
+2. Read `WORKER.md` when the change affects Job Runtime behavior, lifecycle, permissions, Job Packs, or cross-job policy.
+3. For a Job Pack change, read that pack's `JOB.md`, `SKILL.md`, `job.yaml`, relevant rules/skills, and harness/tests.
+4. Prefer focused changes over broad rewrites.
+5. Preserve compatibility deliberately; do not rename inherited `codex-*` internals solely for cosmetic consistency.
+
+The normal repository workflow is:
+
+```text
+inspect → focused change → targeted tests → full validation → diff review → PR
 ```
 
-Tham số: `{ "path": "src/foo.ts", "patch": "...", "dry_run": false }`
+Do not merge a PR unless the user explicitly approves the merge.
 
-Dùng `dry_run: true` để xem diff trước khi ghi.
+## Validation
 
-## Đường dẫn file
-
-- Dùng path tuyệt đối: `C:\Users\...\project\src\file.ts` · `/Users/you/project/src/file.ts`
-- Hoặc relative từ `WORKSPACE_PATH` trong `.env`
-- Gọi `agent_status` để xem workspace roots (`list_allowed_directories` chỉ có ở profile `full`)
-
-## Khởi động server
-
-**Windows**
-
-```powershell
-.\start.ps1 -Force          # Terminal 1: MCP server
-.\openai-tunnel.ps1         # Terminal 2: OpenAI tunnel (URL cố định)
-```
-
-**Lần đầu:** chạy `.\openai-tunnel.ps1 -Init` → nhập `tunnel_id` + Runtime API key từ [Platform Tunnels](https://platform.openai.com/settings/organization/tunnels).
-
-Tunnel cũ (URL đổi mỗi lần): `.\tunnel.ps1` (cloudflared).
-
-**macOS / Linux** — các script `.ps1` không chạy trực tiếp:
+At minimum for repository-level changes:
 
 ```bash
-npm start                                    # Terminal 1: MCP server
-npm run tunnel                               # Terminal 2: cloudflared
-ssh -p 443 -R0:localhost:3000 a.pinggy.io    # hoặc Pinggy, nếu mạng chặn cổng 7844
+npm run build
+npm run validate:jobs
+npm test
 ```
 
-**ChatGPT:** [Settings → Connectors](https://chatgpt.com/#settings/Connectors) → URL phải là `https://<tunnel>/mcp/<MCP_TOKEN>`. Vào `/mcp` trơn sẽ trả 404. Coi URL này như mật khẩu.
+For Job Pack changes, also run the relevant focused harness/test script where useful.
 
-Health check: `http://127.0.0.1:3000/health` | Admin UI: `http://127.0.0.1:<ADMIN_PORT>/ui` (mặc định 3001)
+A generated file or successful write is not completion evidence. Completion requires the applicable deterministic checks to pass, or failed/skipped checks to be reported explicitly.
 
-## Troubleshooting
+## Job Pack boundaries
 
-| Lỗi | Cách xử lý |
-|---|---|
-| Access denied | Kiểm tra path; bật `FULL_DISK_ACCESS=true` |
-| Patch context not found | Đọc file trước; thêm context lines (dòng bắt đầu bằng space) |
-| ChatGPT hỏi quyền mỗi lần | Settings → Apps → đặt *Chỉ hỏi trước thay đổi quan trọng*; kiểm tra `CHATGPT_AUTO_APPROVE=true`. **Không** bấm "Luôn cho phép" trên popup (xem mục trên) |
-| Connection failed | Server + tunnel đều phải chạy; URL phải HTTPS và có `/mcp/<MCP_TOKEN>` |
-| Tool not found | Tool đó chỉ có ở profile `full` — xem mục *Tool profile*. Gọi `agent_status` để kiểm tra |
-| Connector loading mãi khi bấm Create | Build cũ bị deadlock SSE stream. Chạy `npm run build` rồi khởi động lại server |
+Each runnable pack under `jobs/<job-id>/` has at least:
+
+- `job.yaml`
+- `JOB.md`
+- `SKILL.md`
+- `harness/`
+- validator(s)
+
+Mature packs may additionally contain `skills/`, `rules/`, and `templates/`.
+
+Job Packs must reuse the Worker core. A domain-specific rule belongs in the pack, not in generic tool/runtime code.
+
+## Development jobs
+
+### `dev-planing`
+
+Use when planning itself is the job: broad repository/system review, architecture decisions, major migration/refactor strategy, or creation/major revision of the durable planning bundle.
+
+Standard bundle:
+
+```text
+ARCHITECTURE.md
+IMPLEMENTATION_PLAN.md
+TODO.md
+TASKS.md
+```
+
+### `dev-coding`
+
+Prefer planning-bundle-first execution when the bundle exists. Read architecture/general plan/backlog/task ledger before broad source exploration, then inspect only task-relevant source/tests/config.
+
+Bounded implementation branches may use `task-plans/`. New architecture/product decisions belong back in `dev-planing`, not as silent invention during coding.
+
+## MTO invariants
+
+MTO separates rule maturity from run permission:
+
+- `stable` — runnable normally;
+- `draft` — runnable, but must show `DRAFT / NOT FINAL` and require careful review of the result;
+- missing/disabled/placeholder — not runnable.
+
+Do not treat a draft rule as unsupported and do not silently invent its unresolved engineering policy.
+
+MTO supports two source models:
+
+- **selection-driven** — dated `00 Input` selection is project authority; exact-model technical data supplements missing fields;
+- **drawing-export-driven** — current Lisp export under `01 WIP` is the drawing snapshot; the live schedule may contain valid manual enrichment and must not be blindly rebuilt.
+
+Drawing-export workflow is operational. Grille, Door Grille, and Flexible Connection may still use draft business rules.
+
+MTO intentional writes are restricted to:
+
+```text
+01 WIP/SCHEDULE/eqm/**
+```
+
+Do not authorize MTO writes into `00 Input`, templates, design drawings, Lisp exports, `01 WIP/REVIT`, project rules, or `02 Output`.
+
+## Documentation consistency
+
+When behavior changes, update the smallest authoritative set of docs rather than duplicating policy everywhere.
+
+- `WORKER.md` — Worker/job policy.
+- root `README.md` — product/operator/setup guide.
+- root `AGENTS.md` — repository-development instructions only.
+- `jobs/README.md` — Job Pack catalog/contract.
+- `jobs/<job>/JOB.md` — job boundary and semantics.
+- `jobs/<job>/SKILL.md` — operating SOP.
+- pack-local README files — local harness/rule details.
+
+Avoid exact tool-count claims in prose; the exposed catalog changes over time. Use `agent_status` or `src/lib/tool-profile.ts` as the runtime/current source.
+
+## Branding and compatibility
+
+User-facing product name is **ChatGPT Local Worker** / **Local Worker**.
+
+Legacy names may remain when they are compatibility surfaces or explicitly refer to inherited Codex interoperability, for example a legacy binary alias or Codex hook support. Do not let legacy names become the primary user-facing identity again.
