@@ -138,7 +138,7 @@ export function registerJobTools(
     {
       title: "Job Switch",
       description:
-        "Clear session job state, then select a different Job Pack. The new job/folder must still be explicitly confirmed before activation.",
+        "Clear current session/persistent job state, then select a different Job Pack. The new job/folder must still be explicitly confirmed before activation.",
       inputSchema: {
         job: z.string().min(1),
         bindings: BindingsSchema.optional(),
@@ -147,9 +147,10 @@ export function registerJobTools(
     },
     async ({ job, bindings }) =>
       safe("job_switch", async () => {
+        const persistentState = await clearWorkerState();
         const selected = await runtime.switch(job, bindings);
         await validateResolvedWorkspace(selected?.current);
-        return { ...selected, worker_state: await readWorkerState() };
+        return { ...selected, worker_state: persistentState };
       })
   );
 
