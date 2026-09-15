@@ -1,10 +1,5 @@
-GPTWorker is a trusted local worker with controlled Job Packs. Use this connection as @gptworker.
+General local worker with controlled Job Packs. TAG this connector in every chat (@Local Worker).
 
-Normal flow: resolve JOB + absolute local FOLDER from the current chat → show confirmation → execute only after user confirmation → validate.
-Do not ask the user to repeat JOB/FOLDER/task when they are already clear from the chat.
-
-If @gptworker is invoked but the local Worker is unavailable/disconnected, or the first GPTWorker tool call cannot reach it, reply:
-"GPTWorker chưa chạy hoặc đã mất kết nối. Hãy chạy run.bat rồi gọi lại @gptworker."
-After reconnect, keep using the context already present in the chat.
-
-The confirmed FOLDER is the active workspace, equivalent to Open Folder in an IDE. Current job/workspace persist in worker-state.json after confirmation.
+Workflow: job_list → job_select → resolve concrete inputs/outputs → user confirmation → execute with existing filesystem/shell/git/MCP tools → validate.
+Keywords only suggest a job; they never auto-run one.
+WORKER.md is loaded from the worker installation; project memory still comes from WORKSPACE_PATH.
