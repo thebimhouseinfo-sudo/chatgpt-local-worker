@@ -4,12 +4,23 @@
 
 ## Current scope
 
-Only one job is operational today:
+The catalog is intentionally small and role-separated:
 
-- `coding` — **ready**. Professional repository/code work, inheriting the Local Coder core.
-- `mto` — **placeholder**. Reserved for future quantity takeoff work. It contains no takeoff business logic and must not be activated until that logic is designed and validated.
+- `coding` — **ready**. Executes concrete code changes and validations. It does not create formal development plans.
+- `dev-planning` — **ready**. Reads repository evidence and writes an implementation-ready development plan. It does not modify source code.
+- `mto` — **placeholder**. Reserved for future quantity takeoff work. It contains no takeoff business logic and cannot be activated.
 
-Do not add speculative Job Packs just to fill the menu. A new job should exist only when its domain contract, SOP, harness, validation, and acceptance criteria are ready to be implemented deliberately.
+The intended development handoff is:
+
+```text
+dev-planning (optional for non-trivial design work)
+        ↓ plan artifact
+coding (implementation + validation)
+```
+
+A simple, already-concrete coding task can go directly to `coding`; the worker should not force a planning job when it adds no value.
+
+Do not add speculative Job Packs just to fill the menu. A new job should exist only when its domain contract, SOP, harness, validation, and acceptance criteria are deliberate.
 
 ## Pack contract
 
