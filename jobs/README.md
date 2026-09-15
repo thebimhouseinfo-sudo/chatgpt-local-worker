@@ -4,23 +4,20 @@
 
 ## Current scope
 
-The catalog is intentionally small and role-separated:
+- `dev-coding` — **ready**. Development-family implementation/execution job, inheriting the Local Coder core.
+- `dev-planing` — **ready**. Development-family repository-aware planning job; produces a plan artifact and does not modify source code.
+- `mto` — **placeholder**. Reserved for future quantity takeoff work. It contains no takeoff business logic and must not be activated until that logic is designed and validated.
 
-- `coding` — **ready**. Executes concrete code changes and validations. It does not create formal development plans.
-- `dev-planning` — **ready**. Reads repository evidence and writes an implementation-ready development plan. It does not modify source code.
-- `mto` — **placeholder**. Reserved for future quantity takeoff work. It contains no takeoff business logic and cannot be activated.
+Legacy names may remain aliases, but canonical IDs are the folder/job IDs above.
 
-The intended development handoff is:
+## Job family naming
 
-```text
-dev-planning (optional for non-trivial design work)
-        ↓ plan artifact
-coding (implementation + validation)
-```
+Related jobs use a common prefix when they belong to the same work family. Development jobs use `dev-`, currently:
 
-A simple, already-concrete coding task can go directly to `coding`; the worker should not force a planning job when it adds no value.
+- `dev-planing`
+- `dev-coding`
 
-Do not add speculative Job Packs just to fill the menu. A new job should exist only when its domain contract, SOP, harness, validation, and acceptance criteria are deliberate.
+Future related development jobs should follow `dev-*`. Other domains should use their own prefix only when a real family exists; do not create speculative packs merely to populate a namespace.
 
 ## Pack contract
 
@@ -39,7 +36,7 @@ A mature pack may also contain `skills/` and `templates/`.
 Metadata distinguishes:
 
 - `status`: `ready` or `placeholder`
-- aliases: explicit names usable for selection
+- aliases: explicit compatibility or convenience names usable for selection
 - keywords: suggestion-only terms
 - bindings: concrete job inputs/outputs
 - confirmation: explicit activation boundary
