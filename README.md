@@ -14,25 +14,34 @@ The repository is intentionally not populated with fake jobs.
 
 | Job | Status | Purpose |
 |---|---|---|
-| `coding` | **ready** | Execute concrete repository/code changes and validate them; no formal development planning |
-| `dev-planning` | **ready** | Analyze a repository and produce an implementation-ready development plan without editing source code |
+| `dev-coding` | **ready** | Execute concrete repository/code changes and validate them; no formal development planning |
+| `dev-planing` | **ready** | Analyze a repository and produce an implementation-ready development plan without editing source code |
 | `mto` | **placeholder** | Reserved for future MTO / quantity takeoff; no business logic exists yet |
 
-`mto` appears in discovery so the future slot is explicit, but the Job Runtime refuses to select or activate placeholder packs.
+`coding` and `dev-planning` remain compatibility aliases only. Canonical development job IDs use the shared `dev-` prefix.
 
 For non-trivial development work the intended handoff is:
 
 ```text
-dev-planning
+dev-planing
    │
    └─ development plan artifact
               │
               ▼
-           coding
+        dev-coding
    implementation + validation
 ```
 
-This handoff is optional. A small, already-concrete coding task can go directly to `coding`.
+This handoff is optional. A small, already-concrete coding task can go directly to `dev-coding`.
+
+## Job family naming
+
+Related jobs share a stable prefix when they belong to the same work family. Development jobs use `dev-`:
+
+- `dev-planing`
+- `dev-coding`
+
+Future related development jobs should follow `dev-*`. Other domains may define their own prefix when a real family of jobs exists.
 
 ## Architecture
 
@@ -80,22 +89,22 @@ Control tools:
 
 `WORKER.md` is the authoritative worker policy. On the first user interaction after the connector is enabled, the worker should check status, list jobs when idle, and ask **“Hôm nay tôi làm gì?”**.
 
-## Coding Job
+## Dev Coding Job
 
-`jobs/coding/` is the execution Job Pack inherited from the original Local Coder capability. It does **not** perform formal development planning.
+`jobs/dev-coding/` is the execution Job Pack inherited from the original Local Coder capability. It does **not** perform formal development planning.
 
 Inputs:
 
 - `workspace` — target repository/workspace
 - `task` — concrete engineering objective to execute
-- `plan` — optional plan artifact from `dev-planning` or the user
+- `plan` — optional plan artifact from `dev-planing` or the user
 - `delivery` — optional branch/commit/PR/working-tree delivery expectation
 
 Its specialist skills cover repository discovery, implementation, debugging, testing, validation, refactoring/migrations, dependencies/APIs, security, performance, documentation/release hygiene, and git/diff review.
 
-If a task requires unresolved product or architecture decisions, `coding` must surface that gap rather than silently becoming a planner. Use `dev-planning` for formal repository-aware design work.
+If a task requires unresolved product or architecture decisions, `dev-coding` must surface that gap rather than silently becoming a planner. Use `dev-planing` for formal repository-aware design work.
 
-### Coding harness
+### Dev Coding harness
 
 - `inspect-repo.mjs` — repository inventory and stack/git signals.
 - `quality-gate.mjs` — discovers repository-native format/lint/type/test/build checks; execution requires explicit `--run`.
@@ -103,11 +112,11 @@ If a task requires unresolved product or architecture decisions, `coding` must s
 - `change-audit.mjs` — catches merge markers, sensitive material, machine paths, debugger leftovers, and oversized artifacts.
 - `dependency-gate.mjs` — checks common manifest/lockfile consistency problems.
 - `completion-gate.mjs` — aggregate structural completion gate.
-- `validate.mjs` — validates the Coding Job Pack itself.
+- `validate.mjs` — validates the Dev Coding Job Pack itself.
 
-## Development Planning Job
+## Dev Planing Job
 
-`jobs/dev-planning/` is a separate read-oriented planning workflow.
+`jobs/dev-planing/` is a separate read-oriented planning workflow.
 
 It may inspect source, tests, config, repository history, project instructions, and related evidence. Its only intentional write target is the confirmed `plan` output artifact.
 
@@ -179,7 +188,7 @@ Run the full inherited + Local Worker suite:
 npm test
 ```
 
-The suite builds TypeScript, tests Job Runtime activation/placeholder behavior, tests both `coding` and `dev-planning` harnesses, then runs the inherited upstream tests.
+The suite builds TypeScript, tests Job Runtime activation/placeholder behavior, tests both `dev-coding` and `dev-planing` harnesses, then runs the inherited upstream tests.
 
 ## Confirmation boundary
 
@@ -199,8 +208,8 @@ Placeholder packs are rejected before this flow begins.
 chatgpt-local-worker/
 ├─ WORKER.md
 ├─ jobs/
-│  ├─ coding/            # ready: implementation
-│  ├─ dev-planning/      # ready: planning only
+│  ├─ dev-coding/        # ready: implementation
+│  ├─ dev-planing/       # ready: planning only
 │  └─ mto/               # placeholder, non-runnable
 ├─ shared-harness/
 ├─ profiles/
@@ -213,7 +222,7 @@ chatgpt-local-worker/
 
 ## Design rule for future jobs
 
-Do not add a new Job Pack just because a domain name exists. Add it only when the domain has enough real evidence to define its inputs/outputs, rules, SOP, deterministic harness, and completion criteria without guessing.
+Do not add a new Job Pack just because a domain name exists. Add it only when the domain has enough real evidence to define its inputs/outputs, rules, SOP, deterministic harness, and completion criteria without guessing. Related jobs should share a meaningful family prefix.
 
 ## Upstream and license
 
