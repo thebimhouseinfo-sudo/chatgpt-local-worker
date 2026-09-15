@@ -31,6 +31,7 @@ const bundleDir = path.join(repoRoot, "jobs", "dev-planing", "templates");
 const bundle = run("planning-bundle-check.mjs", ["--dir", bundleDir, "--task-id", "TASK-001"]);
 assert.equal(bundle.ok, true);
 assert.equal(bundle.active_task.found, true);
+assert.equal(bundle.task_ledger.task_count >= 1, true);
 assert.deepEqual(bundle.required_files, ["ARCHITECTURE.md", "IMPLEMENTATION_PLAN.md", "TODO.md", "TASKS.md"]);
 assert.deepEqual(bundle.read_order.slice(0, 4), ["ARCHITECTURE.md", "IMPLEMENTATION_PLAN.md", "TODO.md", "TASKS.md"]);
 
@@ -73,10 +74,16 @@ assert.equal(audit.ok, true);
 const dependencies = run("dependency-gate.mjs", ["--cwd", repoRoot]);
 assert.equal(dependencies.ok, true);
 
-const completion = run("completion-gate.mjs", ["--cwd", repoRoot]);
+const completion = run("completion-gate.mjs", [
+  "--cwd", repoRoot,
+  "--planning-dir", bundleDir,
+  "--task-id", "TASK-001",
+]);
 assert.equal(completion.ok, true);
 assert.equal(completion.quality_executed, false);
+assert.equal(completion.planning_bundle_checked, true);
 assert.equal(completion.gates.validation.ok, true);
 assert.equal(completion.gates.diff.ok, true);
+assert.equal(completion.gates.planning_bundle.active_task.found, true);
 
 console.log("test-dev-coding-harness: ok");
