@@ -1,15 +1,16 @@
 {
   "id": "dev-coding",
   "name": "Dev Coding",
-  "version": "1.3.0",
+  "version": "1.3.1",
   "status": "ready",
-  "description": "Professional code-execution job that plans and implements a concrete engineering task or supplied development plan using the Local Coder filesystem, shell, git, checkpoint, project-context, project-skill, and MCP bridge core.",
+  "description": "Professional code-execution job that reads implementation and architecture context first, plans execution, then performs targeted code changes using the Local Coder filesystem, shell, git, checkpoint, project-context, project-skill, and MCP bridge core.",
   "aliases": ["coding", "code", "dev-code", "dev", "software-development", "repo", "lisp", "debug", "refactor"],
   "keywords": ["repo", "code", "coding", "dev coding", "lisp", "typescript", "javascript", "python", "git", "bug", "fix", "debug", "refactor", "test", "build", "frontend", "backend", "migration", "security", "performance"],
   "inputs": [
     {"key":"workspace","type":"repo","required":true,"description":"Target repository or source workspace"},
     {"key":"task","type":"string","required":true,"description":"Concrete engineering task or acceptance objective to execute"},
-    {"key":"plan","type":"file","required":false,"description":"Optional implementation plan produced by dev-planing or supplied by the user"}
+    {"key":"plan","type":"file","required":false,"description":"Optional implementation plan produced by dev-planing or supplied by the user; read before source-code exploration when present"},
+    {"key":"architecture","type":"file","required":false,"description":"Optional architecture/design document governing the implementation; read before source-code exploration when present"}
   ],
   "outputs": [
     {"key":"delivery","type":"string","required":false,"description":"Optional delivery expectation such as working tree changes, patch, branch, commit, or PR"}
@@ -22,7 +23,7 @@
   },
   "confirmation": {
     "required": true,
-    "template": "Tôi sẽ thực hiện task '{task}' trong repo {workspace} theo yêu cầu/plan đã cung cấp, lập execution plan phù hợp, sửa code theo quy ước của repo và chạy validation cần thiết. Xác nhận chứ?"
+    "template": "Tôi sẽ thực hiện task '{task}' trong repo {workspace}, ưu tiên đọc plan/architecture áp dụng trước, lập execution plan ngắn, chỉ inspect code cần thiết, rồi sửa và validate. Xác nhận chứ?"
   },
   "skills": [
     "skills/repository-discovery.md",
