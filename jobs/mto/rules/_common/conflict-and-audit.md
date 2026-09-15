@@ -47,4 +47,13 @@ Recommended change evidence where applicable:
 
 Also record disappeared/review-required live rows either as `review_required` changes or an explicit additional array.
 
-Audit is for human review. Do not hide material conflicts only inside workbook cells.
+## Audit vs takeoff report
+
+The audit JSON is machine-readable run/change history. The Markdown takeoff report defined by `reporting.md` is the human-readable result artifact for one equipment revision.
+
+Do not try to replace one with the other:
+
+- audit preserves every execution run;
+- report presents the final readable result, traceability, reconciliation and RFI for the equipment revision.
+
+Material conflicts must appear in both audit evidence and the reviewer-facing report when relevant.
