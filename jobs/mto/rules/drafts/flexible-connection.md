@@ -4,17 +4,17 @@
 >
 > This rule has been reconciled against the current `Flexible Connection Schedule.xlsx` template, one real Lisp export (`EQM,SIZE,EXTINSU,INTINSU`), and the corresponding completed project schedule produced from that export.
 >
-> It remains non-operational until the drawing-export resolver, controlled merge behavior, and harness are implemented and validated through additional project updates.
+> The drawing-export source workflow itself is operational. This rule remains draft only because some field-level business rules and merge semantics still need further project validation.
 >
 > **Do not add this rule to `equipment-registry.json` yet.**
 
 ## Source model
 
-Use `drafts/_common/drawing-export-driven.md`.
+Use `rules/_common/drawing-export-driven.md`.
 
 Target primary source after the Lisp naming fix: `01 WIP/flex conn.csv` (or same canonical stem with the final export extension).
 
-Legacy project-name export files such as `YAC.csv` are evidence only and must not become resolver convention.
+Legacy project-name export files such as `YAC.csv` remain usable when explicitly identified/provided by the user; they are not the future auto-resolver convention.
 
 ## Template authority
 
@@ -188,7 +188,7 @@ This schedule does **not** use the general prose preference of spaces around `x`
 
 Before a run can be considered complete:
 
-- canonical current `flex conn` export was resolved from `01 WIP`;
+- the current flex-connection export was explicitly resolved;
 - template/live schedule structure is preserved;
 - export columns are recognized (`EQM`, `SIZE`, `EXTINSU`, `INTINSU`) or explicitly mapped by project override;
 - one schedule row exists for each current export record unless explicit project evidence says otherwise;
@@ -206,11 +206,10 @@ Before a run can be considered complete:
 
 Before moving this rule to `rules/flexible-connection.md` and registering it operationally, validate:
 
-1. final Lisp extension and exact canonical path for `01 WIP/flex conn.*`;
-2. whether a unique block/connection ID should be added to the export for stronger reconciliation;
-3. whether the 150 mm LENGTH default is company-wide or project-specific;
-4. exact meaning/value vocabulary of nonblank `EXTINSU` and `INTINSU`;
-5. deterministic mapping from insulation attributes to NOTES, if any;
-6. disappeared-row behavior;
-7. compare/report/controlled-merge behavior across a second real update cycle with manual live edits;
-8. resolver/harness tests using real export fixtures.
+1. whether a unique block/connection ID should be added to the export for stronger reconciliation;
+2. whether the 150 mm LENGTH default is company-wide or project-specific;
+3. exact meaning/value vocabulary of nonblank `EXTINSU` and `INTINSU`;
+4. deterministic mapping from insulation attributes to NOTES, if any;
+5. disappeared-row behavior;
+6. compare/report/controlled-merge behavior across a second real update cycle with manual live edits;
+7. deterministic resolver/harness tests after the Lisp naming fix.
