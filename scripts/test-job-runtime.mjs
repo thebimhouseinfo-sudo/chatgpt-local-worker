@@ -133,7 +133,7 @@ assert.equal(mtoActive.state.phase, "active");
 assert.equal(mtoActive.job.id, "mto");
 assert.equal(mtoActive.job.status, "ready");
 assert.equal(mtoActive.skills.length, 0);
-assert.equal(mtoActive.harness.length, 4);
+assert.equal(mtoActive.harness.length, 5);
 assert.equal(mtoActive.validators.length, 1);
 
 const stopped = runtime.stop();
