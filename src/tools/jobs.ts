@@ -1,7 +1,8 @@
 import fs from "fs/promises";
+import path from "path";
 import { z } from "zod";
 import type { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
-import type { JobRuntime } from "../jobs/job-runtime.js";
+import { JobRuntime } from "../jobs/job-runtime.js";
 import { setDefaultCwd } from "../lib/path-security.js";
 import { resetShellSession } from "../lib/persistent-shell.js";
 import {
@@ -28,13 +29,25 @@ async function safe<T extends object>(
   }
 }
 
-async function validateResolvedWorkspace(result: any): Promise<void> {
-  const workspace = result?.state?.bindings?.workspace;
-  if (!workspace) return;
+async function validateWorkspacePath(rawWorkspace: string): Promise<string> {
+  const trimmed = rawWorkspace.trim();
+  if (!path.isAbsolute(trimmed)) {
+    throw new Error(
+      `FOLDER must be an absolute local path (for example D:\\Projects\\MyApp): ${trimmed}`
+    );
+  }
+  const workspace = path.resolve(trimmed);
   const stat = await fs.stat(workspace).catch(() => null);
   if (!stat?.isDirectory()) {
     throw new Error(`Workspace folder does not exist or is not a directory: ${workspace}`);
   }
+  return workspace;
+}
+
+async function validateResolvedWorkspace(result: any): Promise<void> {
+  const workspace = result?.state?.bindings?.workspace;
+  if (!workspace) return;
+  await validateWorkspacePath(workspace);
 }
 
 async function persistActiveSelection(result: any) {
@@ -57,6 +70,39 @@ export function registerJobTools(
   server: McpServer,
   runtime: JobRuntime
 ): void {
+  let sessionRuntime = runtime;
+
+  async function bindRuntimeToWorkspace(
+    bindings?: Record<string, string>,
+    allowReplace = false
+  ): Promise<void> {
+    const rawWorkspace = bindings?.workspace;
+    if (!rawWorkspace) return;
+
+    const workspace = await validateWorkspacePath(rawWorkspace);
+    const status = await sessionRuntime.status();
+    const phase = status?.state?.phase;
+    const currentWorkspace = status?.state?.bindings?.workspace
+      ? path.resolve(status.state.bindings.workspace)
+      : null;
+
+    if (phase === "idle") {
+      sessionRuntime = new JobRuntime(workspace);
+      return;
+    }
+
+    if (currentWorkspace === workspace) return;
+
+    if (allowReplace) {
+      sessionRuntime = new JobRuntime(workspace);
+      return;
+    }
+
+    throw new Error(
+      `A different workspace is already selected in this session: ${currentWorkspace || "unknown"}. Use job_switch to change FOLDER.`
+    );
+  }
+
   server.registerTool(
     "job_list",
     {
@@ -73,7 +119,7 @@ export function registerJobTools(
       },
       annotations: toolAnnotations("read"),
     },
-    async ({ query }) => safe("job_list", () => runtime.list(query))
+    async ({ query }) => safe("job_list", () => sessionRuntime.list(query))
   );
 
   server.registerTool(
@@ -87,7 +133,7 @@ export function registerJobTools(
     },
     async () =>
       safe("job_status", async () => ({
-        ...(await runtime.status()),
+        ...(await sessionRuntime.status()),
         worker_state: await readWorkerState(),
       }))
   );
@@ -97,14 +143,14 @@ export function registerJobTools(
     {
       title: "Job Select",
       description:
-        "Select/configure/activate one Job Pack. Resolve JOB + local workspace folder first. Two-phase by default: show confirmation first; only activate after explicit user confirmation.",
+        "Select/configure/activate one Job Pack. Resolve JOB + absolute local workspace folder first. Two-phase by default: show confirmation first; only activate after explicit user confirmation.",
       inputSchema: {
         job: z
           .string()
           .min(1)
           .describe("Exact job id/name/alias. /job <id> should map here."),
         bindings: BindingsSchema.optional().describe(
-          "Concrete input/output values keyed by the selected job's job.yaml fields. workspace must be the local folder being opened for this task."
+          "Concrete input/output values keyed by the selected job's job.yaml fields. workspace must be the absolute local folder being opened for this task."
         ),
         confirmed: z
           .boolean()
@@ -122,7 +168,8 @@ export function registerJobTools(
     },
     async ({ job, bindings, confirmed, confirmation_token }) =>
       safe("job_select", async () => {
-        const selected = await runtime.select({
+        await bindRuntimeToWorkspace(bindings);
+        const selected = await sessionRuntime.select({
           job,
           bindings,
           confirmed,
@@ -138,7 +185,7 @@ export function registerJobTools(
     {
       title: "Job Switch",
       description:
-        "Clear current session/persistent job state, then select a different Job Pack. The new job/folder must still be explicitly confirmed before activation.",
+        "Clear current session/persistent job state, then select a different Job Pack or FOLDER. The replacement must still be explicitly confirmed before activation.",
       inputSchema: {
         job: z.string().min(1),
         bindings: BindingsSchema.optional(),
@@ -148,7 +195,8 @@ export function registerJobTools(
     async ({ job, bindings }) =>
       safe("job_switch", async () => {
         const persistentState = await clearWorkerState();
-        const selected = await runtime.switch(job, bindings);
+        await bindRuntimeToWorkspace(bindings, true);
+        const selected = await sessionRuntime.switch(job, bindings);
         await validateResolvedWorkspace(selected?.current);
         return { ...selected, worker_state: persistentState };
       })
@@ -165,7 +213,7 @@ export function registerJobTools(
     },
     async () =>
       safe("job_stop", async () => ({
-        ...runtime.stop(),
+        ...sessionRuntime.stop(),
         worker_state: await clearWorkerState(),
       }))
   );
