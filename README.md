@@ -183,29 +183,48 @@ Validate Job Pack structure:
 npm run validate:jobs
 ```
 
-Run the full test suite:
+Run the full inherited + Local Worker suite:
 
 ```bash
 npm test
 ```
 
-The CI workflow runs both on pushes to `main` and on pull requests.
+The suite builds TypeScript, tests Job Runtime activation/placeholder behavior, tests both `dev-coding` and `dev-planing` harnesses, then runs the inherited upstream tests.
 
-## Adding a future Job Pack
+## Confirmation boundary
 
-Do **not** add a Job Pack merely because a domain name exists.
+For ready packs, `job_select` is two-phase:
 
-A real pack should be based on known work:
+1. Select the job and provide its concrete required bindings.
+2. Runtime returns a resolved confirmation prompt and opaque token.
+3. ChatGPT presents the prompt to the user.
+4. Only after explicit confirmation may it call `job_select` again with `confirmed=true` and that token.
+5. Pack-local skill/harness paths are exposed only after activation.
 
-1. real input artifacts;
-2. actual output requirements;
-3. domain rules and ambiguity policy;
-4. SOP/skills that reduce model improvisation;
-5. deterministic harness/validation where deterministic checks are possible;
-6. explicit completion criteria.
+Placeholder packs are rejected before this flow begins.
 
-Until those are known, leave the job unimplemented. `mto` is the single intentional placeholder because that domain is already planned for later design.
+## Repository structure
 
-## Attribution
+```text
+chatgpt-local-worker/
+├─ WORKER.md
+├─ jobs/
+│  ├─ dev-coding/        # ready: implementation + execution planning
+│  ├─ dev-planing/       # ready: planning only
+│  └─ mto/               # placeholder, non-runnable
+├─ shared-harness/
+├─ profiles/
+├─ src/
+│  ├─ jobs/              # Job Runtime
+│  ├─ tools/             # existing core + job control tools
+│  └─ lib/
+└─ scripts/
+```
 
-The repository started from [`hoangcoderr/chatgpt-local-coder`](https://github.com/hoangcoderr/chatgpt-local-coder). Upstream attribution is preserved while the product identity and workflow have changed to **ChatGPT Local Worker**.
+## Design rule for future jobs
+
+Do not add a new Job Pack just because a domain name exists. Add it only when the domain has enough real evidence to define its inputs/outputs, rules, SOP, deterministic harness, and completion criteria without guessing. Related jobs should share a meaningful family prefix.
+
+## Upstream and license
+
+Core MCP implementation is based on [`hoangcoderr/chatgpt-local-coder`](https://github.com/hoangcoderr/chatgpt-local-coder) and remains under the repository's MIT license.
