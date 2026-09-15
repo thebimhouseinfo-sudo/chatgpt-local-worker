@@ -12,6 +12,7 @@ profiles/*
 .mcp-oauth/
 .codex-remote-attachments/
 .env
+worker-state.json
 terminals/
 agent-tools/
 mcps/
