@@ -1,0 +1,40 @@
+# MTO TAKEOFF REPORT — {{EQUIPMENT}}
+
+## RUN SUMMARY
+
+- Project: {{PROJECT}}
+- Equipment: {{EQUIPMENT}}
+- Input Revision: {{INPUT_REV}}
+- Schedule Mode: {{SCHEDULE_MODE}}
+- Live Schedule: {{LIVE_SCHEDULE}}
+- Run Timestamp: {{RUN_TIMESTAMP}}
+- Rules Applied: {{RULES_APPLIED}}
+
+## EQUIPMENT SCHEDULE
+
+{{EQUIPMENT_SCHEDULE_TABLE}}
+
+## CHANGE SUMMARY
+
+- Added: {{ADDED_COUNT}}
+- Updated: {{UPDATED_COUNT}}
+- Unchanged: {{UNCHANGED_COUNT}}
+- Review Required / Disappeared: {{REVIEW_REQUIRED_COUNT}}
+
+{{CHANGE_DETAILS}}
+
+## TRACEABILITY & DATA SOURCE
+
+{{TRACEABILITY}}
+
+## DRAWING RECONCILIATION
+
+{{DRAWING_RECONCILIATION}}
+
+## CONFLICTS / TBC / REVIEW ITEMS
+
+{{REVIEW_ITEMS}}
+
+## QUERY LIST (RFI)
+
+{{RFI_LIST}}
