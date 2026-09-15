@@ -1,0 +1,52 @@
+{
+  "id": "dev-coding",
+  "name": "Dev Coding",
+  "version": "1.2.0",
+  "status": "ready",
+  "description": "Professional code-execution job that implements a concrete task or supplied development plan using the Local Coder filesystem, shell, git, checkpoint, project-context, project-skill, and MCP bridge core.",
+  "aliases": ["coding", "code", "dev-code", "dev", "software-development", "repo", "lisp", "debug", "refactor"],
+  "keywords": ["repo", "code", "coding", "dev coding", "lisp", "typescript", "javascript", "python", "git", "bug", "fix", "debug", "refactor", "test", "build", "frontend", "backend", "migration", "security", "performance"],
+  "inputs": [
+    {"key":"workspace","type":"repo","required":true,"description":"Target repository or source workspace"},
+    {"key":"task","type":"string","required":true,"description":"Concrete engineering task or acceptance objective to execute"},
+    {"key":"plan","type":"file","required":false,"description":"Optional implementation plan produced by dev-planing or supplied by the user"}
+  ],
+  "outputs": [
+    {"key":"delivery","type":"string","required":false,"description":"Optional delivery expectation such as working tree changes, patch, branch, commit, or PR"}
+  ],
+  "permissions": {
+    "filesystem": "read-write-after-confirm",
+    "shell": "allowed-after-confirm",
+    "git": "read-write-after-confirm",
+    "network": "only-when-required-by-task-and-available-through-existing-tools"
+  },
+  "confirmation": {
+    "required": true,
+    "template": "Tôi sẽ thực hiện task '{task}' trong repo {workspace} theo yêu cầu/plan đã cung cấp, sửa code theo quy ước của repo và chạy validation phù hợp. Xác nhận chứ?"
+  },
+  "skills": [
+    "skills/repository-discovery.md",
+    "skills/implementation.md",
+    "skills/debugging.md",
+    "skills/testing.md",
+    "skills/validation.md",
+    "skills/refactoring.md",
+    "skills/dependencies-and-apis.md",
+    "skills/security.md",
+    "skills/performance.md",
+    "skills/documentation-and-release.md",
+    "skills/git-review.md"
+  ],
+  "harness": {
+    "entrypoints": [
+      "harness/inspect-repo.mjs",
+      "harness/quality-gate.mjs",
+      "harness/diff-gate.mjs",
+      "harness/change-audit.mjs",
+      "harness/dependency-gate.mjs",
+      "harness/completion-gate.mjs",
+      "harness/validate.mjs"
+    ]
+  },
+  "validators": ["harness/validate.mjs", "harness/completion-gate.mjs"]
+}

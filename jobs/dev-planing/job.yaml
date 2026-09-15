@@ -1,0 +1,38 @@
+{
+  "id": "dev-planing",
+  "name": "Dev Planing",
+  "version": "1.0.0",
+  "status": "ready",
+  "description": "Repository-aware development planning job that analyzes code and produces an implementation plan without modifying source code.",
+  "aliases": ["dev-planning", "plan", "dev-plan", "planning", "implementation-plan", "architecture-plan"],
+  "keywords": ["plan", "planing", "planning", "dev plan", "implementation plan", "architecture", "design", "scope", "impact", "migration plan", "technical plan"],
+  "inputs": [
+    {"key":"workspace","type":"repo","required":true,"description":"Target repository to analyze"},
+    {"key":"objective","type":"string","required":true,"description":"Feature, fix, migration, or engineering objective to plan"},
+    {"key":"context","type":"string","required":false,"description":"Optional constraints, references, issue/PR context, or decisions already made"}
+  ],
+  "outputs": [
+    {"key":"plan","type":"path","required":true,"description":"Development plan document to create or update"}
+  ],
+  "permissions": {
+    "filesystem": "read-project-write-plan-only-after-confirm",
+    "shell": "read-only-inspection-after-confirm",
+    "git": "read-only-after-confirm",
+    "network": "only-when-required-for-reference-research-through-existing-tools"
+  },
+  "confirmation": {
+    "required": true,
+    "template": "Tôi sẽ phân tích repo {workspace} cho objective '{objective}' và chỉ ghi development plan vào {plan}; không sửa source code. Xác nhận chứ?"
+  },
+  "skills": [
+    "skills/repository-analysis.md",
+    "skills/scope-and-constraints.md",
+    "skills/architecture-impact.md",
+    "skills/implementation-sequencing.md",
+    "skills/validation-and-risk.md"
+  ],
+  "harness": {
+    "entrypoints": ["harness/validate.mjs", "harness/plan-lint.mjs"]
+  },
+  "validators": ["harness/validate.mjs", "harness/plan-lint.mjs"]
+}

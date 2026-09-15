@@ -7,6 +7,7 @@ const requiredMeta = [
   "id",
   "name",
   "version",
+  "status",
   "description",
   "aliases",
   "keywords",
@@ -14,9 +15,11 @@ const requiredMeta = [
   "outputs",
   "permissions",
   "confirmation",
+  "skills",
   "harness",
   "validators",
 ];
+const allowedStatuses = new Set(["ready", "placeholder"]);
 
 async function exists(target) {
   try {
@@ -63,6 +66,16 @@ export async function validateJobPack(packDir) {
       );
     }
 
+    if (!allowedStatuses.has(meta.status)) {
+      errors.push(`job.yaml status must be one of: ${[...allowedStatuses].join(", ")}`);
+    }
+
+    for (const rel of meta.skills ?? []) {
+      if (!(await exists(path.resolve(absolute, rel)))) {
+        errors.push(`missing skill '${rel}'`);
+      }
+    }
+
     const entrypoints = meta.harness?.entrypoints ?? [];
     for (const rel of entrypoints) {
       if (!(await exists(path.resolve(absolute, rel)))) {
@@ -81,6 +94,7 @@ export async function validateJobPack(packDir) {
     ok: errors.length === 0,
     pack: absolute,
     id: meta?.id ?? path.basename(absolute),
+    status: meta?.status ?? null,
     errors,
   };
 }

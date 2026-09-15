@@ -16,6 +16,7 @@ const JobMetaSchema = z
     id: z.string().min(1),
     name: z.string().min(1),
     version: z.string().min(1).default("0.1.0"),
+    status: z.enum(["ready", "placeholder"]).optional().default("ready"),
     description: z.string().min(1),
     aliases: z.array(z.string()).optional().default([]),
     keywords: z.array(z.string()).optional().default([]),
@@ -35,6 +36,7 @@ const JobMetaSchema = z
         required: true,
         template: "Tôi sẽ thực hiện job {job} với input/output đã nêu. Xác nhận chứ?",
       }),
+    skills: z.array(z.string()).optional().default([]),
     harness: z
       .object({
         entrypoints: z.array(z.string()).optional().default([]),
@@ -160,6 +162,7 @@ export class JobRuntime {
       id: pack.meta.id,
       name: pack.meta.name,
       version: pack.meta.version,
+      status: pack.meta.status,
       description: pack.meta.description,
       aliases: pack.meta.aliases,
       keywords: pack.meta.keywords,
@@ -167,6 +170,7 @@ export class JobRuntime {
       outputs: pack.meta.outputs,
       permissions: pack.meta.permissions,
       confirmation_required: pack.meta.confirmation.required,
+      skill_count: pack.meta.skills.length,
     };
   }
 
@@ -245,6 +249,7 @@ export class JobRuntime {
 
   private async activePayload(pack: LoadedJobPack) {
     const resolvePackPath = (rel: string) => path.resolve(pack.dir, rel);
+    const skills = pack.meta.skills.map(resolvePackPath);
     const harness = pack.meta.harness.entrypoints.map(resolvePackPath);
     const validators = pack.meta.validators.map(resolvePackPath);
 
@@ -253,6 +258,7 @@ export class JobRuntime {
       job: this.publicMeta(pack),
       job_md: pack.job_md,
       skill_md: pack.skill_md,
+      skills,
       harness,
       validators,
       pack_dir: pack.dir,
@@ -314,7 +320,7 @@ export class JobRuntime {
           )
         : [],
       note:
-        "Keyword matching is suggestion-only. A job is never selected or activated by job_list.",
+        "Keyword matching is suggestion-only. Placeholder jobs are informational and cannot be activated.",
     };
   }
 
@@ -333,14 +339,21 @@ export class JobRuntime {
       job: this.publicMeta(pack),
       job_md: pack.job_md,
       skill_md: pack.skill_md,
+      skills: [],
       harness: [],
       validators: [],
-      note: "Harness details are withheld until the job is active.",
+      note: "Pack-local skill and harness paths are withheld until the job is active.",
     };
   }
 
   async select(options: JobSelectOptions) {
     const pack = await this.resolvePack(options.job);
+
+    if (pack.meta.status !== "ready") {
+      throw new Error(
+        `Job '${pack.meta.id}' is ${pack.meta.status} and cannot be selected or activated yet.`
+      );
+    }
 
     if (
       this.state.job_id &&
@@ -421,6 +434,7 @@ export class JobRuntime {
         job_md: pack.job_md,
         skill_md: pack.skill_md,
         missing_bindings: missing,
+        skills: [],
         harness: [],
         validators: [],
         next:
@@ -458,10 +472,11 @@ export class JobRuntime {
       missing_bindings: [],
       confirmation_prompt: prompt,
       confirmation_token: token,
+      skills: [],
       harness: [],
       validators: [],
       next:
-        "Show confirmation_prompt to the user. Do not activate or run the job harness until the user explicitly confirms.",
+        "Show confirmation_prompt to the user. Do not activate or load pack-local skills/harness until the user explicitly confirms.",
     };
   }
 
