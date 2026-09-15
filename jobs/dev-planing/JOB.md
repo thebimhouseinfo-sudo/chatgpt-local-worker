@@ -1,4 +1,4 @@
-# Development Planning
+# Dev Planing
 
 ## Goal
 Produce an implementation-ready development plan from repository evidence without modifying application/source code.
@@ -14,7 +14,7 @@ Produce an implementation-ready development plan from repository evidence withou
 - Objective and constraints are explicit.
 - Current-state findings cite concrete files/symbols/flows where practical.
 - Scope and non-goals are separated.
-- Implementation steps are ordered by dependency and precise enough for the `coding` job to execute.
+- Implementation steps are ordered by dependency and precise enough for the `dev-coding` job to execute.
 - Validation strategy is defined before coding begins.
 - Risks, compatibility concerns, migrations, and unresolved decisions are visible.
 - `harness/plan-lint.mjs --plan <plan>` passes.
