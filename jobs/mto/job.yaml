@@ -1,9 +1,9 @@
 {
   "id": "mto",
   "name": "MTO / Quantity Takeoff",
-  "version": "1.0.0",
+  "version": "1.1.0",
   "status": "ready",
-  "description": "Local, user-triggered HVAC equipment quantity-takeoff job. Resolves project structure/revisions deterministically, applies equipment rules, updates live EQM schedules in place, and records audit evidence.",
+  "description": "Local, user-triggered HVAC equipment quantity-takeoff job. Resolves project structure/revisions deterministically, applies equipment rules, updates live EQM schedules in place, and produces audit plus human-readable takeoff reports.",
   "aliases": ["mto", "takeoff", "quantity-takeoff", "boc-khoi-luong", "bốc khối lượng", "eqm", "eqm-takeoff"],
   "keywords": ["mto", "takeoff", "quantity", "bóc khối lượng", "boq", "hvac", "eqm", "equipment schedule", "fan", "ac", "air conditioning"],
   "inputs": [
@@ -13,7 +13,7 @@
     {"key":"input_revision","type":"string","required":true,"description":"Explicit YYYY MM DD revision or 'latest'. For latest, resolver finds the latest valid revision containing each requested equipment folder."}
   ],
   "outputs": [
-    {"key":"delivery","type":"string","required":false,"description":"Optional delivery/report expectation. Live EQM paths are resolved from project structure, not supplied by the user."}
+    {"key":"delivery","type":"string","required":false,"description":"Optional delivery/report expectation. Live EQM, report and audit paths are resolved from project structure, not supplied by the user."}
   ],
   "permissions": {
     "filesystem": "read-project-write-only-01-WIP-SCHEDULE-eqm-after-confirm",
@@ -31,6 +31,7 @@
       "harness/resolve-project.mjs",
       "harness/write-guard.mjs",
       "harness/audit-lint.mjs",
+      "harness/report-lint.mjs",
       "harness/validate.mjs"
     ]
   },
