@@ -1,15 +1,15 @@
 {
-  "id": "coding",
-  "name": "Coding Agent",
+  "id": "dev-coding",
+  "name": "Dev Coding",
   "version": "1.2.0",
   "status": "ready",
   "description": "Professional code-execution job that implements a concrete task or supplied development plan using the Local Coder filesystem, shell, git, checkpoint, project-context, project-skill, and MCP bridge core.",
-  "aliases": ["code", "coding", "dev", "software-development", "repo", "lisp", "debug", "refactor"],
-  "keywords": ["repo", "code", "coding", "lisp", "typescript", "javascript", "python", "git", "bug", "fix", "debug", "refactor", "test", "build", "frontend", "backend", "migration", "security", "performance"],
+  "aliases": ["coding", "code", "dev-code", "dev", "software-development", "repo", "lisp", "debug", "refactor"],
+  "keywords": ["repo", "code", "coding", "dev coding", "lisp", "typescript", "javascript", "python", "git", "bug", "fix", "debug", "refactor", "test", "build", "frontend", "backend", "migration", "security", "performance"],
   "inputs": [
     {"key":"workspace","type":"repo","required":true,"description":"Target repository or source workspace"},
     {"key":"task","type":"string","required":true,"description":"Concrete engineering task or acceptance objective to execute"},
-    {"key":"plan","type":"file","required":false,"description":"Optional implementation plan produced by dev-planning or supplied by the user"}
+    {"key":"plan","type":"file","required":false,"description":"Optional implementation plan produced by dev-planing or supplied by the user"}
   ],
   "outputs": [
     {"key":"delivery","type":"string","required":false,"description":"Optional delivery expectation such as working tree changes, patch, branch, commit, or PR"}
