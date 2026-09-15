@@ -6,7 +6,7 @@
 
 </div>
 
-ChatGPT Local Worker is derived from [`hoangcoderr/chatgpt-local-coder`](https://github.com/hoangcoderr/chatgpt-local-coder). The original MCP execution core is intentionally preserved as the worker substrate. A thin **Job Runtime** sits above it so domain workflows can be added deliberately without turning the system into a tool-heavy or multi-agent architecture.
+ChatGPT Local Worker is derived from [`hoangcoderr/chatgpt-local-coder`](https://github.com/hoangcoderr/chatgpt-local-coder). The original MCP execution core is intentionally preserved as the worker substrate. A thin **Job Runtime** sits above it so workflows can be added deliberately without turning the system into a tool-heavy or multi-agent architecture.
 
 ## Current scope
 
@@ -14,10 +14,25 @@ The repository is intentionally not populated with fake jobs.
 
 | Job | Status | Purpose |
 |---|---|---|
-| `coding` | **ready** | Professional repository engineering, inheriting the complete Local Coder core |
+| `coding` | **ready** | Execute concrete repository/code changes and validate them; no formal development planning |
+| `dev-planning` | **ready** | Analyze a repository and produce an implementation-ready development plan without editing source code |
 | `mto` | **placeholder** | Reserved for future MTO / quantity takeoff; no business logic exists yet |
 
 `mto` appears in discovery so the future slot is explicit, but the Job Runtime refuses to select or activate placeholder packs.
+
+For non-trivial development work the intended handoff is:
+
+```text
+dev-planning
+   │
+   └─ development plan artifact
+              │
+              ▼
+           coding
+   implementation + validation
+```
+
+This handoff is optional. A small, already-concrete coding task can go directly to `coding`.
 
 ## Architecture
 
@@ -29,7 +44,7 @@ Job Runtime
    ├─ discover / suggest
    ├─ ready vs placeholder status
    ├─ select
-   ├─ resolve concrete inputs
+   ├─ resolve concrete inputs/outputs
    ├─ explicit confirmation
    ├─ active Job Pack
    └─ validate / stop / switch
@@ -67,40 +82,48 @@ Control tools:
 
 ## Coding Job
 
-`jobs/coding/` is the first production-quality Job Pack. It is not a thin placeholder around the word “coding”. It inherits the proven Local Coder execution layer and adds an explicit engineering workflow.
+`jobs/coding/` is the execution Job Pack inherited from the original Local Coder capability. It does **not** perform formal development planning.
 
-```text
-jobs/coding/
-├─ job.yaml
-├─ JOB.md
-├─ SKILL.md
-├─ skills/
-│  ├─ repository-discovery.md
-│  ├─ implementation.md
-│  ├─ debugging.md
-│  ├─ validation.md
-│  └─ git-review.md
-└─ harness/
-   ├─ inspect-repo.mjs
-   ├─ quality-gate.mjs
-   ├─ diff-gate.mjs
-   └─ validate.mjs
-```
+Inputs:
 
-The coding workflow explicitly uses existing core capabilities such as `project_context`, `list_skills` / `load_skill`, path-specific rules, search/read/patch, persistent shell, git, checkpoint/rewind, and enabled upstream MCP servers.
+- `workspace` — target repository/workspace
+- `task` — concrete engineering objective to execute
+- `plan` — optional plan artifact from `dev-planning` or the user
+- `delivery` — optional branch/commit/PR/working-tree delivery expectation
+
+Its specialist skills cover repository discovery, implementation, debugging, testing, validation, refactoring/migrations, dependencies/APIs, security, performance, documentation/release hygiene, and git/diff review.
+
+If a task requires unresolved product or architecture decisions, `coding` must surface that gap rather than silently becoming a planner. Use `dev-planning` for formal repository-aware design work.
 
 ### Coding harness
 
-- `inspect-repo.mjs` — deterministic repository inventory: Git state, manifests, stack signals, package scripts.
-- `quality-gate.mjs` — discovers repository-native lint/type/test/build commands and can run the discovered set only when invoked with `--run`.
-- `diff-gate.mjs` — checks Git worktree scope and `git diff --check`, plus staged/unstaged summaries.
-- `validate.mjs` — validates the Coding Job Pack itself, including required specialist skills.
+- `inspect-repo.mjs` — repository inventory and stack/git signals.
+- `quality-gate.mjs` — discovers repository-native format/lint/type/test/build checks; execution requires explicit `--run`.
+- `diff-gate.mjs` — staged/unstaged whitespace, conflict, and scope checks.
+- `change-audit.mjs` — catches merge markers, sensitive material, machine paths, debugger leftovers, and oversized artifacts.
+- `dependency-gate.mjs` — checks common manifest/lockfile consistency problems.
+- `completion-gate.mjs` — aggregate structural completion gate.
+- `validate.mjs` — validates the Coding Job Pack itself.
 
-The harness supports the coding agent; it does not replace repository-owned test/build commands or the generic core tools.
+## Development Planning Job
+
+`jobs/dev-planning/` is a separate read-oriented planning workflow.
+
+It may inspect source, tests, config, repository history, project instructions, and related evidence. Its only intentional write target is the confirmed `plan` output artifact.
+
+Specialist skills cover:
+
+- repository analysis
+- scope & constraints
+- architecture/impact analysis
+- implementation sequencing
+- validation & risk planning
+
+The output follows `templates/DEV_PLAN.md` and is checked by `harness/plan-lint.mjs`. The plan must separate repository evidence, constraints, non-goals, implementation steps, validation, risks, and open questions. Missing product/architecture decisions remain explicit instead of being guessed.
 
 ## MTO placeholder
 
-`jobs/mto/` is deliberately skeletal. It contains no invented HVAC takeoff rules, output schema, counting policy, source hierarchy, or equipment logic. It exists only to reserve the future Job Pack boundary. It can become `ready` later when the actual MTO workflow is designed from real project inputs and expected outputs.
+`jobs/mto/` is deliberately skeletal. It contains no invented HVAC takeoff rules, output schema, counting policy, source hierarchy, or equipment logic. It exists only to reserve the future Job Pack boundary and cannot run until its real domain contract is designed.
 
 ## Worker Home vs target workspace
 
@@ -156,13 +179,13 @@ Run the full inherited + Local Worker suite:
 npm test
 ```
 
-The suite builds TypeScript, tests Job Runtime activation/placeholder behavior, tests the coding lifecycle, then runs the inherited upstream tests.
+The suite builds TypeScript, tests Job Runtime activation/placeholder behavior, tests both `coding` and `dev-planning` harnesses, then runs the inherited upstream tests.
 
 ## Confirmation boundary
 
-For a ready pack such as `coding`, `job_select` is two-phase:
+For ready packs, `job_select` is two-phase:
 
-1. Select the job and provide concrete required bindings (`workspace`, `task`).
+1. Select the job and provide its concrete required bindings.
 2. Runtime returns a resolved confirmation prompt and opaque token.
 3. ChatGPT presents the prompt to the user.
 4. Only after explicit confirmation may it call `job_select` again with `confirmed=true` and that token.
@@ -176,7 +199,8 @@ Placeholder packs are rejected before this flow begins.
 chatgpt-local-worker/
 ├─ WORKER.md
 ├─ jobs/
-│  ├─ coding/            # ready
+│  ├─ coding/            # ready: implementation
+│  ├─ dev-planning/      # ready: planning only
 │  └─ mto/               # placeholder, non-runnable
 ├─ shared-harness/
 ├─ profiles/
