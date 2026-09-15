@@ -7,12 +7,14 @@ import util from "node:util";
 import vm from "node:vm";
 import { z } from "zod";
 import type { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
+import { getDefaultCwd } from "../lib/path-security.js";
 import { toolAnnotations } from "../lib/tool-annotations.js";
 import { toolResult } from "../lib/tool-result.js";
 import { isComputerUseEnabled } from "../lib/plugin-config.js";
 
 interface ReplState {
   context: vm.Context;
+  workspaceRoot: string;
   skyAvailable: boolean;
   skyError?: string;
 }
@@ -76,15 +78,20 @@ async function createState(workspaceRoot: string): Promise<ReplState> {
   };
   const loaded = await loadSky();
   if (loaded.sky) sandbox.sky = loaded.sky;
-  return { context: vm.createContext(sandbox), skyAvailable: Boolean(loaded.sky), skyError: loaded.error };
+  return {
+    context: vm.createContext(sandbox),
+    workspaceRoot,
+    skyAvailable: Boolean(loaded.sky),
+    skyError: loaded.error,
+  };
 }
 
-export function registerNodeReplTool(server: McpServer, workspaceRoot: string): void {
+export function registerNodeReplTool(server: McpServer, _startupWorkspaceRoot: string): void {
   server.registerTool(
     "node_repl",
     {
       title: "Node REPL",
-      description: "Stateful JavaScript session. Store state on globalThis. When the Computer Use plugin is enabled and its skill is loaded, globalThis.sky exposes Codex Windows Computer Use.",
+      description: "Stateful JavaScript session rooted at the confirmed active workspace. Store state on globalThis. When the Computer Use plugin is enabled and its skill is loaded, globalThis.sky exposes Codex Windows Computer Use.",
       inputSchema: {
         action: z.enum(["eval", "reset", "status"]).default("eval"),
         code: z.string().optional().describe("JavaScript. Use globalThis for state across calls; nodeRepl.write() emits text."),
@@ -97,13 +104,20 @@ export function registerNodeReplTool(server: McpServer, workspaceRoot: string): 
         states.delete(server);
         return toolResult("node_repl", { reset: true });
       }
+
+      const activeWorkspace = getDefaultCwd();
       let state = states.get(server);
-      if (!state) {
-        state = await createState(workspaceRoot);
+      if (!state || state.workspaceRoot !== activeWorkspace) {
+        state = await createState(activeWorkspace);
         states.set(server, state);
       }
       if (action === "status") {
-        return toolResult("node_repl", { persistent: true, computer_use_available: state.skyAvailable, computer_use_error: state.skyError });
+        return toolResult("node_repl", {
+          persistent: true,
+          workspace: state.workspaceRoot,
+          computer_use_available: state.skyAvailable,
+          computer_use_error: state.skyError,
+        });
       }
       if (!code?.trim()) throw new Error("code is required for node_repl eval");
       if (!state.context.sky && state.skyAvailable) {
@@ -115,6 +129,7 @@ export function registerNodeReplTool(server: McpServer, workspaceRoot: string): 
       try {
         const value = await vm.runInContext(`(async () => { ${code}\n})()`, state.context, { timeout: timeout_ms }) as Promise<unknown>;
         return toolResult("node_repl", {
+          workspace: state.workspaceRoot,
           output: output.join("\n"),
           value: value === undefined ? undefined : util.inspect(value, { depth: 5, maxArrayLength: 100 }),
           computer_use_available: state.skyAvailable,
