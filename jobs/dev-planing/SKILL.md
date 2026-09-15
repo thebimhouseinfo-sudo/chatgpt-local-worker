@@ -1,4 +1,4 @@
-# Development Planning — Operating SOP
+# Dev Planing — Operating SOP
 
 This job produces an implementation-ready plan. It does not implement the plan.
 
@@ -28,7 +28,7 @@ Prefer changes that fit existing architecture unless the objective explicitly ca
 
 ## 5. Produce an executable sequence
 
-Use `skills/implementation-sequencing.md` to order work by dependency. The plan should tell the future `coding` job what to change and where, without writing the code itself.
+Use `skills/implementation-sequencing.md` to order work by dependency. The plan should tell the future `dev-coding` job what to change and where, without writing the code itself.
 
 Each implementation step should identify:
 - component/file/symbol area;
@@ -50,6 +50,6 @@ Run:
 
 A plan is not complete while the lint fails or material open questions are hidden.
 
-## Handoff to Coding
+## Handoff to Dev Coding
 
-The resulting plan is an input artifact for the `coding` job. Coding may execute it, but repository instructions and newer explicit user decisions still outrank an older plan.
+The resulting plan is an input artifact for the `dev-coding` job. Dev Coding may execute it, but repository instructions and newer explicit user decisions still outrank an older plan.
