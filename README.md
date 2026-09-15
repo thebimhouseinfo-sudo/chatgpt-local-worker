@@ -16,7 +16,7 @@ The repository is intentionally not populated with fake jobs.
 |---|---|---|
 | `dev-coding` | **ready** | Read the planning bundle first, execute targeted code tasks, update task progress, validate changes |
 | `dev-planing` | **ready** | Deep repository review and creation of architecture + general implementation plan + TODO + executable task list |
-| `mto` | **placeholder** | Reserved for future MTO / quantity takeoff; no business logic exists yet |
+| `mto` | **ready** | Local HVAC equipment takeoff/update; V1 supports AC and Fan with explicit rules and deterministic project/revision/write/audit harnesses |
 
 `coding` and `dev-planning` remain compatibility aliases only. Canonical development job IDs use the shared `dev-` prefix.
 
@@ -50,6 +50,71 @@ dev-planing
 The planning pass is optional for small/concrete work. Once project architecture/direction is established, ordinary development can stay in `dev-coding` across new chats without re-reviewing the whole repository.
 
 If coding discovers a bounded branch that needs more detail, it may create `task-plans/<TASK-ID>.md`, link it from `TASKS.md`, and continue. If the branch requires a new architecture/product decision or project-wide re-plan, the task is marked `BLOCKED` and the user is directed back to `dev-planing`.
+
+## MTO workflow
+
+`mto` is a user-triggered local project workflow, not a folder watcher. The user provides intent plus equipment scope, for example:
+
+```text
+Update AC and Fan from the latest input.
+```
+
+The Job Pack resolves the known project convention from the project root:
+
+```text
+<Project Root>/
+├─ 00 Input/
+│  └─ YYYY MM DD/
+│     ├─ ac/
+│     └─ fan/
+├─ 01 WIP/
+│  ├─ DESIGN DRAWING/
+│  ├─ REVIT/
+│  └─ SCHEDULE/
+│     ├─ AC Equipment Schedule.xlsx
+│     ├─ Fan Equipment Schedule.xlsx
+│     └─ eqm/
+│        └─ _audit/
+├─ 02 Output/
+└─ qto-rules/                  # optional project overrides
+```
+
+For `input_revision=latest`, revision resolution is per requested equipment: the newest valid `YYYY MM DD` folder containing `ac/` may differ from the newest folder containing `fan/`.
+
+MTO source authority is deliberately strict:
+
+1. schedule template = schema authority;
+2. EQM selection = project equipment/model/value authority;
+3. exact-model technical data/catalog = supplement only;
+4. DESIGN DRAWING = count/tag/context reconciliation;
+5. rules = permitted normalization/derivation;
+6. unsupported data stays explicit — never invent.
+
+Only `01 WIP/SCHEDULE/eqm/**` is an intended write area. Templates/Input/DESIGN DRAWING/project rules are read-only, REVIT is outside the takeoff workflow, and `02 Output/**` is forbidden for MTO writes.
+
+The live EQM workbook is updated in place. If it does not yet exist, it is bootstrapped from the matching template. Audit history is kept under `eqm/_audit/<equipment>.json` as a JSON array of run records.
+
+### MTO rules
+
+Business semantics live under `jobs/mto/rules/` rather than deterministic harness code:
+
+- `_common/source-authority.md`
+- `_common/template-and-formatting.md`
+- `_common/drawing-reconciliation.md`
+- `_common/live-schedule-update.md`
+- `_common/conflict-and-audit.md`
+- `ac.md`
+- `fan.md`
+- `equipment-registry.json`
+
+Project-specific overrides may live under `<project>/qto-rules/`. Explicit user instruction for the current run outranks project rules, which outrank base rules, but no rule may weaken the EQM write boundary.
+
+### MTO harness
+
+- `resolve-project.mjs` — resolve/validate project structure, explicit/latest revision, equipment input folder, template/live schedule, audit path, and rule paths.
+- `write-guard.mjs` — allow only `01 WIP/SCHEDULE/eqm/**`; deny templates and `02 Output/**`.
+- `audit-lint.mjs` — validate append-history audit JSON.
+- `validate.mjs` — validate the operational MTO Job Pack and AC/Fan registry/rules.
 
 ## Job family naming
 
@@ -158,9 +223,15 @@ Its required output is a planning bundle inside the confirmed `planning_dir`:
 
 Specialist skills cover repository analysis, scope/constraints, architecture/impact, implementation sequencing, validation/risk, and handoff-artifact design. The bundle is checked by `harness/bundle-lint.mjs`.
 
-## MTO placeholder
+## MTO Job
 
-`jobs/mto/` is deliberately skeletal. It contains no invented HVAC takeoff rules, output schema, counting policy, source hierarchy, or equipment logic. It exists only to reserve the future Job Pack boundary and cannot run until its real domain contract is designed.
+`jobs/mto/` is operational for AC and Fan equipment takeoff/update. It separates:
+
+- `SKILL.md` — workflow/SOP;
+- `rules/` — business semantics;
+- `harness/` — deterministic structure/revision/path/audit checks.
+
+Other equipment types remain unsupported until their real rules and test evidence are added.
 
 ## Worker Home vs target workspace
 
@@ -216,7 +287,7 @@ Run the full inherited + Local Worker suite:
 npm test
 ```
 
-The suite builds TypeScript, tests Job Runtime activation/placeholder behavior, tests both `dev-coding` and `dev-planing` harnesses, then runs the inherited upstream tests.
+The suite builds TypeScript, tests Job Runtime activation, tests `dev-coding`, `dev-planing`, and `mto` harnesses, then runs the inherited upstream tests.
 
 ## Confirmation boundary
 
@@ -238,7 +309,9 @@ chatgpt-local-worker/
 ├─ jobs/
 │  ├─ dev-coding/        # ready: bundle-aware implementation
 │  ├─ dev-planing/       # ready: deep planning + bundle authoring
-│  └─ mto/               # placeholder, non-runnable
+│  └─ mto/               # ready: AC/Fan local takeoff/update
+│     ├─ rules/
+│     └─ harness/
 ├─ shared-harness/
 ├─ profiles/
 ├─ src/

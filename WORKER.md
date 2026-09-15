@@ -10,7 +10,7 @@ At this stage the catalog is intentionally small:
 
 - `dev-coding` — **READY**. Development-family implementation/execution job. It inherits the original Local Coder core and adds planning-bundle-first execution, task-ledger progress tracking, bounded task-local planning, targeted repository discovery, specialist skills, and deterministic harnesses.
 - `dev-planing` — **READY**. Development-family planning job. It may deeply review a repository and produces a durable planning bundle without modifying source code.
-- `mto` — **PLACEHOLDER**. Reserved for future quantity takeoff / bóc khối lượng work. It has no domain business logic yet and must not be selected or activated.
+- `mto` — **READY**. Local, user-triggered HVAC equipment takeoff/update job. V1 supports AC and Fan through explicit business rules plus deterministic project/revision/path harnesses.
 
 Legacy names such as `coding` and `dev-planning` may remain aliases for compatibility, but canonical job IDs are `dev-coding` and `dev-planing`.
 
@@ -39,6 +39,33 @@ It must not default to re-reviewing the whole repository for every coding chat. 
 If implementation discovers a bounded branch that remains inside settled architecture/scope, `dev-coding` may create a task-local plan under `task-plans/`, link/update the task ledger, and continue.
 
 If a branch requires a new architecture/product decision, repository-wide re-plan, or material scope expansion, `dev-coding` must not silently invent that work. It should mark the affected task `BLOCKED`, record the missing decision, and recommend opening a `dev-planing` chat for better results.
+
+## MTO job boundary
+
+`mto` is not a watcher and does not autonomously decide which equipment to process. The user supplies the work intent and equipment scope; the Job Pack resolves project paths, supported rules, and explicit/latest input revision from the known local-project structure.
+
+V1 supported equipment:
+
+- `ac`
+- `fan`
+
+Normal MTO flow:
+
+1. resolve/validate `<project>/00 Input`, `01 WIP`, schedules, design drawings, and requested equipment/revision;
+2. load common + equipment rules and optional project `qto-rules` overrides;
+3. read the schedule template as immutable schema;
+4. read EQM selection first;
+5. use exact-model technical data only to supplement missing fields;
+6. reconcile counts/tags against DESIGN DRAWING where practical;
+7. update/bootstrap the live workbook under `01 WIP/SCHEDULE/eqm/`;
+8. append logical audit history and validate it;
+9. report conflicts/TBC/unmatched/disappeared rows explicitly.
+
+When `input_revision=latest`, resolve the newest valid `YYYY MM DD` revision **per requested equipment**. Do not choose work scope automatically and do not use filesystem mtime as revision authority.
+
+MTO writes are limited to `01 WIP/SCHEDULE/eqm/**`. `00 Input/**`, DESIGN DRAWING, schedule templates and `qto-rules/**` are read-only for MTO; `01 WIP/REVIT/**` is out of takeoff scope; `02 Output/**` is forbidden. The MTO write-guard must pass before project writes, and deployment should enforce the same boundary at the filesystem/MCP ACL layer.
+
+MTO business semantics live under `jobs/mto/rules/`, not in deterministic harness code. Do not invent rules for unsupported equipment.
 
 ## Job family naming
 
@@ -98,11 +125,14 @@ For `dev-coding`, the inherited core includes filesystem/search/patch, shell/pro
 
 For `dev-planing`, repository inspection is read-oriented and intentional writes are limited to the confirmed planning bundle directory.
 
+For `mto`, load `rules/` before mutating data, use resolver paths instead of asking the user for internal paths, keep equipment scope user-controlled, and run the write guard before every project write.
+
 ### 6. VALIDATE
 
 - Run the pack validator(s) and task-appropriate deterministic checks.
 - For `dev-coding`, validation must include final diff review and `git diff --check` when operating in Git. Bundle-backed work must leave `TASKS.md` reflecting real status/progress.
 - For `dev-planing`, the planning bundle must pass `bundle-lint` and must expose unresolved decisions instead of hiding them.
+- For `mto`, validate project/revision resolution, write target, audit JSON, template preservation, exact selected models, source authority, and explicit unresolved review items.
 - Files written or code generated is not evidence of completion by itself.
 
 ### 7. COMPLETE
@@ -128,7 +158,7 @@ The MCP core remains the execution substrate:
 - project context/memory
 - project-local skills and path rules
 
-Job Packs contain **policy + SOP + specialist skills + deterministic harness/validators**. They are not agents inside agents and do not duplicate the core tool framework.
+Job Packs contain **policy + SOP + specialist skills/rules + deterministic harness/validators**. They are not agents inside agents and do not duplicate the core tool framework.
 
 ## Job Pack contract
 
@@ -140,7 +170,7 @@ Each `jobs/<job-id>/` contains at minimum:
 - `harness/`
 - validator(s)
 
-Mature packs may add `skills/` and `templates/`.
+Mature packs may add `skills/`, `rules/`, and `templates/`.
 
 `job.yaml` v0.1 intentionally uses the JSON-compatible subset of YAML 1.2 so the runtime remains dependency-free.
 
@@ -153,4 +183,5 @@ Do not:
 - duplicate filesystem/shell/git tools in Job Packs;
 - infer missing domain policy;
 - auto-run a job from keyword matching;
-- promote `mto` to ready before its actual domain workflow is designed and validated.
+- extend MTO to unsupported equipment without real workflow/rules/evidence;
+- allow MTO to write release output or bypass its EQM write boundary.

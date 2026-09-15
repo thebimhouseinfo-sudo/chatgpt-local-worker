@@ -5,8 +5,8 @@
 ## Current scope
 
 - `dev-coding` — **ready**. Development-family implementation/execution job, inheriting the Local Coder core.
-- `dev-planing` — **ready**. Development-family repository-aware planning job; produces a plan artifact and does not modify source code.
-- `mto` — **placeholder**. Reserved for future quantity takeoff work. It contains no takeoff business logic and must not be activated until that logic is designed and validated.
+- `dev-planing` — **ready**. Development-family repository-aware planning job; produces a planning bundle and does not modify source code.
+- `mto` — **ready**. Local HVAC equipment takeoff/update job. V1 supports AC and Fan through explicit rules and deterministic project/revision/write/audit harnesses.
 
 Legacy names may remain aliases, but canonical IDs are the folder/job IDs above.
 
@@ -29,7 +29,7 @@ Each runnable pack contains at minimum:
 - `harness/`
 - validator(s), either in `harness/` or `validators/`
 
-A mature pack may also contain `skills/` and `templates/`.
+A mature pack may also contain `skills/`, `rules/`, and `templates/`.
 
 `job.yaml` uses the JSON-compatible subset of YAML 1.2 in v0.1. This keeps the runtime dependency-free.
 
@@ -42,6 +42,8 @@ Metadata distinguishes:
 - confirmation: explicit activation boundary
 - `skills`: pack-local specialist instructions loaded only after activation
 - harness/validators: deterministic checks and utilities
+
+Rules may be exposed through the pack's `SKILL.md` + `pack_dir` rather than `skills`. MTO uses this model because AC/Fan files encode business rules, not generic agent skills.
 
 Validate all packs:
 
