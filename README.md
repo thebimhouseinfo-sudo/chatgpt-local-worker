@@ -14,7 +14,7 @@ The repository is intentionally not populated with fake jobs.
 
 | Job | Status | Purpose |
 |---|---|---|
-| `dev-coding` | **ready** | Execute repository/code changes with implementation-scoped planning and validation |
+| `dev-coding` | **ready** | Read plan/architecture first, then execute targeted repository/code changes with implementation-scoped planning and validation |
 | `dev-planing` | **ready** | Analyze a repository and produce an implementation-ready development plan without editing source code |
 | `mto` | **placeholder** | Reserved for future MTO / quantity takeoff; no business logic exists yet |
 
@@ -25,14 +25,14 @@ For development work that benefits from a dedicated planning pass, the intended 
 ```text
 dev-planing
    │
-   └─ development plan artifact
+   └─ implementation plan + architecture/design decisions
               │
               ▼
         dev-coding
-   execution planning + implementation + validation
+   read context → targeted inspection → execution planning → implementation → validation
 ```
 
-This handoff is optional. Once architecture/direction is established, ordinary implementation work can stay entirely in `dev-coding`, which still performs the local execution planning needed for each task.
+This handoff is optional. Once architecture/direction is established, ordinary implementation work can stay entirely in `dev-coding`. The coding job still plans execution, but it should not re-review the entire repository on every new chat.
 
 ## Job family naming
 
@@ -91,23 +91,34 @@ Control tools:
 
 ## Dev Coding Job
 
-`jobs/dev-coding/` is the implementation Job Pack inherited from the original Local Coder capability. It includes **implementation-scoped execution planning**: enough repository review, sequencing, risk identification, and validation planning to safely execute a concrete task.
+`jobs/dev-coding/` is the implementation Job Pack inherited from the original Local Coder capability. Its default workflow is **context-first, targeted-code second**.
+
+Before editing source it prefers this order:
+
+1. current user instructions;
+2. active implementation plan;
+3. applicable architecture/design documents;
+4. repository/project instructions, skills, and path rules;
+5. only then, the specific source/tests/config/callers needed to execute the task.
+
+It does not default to a full-repository review merely because the repo is unfamiliar. Deep first-pass repository analysis belongs to `dev-planing`.
 
 Inputs:
 
 - `workspace` — target repository/workspace
 - `task` — concrete engineering objective to execute
 - `plan` — optional plan artifact from `dev-planing` or the user
+- `architecture` — optional architecture/design document governing the implementation
 - `delivery` — optional branch/commit/PR/working-tree delivery expectation
 
-Its specialist skills cover repository discovery, execution planning, implementation, debugging, testing, validation, refactoring/migrations, dependencies/APIs, security, performance, documentation/release hygiene, and git/diff review.
+Its specialist skills cover targeted repository discovery, execution planning, implementation, debugging, testing, validation, refactoring/migrations, dependencies/APIs, security, performance, documentation/release hygiene, and git/diff review.
 
-A supplied plan is treated as authoritative intent rather than frozen repository state; `dev-coding` verifies assumptions and adapts implementation details to the current workspace. Use `dev-planing` when planning itself is the job: first-pass repository review, new-repository/system design, large architecture/refactor/migration strategy, or a durable implementation plan for later coding chats.
+A supplied plan is authoritative intent rather than frozen repository state; `dev-coding` verifies only implementation-relevant assumptions and adapts local implementation details to the current workspace. If the request primarily asks for repository assessment, architecture/design, broad option analysis, large refactor/migration strategy, or a formal plan, `dev-coding` should explain that the request exceeds its Job Pack boundary and recommend a new `dev-planing` chat for better results.
 
 ### Dev Coding harness
 
-- `inspect-repo.mjs` — repository inventory and stack/git signals.
-- `execution-preflight.mjs` — deterministic repository + validation evidence for local execution planning; does not generate architecture or a formal plan.
+- `inspect-repo.mjs` — root-level repository inventory and stack/git signals; not full repository archaeology.
+- `execution-preflight.mjs --cwd <repo> [--plan <path>] [--architecture <path>]` — verifies supplied context paths and emits deterministic root/validation signals for execution planning while explicitly preferring targeted discovery.
 - `quality-gate.mjs` — discovers repository-native format/lint/type/test/build checks; execution requires explicit `--run`.
 - `diff-gate.mjs` — staged/unstaged whitespace, conflict, and scope checks.
 - `change-audit.mjs` — catches merge markers, sensitive material, machine paths, debugger leftovers, and oversized artifacts.
@@ -209,7 +220,7 @@ Placeholder packs are rejected before this flow begins.
 chatgpt-local-worker/
 ├─ WORKER.md
 ├─ jobs/
-│  ├─ dev-coding/        # ready: implementation + execution planning
+│  ├─ dev-coding/        # ready: context-first implementation
 │  ├─ dev-planing/       # ready: planning only
 │  └─ mto/               # placeholder, non-runnable
 ├─ shared-harness/
