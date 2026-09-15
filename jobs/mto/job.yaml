@@ -1,21 +1,38 @@
 {
   "id": "mto",
   "name": "MTO / Quantity Takeoff",
-  "version": "0.0.0",
-  "status": "placeholder",
-  "description": "PLACEHOLDER — reserved for future MTO / bóc khối lượng work. No quantity-takeoff business rules are implemented yet.",
-  "aliases": ["mto", "takeoff", "boc-khoi-luong", "bốc khối lượng"],
-  "keywords": ["mto", "takeoff", "quantity", "bóc khối lượng", "boq", "hvac"],
-  "inputs": [],
-  "outputs": [],
-  "permissions": {},
+  "version": "1.0.0",
+  "status": "ready",
+  "description": "Local, user-triggered HVAC equipment quantity-takeoff job. Resolves project structure/revisions deterministically, applies equipment rules, updates live EQM schedules in place, and records audit evidence.",
+  "aliases": ["mto", "takeoff", "quantity-takeoff", "boc-khoi-luong", "bốc khối lượng", "eqm", "eqm-takeoff"],
+  "keywords": ["mto", "takeoff", "quantity", "bóc khối lượng", "boq", "hvac", "eqm", "equipment schedule", "fan", "ac", "air conditioning"],
+  "inputs": [
+    {"key":"workspace","type":"directory","required":true,"description":"Project root containing 00 Input, 01 WIP and 02 Output"},
+    {"key":"task","type":"string","required":true,"description":"Concrete takeoff/update instruction from the user"},
+    {"key":"equipment","type":"string","required":true,"description":"Explicit equipment scope, e.g. fan, ac, or fan,ac. MTO must not invent additional equipment scope."},
+    {"key":"input_revision","type":"string","required":true,"description":"Explicit YYYY MM DD revision or 'latest'. For latest, resolver finds the latest valid revision containing each requested equipment folder."}
+  ],
+  "outputs": [
+    {"key":"delivery","type":"string","required":false,"description":"Optional delivery/report expectation. Live EQM paths are resolved from project structure, not supplied by the user."}
+  ],
+  "permissions": {
+    "filesystem": "read-project-write-only-01-WIP-SCHEDULE-eqm-after-confirm",
+    "shell": "allowed-after-confirm-for-inspection-and-controlled-file-processing",
+    "git": "not-required",
+    "network": "off-by-default-use-only-if-explicitly-required-and-authorized"
+  },
   "confirmation": {
     "required": true,
-    "template": "MTO hiện mới là placeholder và chưa được phép chạy."
+    "template": "Tôi sẽ xử lý MTO trong {workspace}, scope thiết bị '{equipment}', input '{input_revision}', chỉ ghi vào 01 WIP/SCHEDULE/eqm và không đụng 02 Output. Xác nhận chứ?"
   },
   "skills": [],
   "harness": {
-    "entrypoints": ["harness/validate.mjs"]
+    "entrypoints": [
+      "harness/resolve-project.mjs",
+      "harness/write-guard.mjs",
+      "harness/audit-lint.mjs",
+      "harness/validate.mjs"
+    ]
   },
   "validators": ["harness/validate.mjs"]
 }
