@@ -1,0 +1,23 @@
+{
+  "version": 1,
+  "equipment": {
+    "ac": {
+      "aliases": ["ac", "air-conditioning", "air conditioning", "aircon"],
+      "input_folder": "ac",
+      "template": "AC Equipment Schedule.xlsx",
+      "live_schedule": "AC Equipment Schedule.xlsx",
+      "base_rule": "rules/ac.md",
+      "project_rule": "qto-rules/ac.md",
+      "audit_file": "ac.json"
+    },
+    "fan": {
+      "aliases": ["fan", "fans"],
+      "input_folder": "fan",
+      "template": "Fan Equipment Schedule.xlsx",
+      "live_schedule": "Fan Equipment Schedule.xlsx",
+      "base_rule": "rules/fan.md",
+      "project_rule": "qto-rules/fan.md",
+      "audit_file": "fan.json"
+    }
+  }
+}
