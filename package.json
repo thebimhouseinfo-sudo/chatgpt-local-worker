@@ -1,7 +1,7 @@
 {
-  "name": "chatgpt-local-coder",
-  "version": "1.0.0",
-  "description": "Turn ChatGPT web into a local coding agent via MCP — files, shell, git, apply_patch, 40+ tools",
+  "name": "chatgpt-local-worker",
+  "version": "1.1.0",
+  "description": "Turn ChatGPT web into a controlled general local worker via MCP — Job Packs over the existing filesystem, shell, git, checkpoint, and MCP bridge core",
   "repository": {
     "type": "git",
     "url": "https://github.com/hoangcoderr/chatgpt-local-coder.git"
@@ -14,11 +14,13 @@
   "type": "module",
   "main": "dist/index.js",
   "bin": {
+    "local-worker-mcp": "dist/index.js",
     "codex-mcp-server": "dist/index.js"
   },
   "scripts": {
     "build": "tsc",
-    "test": "tsc && node scripts/test-patch.mjs && node scripts/test-tools.mjs && node scripts/test-checkpoints.mjs && node scripts/test-mcp-upstream.mjs && node scripts/test-mcp-oauth.mjs && node scripts/test-activity-log.mjs && node scripts/test-project-memory.mjs && node scripts/test-tool-profile.mjs && node scripts/test-shell-persist.mjs",
+    "validate:jobs": "node shared-harness/job-pack-validator.mjs",
+    "test": "tsc && node scripts/test-job-runtime.mjs && node scripts/test-patch.mjs && node scripts/test-tools.mjs && node scripts/test-checkpoints.mjs && node scripts/test-mcp-upstream.mjs && node scripts/test-mcp-oauth.mjs && node scripts/test-activity-log.mjs && node scripts/test-project-memory.mjs && node scripts/test-tool-profile.mjs && node scripts/test-shell-persist.mjs",
     "test:all": "node scripts/run-all-tests.mjs",
     "test:integration": "tsc && node scripts/test-mcp-bridge-integration.mjs",
     "init-claude-md": "node scripts/init-claude-md.mjs",
@@ -29,6 +31,8 @@
   "keywords": [
     "mcp",
     "chatgpt",
+    "local-worker",
+    "job-packs",
     "coding-agent",
     "model-context-protocol",
     "local-development",
