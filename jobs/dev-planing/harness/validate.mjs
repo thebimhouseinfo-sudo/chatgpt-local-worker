@@ -24,11 +24,11 @@ for (const rel of requiredFiles) {
     await fs.access(path.join(packDir, rel));
   } catch {
     result.ok = false;
-    result.errors.push(`missing dev-planning component '${rel}'`);
+    result.errors.push(`missing dev-planing component '${rel}'`);
   }
 }
 
-result.dev_planning = {
+result.dev_planing = {
   skills: requiredSkills.length,
   template: "templates/DEV_PLAN.md",
   source_editing: false,
