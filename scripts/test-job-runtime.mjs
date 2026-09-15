@@ -14,12 +14,11 @@ assert.equal(listing.jobs.find((job) => job.id === "dev-coding")?.status, "ready
 assert.equal(listing.jobs.find((job) => job.id === "dev-coding")?.skill_count, 13);
 assert.equal(listing.jobs.find((job) => job.id === "dev-planing")?.status, "ready");
 assert.equal(listing.jobs.find((job) => job.id === "dev-planing")?.skill_count, 6);
-assert.equal(listing.jobs.find((job) => job.id === "mto")?.status, "placeholder");
+assert.equal(listing.jobs.find((job) => job.id === "mto")?.status, "ready");
+assert.equal(listing.jobs.find((job) => job.id === "mto")?.skill_count, 0);
 
-await assert.rejects(
-  () => runtime.select({ job: "mto" }),
-  /placeholder.*cannot be selected or activated/i
-);
+const mtoListing = await runtime.list("fan takeoff");
+assert.equal(mtoListing.suggested_job_ids.includes("mto"), true);
 
 const partial = await runtime.select({
   job: "dev-coding",
@@ -92,6 +91,50 @@ assert.equal(planActive.job.status, "ready");
 assert.equal(planActive.skills.length, 6);
 assert.equal(planActive.harness.length, 2);
 assert.equal(planActive.validators.length, 2);
+
+runtime.stop();
+
+const mtoPartial = await runtime.select({
+  job: "mto",
+  bindings: {
+    workspace: ".",
+    task: "Update AC and Fan EQM from the latest input",
+  },
+});
+assert.equal(mtoPartial.state.phase, "selected");
+assert.deepEqual(mtoPartial.missing_bindings, ["equipment", "input_revision"]);
+assert.deepEqual(mtoPartial.harness, []);
+
+const mtoSelected = await runtime.select({
+  job: "mto",
+  bindings: {
+    workspace: ".",
+    task: "Update AC and Fan EQM from the latest input",
+    equipment: "ac,fan",
+    input_revision: "latest",
+  },
+});
+assert.equal(mtoSelected.state.phase, "awaiting_confirmation");
+assert.equal(typeof mtoSelected.confirmation_token, "string");
+assert.deepEqual(mtoSelected.harness, []);
+
+const mtoActive = await runtime.select({
+  job: "mto",
+  bindings: {
+    workspace: ".",
+    task: "Update AC and Fan EQM from the latest input",
+    equipment: "ac,fan",
+    input_revision: "latest",
+  },
+  confirmed: true,
+  confirmationToken: mtoSelected.confirmation_token,
+});
+assert.equal(mtoActive.state.phase, "active");
+assert.equal(mtoActive.job.id, "mto");
+assert.equal(mtoActive.job.status, "ready");
+assert.equal(mtoActive.skills.length, 0);
+assert.equal(mtoActive.harness.length, 4);
+assert.equal(mtoActive.validators.length, 1);
 
 const stopped = runtime.stop();
 assert.equal(stopped.state.phase, "idle");
