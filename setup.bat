@@ -65,16 +65,23 @@ echo ========================================
 echo   OpenAI Secure MCP Tunnel setup
 echo ========================================
 echo This is the only connection setup step.
-echo Follow the prompts, then create the ChatGPT connection named: gptworker
+echo Follow the prompts. The ChatGPT connection should be named: gptworker
 
 echo.
 powershell -NoProfile -ExecutionPolicy Bypass -File "%~dp0openai-tunnel.ps1" -Init
 if errorlevel 1 goto :failed
 
 echo.
+echo Starting GPTWorker so ChatGPT can connect...
+call "%~dp0run.bat"
+if errorlevel 1 goto :failed
+
+echo.
 echo Opening ChatGPT connector settings...
 start "" "https://chatgpt.com/#settings/Connectors"
 
+echo.
+echo Create/select the tunnel connection and name it: gptworker
 echo.
 echo ========================================
 echo   Setup complete
