@@ -92,7 +92,7 @@ npm test
 npm start
 ```
 
-Set `WORKSPACE_PATH` in `.env` to the project/repository the Worker should treat as its default workspace. `LOCAL_WORKER_HOME` is the Worker installation itself; keeping Worker home separate from the target workspace means switching projects does not remove `WORKER.md` or the Job Packs.
+Set `WORKSPACE_PATH` in `.env` to the project/repository the Worker should treat as its default workspace. The Worker installation root is resolved automatically from the running package; `LOCAL_WORKER_HOME` is only needed when you intentionally override that location. Keeping Worker home separate from the target workspace means switching projects does not remove `WORKER.md` or the Job Packs.
 
 ## Connect ChatGPT
 
@@ -111,17 +111,21 @@ The setup reads `OPENAI_TUNNEL_ID` and `OPENAI_TUNNEL_API_KEY` from `.env` after
 
 ### Alternative: Cloudflare quick tunnel
 
+On Windows:
+
 ```powershell
 .\tunnel.ps1
 ```
 
-or on macOS/Linux:
+The PowerShell helper prints the correct connector path, including `MCP_TOKEN` when configured.
+
+On macOS/Linux the raw helper is:
 
 ```bash
 npm run tunnel
 ```
 
-Cloudflare quick-tunnel URLs change between runs. If `MCP_TOKEN` is configured, the connector endpoint includes that token path; use the endpoint printed by the script rather than manually assuming `/mcp`.
+Cloudflare quick-tunnel URLs change between runs. The raw npm helper only prints the public tunnel URL; if `MCP_TOKEN` is configured, append the actual MCP path yourself (`/mcp/<token>` or `/<token>`). Do not assume plain `/mcp` when path-token auth is enabled.
 
 ### Local endpoints
 
