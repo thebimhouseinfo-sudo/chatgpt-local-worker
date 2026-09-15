@@ -1,85 +1,84 @@
 # Coding Agent — Operating SOP
 
-This file is the orchestrator for the `coding` Job Pack. Pack-local specialist skills live in `skills/`; project-specific skills come from the existing `list_skills` / `load_skill` core tools.
+This file orchestrates the `coding` Job Pack. The MCP core performs filesystem/shell/git/checkpoint/MCP actions. This pack supplies engineering discipline, specialist skills, and deterministic gates.
 
-## 1. Establish repository context
+## 1. Establish the task contract
 
 After activation:
 
-1. Confirm the active `workspace` and `task` bindings from `job_status`.
-2. If the target differs from the default workspace, call `project_context(path)`.
-3. Inspect git state before making edits. Never assume a clean working tree.
-4. Call `list_skills`; load every project skill materially relevant to the task before editing.
-5. When working in an unfamiliar path, use `load_path_rules` for the affected file(s) where project rules exist.
-6. Read the relevant pack-local skills from the active pack's `skills/` directory. Use only those needed for the task.
-7. Use `harness/inspect-repo.mjs --cwd <workspace>` when a quick deterministic project inventory is useful.
+1. Read active `workspace`, `task`, and optional `delivery` from `job_status`.
+2. Load repository instructions with `project_context` when needed.
+3. Inspect branch/worktree before edits. Existing dirty changes are user-owned unless the task explicitly includes them.
+4. Call `list_skills` and load relevant **project** skills. Project instructions outrank generic pack preferences.
+5. Load path-specific rules before editing unfamiliar areas.
+6. Read only the pack-local specialist skills relevant to this task.
 
-Repository instructions and user requirements outrank generic coding preferences. Never silently overwrite user changes already present in the working tree.
+For non-trivial work, use `skills/planning.md` to define objective, constraints, non-goals, acceptance evidence, risks, and an implementation sequence. Do not invent missing product decisions.
 
-## 2. Understand before editing
+## 2. Discover before changing
 
-- Search broadly enough to find entrypoints, call sites, tests, types, config, and adjacent patterns.
-- Read exact files before patching them.
-- For bugs, obtain a reproduction or a concrete failure signal whenever practical.
-- For feature work, identify acceptance behavior and the smallest coherent implementation boundary.
-- State assumptions when the repository cannot prove them.
+Use `skills/repository-discovery.md` and, when useful, `harness/inspect-repo.mjs --cwd <workspace>`.
 
-## 3. Plan at the right granularity
+Search for entrypoints, callers, tests, types/contracts, config, generated artifacts, and equivalent local patterns. Read exact files immediately before patching.
 
-For non-trivial work, maintain a short implementation plan covering:
+## 3. Select specialist skills by trigger
 
-- affected components/files;
-- behavior or invariant being changed;
-- compatibility/migration implications;
-- validation strategy.
+| Trigger | Skill |
+|---|---|
+| feature/fix/general implementation | `implementation.md` |
+| bug/failure investigation | `debugging.md` |
+| behavior change or regression risk | `testing.md` |
+| choosing/running validation | `validation.md` |
+| structural cleanup, API/schema migration | `refactoring.md` |
+| dependency/public API/external integration | `dependencies-and-apis.md` |
+| auth/input/path/shell/network/secrets/permissions | `security.md` |
+| hot path/latency/memory/I/O/query/bundle work | `performance.md` |
+| config/docs/commit/PR/release delivery | `documentation-and-release.md` |
+| final patch/worktree review | `git-review.md` |
 
-Do not turn the plan into ceremony for a one-line obvious fix.
+Do not load every skill by default. Use the smallest relevant set so task-specific repository context remains dominant.
 
-## 4. Implement with controlled edits
+## 4. Implement in controlled increments
 
-- Prefer `apply_patch` for focused changes and `multi_edit` for coordinated small edits.
-- Use `write_file` for genuinely new files, not to replace large existing files casually.
-- Preserve local naming, architecture, error handling, formatting, and dependency patterns unless the task intentionally changes them.
-- Reuse existing abstractions before adding new ones.
-- Avoid speculative refactors.
-- Keep secrets, tokens, credentials, personal machine paths, and generated artifacts out of source control.
-- Automatic checkpoints/rewind are a recovery mechanism, not a substitute for careful edits.
+- Prefer the smallest coherent change that satisfies the acceptance objective.
+- Reuse repository abstractions and conventions before adding new layers/dependencies.
+- Preserve public behavior unless the task intentionally changes it.
+- Avoid speculative refactors, unrelated formatting, broad renames, and drive-by dependency upgrades.
+- Re-read each edited area and run the cheapest meaningful check before expanding the change.
+- Use checkpoints/rewind as recovery, not as permission for careless bulk edits.
 
 ## 5. Debug scientifically
 
-For failures, follow `skills/debugging.md`: reproduce → narrow → form a hypothesis → inspect evidence → make the smallest causal fix → add/regress a test where appropriate → rerun the reproduction.
+For failures: reproduce → bound → hypothesize → inspect evidence → change one causal factor → rerun original failure → add regression protection → broaden validation.
 
-Do not shotgun-edit several plausible causes at once when they can be isolated.
+Do not shotgun-edit plausible causes or weaken tests to fit broken behavior.
 
-## 6. Validate in layers
+## 6. Validate by risk and blast radius
 
-Follow repository-owned commands first. Use `skills/validation.md` and the deterministic harness as support:
+Repository-owned commands are authoritative. Use `harness/quality-gate.mjs --cwd <workspace>` to discover candidate checks. Add `--run` only after deciding the discovered commands are appropriate.
 
-- `harness/quality-gate.mjs --cwd <workspace>` discovers likely checks without executing them.
-- Add `--run` only after deciding those commands are appropriate for the repository/task.
-- Prefer targeted syntax/type/lint/test checks before expensive full-suite checks.
-- Run build/package validation when the changed surface can affect it.
+Validation should climb from targeted syntax/type/lint/test checks to affected package suites, build/startup smoke, and broader repository checks when justified.
 
-A failing pre-existing check must be distinguished from a regression introduced by the task; do not simply ignore either.
+Distinguish regressions from pre-existing failures and environment/toolchain limitations. A skipped check is not a passing check.
 
-## 7. Review the final diff
+## 7. Review the final change
 
 Before completion:
 
-1. Re-read changed files in context.
+1. Re-read changed code in context.
 2. Run `harness/diff-gate.mjs --cwd <workspace>` for Git repositories.
-3. Inspect `git diff` (and staged diff if applicable), not only the diff stat.
-4. Check for accidental deletions, debug logs, commented-out code, duplicated logic, secrets, generated noise, and unrelated formatting churn.
-5. Confirm tests actually cover the behavior changed where reasonable.
+3. Inspect the actual staged/unstaged diff, not only stats.
+4. Check accidental deletions, debug leftovers, generated noise, secrets, local paths, stale references, and untracked deliverables.
+5. Confirm tests/evidence cover the behavior changed where practical.
 
-## 8. Complete with evidence
+## 8. Deliver evidence, not confidence language
 
 Report:
 
-- concise change summary;
-- important files/components touched;
-- validation commands and results;
+- behavior changed and important implementation choices;
+- validation commands/results;
 - anything not validated and why;
-- remaining risks or follow-up only when real.
+- migrations/breaking changes/operational steps if present;
+- real residual risks only.
 
-Never say "done", "fixed", or "passes" when required validation is failing or was not run.
+Do not claim `done`, `fixed`, `safe`, `fast`, or `passes` beyond the evidence actually obtained.
