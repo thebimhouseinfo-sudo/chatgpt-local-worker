@@ -160,7 +160,7 @@ Distinguish regressions from pre-existing failures and environment/toolchain lim
 Before completion:
 
 1. Re-read changed code in context.
-2. Run `harness/completion-gate.mjs --cwd <workspace>` as the aggregate structural gate.
+2. Run `harness/completion-gate.mjs --cwd <workspace>` for non-bundle work. For bundle-backed work run `harness/completion-gate.mjs --cwd <workspace> --planning-dir <planning_dir>` and include `--task-id <task_id>` when bound.
 3. Inspect the actual staged/unstaged diff, not only stats.
 4. Check accidental deletions, debug leftovers, generated noise, secrets, local paths, stale references, and untracked deliverables.
 5. Confirm tests/evidence cover the behavior changed where practical.
