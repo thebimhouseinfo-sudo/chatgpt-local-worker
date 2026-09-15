@@ -1,18 +1,32 @@
-# Common Rule — Takeoff Report
+# Common Rule — Takeoff / Change Report
 
-Every completed equipment takeoff/update produces a human-readable Markdown report in addition to the live Excel schedule and machine-readable audit history.
+Every completed MTO run produces a human-readable Markdown report in addition to the live Excel schedule and machine-readable audit history.
 
 ## Purpose
 
-The report is the reviewer-facing result artifact. It should let a human understand the completed takeoff without reopening every source document.
+The report is the reviewer-facing artifact. It should let a human understand the result, what changed, what sources were used, and what still needs checking without reopening every source document.
 
 The report is not a replacement for the live schedule or audit JSON:
 
-- live schedule = current working EQM truth;
+- live schedule = current working truth;
 - audit JSON = append-only machine-readable run/change history;
-- takeoff report = human-readable result, traceability, reconciliation and RFI for one equipment revision.
+- takeoff/change report = human-readable result, traceability, reconciliation and RFI/review surface.
+
+## Rule status in the report
+
+The report must state the resolved rule status.
+
+For `stable` rules, normal review applies.
+
+For `draft` rules, the report must visibly state near the top:
+
+> **DRAFT / NOT FINAL — result requires careful project review; findings from this run should be fed back into the rule.**
+
+This warning is mandatory because draft rules are intentionally runnable in order to gather real implementation evidence.
 
 ## Report path
+
+### Selection-driven
 
 Use:
 
@@ -21,11 +35,19 @@ Use:
 Examples:
 
 - `01 WIP/SCHEDULE/eqm/_reports/2026 08 11/ac.md`
-- `01 WIP/SCHEDULE/eqm/_reports/2026 08 15/fan.md`
+- `01 WIP/SCHEDULE/eqm/_reports/2026 08 20/erv-hrv.md`
 
-The report remains inside the allowed EQM write tree.
+One equipment + input revision has one canonical report. A rerun of the same revision updates that report to the current reviewed result; audit JSON still preserves run history.
 
-One equipment + input revision has one canonical report file. If the same revision is rerun to correct extraction/review findings, update that report in place to reflect the final state. The audit JSON still appends each execution run, so run history is not lost.
+### Drawing-export-driven
+
+Use the resolver-provided source-model-scoped path, currently:
+
+`01 WIP/SCHEDULE/eqm/_reports/drawing-export/<schedule>.md`
+
+Do not invent a dated `input_rev` for the Lisp export.
+
+The report must identify the actual drawing export source path/filename and, when available, content hash. Optional supplemental `00 Input` revision may be recorded separately.
 
 ## Required report sections
 
@@ -36,85 +58,93 @@ Use `templates/TAKEOFF_REPORT.md` as the structural contract.
 Record:
 
 - project/workspace;
-- equipment;
-- processed input revision;
+- equipment/schedule;
+- rule status (`stable` / `draft`);
+- source model (`selection` / `drawing-export`);
+- input revision when selection-driven;
+- drawing export source when drawing-export-driven;
 - live schedule path;
 - run timestamp;
-- schedule mode (`bootstrap` or `update`);
-- base/project rules applied where relevant.
+- schedule mode (`bootstrap` / `update`);
+- base/project rules applied.
+
+For a field not applicable to the current source model, write `None` or `Not applicable`; do not fabricate a value.
 
 ### 2. Equipment Schedule
 
-Include a readable Markdown snapshot of the resulting equipment schedule for the processed equipment scope.
+Include a readable Markdown snapshot of the resulting schedule where practical.
 
-Preserve the schedule's meaningful field names and units. Do not invent report-only engineering values.
+Preserve meaningful field names and units. Do not invent report-only engineering values.
 
-This section exists so a reviewer can inspect the takeoff result directly, similar to the previous NotebookLM result format, while the Excel file remains the authoritative working schedule.
+For very long schedules, a compact but reviewable representation is acceptable if the full live Excel remains authoritative and the change summary/traceability is complete.
 
 ### 3. Change Summary
 
-For update runs, summarize the delta against the previous live EQM:
+For update runs summarize:
 
-- rows added;
-- rows updated;
-- rows unchanged;
-- rows preserved but review-required/disappeared;
-- important field-level changes.
+- rows/items added;
+- rows/items updated;
+- unchanged rows/count;
+- rows/items missing from the new source or otherwise review-required;
+- material field-level changes;
+- manual/enriched values intentionally preserved when relevant.
 
-For bootstrap/first takeoff, state that the schedule was created from the template and summarize rows added.
+For bootstrap runs state that the live schedule was created from the read-only template and summarize rows added.
 
 ### 4. Traceability & Data Source
 
-Provide tag-level provenance. For each material row/tag, identify the source evidence used, including when available:
+Provide row/tag/system-level provenance appropriate to the source model.
+
+Selection-driven evidence may include:
 
 - EQM selection filename + page/sheet/cell;
-- technical data/catalog filename + page/sheet;
-- design drawing reference used for reconciliation;
-- project rule/override used for a derived/normalized value.
+- exact-model technical data filename + page/sheet;
+- design drawing reference;
+- project rule/override.
 
-Do not claim a page/sheet/cell that was not actually observed.
+Drawing-export evidence may include:
+
+- current Lisp export path/filename;
+- export row/key/system/tag;
+- optional export content hash;
+- supplemental technical/project input used for enrichment;
+- project rule/override.
+
+Do not claim page/sheet/cell locations that were not actually observed.
 
 ### 5. Drawing Reconciliation
 
-State:
+Selection-driven schedules should state drawing count/tag reconciliation where checked.
 
-- drawing count vs selection count where checked;
-- explicit tag mappings used;
-- unmatched tags;
-- count mismatch or naming mismatch requiring review.
-
-If drawings were unavailable/unusable, say so explicitly instead of pretending reconciliation was completed.
+Drawing-export-driven schedules should state whether the export was accepted as the current drawing snapshot and identify any unresolved drawing/export discrepancy. Do not pretend the full drawing was independently re-counted when it was not.
 
 ### 6. Conflicts / TBC / Review Items
 
-List material unresolved items:
+List material unresolved items, including:
 
 - selection-vs-catalog conflicts;
 - detailed-source conflicts;
-- TBC/unsupported fields;
-- disappeared rows;
-- manual-looking values preserved because overwrite authority was unclear;
-- other review-required conditions.
+- TBC/provisional draft semantics;
+- disappeared/missing rows;
+- manual values preserved because overwrite authority was unclear;
+- drawing-export mapping uncertainty;
+- any draft-rule assumption encountered in real implementation.
 
-Keep the selection value visible when selection is authoritative and catalog conflicts.
+For a draft rule, this section is also where observations useful for refining the rule should be recorded.
 
 ### 7. Query List (RFI)
 
-Convert unresolved issues that require a human/PM/design decision into concise numbered questions.
+Convert only issues that truly require human/PM/design confirmation into concise questions.
 
-Examples:
-
-- confirm whether a source value is intended for the selected duty point;
-- confirm whether a disappeared equipment row should be removed;
-- confirm an unmapped drawing tag;
-- confirm an electrical/start-current interpretation not supported by the source hierarchy.
+Do not create an RFI merely because optional vendor information is unavailable when the rule permits `-`.
 
 If there is no RFI, write `None` explicitly.
 
 ## Report rules
 
-- Report facts must be supported by the same evidence used for schedule/audit.
+- Facts must be supported by the same evidence used for schedule/audit.
 - Do not expose internal chain-of-thought; report evidence and conclusions only.
-- Do not hide material conflicts just because the live schedule has a preferred value.
-- Do not treat the report as an issued deliverable under `02 Output/**`.
-- The report is WIP review material and stays under `01 WIP/SCHEDULE/eqm/_reports/**`.
+- Do not hide material conflicts just because one source has precedence.
+- Draft rules must not have unresolved policy silently invented to make a clean-looking report.
+- The report is WIP review material and remains under `01 WIP/SCHEDULE/eqm/_reports/**`.
+- Never write it into issued `02 Output/**`.
