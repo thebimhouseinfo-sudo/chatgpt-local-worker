@@ -1,23 +1,25 @@
 # Job Packs
 
-`jobs/` contains operational packs loaded by the Job Runtime.
+`jobs/` contains Job Packs loaded by the controlled Job Runtime.
 
-## Current scope
+A Job Pack defines the prescribed workflow, policy/SOP, specialist skills or business rules, deterministic harnesses, and completion criteria for one class of work. It does **not** duplicate the Local Worker filesystem/shell/git execution core.
 
-- `dev-coding` — **ready**. Development-family implementation/execution job, inheriting the Local Coder core.
-- `dev-planing` — **ready**. Development-family repository-aware planning job; produces a planning bundle and does not modify source code.
-- `mto` — **ready**. Local HVAC equipment takeoff/update job. V1 supports AC and Fan through explicit rules and deterministic project/revision/write/audit harnesses.
+## Current catalog
 
-Legacy names may remain aliases, but canonical IDs are the folder/job IDs above.
+- `dev-coding` — **ready**. Development implementation/execution job; planning-bundle-first when durable planning artifacts exist.
+- `dev-planing` — **ready**. Repository/system planning job; produces a durable planning bundle and does not modify product/source code as part of planning work.
+- `mto` — **ready**. HVAC takeoff/schedule-update job supporting stable and runnable-draft rules across selection-driven and drawing-export-driven source models.
+
+Legacy aliases may remain for compatibility, but the canonical IDs are the folder/job IDs above.
 
 ## Job family naming
 
-Related jobs use a common prefix when they belong to the same work family. Development jobs use `dev-`, currently:
+Related jobs share a prefix only when they belong to a real work family. Development jobs currently use:
 
 - `dev-planing`
 - `dev-coding`
 
-Future related development jobs should follow `dev-*`. Other domains should use their own prefix only when a real family exists; do not create speculative packs merely to populate a namespace.
+Do not create speculative packs or namespaces merely to make the catalog look complete.
 
 ## Pack contract
 
@@ -31,22 +33,43 @@ Each runnable pack contains at minimum:
 
 A mature pack may also contain `skills/`, `rules/`, and `templates/`.
 
-`job.yaml` uses the JSON-compatible subset of YAML 1.2 in v0.1. This keeps the runtime dependency-free.
+`job.yaml` uses the JSON-compatible subset of YAML 1.2 so the runtime remains dependency-light and deterministic.
 
 Metadata distinguishes:
 
-- `status`: `ready` or `placeholder`
-- aliases: explicit compatibility or convenience names usable for selection
-- keywords: suggestion-only terms
-- bindings: concrete job inputs/outputs
-- confirmation: explicit activation boundary
-- `skills`: pack-local specialist instructions loaded only after activation
-- harness/validators: deterministic checks and utilities
+- Job Pack `status`: currently `ready` or `placeholder` at the pack level;
+- aliases: explicit compatibility/convenience names;
+- keywords: suggestion-only terms, never automatic activation;
+- bindings: concrete job inputs/outputs;
+- confirmation: explicit activation boundary;
+- `skills`: optional pack-local specialist instructions loaded only after activation;
+- harness/validators: deterministic checks and helpers.
 
-Rules may be exposed through the pack's `SKILL.md` + `pack_dir` rather than `skills`. MTO uses this model because AC/Fan files encode business rules, not generic agent skills.
+## MTO rule status is a separate layer
 
-Validate all packs:
+Do not confuse Job Pack status with MTO business-rule maturity.
+
+The `mto` Job Pack itself is **ready**. Its registry under `jobs/mto/rules/equipment-registry.json` contains both:
+
+- `stable` rules — runnable normally;
+- `draft` rules — also runnable, but require a visible `DRAFT / NOT FINAL` warning and careful review of the result.
+
+Current stable MTO rules: AC and Fan.
+
+Current runnable draft rules include CHW Pump, Chiller, ERV/HRV, Evaporative Cooler, Fume Cupboard, VAV, Attenuator, Grille, Door Grille, and Flexible Connection.
+
+MTO rules are business semantics rather than generic agent skills, so they are exposed through the pack's rule registry and `SKILL.md` rather than pretending every equipment rule is a generic skill.
+
+## Validation
+
+Validate all Job Packs:
 
 ```bash
 npm run validate:jobs
+```
+
+Run the full repository suite:
+
+```bash
+npm test
 ```

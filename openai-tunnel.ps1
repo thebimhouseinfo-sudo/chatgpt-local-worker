@@ -1,4 +1,4 @@
-# OpenAI Secure MCP Tunnel - URL on dinh, khong doi moi lan chay (thay cloudflared)
+# OpenAI Secure MCP Tunnel for ChatGPT Local Worker - stable URL/tunnel identity
 param(
     [int]$Port = 0,
     [int]$HealthPort = 0,
@@ -15,6 +15,7 @@ Set-Location $ScriptDir
 $TUNNEL_VERSION = "v0.0.10"
 $BinDir = Join-Path $ScriptDir "bin"
 $TunnelExe = Join-Path $BinDir "tunnel-client.exe"
+# Keep profile filename for compatibility with existing local installs.
 $ProfileName = "codex-local"
 $ProfileDir = Join-Path $ScriptDir "profiles"
 $ProfileFile = Join-Path $ProfileDir "$ProfileName.yaml"
@@ -28,6 +29,12 @@ function Get-DotEnvValue([string]$Name) {
     } | Select-Object -First 1
     if (-not $line) { return $null }
     return (($line -split "=", 2)[1].Trim()).Trim("'").Trim('"')
+}
+
+function Get-McpPath {
+    $mcpToken = Get-DotEnvValue "MCP_TOKEN"
+    if ($mcpToken) { return "/mcp/$mcpToken" }
+    return "/mcp"
 }
 
 function Set-DotEnvValue([string]$Name, [string]$Value) {
@@ -201,7 +208,8 @@ function Invoke-TunnelInit {
     $resolvedPort = if ($Port -gt 0) { $Port } elseif ($envPort) { [int]$envPort } else { 3000 }
     $envHealth = Get-DotEnvValue "OPENAI_TUNNEL_HEALTH_PORT"
     $resolvedHealth = if ($HealthPort -gt 0) { $HealthPort } elseif ($envHealth) { [int]$envHealth } else { 8080 }
-    $mcpUrl = "http://127.0.0.1:$resolvedPort/mcp"
+    $mcpPath = Get-McpPath
+    $mcpUrl = "http://127.0.0.1:$resolvedPort$mcpPath"
     Ensure-Profile -McpUrl $mcpUrl -TunnelId $tunnelId -TargetHealthPort $resolvedHealth
 
     $bin = Install-TunnelClient
@@ -259,7 +267,8 @@ if (-not $bin) {
     $bin = Install-TunnelClient
 }
 
-$mcpUrl = "http://127.0.0.1:$resolvedPort/mcp"
+$mcpPath = Get-McpPath
+$mcpUrl = "http://127.0.0.1:$resolvedPort$mcpPath"
 Ensure-Profile -McpUrl $mcpUrl -TunnelId $tunnelId -TargetHealthPort $resolvedHealth
 
 $env:OPENAI_TUNNEL_API_KEY = $apiKey

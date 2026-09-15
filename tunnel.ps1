@@ -1,10 +1,20 @@
-# Expose MCP server qua Cloudflare Tunnel (thay ngrok)
+# Expose ChatGPT Local Worker MCP qua Cloudflare quick tunnel
 param(
     [int]$Port = 3000
 )
 
 $ScriptDir = Split-Path -Parent $MyInvocation.MyCommand.Path
 Set-Location $ScriptDir
+
+function Get-DotEnvValue([string]$Name) {
+    if (-not (Test-Path ".env")) { return $null }
+    $line = Get-Content ".env" | Where-Object {
+        $_ -match "^\s*$Name\s*=" -and -not $_.TrimStart().StartsWith("#")
+    } | Select-Object -First 1
+    if (-not $line) { return $null }
+    $value = ($line -split "=", 2)[1].Trim()
+    return $value.Trim("'").Trim('"')
+}
 
 function Get-CloudflaredPath {
     $cmd = Get-Command cloudflared -ErrorAction SilentlyContinue
@@ -32,14 +42,21 @@ if (-not $cloudflared) {
     exit 1
 }
 
+$mcpToken = Get-DotEnvValue "MCP_TOKEN"
+$rootPath = if ($mcpToken) { "/$mcpToken" } else { "/" }
+$mcpPath = if ($mcpToken) { "/mcp/$mcpToken" } else { "/mcp" }
+
 Write-Host ""
-Write-Host "=== Cloudflare Tunnel ===" -ForegroundColor Cyan
+Write-Host "=== Local Worker · Cloudflare Tunnel ===" -ForegroundColor Cyan
 Write-Host "Local:  http://localhost:$Port"
 Write-Host "Public: (URL hien ben duoi, dang *.trycloudflare.com)"
 Write-Host ""
 Write-Host "Connector URL cho ChatGPT (dung 1 trong 2):" -ForegroundColor Green
-Write-Host "  https://<url-ben-duoi>"
-Write-Host "  https://<url-ben-duoi>/mcp"
+Write-Host "  https://<url-ben-duoi>$rootPath"
+Write-Host "  https://<url-ben-duoi>$mcpPath"
+if ($mcpToken) {
+    Write-Host "MCP_TOKEN dang bat - giu URL connector nhu mot secret." -ForegroundColor Yellow
+}
 Write-Host ""
 Write-Host "Nhan Ctrl+C de dung tunnel" -ForegroundColor DarkGray
 Write-Host ""
