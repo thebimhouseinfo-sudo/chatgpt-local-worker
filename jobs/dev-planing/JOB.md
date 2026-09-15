@@ -1,20 +1,55 @@
 # Dev Planing
 
 ## Goal
-Produce an implementation-ready development plan from repository evidence without modifying application/source code.
+
+Review a repository deeply enough to produce a durable planning bundle that later `dev-coding` chats can execute without repeating repository-wide analysis.
+
+The required bundle is:
+
+- `ARCHITECTURE.md`
+- `IMPLEMENTATION_PLAN.md`
+- `TODO.md`
+- `TASKS.md`
+- optional `task-plans/` for task-local planning artifacts when useful
 
 ## Boundaries
+
 - Read repository code, tests, config, docs, history, and project instructions as needed.
 - Use non-mutating shell/git inspection only.
-- The only file this job may intentionally write is the confirmed `plan` output artifact.
+- Intentionally write only inside the confirmed `planning_dir`.
 - Do not implement the feature/fix, refactor source, update dependencies, or create migrations in this job.
 - Do not invent product or architecture decisions that repository evidence and user context do not establish; record them as open questions.
 
+## Artifact responsibilities
+
+### ARCHITECTURE.md
+Capture current/target architecture, module responsibilities, invariants, integration points, important design decisions, and repository evidence.
+
+### IMPLEMENTATION_PLAN.md
+Capture the overall implementation strategy, phases, dependency order, migration/compatibility strategy, validation, risk, and mapping to executable tasks.
+
+### TODO.md
+Capture known backlog, deferred work, optional/future work, and explicit out-of-scope items. TODO is not the progress ledger.
+
+### TASKS.md
+Create the executable ledger for `dev-coding`. Use stable task IDs and statuses `TODO`, `READY`, `IN_PROGRESS`, `BLOCKED`, `DONE`. Each task needs scope/output, dependencies, acceptance evidence, optional subplan link, and progress/notes.
+
 ## Completion criteria
-- Objective and constraints are explicit.
-- Current-state findings cite concrete files/symbols/flows where practical.
-- Scope and non-goals are separated.
-- Implementation steps are ordered by dependency and precise enough for the `dev-coding` job to execute.
-- Validation strategy is defined before coding begins.
-- Risks, compatibility concerns, migrations, and unresolved decisions are visible.
-- `harness/plan-lint.mjs --plan <plan>` passes.
+
+A dev-planing job is complete only when:
+
+1. Objective, constraints, and non-goals are explicit.
+2. Architecture is grounded in concrete repository evidence.
+3. Current and target architecture are clear enough that coding does not need to rediscover the whole system.
+4. The general implementation strategy is ordered by dependency and identifies migration/compatibility concerns.
+5. TODO/backlog is separated from the active task sequence.
+6. `TASKS.md` has stable executable tasks with acceptance signals and dependencies.
+7. Material open questions are visible instead of guessed.
+8. No source/config/dependency files were modified.
+9. `harness/bundle-lint.mjs --dir <planning_dir>` passes.
+
+## Handoff contract
+
+A fresh `dev-coding` chat should start from this bundle, not from a fresh full-repository review. Coding reads architecture + implementation plan + TODO + task ledger first, selects the relevant task, inspects only implementation-relevant source/tests/config, updates `TASKS.md` as progress changes, and may create a bounded task-local subplan when a task branch needs more detail.
+
+If a branch requires a new architecture/product decision or changes repository-wide scope, `dev-coding` should mark the task blocked/planning-required and recommend returning to `dev-planing` rather than silently redesigning the system.
