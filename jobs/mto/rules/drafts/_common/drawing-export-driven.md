@@ -14,6 +14,27 @@ Current candidate users of this source model:
 - Door Grille Schedule
 - Flexible Connection Schedule
 
+## Single-current-export contract
+
+The Lisp export is **not a revision history store**.
+
+The user controls this source manually:
+
+1. when the drawing changes, the old export is deleted;
+2. the user runs the Lisp again;
+3. one new/current export file is placed in WIP;
+4. MTO is then invoked to update the corresponding schedule.
+
+Therefore MTO must **not** implement a `latest export` resolver based on filename, timestamp, or lexical ordering.
+
+For each drawing-export-driven schedule run:
+
+- exactly **one** matching current WIP export is expected;
+- `0` matching exports -> stop and report `MISSING_DRAWING_EXPORT`;
+- `>1` matching exports -> stop and report `AMBIGUOUS_DRAWING_EXPORT`;
+- never silently choose one of multiple exports by modified time;
+- the export filename itself does not need to encode a revision/date.
+
 ## Source authority
 
 For a drawing-export-driven schedule, use the following authority order unless a project override or explicit user instruction says otherwise:
@@ -22,9 +43,10 @@ For a drawing-export-driven schedule, use the following authority order unless a
    - controls workbook structure, headers, subheaders, units, formatting, merges, and output location;
    - template sample rows are examples only and are not project truth;
    - never overwrite the read-only template.
-2. **WIP Lisp Export = Primary Project/Drawing Authority**
+2. **Current WIP Lisp Export = Primary Project/Drawing Authority**
    - contains drawing-derived block attributes such as tag, system, airflow, sizes, type, comments, and other attributes exposed by the project Lisp;
    - acts in the same role that `eqm selection` plays for selection-driven equipment;
+   - represents the current drawing snapshot selected by the user through the delete-and-re-export workflow;
    - do not infer fields from tag text when an explicit export attribute exists or when no project rule authorizes the inference.
 3. **00 Input Technical Data = Optional Supplement Authority**
    - may provide make/model, product-specific dimensions, finish, performance, or other useful manufacturer information;
@@ -46,32 +68,39 @@ For a drawing-export-driven schedule, use the following authority order unless a
 
 ## Update behavior
 
-The same live-schedule principles apply as other MTO work:
+The current export is a current drawing snapshot, while the live schedule is the working schedule artifact.
 
 - if no live schedule exists, bootstrap from the read-only template and remove sample data rows only;
-- if a live schedule exists, update it in place using the schedule's stable drawing-derived identity/key;
-- do not clear the live schedule on every run;
-- do not delete disappeared rows automatically; flag them for review unless a future project rule explicitly changes this behavior;
+- if a live schedule exists, reconcile/update it from the current export using the schedule's stable drawing-derived identity/key;
+- do not clear the live schedule blindly before reconciliation;
+- whether rows that disappear from the new current export should be removed or retained/flagged is **not final** and must be decided from real project behavior for each schedule type;
 - produce the normal MTO audit + human-readable report artifacts.
 
-## Revision semantics — NOT FINAL
+## Run identity and audit
 
-Unlike selection-driven schedules, the primary change trigger may be a new/current Lisp export rather than a dated `00 Input/<rev>/...` folder.
+A dated `00 Input/<rev>/...` revision is not required for the primary drawing export.
 
-Until a real project implementation establishes the exact WIP export location and revision naming convention:
+For a drawing-export-driven run, audit/report should record at minimum:
 
-- do not invent a synthetic `input_rev`;
-- identify the primary source as the actual WIP export file;
-- if optional dated technical data is used, record its revision separately as a supplemental source;
-- report/audit schema may require extension to distinguish `drawing_export_rev` from optional `input_rev`.
+- actual current WIP export path/filename;
+- run timestamp;
+- schedule type;
+- added/updated/unchanged/review-required rows;
+- optional supplementary `00 Input` revision(s), if used;
+- source/conflict/review details.
+
+When deterministic tooling is implemented, recording a content hash of the current export is preferred because it identifies the exact source snapshot without relying on filename or filesystem modified time.
+
+Do **not** invent a synthetic `input_rev` for the primary Lisp export.
 
 ## Promotion blockers
 
 Before this source model becomes operational, validate on a real project:
 
-1. exact WIP export folder and filename conventions;
-2. how the latest/current export is selected;
+1. exact WIP export folder and matching filename/pattern conventions;
+2. deterministic enforcement of the exactly-one-current-export rule;
 3. stable row identity for each schedule type;
 4. exact exported block-attribute names and their mapping to schedule fields;
-5. whether report/audit metadata needs a dedicated drawing-export revision field;
-6. deterministic resolver and harness tests for source discovery and write boundaries.
+5. disappeared-row semantics for each schedule type;
+6. audit/report schema for current-export source path/hash plus optional technical-data revision;
+7. deterministic resolver and harness tests for source discovery and write boundaries.
