@@ -1,4 +1,4 @@
-# Script khởi động Codex MCP Server trên Windows (foreground, xem log trực tiếp)
+# Script khoi dong ChatGPT Local Worker MCP tren Windows (foreground, xem log truc tiep)
 param(
     [string]$Workspace = $env:WORKSPACE_PATH,
     [int]$Port = 3000,
@@ -54,7 +54,7 @@ if ($ChatGptAutoApprove) {
 }
 
 Write-Host ""
-Write-Host "=== Codex MCP Server ===" -ForegroundColor Cyan
+Write-Host "=== ChatGPT Local Worker ===" -ForegroundColor Cyan
 Write-Host "Default cwd: $Workspace"
 Write-Host "Full machine access: ON"
 if ($ChatGptAutoApprove) { Write-Host "ChatGPT auto-approve: $ChatGptAutoApprove" }
@@ -103,7 +103,7 @@ if (-not (Test-Path "dist/index.js")) {
     }
 }
 
-Write-Host "Khoi dong server (log hien ben duoi)..." -ForegroundColor Green
+Write-Host "Khoi dong Local Worker (log hien ben duoi)..." -ForegroundColor Green
 Write-Host "Nhan Ctrl+C de dung server" -ForegroundColor DarkGray
 Write-Host ""
 
