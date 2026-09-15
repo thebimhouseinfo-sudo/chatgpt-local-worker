@@ -1,25 +1,52 @@
 # Job Packs
 
-`jobs/` contains Job Packs loaded by the controlled Job Runtime.
+`jobs/` contains optional Job Packs loaded by the controlled Job Runtime.
 
 A Job Pack defines the prescribed workflow, policy/SOP, specialist skills or business rules, deterministic harnesses, and completion criteria for one class of work. It does **not** duplicate the Local Worker filesystem/shell/git execution core.
 
-## Current catalog
+This file documents the **generic pack contract only**. It intentionally does not maintain a catalog of installed jobs or duplicate any pack's domain-specific behavior. Each pack describes itself inside its own directory.
 
-- `dev-coding` — **ready**. Development implementation/execution job; planning-bundle-first when durable planning artifacts exist.
-- `dev-planing` — **ready**. Repository/system planning job; produces a durable planning bundle and does not modify product/source code as part of planning work.
-- `mto` — **ready**. HVAC takeoff/schedule-update job supporting stable and runnable-draft rules across selection-driven and drawing-export-driven source models.
+## Pack-local documentation
 
-Legacy aliases may remain for compatibility, but the canonical IDs are the folder/job IDs above.
+A runnable pack should be self-describing. The primary files are:
 
-## Job family naming
+```text
+jobs/<job-id>/
+├─ job.yaml
+├─ JOB.md
+├─ SKILL.md
+├─ harness/
+└─ optional rules/, skills/, templates/, validators/
+```
 
-Related jobs share a prefix only when they belong to a real work family. Development jobs currently use:
+Use the files as follows:
 
-- `dev-planing`
-- `dev-coding`
+- `job.yaml` — runtime metadata: ID, aliases, keywords, bindings, confirmation behavior, status, and pack-local resources;
+- `JOB.md` — what the job is, its scope, boundaries, inputs/outputs, and completion contract;
+- `SKILL.md` — operational workflow/SOP for executing that job;
+- `rules/` or `skills/` — domain semantics or specialist instructions when needed;
+- `harness/` / `validators/` — deterministic helpers and validation;
+- `templates/` — pack-owned output or working templates when applicable.
 
-Do not create speculative packs or namespaces merely to make the catalog look complete.
+If a pack has additional maturity/status models for its own domain data or rules, those semantics belong inside that pack, not in this shared README.
+
+## Runtime discovery
+
+The Job Runtime discovers installed packs from `jobs/` (or the configured Job Packs path). Do not hardcode the installed catalog into Worker-level documentation.
+
+A user or agent should inspect the runtime catalog with `job_list`, then read the selected pack's own `JOB.md` / `SKILL.md` before executing domain-specific work.
+
+Different installations may intentionally have different sets of Job Packs.
+
+## Generic lifecycle
+
+The common runtime lifecycle is:
+
+```text
+DISCOVER → SELECT → RESOLVE → CONFIRM → EXECUTE → VALIDATE → COMPLETE
+```
+
+Keywords are suggestion-only and never automatic activation. Job selection must preserve the explicit confirmation boundary defined by the runtime/pack contract.
 
 ## Pack contract
 
@@ -35,34 +62,21 @@ A mature pack may also contain `skills/`, `rules/`, and `templates/`.
 
 `job.yaml` uses the JSON-compatible subset of YAML 1.2 so the runtime remains dependency-light and deterministic.
 
-Metadata distinguishes:
+Generic metadata distinguishes:
 
-- Job Pack `status`: currently `ready` or `placeholder` at the pack level;
-- aliases: explicit compatibility/convenience names;
-- keywords: suggestion-only terms, never automatic activation;
-- bindings: concrete job inputs/outputs;
-- confirmation: explicit activation boundary;
-- `skills`: optional pack-local specialist instructions loaded only after activation;
-- harness/validators: deterministic checks and helpers.
+- pack `status`;
+- aliases for compatibility/convenience;
+- keywords for suggestion only;
+- bindings for concrete job inputs/outputs;
+- confirmation requirements;
+- optional pack-local skills/rules;
+- deterministic harnesses and validators.
 
-## MTO rule status is a separate layer
-
-Do not confuse Job Pack status with MTO business-rule maturity.
-
-The `mto` Job Pack itself is **ready**. Its registry under `jobs/mto/rules/equipment-registry.json` contains both:
-
-- `stable` rules — runnable normally;
-- `draft` rules — also runnable, but require a visible `DRAFT / NOT FINAL` warning and careful review of the result.
-
-Current stable MTO rules: AC and Fan.
-
-Current runnable draft rules include CHW Pump, Chiller, ERV/HRV, Evaporative Cooler, Fume Cupboard, VAV, Attenuator, Grille, Door Grille, and Flexible Connection.
-
-MTO rules are business semantics rather than generic agent skills, so they are exposed through the pack's rule registry and `SKILL.md` rather than pretending every equipment rule is a generic skill.
+Do not create speculative packs or namespaces merely to make a catalog look complete. A Job Pack should exist because a real workflow has enough evidence to define its behavior and validation without guessing.
 
 ## Validation
 
-Validate all Job Packs:
+Validate all installed Job Packs:
 
 ```bash
 npm run validate:jobs
@@ -73,3 +87,5 @@ Run the full repository suite:
 ```bash
 npm test
 ```
+
+A specific pack may require additional validation; follow that pack's own documentation.

@@ -2,9 +2,9 @@
 
 # ChatGPT Local Worker
 
-**A controlled general-purpose local worker for ChatGPT, powered by MCP and explicit Job Packs.**
+**A controlled general-purpose local worker for ChatGPT, powered by MCP and optional Job Packs.**
 
-Reuse one mature execution core — filesystem, shell, git, processes, checkpoints, project context, skills, and upstream MCP — while each Job Pack defines the workflow, rules, validation, and completion criteria for a real class of work.
+Reuse one mature execution core — filesystem, shell, git, processes, checkpoints, project context, skills, and upstream MCP — while independently installed Job Packs can add prescribed workflows for particular classes of work.
 
 </div>
 
@@ -16,9 +16,6 @@ ChatGPT Local Worker is derived from [`hoangcoderr/chatgpt-local-coder`](https:/
 ChatGPT
    │
    ▼
-Job Runtime
-   │  discover → select → resolve → confirm
-   ▼
 Local Worker core
    ├─ filesystem / search / patch
    ├─ shell / long-running processes
@@ -28,39 +25,43 @@ Local Worker core
    ├─ project-local skills / path rules
    └─ upstream MCP bridge
    │
-   ▼
-Active Job Pack
-   ├─ JOB.md / SKILL.md
-   ├─ specialist skills or business rules
-   ├─ deterministic harnesses
-   └─ validators / completion criteria
+   ├─ Job Runtime
+   │    discover → select → resolve → confirm
+   │
+   └─ optional Job Packs
+        workflow / rules / harness / validation
 ```
 
-The Worker provides execution capabilities. A Job Pack provides the prescribed way to use those capabilities for one class of work. Coding is one job, not the identity of the Worker.
+The Worker provides execution capabilities. A Job Pack provides a prescribed way to use those capabilities for a specific class of work. Job Packs are modular: different users or installations may carry different packs, and the root Worker does not depend on any particular domain pack.
 
 `WORKER.md` is the authoritative Worker policy. `AGENTS.md` contains concise instructions for agents modifying **this repository**. This README is the operator/user guide.
 
-## Current Job Packs
+## Job Packs
 
-| Job | Status | Purpose |
-|---|---|---|
-| `dev-coding` | **ready** | Execute focused development tasks, preferably from an existing planning bundle, then validate and update task progress |
-| `dev-planing` | **ready** | Deep repository/system planning; produces architecture, implementation plan, backlog, and executable task ledger |
-| `mto` | **ready** | HVAC quantity takeoff / schedule update using stable or runnable-draft engineering rules |
+Job Packs live under `jobs/` and are discovered by the Job Runtime. This root README intentionally does **not** maintain a catalog or duplicate pack-specific behavior.
 
-Compatibility aliases such as `coding` and `dev-planning` may remain, but the canonical development IDs are `dev-coding` and `dev-planing`.
+To see what is installed in a running Worker, use `job_list`. For the contract, workflow, inputs, outputs, rules, and completion criteria of a particular pack, read that pack's own files, especially:
 
-### Job-first lifecycle
+```text
+jobs/<job-id>/
+├─ job.yaml
+├─ JOB.md
+├─ SKILL.md
+├─ harness/
+└─ optional rules/, skills/, templates/, validators/
+```
 
-Operational work follows:
+Pack-specific documentation is authoritative for that pack. Adding, removing, or replacing a Job Pack should not require rewriting this root README.
+
+The generic lifecycle is:
 
 ```text
 DISCOVER → SELECT → RESOLVE → CONFIRM → EXECUTE → VALIDATE → COMPLETE
 ```
 
-On a new Worker session, the expected control flow is `job_status`, then `job_list` when idle. Keywords can suggest a Job Pack but never activate one automatically. `job_select` is two-phase: resolve the concrete request first, then activate only after explicit user confirmation.
+Keywords may suggest a Job Pack but do not activate one automatically. Activation remains an explicit boundary. Use the Job Runtime controls to inspect, select, switch, or stop jobs.
 
-Use `job_switch` to change jobs and clear previous job state, or `job_stop` to end it.
+See [`jobs/README.md`](jobs/README.md) for the generic Job Pack contract. Then read the selected pack's own `JOB.md` / `SKILL.md` for its actual behavior.
 
 ## Quick start
 
@@ -92,7 +93,7 @@ npm test
 npm start
 ```
 
-Set `WORKSPACE_PATH` in `.env` to the project/repository the Worker should treat as its default workspace. The Worker installation root is resolved automatically from the running package; `LOCAL_WORKER_HOME` is only needed when you intentionally override that location. Keeping Worker home separate from the target workspace means switching projects does not remove `WORKER.md` or the Job Packs.
+Set `WORKSPACE_PATH` in `.env` to the project/repository the Worker should treat as its default workspace. The Worker installation root is resolved automatically from the running package; `LOCAL_WORKER_HOME` is only needed when you intentionally override that location. Keeping Worker home separate from the target workspace means switching projects does not remove `WORKER.md` or installed Job Packs.
 
 ## Connect ChatGPT
 
@@ -145,7 +146,7 @@ The default project is `WORKSPACE_PATH`. Its project memory is loaded into MCP i
 
 You normally **do not** need to call `project_context` for the default workspace; use `project_context(path)` when the active task targets another repository.
 
-`agent_status` is an optional diagnostic/tool-reference call, not the normal first step. The job controls are the normal entry point for job-specific work.
+`agent_status` is an optional diagnostic/tool-reference call, not the normal first step. Job-specific work should follow the active Job Pack rather than generic assumptions from the root README.
 
 ## Tool profiles
 
@@ -168,114 +169,6 @@ Core capabilities include:
 
 Some heavier or less-common tools are only exposed by the full profile. `run_command` remains the general fallback for shell/git operations not exposed as dedicated tools.
 
-## Development workflow
-
-### `dev-planing`
-
-Use when planning itself is the job: first-pass repository review, new architecture/system design, major refactor or migration strategy, or a substantial re-plan.
-
-Its standard durable handoff bundle is:
-
-```text
-ARCHITECTURE.md
-IMPLEMENTATION_PLAN.md
-TODO.md
-TASKS.md
-```
-
-`TODO.md` is backlog/deferred scope. `TASKS.md` is the executable ledger used by coding chats.
-
-### `dev-coding`
-
-The normal read order is:
-
-```text
-architecture
-→ implementation plan
-→ TODO
-→ selected TASKS entry
-→ project instructions/rules
-→ targeted source/tests/config
-```
-
-Small, concrete work does not require a planning pass. A bounded implementation branch may use `task-plans/<TASK-ID>.md`; a new project-level architecture/product decision should return to `dev-planing` instead of being silently invented during coding.
-
-## MTO / Quantity Takeoff
-
-`mto` is user-triggered. It does not watch folders in the background and it does not decide equipment scope autonomously.
-
-### Rule maturity is separate from run permission
-
-MTO registry rules have explicit maturity:
-
-- `stable` — runnable normally;
-- `draft` — **also runnable on real projects**, but the Worker must warn `DRAFT / NOT FINAL` and the result requires careful human review;
-- missing/disabled/placeholder — not runnable.
-
-Current stable rules are AC and Fan. Current runnable draft rules include CHW Pump, Chiller, ERV/HRV, Evaporative Cooler, Fume Cupboard, VAV, Attenuator, Grille, Door Grille, and Flexible Connection.
-
-Draft does not mean fake or unsupported. Real project use is how the rule gathers the evidence needed to become stable.
-
-### Two source models
-
-**Selection-driven** schedules use dated project selection under `00 Input` as the backbone, with exact-model technical data as supplement. Revision can be explicit or `latest`; `latest` is resolved independently for each requested equipment type.
-
-**Drawing-export-driven** schedules use the current Lisp block-attribute export in `01 WIP` as the primary drawing snapshot. This source model is already operational. Grille, Door Grille, and Flexible Connection currently use draft business rules on top of it.
-
-For drawing-export work:
-
-```text
-current Lisp export
-→ compare with live schedule
-→ change report
-→ controlled merge
-→ validation
-```
-
-The live schedule is working truth and may contain valid manual edits/enrichment. A new export is not permission to clear and rebuild it blindly.
-
-### Typical project structure
-
-```text
-<Project Root>/
-├─ 00 Input/
-│  └─ YYYY MM DD/
-│     ├─ ac/
-│     ├─ fan/
-│     └─ ...
-├─ 01 WIP/
-│  ├─ DESIGN DRAWING/
-│  ├─ REVIT/                         # outside normal MTO scope
-│  ├─ grille.csv                     # target Lisp names after naming fix
-│  ├─ door grille.csv
-│  ├─ flex conn.csv
-│  └─ SCHEDULE/
-│     ├─ *.xlsx                      # read-only templates
-│     └─ eqm/                        # intended MTO write tree
-│        ├─ _audit/
-│        └─ _reports/
-├─ 02 Output/                        # forbidden for MTO writes
-└─ qto-rules/                        # optional project overrides
-```
-
-The current Lisp may still emit a project-name filename. That export is usable when the user explicitly identifies/provides it; after the Lisp naming fix the resolver can use the canonical schedule-specific stems.
-
-### Source authority and safety
-
-For selection-driven work, project selection chooses the project model/value; exact-model catalog data only supplements missing fields. Drawing information is reconciliation evidence. Never reverse this authority or invent missing values.
-
-For drawing-export work, the export owns only fields it actually carries (or approved deterministic derivations). Valid live/manual fields outside export ownership are preserved.
-
-MTO intentional writes are limited to:
-
-```text
-01 WIP/SCHEDULE/eqm/**
-```
-
-Templates, `00 Input`, design drawings, Lisp export files, project rules, and `02 Output` are not MTO write targets.
-
-Each run maintains a live workbook, append-history audit JSON, and a human-readable takeoff/change report. Draft reports visibly repeat the draft warning.
-
 ## Admin UI and upstream MCP
 
 The localhost Admin UI can inspect server status, project instruction context, activity, environment configuration, and upstream MCP servers. Upstream tools may be imported/configured through `profiles/mcp-upstream.json` and the Admin UI.
@@ -284,7 +177,7 @@ Features explicitly labeled **Codex hooks** or Codex compatibility refer to inhe
 
 ## Validation
 
-Validate Job Pack structure:
+Validate installed Job Pack structure:
 
 ```bash
 npm run validate:jobs
@@ -296,7 +189,7 @@ Run the normal build + full inherited/Worker suite:
 npm test
 ```
 
-Additional integration tests are available through the repository scripts where applicable.
+Each Job Pack may define additional pack-specific validation. Follow that pack's own documentation when it is active.
 
 ## Troubleshooting
 
@@ -307,7 +200,7 @@ Additional integration tests are available through the repository scripts where 
 | `tool not found` | Check `CHATGPT_TOOL_PROFILE`; use `agent_status` or `run_command` fallback |
 | Patch context not found | Re-read the target file and use more surrounding context |
 | Wrong project | Verify `WORKSPACE_PATH`; use `project_context(path)` only when intentionally targeting another repo |
-| MTO draft warning | Expected: draft rules are runnable, but their result must be reviewed carefully |
+| Job-specific behavior unclear | Read the active pack's `JOB.md` / `SKILL.md`; do not infer domain policy from the root README |
 
 `CHATGPT_AUTO_APPROVE` can reduce connector permission prompts, but ChatGPT/platform permission settings still remain authoritative.
 
@@ -315,27 +208,27 @@ Additional integration tests are available through the repository scripts where 
 
 ```text
 chatgpt-local-worker/
-├─ README.md                   # operator/user guide
+├─ README.md                   # operator/user guide for the Worker core
 ├─ AGENTS.md                   # concise repo-development instructions
 ├─ WORKER.md                   # authoritative Worker policy
 ├─ jobs/
-│  ├─ dev-coding/
-│  ├─ dev-planing/
-│  └─ mto/
+│  └─ <job-id>/                # optional, self-described Job Packs
 ├─ shared-harness/
 ├─ profiles/
 ├─ public/ui/
 ├─ scripts/
 └─ src/
-   ├─ jobs/                    # Job Runtime
+   ├─ jobs/                    # generic Job Runtime
    ├─ tools/                   # local MCP tools
    ├─ lib/                     # execution/instruction/runtime libraries
    └─ admin/
 ```
 
-## Design rule for future Job Packs
+## Design rule for Job Packs
 
-Do not add a Job Pack merely because a domain name exists. Add one when there is enough real evidence to define inputs/outputs, workflow, rules, deterministic validation, and completion criteria without guessing. Job Packs should reduce improvisation, not rename a prompt.
+A Job Pack should be self-contained enough that its domain description, workflow, policy, validation, and completion criteria live with the pack rather than leaking into the Worker core documentation.
+
+Do not add a Job Pack merely because a domain name exists. Add one when there is enough real evidence to define its behavior without guessing. Job Packs should reduce improvisation, not rename a prompt.
 
 ## Upstream and license
 
