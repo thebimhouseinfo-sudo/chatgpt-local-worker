@@ -15,8 +15,9 @@ const validation = run("validate.mjs");
 assert.equal(validation.ok, true);
 assert.equal(validation.id, "coding");
 assert.equal(validation.status, "ready");
-assert.equal(validation.coding.skills >= 12, true);
+assert.equal(validation.coding.skills, 11);
 assert.equal(validation.coding.harness_entrypoints >= 7, true);
+assert.equal(validation.coding.formal_planning, false);
 
 const inspection = run("inspect-repo.mjs", ["--cwd", repoRoot]);
 assert.equal(inspection.ok, true);
