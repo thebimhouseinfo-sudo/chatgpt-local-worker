@@ -1,0 +1,56 @@
+{
+  "name": "chatgpt-local-coder",
+  "version": "1.0.0",
+  "description": "Turn ChatGPT web into a local coding agent via MCP — files, shell, git, apply_patch, 40+ tools",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/hoangcoderr/chatgpt-local-coder.git"
+  },
+  "homepage": "https://github.com/hoangcoderr/chatgpt-local-coder#readme",
+  "bugs": {
+    "url": "https://github.com/hoangcoderr/chatgpt-local-coder/issues"
+  },
+  "author": "hoangcoderr",
+  "type": "module",
+  "main": "dist/index.js",
+  "bin": {
+    "codex-mcp-server": "dist/index.js"
+  },
+  "scripts": {
+    "build": "tsc",
+    "test": "tsc && node scripts/test-patch.mjs && node scripts/test-tools.mjs && node scripts/test-checkpoints.mjs && node scripts/test-mcp-upstream.mjs && node scripts/test-mcp-oauth.mjs && node scripts/test-activity-log.mjs && node scripts/test-project-memory.mjs && node scripts/test-tool-profile.mjs && node scripts/test-shell-persist.mjs",
+    "test:all": "node scripts/run-all-tests.mjs",
+    "test:integration": "tsc && node scripts/test-mcp-bridge-integration.mjs",
+    "init-claude-md": "node scripts/init-claude-md.mjs",
+    "start": "node dist/index.js",
+    "dev": "tsx watch src/index.ts",
+    "tunnel": "cloudflared tunnel --url http://localhost:3000"
+  },
+  "keywords": [
+    "mcp",
+    "chatgpt",
+    "coding-agent",
+    "model-context-protocol",
+    "local-development",
+    "filesystem",
+    "git",
+    "apply-patch",
+    "developer-mode",
+    "openai-tunnel"
+  ],
+  "license": "MIT",
+  "dependencies": {
+    "@modelcontextprotocol/sdk": "^1.30.0",
+    "cors": "^2.8.6",
+    "dotenv": "^17.4.2",
+    "express": "^5.2.1",
+    "zod": "^4.4.3"
+  },
+  "devDependencies": {
+    "@types/cors": "^2.8.19",
+    "@types/express": "^5.0.6",
+    "@types/node": "^26.2.0",
+    "tsx": "^4.23.11",
+    "typescript": "^7.0.2"
+  }
+}
