@@ -1,8 +1,8 @@
-# Coding Agent — Operating SOP
+# Dev Coding — Operating SOP
 
-This file orchestrates the `coding` Job Pack. The MCP core performs filesystem/shell/git/checkpoint/MCP actions. This pack supplies execution discipline, specialist skills, and deterministic gates.
+This file orchestrates the `dev-coding` Job Pack. The MCP core performs filesystem/shell/git/checkpoint/MCP actions. This pack supplies execution discipline, specialist skills, and deterministic gates.
 
-`coding` is an **implementation job, not a planning job**. Formal development planning belongs to the separate `dev-planning` Job Pack.
+`dev-coding` is an **implementation job, not a planning job**. Formal development planning belongs to the separate `dev-planing` Job Pack.
 
 ## 1. Establish the execution contract
 
@@ -16,7 +16,7 @@ After activation:
 6. Load path-specific rules before editing unfamiliar areas.
 7. Read only the pack-local specialist skills relevant to this task.
 
-Do **not** create a formal implementation plan inside this job. Local execution sequencing is allowed when needed to apply a concrete task safely, but if implementation depends on unresolved product/architecture decisions, stop and surface those decisions instead of turning `coding` into a planner. For broader design work, use `dev-planning` first.
+Do **not** create a formal implementation plan inside this job. Local execution sequencing is allowed when needed to apply a concrete task safely, but if implementation depends on unresolved product/architecture decisions, stop and surface those decisions instead of turning `dev-coding` into a planner. For broader design work, use `dev-planing` first.
 
 ## 2. Discover before changing
 
