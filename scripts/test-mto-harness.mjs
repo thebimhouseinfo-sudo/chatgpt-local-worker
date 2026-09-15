@@ -25,7 +25,8 @@ assert.equal(validation.mto.operational, true);
 assert.deepEqual(validation.mto.equipment.sort(), ["ac", "fan"]);
 assert.equal(validation.mto.write_root, "01 WIP/SCHEDULE/eqm");
 assert.equal(validation.mto.output_writes, false);
-assert.equal(validation.mto.harness_entrypoints, 4);
+assert.equal(validation.mto.report_model, "canonical-markdown-per-equipment+revision");
+assert.equal(validation.mto.harness_entrypoints, 5);
 
 const tmp = await fs.mkdtemp(path.join(os.tmpdir(), "local-worker-mto-"));
 try {
@@ -55,6 +56,8 @@ try {
   assert.equal(fan.revision, "2026 08 15");
   assert.equal(ac.schedule_mode, "bootstrap");
   assert.equal(fan.schedule_mode, "bootstrap");
+  assert.equal(ac.report_file, path.join(eqm, "_reports", "2026 08 11", "ac.md"));
+  assert.equal(fan.report_file, path.join(eqm, "_reports", "2026 08 15", "fan.md"));
   assert.equal(ac.rules.project_common.some((p) => p.endsWith("tag-mapping.md")), true);
   assert.equal(fan.rules.project_equipment.endsWith(path.join("qto-rules", "fan.md")), true);
 
@@ -66,6 +69,9 @@ try {
 
   const allowed = run("write-guard.mjs", ["--project", tmp, "--path", path.join(eqm, "Fan Equipment Schedule.xlsx")]);
   assert.equal(allowed.allowed, true);
+
+  const allowedReport = run("write-guard.mjs", ["--project", tmp, "--path", fan.report_file]);
+  assert.equal(allowedReport.allowed, true);
 
   const deniedTemplate = run("write-guard.mjs", ["--project", tmp, "--path", path.join(schedule, "Fan Equipment Schedule.xlsx")], 1);
   assert.equal(deniedTemplate.allowed, false);
@@ -91,6 +97,11 @@ try {
   const audit = run("audit-lint.mjs", ["--file", auditFile]);
   assert.equal(audit.ok, true);
   assert.equal(audit.run_count, 1);
+
+  await fs.mkdir(path.dirname(fan.report_file), { recursive: true });
+  await fs.writeFile(fan.report_file, `# MTO TAKEOFF REPORT — FAN\n\n## RUN SUMMARY\n\n- Project: Test\n- Equipment: fan\n- Input Revision: 2026 08 15\n- Schedule Mode: bootstrap\n- Live Schedule: Fan Equipment Schedule.xlsx\n- Run Timestamp: 2026-09-15T10:32:00+07:00\n- Rules Applied: base fan\n\n## EQUIPMENT SCHEDULE\n\n| REF. NO. | MAKE | MODEL |\n|---|---|---|\n| FAN-07 | TEST | F-1 |\n\n## CHANGE SUMMARY\n\n- Added: 1\n- Updated: 0\n- Unchanged: 0\n- Review Required / Disappeared: 0\n\n## TRACEABILITY & DATA SOURCE\n\n- FAN-07: 00 Input/2026 08 15/fan/eqm selection.xlsx\n\n## DRAWING RECONCILIATION\n\n- No mismatch.\n\n## CONFLICTS / TBC / REVIEW ITEMS\n\nNone\n\n## QUERY LIST (RFI)\n\nNone\n`, "utf8");
+  const report = run("report-lint.mjs", ["--file", fan.report_file]);
+  assert.equal(report.ok, true);
 
   const unsupported = run("resolve-project.mjs", ["--project", tmp, "--equipment", "hrv", "--revision", "latest"], 1);
   assert.equal(unsupported.ok, false);
