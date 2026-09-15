@@ -7,11 +7,13 @@ const repoRoot = path.resolve(path.dirname(fileURLToPath(import.meta.url)), ".."
 const runtime = new JobRuntime(repoRoot, path.join(repoRoot, "jobs"));
 
 const listing = await runtime.list("repo lisp");
-assert.equal(listing.jobs.length, 2);
-assert.deepEqual(listing.jobs.map((job) => job.id).sort(), ["coding", "mto"]);
+assert.equal(listing.jobs.length, 3);
+assert.deepEqual(listing.jobs.map((job) => job.id).sort(), ["coding", "dev-planning", "mto"]);
 assert.equal(listing.suggested_job_ids.includes("coding"), true);
 assert.equal(listing.jobs.find((job) => job.id === "coding")?.status, "ready");
-assert.equal(listing.jobs.find((job) => job.id === "coding")?.skill_count, 12);
+assert.equal(listing.jobs.find((job) => job.id === "coding")?.skill_count, 11);
+assert.equal(listing.jobs.find((job) => job.id === "dev-planning")?.status, "ready");
+assert.equal(listing.jobs.find((job) => job.id === "dev-planning")?.skill_count, 5);
 assert.equal(listing.jobs.find((job) => job.id === "mto")?.status, "placeholder");
 
 await assert.rejects(
@@ -51,9 +53,39 @@ const active = await runtime.select({
 });
 assert.equal(active.state.phase, "active");
 assert.equal(active.job.status, "ready");
-assert.equal(active.skills.length, 12);
+assert.equal(active.skills.length, 11);
 assert.equal(active.harness.length, 7);
 assert.equal(active.validators.length, 2);
+
+runtime.stop();
+
+const planSelected = await runtime.select({
+  job: "dev-planning",
+  bindings: {
+    workspace: ".",
+    objective: "Plan a safe runtime change",
+    plan: "./DEV_PLAN.test.md",
+  },
+});
+assert.equal(planSelected.state.phase, "awaiting_confirmation");
+assert.equal(typeof planSelected.confirmation_token, "string");
+assert.deepEqual(planSelected.skills, []);
+
+const planActive = await runtime.select({
+  job: "dev-planning",
+  bindings: {
+    workspace: ".",
+    objective: "Plan a safe runtime change",
+    plan: "./DEV_PLAN.test.md",
+  },
+  confirmed: true,
+  confirmationToken: planSelected.confirmation_token,
+});
+assert.equal(planActive.state.phase, "active");
+assert.equal(planActive.job.status, "ready");
+assert.equal(planActive.skills.length, 5);
+assert.equal(planActive.harness.length, 2);
+assert.equal(planActive.validators.length, 2);
 
 const stopped = runtime.stop();
 assert.equal(stopped.state.phase, "idle");
