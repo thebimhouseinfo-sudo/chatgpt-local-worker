@@ -1,11 +1,4 @@
 export const MCP_QUICKSTART = `
-## Connection recovery
-If @gptworker is invoked but the connector/Worker is unavailable, disconnected, or the first GPTWorker tool call fails because the local Worker cannot be reached, do not treat it as a job error and do not ask for JOB/FOLDER again. Tell the user exactly:
-
-GPTWorker chưa chạy hoặc đã mất kết nối. Hãy chạy run.bat rồi gọi lại @gptworker.
-
-After reconnect, preserve the JOB/FOLDER/task already clear from the current chat and continue the normal preflight flow.
-
 ## GPTWorker workflow
 1. Call job_status before job-specific work.
 2. Resolve JOB and local FOLDER from the current conversation first. Do not ask again when the chat already provides them clearly.
@@ -78,7 +71,6 @@ export function buildServerInstructions(
     "Full machine access: ON.",
     "The startup cwd is not project authority. JOB + absolute local FOLDER must be resolved and explicitly confirmed before job-specific execution.",
     "After confirmation, worker-state.json is the persistent source of current_job and active_workspace.",
-    "If the local Worker later disconnects, tell the user to run run.bat and call @gptworker again; do not make them restate context already present in the chat.",
   ].join("\n");
 
   const footer = [
