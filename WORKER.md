@@ -86,7 +86,7 @@ Activation then:
 5. makes git/project-context tools default to that folder;
 6. loads the Job Pack execution context and begins work.
 
-No filesystem mutation, command execution, project git mutation, or job-specific execution should occur before this confirmation gate.
+No **project** filesystem mutation, command execution, project git mutation, or job-specific execution should occur before this confirmation gate. Internal Worker state may be prepared/cleared as part of selection/switching.
 
 If the user intentionally changes JOB or FOLDER during the same session, use `job_switch`, resolve the new bindings, and confirm again before execution.
 
@@ -107,8 +107,6 @@ The lifecycle remains:
 ```text
 DISCOVER → SELECT → RESOLVE → CONFIRM → EXECUTE → VALIDATE → COMPLETE
 ```
-
-Interpretation for GPTWorker:
 
 ### DISCOVER
 
@@ -134,9 +132,13 @@ After activation, follow the selected Job Pack's `JOB.md` and `SKILL.md`. Full-m
 
 Run pack validators and task-appropriate deterministic checks. A file write or generated output alone is not completion evidence.
 
+- `dev-coding`: review the final diff and run `git diff --check` when operating in Git; bundle-backed work must leave `TASKS.md` reflecting real progress/status.
+- `dev-planing`: the planning bundle must pass `bundle-lint` and expose unresolved decisions rather than hide them.
+- `mto`: validate source resolution, write target, audit JSON, report, template/source authority, preservation of manual fields where applicable, and unresolved review items. Draft runs must retain the warning in reviewer-facing output.
+
 ### COMPLETE
 
-Report outputs, validation evidence, skipped/failed checks, remaining risks, and task status accurately.
+Report outputs, validation evidence, skipped/failed checks, remaining risks, and task status accurately. Do not claim completion when required validation failed or was not run.
 
 ## Development jobs
 
@@ -174,13 +176,33 @@ Planning should expose unresolved decisions rather than hiding them.
 
 `mto` is user-triggered and scope-controlled. It does not autonomously decide which equipment/schedule to process.
 
-Rule maturity:
+### Rule maturity
 
 - `stable` — runnable normally;
-- `draft` — runnable but must visibly state `DRAFT / NOT FINAL` and require careful review;
+- `draft` — runnable, but must visibly state **DRAFT / NOT FINAL**, state that the result needs careful review, and preserve review feedback useful for refining the rule;
 - missing/disabled/placeholder — not runnable.
 
-MTO supports selection-driven and drawing-export-driven sources. It must preserve source authority and manual enrichment rules defined in the pack.
+Stable rules currently include **AC** and **Fan**.
+
+Draft runnable rules currently include **CHW Pump, Chiller, ERV/HRV, Evaporative Cooler, Fume Cupboard, VAV, Attenuator, Grille, Door Grille, and Flexible Connection**.
+
+Draft is not another word for unsupported. GPT must not silently invent unresolved engineering policy in a draft rule. TBC/provisional behavior must be preserved or flagged and surfaced in audit/report output.
+
+### Source models
+
+**Selection-driven** equipment uses the dated `00 Input` project selection as the backbone and exact-model technical data as supplement. Revision may be explicit or `latest`; an omitted revision may resolve to `latest` when the pack permits it.
+
+**Drawing-export-driven** schedules use the current Lisp block-attribute export under `01 WIP` as the primary drawing snapshot. The live schedule may contain valid manual edits/enrichment and must not be blindly rebuilt from a new export.
+
+Normal drawing-export update flow:
+
+```text
+current export → compare live schedule → change report → controlled merge → validation
+```
+
+When legacy Lisp naming still produces a project-name export, use it only when the user explicitly identifies/provides it; do not select drawing exports by modified-time guessing.
+
+### Write boundary
 
 Intentional MTO writes remain limited to:
 
@@ -188,9 +210,19 @@ Intentional MTO writes remain limited to:
 01 WIP/SCHEDULE/eqm/**
 ```
 
-`00 Input`, design drawings, templates, Lisp exports, `01 WIP/REVIT`, project rules, and `02 Output` remain outside the MTO write boundary unless the pack policy is explicitly changed.
+Read-only/out-of-scope locations include `00 Input`, design drawings, schedule templates, Lisp exports, `qto-rules`, and `01 WIP/REVIT`; `02 Output` is forbidden for MTO writes.
 
-Every MTO run preserves machine-readable audit history and a human-readable report. Draft runs repeat the draft warning in reviewer-facing output.
+The MTO write guard must pass before every project write.
+
+### Audit/report
+
+Every MTO run preserves machine-readable audit history and a human-readable report.
+
+- selection-driven runs use the actual resolved input revision;
+- drawing-export runs use the actual export path/hash as run identity and must not invent a synthetic dated input revision;
+- draft reports repeat **DRAFT / NOT FINAL** and expose TBC/conflicts/review items.
+
+MTO business semantics remain in the Job Pack rules, not generic Worker code.
 
 ## State isolation
 
