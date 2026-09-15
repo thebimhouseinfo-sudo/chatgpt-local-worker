@@ -1,226 +1,260 @@
-# ChatGPT Local Worker — Worker Policy
+# GPTWorker — Worker Policy
 
-This repository is a **General Local Worker**. The worker core provides generic local execution; domain capability comes from explicit Job Packs.
+GPTWorker is a **general-purpose local worker controlled from ChatGPT**. The Worker core provides full local execution capabilities; Job Packs provide the workflow/policy for a particular class of work.
 
-This policy supersedes legacy **Local Coder / Codex coding-agent onboarding text** wherever the two conflict. Legacy core-tool documentation remains valid as tool documentation.
+The normal user interface is ChatGPT. There is no required configuration UI in the everyday workflow.
+
+## Interaction contract
+
+The intended Windows flow is:
+
+```text
+FIRST TIME
+setup.bat
+→ install/build/test
+→ initialize OpenAI Secure MCP Tunnel
+→ create ChatGPT connection named gptworker
+
+EVERYDAY
+run.bat
+→ @gptworker in ChatGPT
+→ resolve JOB + local FOLDER
+→ explicit confirmation
+→ work
+```
+
+The local folder is the equivalent of **Open Folder** in an IDE. It is not configured permanently in `.env`.
+
+After confirmation, root `worker-state.json` is the persistent source of the current job/workspace:
+
+```json
+{
+  "current_job": "dev-coding",
+  "active_workspace": "D:\\Projects\\CAD-Agent",
+  "status": "confirmed",
+  "updated_at": "..."
+}
+```
+
+`worker-state.json` is local runtime state and is git-ignored.
+
+## Mandatory preflight
+
+Before job-specific execution, GPT must resolve two anchors:
+
+- **JOB** — the Job Pack that matches the requested work;
+- **FOLDER** — the local project/workspace folder.
+
+Resolve from the current conversation before asking the user anything.
+
+Priority:
+
+1. explicit information in the message that invokes `@gptworker`;
+2. clear information already present in the current chat;
+3. `job_status` / previous `worker-state.json` may be shown as context, but must not silently replace missing JOB/FOLDER for a new task;
+4. ask only for information that remains missing or ambiguous.
+
+Do **not** ask the user to repeat information already clearly present in the chat.
+
+If JOB is missing, ask only for JOB. If FOLDER is missing, ask only for FOLDER. If both are missing, ask for both. Job-specific required inputs such as task/objective/equipment should likewise be resolved from the chat first and only missing values should be requested.
+
+Natural-language intent may be mapped to a ready Job Pack. Keyword matching is not permission to execute; **explicit confirmation is the execution gate**.
+
+## Confirmation gate
+
+Call `job_select` with concrete bindings and `confirmed=false` first. When all required bindings are resolved, present the returned confirmation prompt and stop.
+
+The user-facing confirmation should be short:
+
+```text
+JOB: coding
+FOLDER: D:\Projects\CAD-Agent
+
+Xác nhận bắt đầu?
+```
+
+Equivalent labels are used for other jobs (`planning`, `mto`).
+
+Only after the user explicitly confirms may GPT call `job_select` again with `confirmed=true` and the returned confirmation token.
+
+Activation then:
+
+1. sets the Job Runtime active;
+2. writes `worker-state.json`;
+3. makes the confirmed folder the default cwd;
+4. resets the persistent shell to that folder;
+5. makes git/project-context tools default to that folder;
+6. loads the Job Pack execution context and begins work.
+
+No **project** filesystem mutation, command execution, project git mutation, or job-specific execution should occur before this confirmation gate. Internal Worker state may be prepared/cleared as part of selection/switching.
+
+If the user intentionally changes JOB or FOLDER during the same session, use `job_switch`, resolve the new bindings, and confirm again before execution.
 
 ## Current Job catalog
 
-At this stage the catalog is intentionally small:
+Canonical ready Job Packs:
 
-- `dev-coding` — **READY**. Development-family implementation/execution job. It inherits the original Local Coder core and adds planning-bundle-first execution, task-ledger progress tracking, bounded task-local planning, targeted repository discovery, specialist skills, and deterministic harnesses.
-- `dev-planing` — **READY**. Development-family planning job. It may deeply review a repository and produces a durable planning bundle without modifying source code.
-- `mto` — **READY**. Local, user-triggered HVAC takeoff/update job. It supports stable and draft business rules, selection-driven and drawing-export-driven source models, deterministic project/path resolution, controlled EQM writes, audit history, and reviewer-facing reports.
+- `dev-coding` — implementation/debug/refactor/test/build work. Common alias: `coding`.
+- `dev-planing` — repository/system planning and durable planning bundles. Common alias: `planning`.
+- `mto` — local HVAC quantity takeoff/update workflows.
 
-Legacy names such as `coding` and `dev-planning` may remain aliases for compatibility, but canonical job IDs are `dev-coding` and `dev-planing`.
+Only ready packs are runnable.
 
-## Development-job boundary
+## Runtime lifecycle
 
-### Dev Planing
+The lifecycle remains:
 
-Use `dev-planing` when planning itself is the primary job: first-pass repository review, new-repository/system design, repository-wide architecture reconstruction, broad option analysis, large refactor/migration strategy, or creation/major revision of durable planning artifacts.
+```text
+DISCOVER → SELECT → RESOLVE → CONFIRM → EXECUTE → VALIDATE → COMPLETE
+```
 
-Its standard output bundle inside the confirmed `planning_dir` is:
+### DISCOVER
 
-- `ARCHITECTURE.md`
-- `IMPLEMENTATION_PLAN.md`
-- `TODO.md`
-- `TASKS.md`
-- optional `task-plans/`
+Call `job_status`. Inspect the conversation before asking questions. Use `job_list` only when the job is unclear or the catalog is needed.
 
-`ARCHITECTURE.md` and `IMPLEMENTATION_PLAN.md` capture durable project direction. `TODO.md` is backlog/deferred/future scope. `TASKS.md` is the executable task ledger for coding chats.
+### SELECT
 
-### Dev Coding
+Choose the ready Job Pack that matches the user's already-stated intent. Selection is not activation.
 
-`dev-coding` plans as part of execution, but it should normally **read the active planning bundle before source-code exploration**. The order is architecture → general implementation plan → TODO → task ledger → project rules → targeted source/tests/config.
+### RESOLVE
 
-It must not default to re-reviewing the whole repository for every coding chat. It updates `TASKS.md` as progress changes and marks a task `DONE` only after acceptance/validation evidence exists.
+Resolve the local workspace folder plus every required binding from conversation context. Do not invent missing business rules, paths, outputs, scope, or acceptance criteria.
 
-If implementation discovers a bounded branch that remains inside settled architecture/scope, `dev-coding` may create a task-local plan under `task-plans/`, link/update the task ledger, and continue.
+### CONFIRM
 
-If a branch requires a new architecture/product decision, repository-wide re-plan, or material scope expansion, `dev-coding` must not silently invent that work. It should mark the affected task `BLOCKED`, record the missing decision, and recommend opening a `dev-planing` chat for better results.
+Use the two-phase `job_select` flow. Always show JOB + FOLDER and wait for explicit confirmation.
 
-## MTO job boundary
+### EXECUTE
 
-`mto` is not a watcher and does not autonomously decide which equipment/schedule to process. The user supplies the work intent and scope; the Job Pack resolves project paths, source model, rule status, source files/revisions, templates, live schedules, report paths, and allowed writes.
+After activation, follow the selected Job Pack's `JOB.md` and `SKILL.md`. Full-machine access is intentional for this trusted local-agent use case, while the confirmed FOLDER is the default working context.
 
-### MTO rule maturity
+### VALIDATE
 
-MTO separates **rule maturity** from **permission to execute**:
+Run pack validators and task-appropriate deterministic checks. A file write or generated output alone is not completion evidence.
+
+- `dev-coding`: review the final diff and run `git diff --check` when operating in Git; bundle-backed work must leave `TASKS.md` reflecting real progress/status.
+- `dev-planing`: the planning bundle must pass `bundle-lint` and expose unresolved decisions rather than hide them.
+- `mto`: validate source resolution, write target, audit JSON, report, template/source authority, preservation of manual fields where applicable, and unresolved review items. Draft runs must retain the warning in reviewer-facing output.
+
+### COMPLETE
+
+Report outputs, validation evidence, skipped/failed checks, remaining risks, and task status accurately. Do not claim completion when required validation failed or was not run.
+
+## Development jobs
+
+### `dev-coding`
+
+When a planning bundle exists, read it before broad source exploration in this order:
+
+```text
+ARCHITECTURE.md
+IMPLEMENTATION_PLAN.md
+TODO.md
+TASKS.md
+```
+
+Then inspect only task-relevant source/tests/config. Update `TASKS.md` when progress changes and mark work DONE only with validation evidence.
+
+A bounded implementation branch may create a task-local plan. New architecture/product decisions or material scope expansion should not be silently invented during coding; record/block them and route planning work to `dev-planing` when appropriate.
+
+### `dev-planing`
+
+Use when planning itself is the primary job: first-pass repository review, architecture/system design, broad migration/refactor planning, option analysis, or major revision of the durable planning bundle.
+
+Standard output bundle:
+
+```text
+ARCHITECTURE.md
+IMPLEMENTATION_PLAN.md
+TODO.md
+TASKS.md
+```
+
+Planning should expose unresolved decisions rather than hiding them.
+
+## MTO invariants
+
+`mto` is user-triggered and scope-controlled. It does not autonomously decide which equipment/schedule to process.
+
+### Rule maturity
 
 - `stable` — runnable normally;
-- `draft` — runnable on real projects, but GPT must explicitly warn **DRAFT / NOT FINAL**, state that the result needs careful checking, and use project feedback to refine the rule;
+- `draft` — runnable, but must visibly state **DRAFT / NOT FINAL**, state that the result needs careful review, and preserve review feedback useful for refining the rule;
 - missing/disabled/placeholder — not runnable.
 
-Draft is not another word for unsupported. Blocking draft rules would prevent the real implementations needed to validate and improve them.
+Stable rules currently include **AC** and **Fan**.
 
-Stable rules currently include AC and Fan. Draft runnable rules include CHW Pump, Chiller, ERV/HRV, Evaporative Cooler, Fume Cupboard, VAV, Attenuator, Grille, Door Grille, and Flexible Connection.
+Draft runnable rules currently include **CHW Pump, Chiller, ERV/HRV, Evaporative Cooler, Fume Cupboard, VAV, Attenuator, Grille, Door Grille, and Flexible Connection**.
 
-GPT must not silently invent unresolved engineering policy inside a draft rule. When a draft contains a TBC/provisional behavior, preserve or flag that uncertainty and expose it in audit/report output.
+Draft is not another word for unsupported. GPT must not silently invent unresolved engineering policy in a draft rule. TBC/provisional behavior must be preserved or flagged and surfaced in audit/report output.
 
-### MTO source models
+### Source models
 
-**Selection-driven** equipment uses dated `00 Input` project selection as the backbone and exact-model technical data as supplement. Revision may be explicit or `latest`; omitted revision may resolve as `latest`.
+**Selection-driven** equipment uses the dated `00 Input` project selection as the backbone and exact-model technical data as supplement. Revision may be explicit or `latest`; an omitted revision may resolve to `latest` when the pack permits it.
 
-**Drawing-export-driven** schedules use the current Lisp block-attribute export under `01 WIP` as the primary drawing snapshot. This source model is already operational. Grille / Door Grille / Flexible Connection rules may still be draft at the field/business-rule layer.
+**Drawing-export-driven** schedules use the current Lisp block-attribute export under `01 WIP` as the primary drawing snapshot. The live schedule may contain valid manual edits/enrichment and must not be blindly rebuilt from a new export.
 
-The current Lisp naming bug may still export a project-name file. Such a file is usable when the user explicitly identifies/provides it. After the Lisp naming fix, canonical stems are `grille`, `door grille`, and `flex conn`. Do not choose drawing exports by modified-time guessing.
+Normal drawing-export update flow:
 
-Normal drawing-export update flow is:
+```text
+current export → compare live schedule → change report → controlled merge → validation
+```
 
-`current export → compare live schedule → change report → controlled merge → validation`
+When legacy Lisp naming still produces a project-name export, use it only when the user explicitly identifies/provides it; do not select drawing exports by modified-time guessing.
 
-The live schedule may contain valid manual edits and enrichment. A new export is not permission to clear/rebuild it blindly.
+### Write boundary
 
-### MTO write boundary
+Intentional MTO writes remain limited to:
 
-MTO writes are limited to `01 WIP/SCHEDULE/eqm/**`.
+```text
+01 WIP/SCHEDULE/eqm/**
+```
 
-Read-only:
+Read-only/out-of-scope locations include `00 Input`, design drawings, schedule templates, Lisp exports, `qto-rules`, and `01 WIP/REVIT`; `02 Output` is forbidden for MTO writes.
 
-- `00 Input/**`
-- current Lisp exports under `01 WIP/**`
-- DESIGN DRAWING
-- schedule templates
-- `qto-rules/**`
+The MTO write guard must pass before every project write.
 
-`01 WIP/REVIT/**` is outside takeoff scope. `02 Output/**` is forbidden.
+### Audit/report
 
-The MTO write guard must pass before project writes, and deployment should enforce the same boundary at the filesystem/MCP ACL layer.
+Every MTO run preserves machine-readable audit history and a human-readable report.
 
-### MTO audit/report
+- selection-driven runs use the actual resolved input revision;
+- drawing-export runs use the actual export path/hash as run identity and must not invent a synthetic dated input revision;
+- draft reports repeat **DRAFT / NOT FINAL** and expose TBC/conflicts/review items.
 
-Every run must preserve machine-readable audit history and a human-readable takeoff/change report.
-
-Selection-driven runs use an actual resolved input revision.
-
-Drawing-export runs use the actual export path/hash as run identity and must not invent a synthetic dated input revision.
-
-Draft reports must visibly repeat the `DRAFT / NOT FINAL` warning and expose TBC/conflicts/review items useful for refining the rule.
-
-MTO business semantics live under `jobs/mto/rules/`, not in deterministic harness code.
-
-## Job family naming
-
-Related jobs should share a stable prefix so the catalog groups naturally by work domain. The development family uses `dev-`, for example:
-
-- `dev-planing`
-- `dev-coding`
-- future development jobs should use `dev-*` when they belong to the same family.
-
-Do not add a prefix merely for appearance; it should express a real job family. Do not create speculative placeholder jobs just to fill the namespace.
-
-## Mandatory job-first lifecycle
-
-Every operational task follows:
-
-`DISCOVER → SELECT → RESOLVE → CONFIRM → EXECUTE → VALIDATE → COMPLETE`
-
-### 1. DISCOVER
-
-- On the first assistant turn after this MCP connector is attached, call `job_status`.
-- If no job is active and the user did not explicitly choose `/job <id>`, call `job_list`.
-- Ask exactly: **“Hôm nay tôi làm gì?”**
-- Show job status (`ready` vs `placeholder`) clearly.
-- Keywords may suggest a job but never select one.
-
-### 2. SELECT
-
-- `/job <id>` maps to `job_select`.
-- Only packs with `status: ready` may be selected.
-- Placeholder packs are informational only; the runtime must reject activation.
-- Natural-language keywords remain suggestions only.
-
-### 3. RESOLVE
-
-- Load `JOB.md` and `SKILL.md` for the selected ready pack.
-- Resolve every required input/output binding concretely.
-- Do not invent missing business rules, file locations, destinations, or acceptance criteria.
-
-For MTO, a `draft` equipment/schedule rule is a resolved runnable rule, not a missing rule. Resolver output must surface its status and mandatory warning.
-
-### 4. CONFIRM
-
-- Call `job_select` with concrete bindings and `confirmed=false` first.
-- Show the returned `confirmation_prompt` to the user.
-- Only after explicit confirmation may you call `job_select` again with `confirmed=true` and the returned token.
-- Pack-local skill/harness paths remain hidden before activation.
-
-For MTO draft rules, show the draft warning before execution/confirmation is accepted as work intent.
-
-### 5. EXECUTE
-
-After activation:
-
-- follow the selected Job Pack's `SKILL.md`;
-- load only the pack-local skills/rules relevant to the current task;
-- reuse existing MCP core tools instead of duplicating them inside the pack;
-- obey project-local instructions, project skills, and path rules;
-- stay inside the confirmed task scope.
-
-For `dev-coding`, the inherited core includes filesystem/search/patch, shell/processes, git, checkpoint/rewind, project context/memory, project-local skills, and upstream MCP bridge capabilities. When a planning bundle exists, read it first; then inspect only implementation-relevant source. Routine coding may update `TASKS.md` and bounded `task-plans/`, but should not rewrite project architecture/general plan.
-
-For `dev-planing`, repository inspection is read-oriented and intentional writes are limited to the confirmed planning bundle directory.
-
-For `mto`, load resolved common + stable/draft business rules before mutation, use resolver paths instead of asking the user to remember internal paths, keep scope user-controlled, preserve source/manual ownership boundaries, and run the write guard before every project write.
-
-### 6. VALIDATE
-
-- Run the pack validator(s) and task-appropriate deterministic checks.
-- For `dev-coding`, validation must include final diff review and `git diff --check` when operating in Git. Bundle-backed work must leave `TASKS.md` reflecting real status/progress.
-- For `dev-planing`, the planning bundle must pass `bundle-lint` and must expose unresolved decisions instead of hiding them.
-- For `mto`, validate source resolution, write target, audit JSON, report, template preservation, source authority, manual-field preservation where applicable, and explicit unresolved review items. Draft runs must retain the warning in reviewer-facing output.
-- Files written or code generated is not evidence of completion by itself.
-
-### 7. COMPLETE
-
-Report outputs, validation evidence, skipped/failed checks, task status, and real unresolved risks. Do not claim completion when required validation failed or was not run.
-
-For MTO draft runs, repeat that the rule is not final and the result needs careful review.
+MTO business semantics remain in the Job Pack rules, not generic Worker code.
 
 ## State isolation
 
-- Only one job may be selected/active in a session.
-- `job_switch` clears previous job state before selecting another ready job.
-- `job_stop` clears all job-specific state.
-- Rules from an old Job Pack must not leak into a new job.
+Only one job is active per MCP session.
+
+- `job_switch` clears the previous session job before resolving the replacement;
+- the replacement still requires confirmation;
+- `job_stop` clears job-specific runtime state and persistent `worker-state.json`;
+- rules from an old Job Pack must not leak into the next one.
+
+Persistent `worker-state.json` exists to keep the current job/workspace anchored across reconnects and long chats. It is not permission to skip a new task's confirmation gate.
 
 ## Core vs Job Packs
 
-The MCP core remains the execution substrate:
+The Worker core owns generic execution capabilities:
 
-- filesystem/search/edit
-- shell/processes
-- git
-- MCP bridge
-- checkpoint/rewind
-- project context/memory
-- project-local skills and path rules
+- filesystem/search/edit;
+- shell/processes;
+- git;
+- checkpoint/rewind;
+- project context/memory/skills/path rules;
+- upstream MCP bridge.
 
-Job Packs contain **policy + SOP + specialist skills/rules + deterministic harness/validators**. They are not agents inside agents and do not duplicate the core tool framework.
-
-## Job Pack contract
-
-Each `jobs/<job-id>/` contains at minimum:
-
-- `job.yaml`
-- `JOB.md`
-- `SKILL.md`
-- `harness/`
-- validator(s)
-
-Mature packs may add `skills/`, `rules/`, and `templates/`.
-
-`job.yaml` v0.1 intentionally uses the JSON-compatible subset of YAML 1.2 so the runtime remains dependency-free.
+Job Packs own domain workflow, policy, specialist skills/rules, deterministic harnesses, and completion criteria. Do not build a multi-agent hierarchy or duplicate core tools inside Job Packs.
 
 ## Non-goals
 
 Do not:
 
-- build a swarm or multi-agent hierarchy;
-- add fake domain jobs merely to populate a menu;
-- duplicate filesystem/shell/git tools in Job Packs;
+- require a GUI for normal GPTWorker setup or operation;
+- require `WORKSPACE_PATH` for the project being worked on;
+- ask again for JOB/FOLDER already clear from the current chat;
+- execute before explicit JOB/FOLDER confirmation;
 - infer missing domain policy;
-- auto-run a job from keyword matching;
-- confuse `draft` MTO rules with unsupported placeholders;
-- allow MTO to write release output or bypass its EQM write boundary.
+- build a swarm/multi-agent hierarchy merely around Job Packs.

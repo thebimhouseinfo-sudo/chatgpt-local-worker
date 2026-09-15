@@ -1,7 +1,7 @@
 import { spawn } from "child_process";
 import { z } from "zod";
 import type { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
-import { validatePath } from "../lib/path-security.js";
+import { getDefaultCwd, validatePath } from "../lib/path-security.js";
 import { audit } from "../lib/audit.js";
 import { requireWriteAllowed } from "../lib/permissions.js";
 import { toolAnnotations } from "../lib/tool-annotations.js";
@@ -35,8 +35,8 @@ async function gitOrThrow(args: string[], cwd: string): Promise<GitRunResult> {
   return result;
 }
 
-export function registerGitTools(server: McpServer, defaultCwd: string): void {
-  const repo = async (p?: string) => (p ? validatePath(p) : defaultCwd);
+export function registerGitTools(server: McpServer, _startupCwd: string): void {
+  const repo = async (p?: string) => (p ? validatePath(p) : getDefaultCwd());
 
   server.registerTool("git_status", {
     title: "Git Status", description: "Show git working tree status.",
