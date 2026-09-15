@@ -1,8 +1,8 @@
 # ERV-HRV SCHEDULE — DRAFT RULE
 
-> **STATUS: DRAFT / NOT FINAL — REQUIRES REAL-PROJECT IMPLEMENTATION AND VALIDATION**
+> **STATUS: DRAFT / NOT FINAL — RUNNABLE WITH CAREFUL REVIEW**
 >
-> Reconciled against the current `ERV-HRV Schedule.xlsx` template and supplied Ver 1.0 rule. Do not register this equipment as operational until validated on real project data.
+> Reconciled against the current `ERV-HRV Schedule.xlsx` template and supplied Ver 1.0 rule. This rule is registered as `draft` and may be used on real projects. GPT must warn that the result needs careful review, and findings from each implementation should be fed back into this rule.
 
 ## Scope and authority
 
@@ -71,4 +71,6 @@ Preserve exact template schema/layout/merge structure/formatting. Missing → `-
 - pressure semantic confirmed on real ERV/HRV selection;
 - dimensions order confirmed against manufacturer source;
 - anti-vibration logic validated by real installation evidence;
-- exact-model flow/power/weight and live-update behavior tested on a real project.
+- exact-model flow/power/weight and live-update behavior tested on real projects.
+
+This rule stays `draft` until enough implementation evidence exists to remove the warning. Draft status does not block use; it requires explicit warning and careful review.
