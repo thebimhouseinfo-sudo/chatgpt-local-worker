@@ -1,12 +1,10 @@
 # Flexible Connection Schedule Rule
 
-> **DRAFT / NOT FINAL — requires further real-project implementation and validation.**
+> **STATUS: DRAFT / NOT FINAL — RUNNABLE WITH CAREFUL REVIEW**
 >
 > This rule has been reconciled against the current `Flexible Connection Schedule.xlsx` template, one real Lisp export (`EQM,SIZE,EXTINSU,INTINSU`), and the corresponding completed project schedule produced from that export.
 >
-> The drawing-export source workflow itself is operational. This rule remains draft only because some field-level business rules and merge semantics still need further project validation.
->
-> **Do not add this rule to `equipment-registry.json` yet.**
+> The drawing-export source workflow itself is operational. This rule is registered as `draft` and may be used on real projects. GPT must warn that results need careful review because some field-level business rules and merge semantics still need further project validation.
 
 ## Source model
 
@@ -184,11 +182,27 @@ Verified completed-project convention:
 
 This schedule does **not** use the general prose preference of spaces around `x`; the actual completed-project convention takes precedence.
 
+## Audit / report identity
+
+This is a drawing-export run, so do not invent a dated `input_rev`.
+
+Record at minimum:
+
+- `rule_status = draft`;
+- `source_model = drawing-export`;
+- actual export path/filename;
+- optional source hash;
+- optional supplemental input revision, if used;
+- run timestamp;
+- connection changes/count changes/conflicts.
+
+The human-readable report must visibly state `DRAFT / NOT FINAL`.
+
 ## Validation checklist
 
 Before a run can be considered complete:
 
-- the current flex-connection export was explicitly resolved;
+- the current flex-connection export was explicitly/canonically resolved;
 - template/live schedule structure is preserved;
 - export columns are recognized (`EQM`, `SIZE`, `EXTINSU`, `INTINSU`) or explicitly mapped by project override;
 - one schedule row exists for each current export record unless explicit project evidence says otherwise;
@@ -200,16 +214,19 @@ Before a run can be considered complete:
 - new rows use current candidate LENGTH standard `150` unless explicitly overridden;
 - roof/insulation NOTES are not inferred from naming heuristics;
 - manual/enriched live values outside export ownership are preserved/reported;
-- audit/report records current export path/hash and change summary.
+- audit/report records current export path/hash and change summary;
+- draft warning is visible.
 
 ## Promotion blockers
 
-Before moving this rule to `rules/flexible-connection.md` and registering it operationally, validate:
+Keep this rule `draft` while additional implementation evidence is needed for:
 
 1. whether a unique block/connection ID should be added to the export for stronger reconciliation;
 2. whether the 150 mm LENGTH default is company-wide or project-specific;
 3. exact meaning/value vocabulary of nonblank `EXTINSU` and `INTINSU`;
 4. deterministic mapping from insulation attributes to NOTES, if any;
 5. disappeared-row behavior;
-6. compare/report/controlled-merge behavior across a second real update cycle with manual live edits;
-7. deterministic resolver/harness tests after the Lisp naming fix.
+6. compare/report/controlled-merge behavior across additional real update cycles with manual live edits;
+7. deterministic resolver/harness behavior after the Lisp naming fix.
+
+Draft status does not block use. Promote to `stable` only after enough real-project evidence exists to remove the mandatory warning.
