@@ -11,7 +11,7 @@ assert.equal(listing.jobs.length, 3);
 assert.deepEqual(listing.jobs.map((job) => job.id).sort(), ["dev-coding", "dev-planing", "mto"]);
 assert.equal(listing.suggested_job_ids.includes("dev-coding"), true);
 assert.equal(listing.jobs.find((job) => job.id === "dev-coding")?.status, "ready");
-assert.equal(listing.jobs.find((job) => job.id === "dev-coding")?.skill_count, 11);
+assert.equal(listing.jobs.find((job) => job.id === "dev-coding")?.skill_count, 12);
 assert.equal(listing.jobs.find((job) => job.id === "dev-planing")?.status, "ready");
 assert.equal(listing.jobs.find((job) => job.id === "dev-planing")?.skill_count, 5);
 assert.equal(listing.jobs.find((job) => job.id === "mto")?.status, "placeholder");
@@ -54,8 +54,8 @@ const active = await runtime.select({
 assert.equal(active.state.phase, "active");
 assert.equal(active.job.id, "dev-coding");
 assert.equal(active.job.status, "ready");
-assert.equal(active.skills.length, 11);
-assert.equal(active.harness.length, 7);
+assert.equal(active.skills.length, 12);
+assert.equal(active.harness.length, 8);
 assert.equal(active.validators.length, 2);
 
 runtime.stop();
