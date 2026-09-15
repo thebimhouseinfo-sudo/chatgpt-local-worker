@@ -11,7 +11,7 @@ assert.equal(listing.jobs.length, 2);
 assert.deepEqual(listing.jobs.map((job) => job.id).sort(), ["coding", "mto"]);
 assert.equal(listing.suggested_job_ids.includes("coding"), true);
 assert.equal(listing.jobs.find((job) => job.id === "coding")?.status, "ready");
-assert.equal(listing.jobs.find((job) => job.id === "coding")?.skill_count, 5);
+assert.equal(listing.jobs.find((job) => job.id === "coding")?.skill_count, 12);
 assert.equal(listing.jobs.find((job) => job.id === "mto")?.status, "placeholder");
 
 await assert.rejects(
@@ -51,8 +51,8 @@ const active = await runtime.select({
 });
 assert.equal(active.state.phase, "active");
 assert.equal(active.job.status, "ready");
-assert.equal(active.skills.length, 5);
-assert.equal(active.harness.length, 4);
+assert.equal(active.skills.length, 12);
+assert.equal(active.harness.length, 7);
 assert.equal(active.validators.length, 2);
 
 const stopped = runtime.stop();
