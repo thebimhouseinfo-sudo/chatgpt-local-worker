@@ -1,6 +1,14 @@
+import fs from "fs/promises";
 import { z } from "zod";
 import type { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import type { JobRuntime } from "../jobs/job-runtime.js";
+import { setDefaultCwd } from "../lib/path-security.js";
+import { resetShellSession } from "../lib/persistent-shell.js";
+import {
+  clearWorkerState,
+  readWorkerState,
+  writeWorkerState,
+} from "../lib/worker-state.js";
 import { toolAnnotations } from "../lib/tool-annotations.js";
 import { toolError, toolResult } from "../lib/tool-result.js";
 
@@ -18,6 +26,31 @@ async function safe<T extends object>(
       error instanceof Error ? error.message : String(error)
     );
   }
+}
+
+async function validateResolvedWorkspace(result: any): Promise<void> {
+  const workspace = result?.state?.bindings?.workspace;
+  if (!workspace) return;
+  const stat = await fs.stat(workspace).catch(() => null);
+  if (!stat?.isDirectory()) {
+    throw new Error(`Workspace folder does not exist or is not a directory: ${workspace}`);
+  }
+}
+
+async function persistActiveSelection(result: any) {
+  await validateResolvedWorkspace(result);
+  if (result?.state?.phase !== "active") return result;
+
+  const jobId = result?.job?.id;
+  const workspace = result?.state?.bindings?.workspace;
+  if (!jobId || !workspace) {
+    throw new Error("Active job must have both a canonical job id and workspace binding.");
+  }
+
+  setDefaultCwd(workspace);
+  resetShellSession(workspace);
+  const persistentState = await writeWorkerState(jobId, workspace);
+  return { ...result, worker_state: persistentState };
 }
 
 export function registerJobTools(
@@ -48,11 +81,15 @@ export function registerJobTools(
     {
       title: "Job Status",
       description:
-        "Show current per-session job state. Harness paths are exposed only after activation.",
+        "Show current session job state plus the last confirmed persistent worker-state.json context. Persistent state is context only; a new task still requires JOB/FOLDER confirmation.",
       inputSchema: {},
       annotations: toolAnnotations("read"),
     },
-    async () => safe("job_status", () => runtime.status())
+    async () =>
+      safe("job_status", async () => ({
+        ...(await runtime.status()),
+        worker_state: await readWorkerState(),
+      }))
   );
 
   server.registerTool(
@@ -60,14 +97,14 @@ export function registerJobTools(
     {
       title: "Job Select",
       description:
-        "Select/configure/activate one Job Pack. Two-phase by default: resolve concrete bindings first, then after the user confirms call again with confirmed=true and the confirmation token.",
+        "Select/configure/activate one Job Pack. Resolve JOB + local workspace folder first. Two-phase by default: show confirmation first; only activate after explicit user confirmation.",
       inputSchema: {
         job: z
           .string()
           .min(1)
           .describe("Exact job id/name/alias. /job <id> should map here."),
         bindings: BindingsSchema.optional().describe(
-          "Concrete input/output values keyed by the selected job's job.yaml fields"
+          "Concrete input/output values keyed by the selected job's job.yaml fields. workspace must be the local folder being opened for this task."
         ),
         confirmed: z
           .boolean()
@@ -84,14 +121,16 @@ export function registerJobTools(
       annotations: toolAnnotations("edit"),
     },
     async ({ job, bindings, confirmed, confirmation_token }) =>
-      safe("job_select", () =>
-        runtime.select({
+      safe("job_select", async () => {
+        const selected = await runtime.select({
           job,
           bindings,
           confirmed,
           confirmationToken: confirmation_token,
-        })
-      )
+        });
+        await validateResolvedWorkspace(selected);
+        return persistActiveSelection(selected);
+      })
   );
 
   server.registerTool(
@@ -99,7 +138,7 @@ export function registerJobTools(
     {
       title: "Job Switch",
       description:
-        "Clear all previous job-specific state, then select a different Job Pack. The new job is not auto-confirmed.",
+        "Clear session job state, then select a different Job Pack. The new job/folder must still be explicitly confirmed before activation.",
       inputSchema: {
         job: z.string().min(1),
         bindings: BindingsSchema.optional(),
@@ -107,7 +146,11 @@ export function registerJobTools(
       annotations: toolAnnotations("edit"),
     },
     async ({ job, bindings }) =>
-      safe("job_switch", () => runtime.switch(job, bindings))
+      safe("job_switch", async () => {
+        const selected = await runtime.switch(job, bindings);
+        await validateResolvedWorkspace(selected?.current);
+        return { ...selected, worker_state: await readWorkerState() };
+      })
   );
 
   server.registerTool(
@@ -115,10 +158,14 @@ export function registerJobTools(
     {
       title: "Job Stop",
       description:
-        "Stop the current job and clear all job-specific state so its rules cannot leak into the next job.",
+        "Stop the current job and clear worker-state.json so no job/workspace remains active.",
       inputSchema: {},
       annotations: toolAnnotations("edit"),
     },
-    async () => safe("job_stop", () => runtime.stop())
+    async () =>
+      safe("job_stop", async () => ({
+        ...runtime.stop(),
+        worker_state: await clearWorkerState(),
+      }))
   );
 }
