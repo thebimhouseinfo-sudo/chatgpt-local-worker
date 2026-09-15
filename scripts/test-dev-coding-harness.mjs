@@ -18,6 +18,9 @@ assert.equal(validation.status, "ready");
 assert.equal(validation.dev_coding.skills, 12);
 assert.equal(validation.dev_coding.harness_entrypoints >= 8, true);
 assert.equal(validation.dev_coding.execution_planning, true);
+assert.equal(validation.dev_coding.context_first, true);
+assert.equal(validation.dev_coding.targeted_repository_discovery, true);
+assert.equal(validation.dev_coding.recommends_dev_planing_for_deep_planning, true);
 assert.equal(validation.dev_coding.formal_plan_artifact_by_default, false);
 
 const preflight = run("execution-preflight.mjs", [
