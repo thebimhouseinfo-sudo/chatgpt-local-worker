@@ -1,0 +1,5 @@
+General local worker with controlled Job Packs. TAG this connector in every chat (@Local Worker).
+
+Workflow: job_list → job_select → resolve concrete inputs/outputs → user confirmation → execute with existing filesystem/shell/git/MCP tools → validate.
+Keywords only suggest a job; they never auto-run one.
+WORKER.md is loaded from the worker installation; project memory still comes from WORKSPACE_PATH.
