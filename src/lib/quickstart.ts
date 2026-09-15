@@ -1,53 +1,45 @@
 export const MCP_QUICKSTART = `
-## Job-first workflow
-1. Call job_status before starting job-specific work.
-2. If idle, call job_list. Keywords only suggest a job; they never select one.
-3. Select explicitly with job_select (or map /job <id> to job_select).
-4. Resolve all required input/output bindings.
-5. Present the returned confirmation_prompt to the user.
-6. Only after explicit confirmation, call job_select again with confirmed=true + confirmation_token.
-7. Execute with the existing core tools, then run the active Job Pack validators.
-8. Use job_switch to change jobs (it clears old state) or job_stop to end/clear the job.
+## GPTWorker workflow
+1. Call job_status before job-specific work.
+2. Resolve JOB and local FOLDER from the current conversation first. Do not ask again when the chat already provides them clearly.
+3. If JOB is missing/ambiguous, call job_list and ask only for the missing job choice.
+4. If FOLDER is missing/ambiguous, ask only for the local folder path.
+5. Resolve any other required Job Pack bindings from the user's request.
+6. Call job_select with confirmed=false.
+7. Present a short preflight confirmation centered on JOB + FOLDER. Do not execute yet.
+8. Only after explicit user confirmation, call job_select again with confirmed=true + confirmation_token.
+9. Activation writes worker-state.json, switches the default cwd to the confirmed workspace, and makes it the anchor for filesystem/shell/git/project-context tools.
+10. Execute, validate, then report. Use job_switch or job_stop when the user intentionally changes/stops work.
 
-## Core tool workflow (after the job is active)
-1. Project memory + git state are already in MCP instructions from WORKSPACE_PATH.
-2. Call project_context(path) only for a different repo than WORKSPACE_PATH.
-3. Explore with glob (file names) and grep (content), then read_text_file.
-4. Edit with apply_patch (preferred), multi_edit, or write_file for new files.
-5. Run builds/tests with run_command (short) or start_process + process_output (long).
-6. Undo file edits with rewind (list → preview → restore). Shell/bash file changes are not tracked.
+## Required confirmation style
+JOB: <resolved job>
+FOLDER: <resolved local folder>
+
+Xác nhận bắt đầu?
+
+## Core tool workflow (after confirmation)
+1. Call project_context() to load instructions from the confirmed active workspace when needed.
+2. Explore with glob/grep/read_text_file.
+3. Edit with apply_patch, multi_edit, edit_file, or write_file.
+4. Run builds/tests with run_command or start_process + process_output.
+5. Use git tools without path arguments to operate on the confirmed active workspace.
+6. Undo tracked file edits with rewind when needed.
 
 ## Output format
 All tools return JSON: { ok, tool, summary, data }
 
 ## Tool cheat sheet
 - job_list / job_select / job_status / job_switch / job_stop: controlled Job Runtime
-- glob / grep / read_text_file: explore (offset+limit for partial reads)
-- apply_patch: single-file @@ hunks OR multi-file *** Begin Patch format
-- create_directory / delete_directory / copy_file / move_file / delete_file
-- run_command: persistent shell (cd persists); shell_status / shell_reset
-- git_status / git_diff / git_add / git_commit / git_branch / git_restore / git_stash
-- rewind: action=list|preview|restore|status — undo file edits via automatic checkpoints
-- enabled upstream MCP tools are exposed directly as <server>__<tool> (for example chrome-devtools__list_pages, linear__get_user); prefer direct tools
-- mcp_servers / mcp_tools / mcp_call — upstream diagnostics/fallback when a direct proxy is unavailable
-- git_push / git_checkout / delete_directory: may be blocked by ChatGPT safety — use run_command fallback
-
-## apply_patch — single file
-@@
--old line
-+new line
- context unchanged
-
-## apply_patch — multi file
-*** Begin Patch
-*** Update File: src/foo.ts
-@@
--old
-+new
-*** End Patch
+- glob / grep / read_text_file: explore
+- apply_patch / multi_edit / edit_file / write_file: edit
+- run_command / start_process / process_output: execute
+- git_status / git_diff / git_add / git_commit / git_branch / git_restore: git
+- project_context / list_skills / load_skill / load_path_rules: active-workspace context
+- rewind: checkpoint/undo
+- enabled upstream MCP tools are exposed directly as <server>__<tool>
 
 ## Paths
-Full machine access — use ANY absolute path (C:\\, D:\\, etc.). Relative paths resolve from default cwd.
+Full machine access is intentional. The confirmed FOLDER is the default working context, equivalent to Open Folder in an IDE. Absolute paths remain allowed when the task needs them.
 `.trim();
 
 export function buildServerInstructions(
@@ -57,19 +49,20 @@ export function buildServerInstructions(
   contextBlock?: string
 ): string {
   const header = [
-    "# ChatGPT Local Worker MCP",
-    `Default project: ${workspaceRoot}`,
-    "Full machine access: ON. Tag this connector in ChatGPT before every task.",
-    "Mandatory: choose/confirm a Job Pack before job-specific execution.",
+    "# GPTWorker MCP",
+    "Full machine access: ON.",
+    "The startup cwd is not project authority. JOB + local FOLDER must be resolved and explicitly confirmed before job-specific execution.",
+    "After confirmation, worker-state.json is the persistent source of current_job and active_workspace.",
   ].join("\n");
 
   const footer = [
     "## Quick pointers",
-    `Workspace roots: ${workspaceRoots.join("; ")}`,
-    "job_list — list/suggest jobs; never auto-select from keywords",
-    "job_status — current per-session job state",
-    "agent_status — full core-tool cheat sheet + apply_patch format",
-    "project_context(path) — load project instructions from another repo",
+    `Startup root: ${workspaceRoot}`,
+    `Startup roots: ${workspaceRoots.join("; ")}`,
+    "job_status — session state + persistent worker-state.json",
+    "job_list — list/suggest jobs when JOB is not already clear from chat",
+    "project_context() — load instructions from the confirmed active workspace",
+    "agent_status — optional diagnostics",
   ].join("\n");
 
   const body = contextBlock?.trim();
