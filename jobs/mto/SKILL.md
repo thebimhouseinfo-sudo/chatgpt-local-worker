@@ -27,6 +27,10 @@ When revision is `latest`, use the latest valid revision containing each request
 
 Do not use folder mtime. Do not guess malformed dates.
 
+The resolver also returns canonical audit and report paths. Each equipment/revision report belongs under:
+
+`01 WIP/SCHEDULE/eqm/_reports/<input_rev>/<equipment>.md`
+
 ## 3. Load rules before reading equipment data
 
 For every equipment item, read rules in this order:
@@ -84,7 +88,7 @@ For each selected row and each template field still unsupported by selection:
 If selection and catalog materially disagree for a populated selection field:
 
 - preserve the selection value in the schedule where applicable;
-- record `CONFLICT` in the audit evidence;
+- record `CONFLICT` in the audit/report evidence;
 - do not silently choose the catalog value.
 
 Unsupported data remains `-`, `TBC`, or another marker only when the template/project rules explicitly define that marker. Never invent a number.
@@ -101,7 +105,7 @@ Check where practical:
 
 Apply explicit tag mapping from project rules when available. Do not infer mappings purely from similar numbering.
 
-Unknown mapping → `UNMATCHED` in audit/review output.
+Unknown mapping → `UNMATCHED` in audit/report output.
 
 Do not auto-add or auto-delete schedule rows solely to force drawing counts to match.
 
@@ -161,24 +165,55 @@ Run:
 
 before declaring completion.
 
-## 11. Validate and report
+## 11. Write the takeoff report
+
+For every completed equipment scope, create/update the resolver-provided report path:
+
+`01 WIP/SCHEDULE/eqm/_reports/<input_rev>/<equipment>.md`
+
+Use `templates/TAKEOFF_REPORT.md` and `rules/_common/reporting.md`.
+
+The report is the human-readable review artifact and must include:
+
+1. run summary;
+2. resulting equipment schedule as a readable Markdown table;
+3. change summary against the previous live EQM (or bootstrap summary on first takeoff);
+4. tag-level traceability and data sources, including page/sheet/cell where actually observed;
+5. drawing reconciliation result;
+6. conflicts, TBC, unmatched and other review-required items;
+7. Query List / RFI for unresolved issues needing human/PM/design confirmation.
+
+Do not invent source locations. If no RFI remains, write `None` explicitly.
+
+A rerun of the same equipment+input revision updates the same report to the final current result. The audit JSON remains the run-by-run history.
+
+Run:
+
+`node harness/report-lint.mjs --file <report-path>`
+
+before declaring completion.
+
+## 12. Validate and report
 
 Before completion verify:
 
 - requested revision(s) and equipment scope;
 - no unsupported equipment was silently processed;
 - templates remain unchanged;
-- only live EQM/audit paths were written;
+- only live EQM/audit/report paths under the allowed EQM tree were written;
 - selected models remained exact;
 - no project selection value was silently overwritten by catalog data;
 - workbook structure/schema remains consistent with template;
 - audit JSON passes validation;
+- takeoff report passes validation;
+- report traceability/RFI reflects real evidence and unresolved review items;
 - `02 Output/**` is untouched.
 
-Report a compact run summary per equipment:
+Report a compact run summary per equipment and link/identify both output artifacts:
 
 - resolved input revision;
-- schedule created vs updated;
+- live schedule path and created vs updated state;
+- takeoff report path;
 - rows added;
 - rows updated;
 - rows unchanged;
