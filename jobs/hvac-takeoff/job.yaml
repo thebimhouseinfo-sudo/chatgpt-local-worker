@@ -1,0 +1,43 @@
+{
+  "id": "hvac-takeoff",
+  "name": "HVAC Takeoff",
+  "version": "0.1.0",
+  "description": "Extract and structure HVAC equipment/material quantities from supplied project sources under an explicit SOP.",
+  "aliases": ["takeoff", "mto", "hvac-mto", "boc-khoi-luong"],
+  "keywords": ["takeoff", "MTO", "bốc khối lượng", "bo khoi luong", "HVAC", "ACMV", "technical data", "equipment"],
+  "inputs": [
+    {
+      "key": "source",
+      "type": "folder",
+      "required": true,
+      "description": "Folder containing the source drawings/specs/technical data to read"
+    },
+    {
+      "key": "reference",
+      "type": "folder",
+      "required": false,
+      "description": "Optional sample/template/reference folder"
+    }
+  ],
+  "outputs": [
+    {
+      "key": "result",
+      "type": "path",
+      "required": true,
+      "description": "Concrete destination for the takeoff result"
+    }
+  ],
+  "permissions": {
+    "filesystem": "read-write-after-confirm",
+    "shell": "deterministic-harness-only-after-confirm",
+    "git": "not-required"
+  },
+  "confirmation": {
+    "required": true,
+    "template": "Tôi sẽ đọc nguồn {source} và ghi kết quả bóc khối lượng vào {result}. Xác nhận chứ?"
+  },
+  "harness": {
+    "entrypoints": ["harness/validate.mjs"]
+  },
+  "validators": ["harness/validate.mjs"]
+}
