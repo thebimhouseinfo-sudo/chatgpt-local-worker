@@ -36,7 +36,7 @@
   },
   "confirmation": {
     "required": true,
-    "template": "Tôi sẽ thực hiện task '{task}' trong repo {workspace}, dùng coding workflow + validation của repo và để kết quả theo yêu cầu '{delivery}'. Xác nhận chứ?"
+    "template": "Tôi sẽ thực hiện task '{task}' trong repo {workspace}, sửa code theo quy ước của repo và chạy validation phù hợp. Xác nhận chứ?"
   },
   "skills": [
     "skills/repository-discovery.md",

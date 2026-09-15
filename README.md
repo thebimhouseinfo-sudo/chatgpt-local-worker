@@ -2,13 +2,24 @@
 
 # ChatGPT Local Worker
 
-**A controlled general local worker for ChatGPT via MCP — select a Job Pack first, then reuse the existing filesystem, shell, git, checkpoint, and MCP bridge core.**
+**A controlled local worker for ChatGPT via MCP: select a real Job Pack, confirm the task, then reuse the mature filesystem, shell, git, checkpoint, context, skills, and MCP bridge core.**
 
 </div>
 
-ChatGPT Local Worker is derived from [`hoangcoderr/chatgpt-local-coder`](https://github.com/hoangcoderr/chatgpt-local-coder). The original MCP execution core is intentionally kept as intact as possible. This repository adds a thin **Job Runtime** above that core so coding becomes one job among many instead of the identity of the agent.
+ChatGPT Local Worker is derived from [`hoangcoderr/chatgpt-local-coder`](https://github.com/hoangcoderr/chatgpt-local-coder). The original MCP execution core is intentionally preserved as the worker substrate. A thin **Job Runtime** sits above it so domain workflows can be added deliberately without turning the system into a tool-heavy or multi-agent architecture.
 
-## Design principle
+## Current scope
+
+The repository is intentionally not populated with fake jobs.
+
+| Job | Status | Purpose |
+|---|---|---|
+| `coding` | **ready** | Professional repository engineering, inheriting the complete Local Coder core |
+| `mto` | **placeholder** | Reserved for future MTO / quantity takeoff; no business logic exists yet |
+
+`mto` appears in discovery so the future slot is explicit, but the Job Runtime refuses to select or activate placeholder packs.
+
+## Architecture
 
 ```text
 ChatGPT
@@ -16,89 +27,88 @@ ChatGPT
    ▼
 Job Runtime
    ├─ discover / suggest
+   ├─ ready vs placeholder status
    ├─ select
-   ├─ resolve concrete inputs + outputs
+   ├─ resolve concrete inputs
    ├─ explicit confirmation
    ├─ active Job Pack
    └─ validate / stop / switch
    │
    ▼
 Existing MCP core
-   ├─ filesystem
-   ├─ shell / processes
+   ├─ filesystem / search / patch
+   ├─ shell / long-running processes
    ├─ git
    ├─ checkpoint / rewind
    ├─ project context / memory
+   ├─ project-local skills + path rules
    └─ upstream MCP bridge
 ```
 
 The project deliberately does **not** add a multi-agent hierarchy and does not duplicate tools already supplied by the MCP core.
 
-## Job-first lifecycle
+## Job lifecycle
 
-Every job-specific task follows:
+A runnable job follows:
 
 ```text
 DISCOVER → SELECT → RESOLVE → CONFIRM → EXECUTE → VALIDATE → COMPLETE
 ```
 
-The runtime exposes five control tools:
+Control tools:
 
-- `job_list` — list Job Packs and optionally score keyword-based suggestions. A suggestion never selects a job.
-- `job_select` — select/configure a pack, resolve bindings, and perform the second confirmation-token call that activates it.
-- `job_status` — show current per-session job state.
-- `job_switch` — clear the old job state before selecting another job.
-- `job_stop` — clear all job-specific state.
+- `job_list` — lists packs and suggestion scores; suggestions never select a job.
+- `job_select` — resolves bindings and performs the two-phase confirmation/activation flow.
+- `job_status` — current per-session job state.
+- `job_switch` — clears old job state before selecting another ready job.
+- `job_stop` — clears job-specific state.
 
-A command such as `/job hvac-takeoff` maps conceptually to `job_select`. Natural-language terms such as `takeoff`, `MTO`, `bốc khối lượng`, `repo`, `code`, or `lisp` are **suggestions only** and never permission to execute.
+`WORKER.md` is the authoritative worker policy. On the first user interaction after the connector is enabled, the worker should check status, list jobs when idle, and ask **“Hôm nay tôi làm gì?”**.
 
-## First-turn behavior
+## Coding Job
 
-`WORKER.md` is the authoritative worker policy. On the first assistant turn after this MCP connector is attached, ChatGPT should check job state, list jobs when idle, and ask:
-
-> **Hôm nay tôi làm gì?**
-
-MCP servers cannot spontaneously send an assistant message before the user sends a turn, so this behavior occurs on the first user interaction after the connector is enabled.
-
-## Starter Job Packs
-
-The repository currently contains:
-
-| Job | Purpose |
-|---|---|
-| `hvac-takeoff` | Traceable HVAC/ACMV takeoff from confirmed project sources |
-| `software-development` | Repository/code modification using the existing coding core |
-| `technical-review` | Traceable technical review against explicit criteria |
-| `cad-fix` | Controlled CAD/AutoLISP corrections |
-
-Each pack contains at minimum:
+`jobs/coding/` is the first production-quality Job Pack. It is not a thin placeholder around the word “coding”. It inherits the proven Local Coder execution layer and adds an explicit engineering workflow.
 
 ```text
-jobs/<job-id>/
+jobs/coding/
 ├─ job.yaml
 ├─ JOB.md
 ├─ SKILL.md
+├─ skills/
+│  ├─ repository-discovery.md
+│  ├─ implementation.md
+│  ├─ debugging.md
+│  ├─ validation.md
+│  └─ git-review.md
 └─ harness/
+   ├─ inspect-repo.mjs
+   ├─ quality-gate.mjs
+   ├─ diff-gate.mjs
    └─ validate.mjs
 ```
 
-Optional `validators/` and `templates/` folders can be added when a job needs them.
+The coding workflow explicitly uses existing core capabilities such as `project_context`, `list_skills` / `load_skill`, path-specific rules, search/read/patch, persistent shell, git, checkpoint/rewind, and enabled upstream MCP servers.
 
-### `job.yaml`
+### Coding harness
 
-v0.1 uses the **JSON-compatible subset of YAML 1.2**. JSON is valid YAML, and this keeps the runtime dependency-free.
+- `inspect-repo.mjs` — deterministic repository inventory: Git state, manifests, stack signals, package scripts.
+- `quality-gate.mjs` — discovers repository-native lint/type/test/build commands and can run the discovered set only when invoked with `--run`.
+- `diff-gate.mjs` — checks Git worktree scope and `git diff --check`, plus staged/unstaged summaries.
+- `validate.mjs` — validates the Coding Job Pack itself, including required specialist skills.
 
-The metadata declares aliases/keywords, required inputs and outputs, permission policy, confirmation text, harness entrypoints, and validators.
+The harness supports the coding agent; it does not replace repository-owned test/build commands or the generic core tools.
 
-## Worker Home vs project workspace
+## MTO placeholder
 
-These are intentionally separate:
+`jobs/mto/` is deliberately skeletal. It contains no invented HVAC takeoff rules, output schema, counting policy, source hierarchy, or equipment logic. It exists only to reserve the future Job Pack boundary. It can become `ready` later when the actual MTO workflow is designed from real project inputs and expected outputs.
 
-- `LOCAL_WORKER_HOME` — Local Worker installation containing `WORKER.md` and, by default, `jobs/`.
+## Worker Home vs target workspace
+
+- `LOCAL_WORKER_HOME` — worker installation containing `WORKER.md` and `jobs/`.
 - `JOB_PACKS_PATH` — optional override for the Job Pack directory.
-- `WORKSPACE_PATH` — the project/repository/files being worked on by the active job.
+- `WORKSPACE_PATH` — default project/repository operated on by the active job.
 
-This separation means changing the target project does not make the Worker policy or Job Packs disappear.
+Keeping these separate means changing the target project never removes the Worker policy or Job Packs.
 
 ## Quick start
 
@@ -130,35 +140,35 @@ npm test
 npm start
 ```
 
-Set `WORKSPACE_PATH` in `.env` to the default project the worker should operate on. The existing Local Coder tunnel/auth mechanisms remain available, including `MCP_TOKEN`, the Windows PowerShell scripts, and the OpenAI Secure MCP Tunnel support inherited from upstream.
+Set `WORKSPACE_PATH` in `.env` to the default project the worker should operate on. Existing Local Coder tunnel/auth mechanisms remain available.
 
 ## Validation
 
-Validate Job Pack structure independently:
+Validate Job Pack structure:
 
 ```bash
 npm run validate:jobs
 ```
 
-Run the full suite:
+Run the full inherited + Local Worker suite:
 
 ```bash
 npm test
 ```
 
-The full suite builds TypeScript, tests the Job Runtime lifecycle, and then runs the inherited upstream tests.
+The suite builds TypeScript, tests Job Runtime activation/placeholder behavior, tests the coding lifecycle, then runs the inherited upstream tests.
 
 ## Confirmation boundary
 
-For packs requiring confirmation, `job_select` is intentionally two-phase:
+For a ready pack such as `coding`, `job_select` is two-phase:
 
-1. Select the job and provide concrete bindings.
-2. The runtime returns a resolved confirmation prompt and opaque confirmation token.
+1. Select the job and provide concrete required bindings (`workspace`, `task`).
+2. Runtime returns a resolved confirmation prompt and opaque token.
 3. ChatGPT presents the prompt to the user.
-4. Only after the user explicitly confirms may ChatGPT call `job_select` again with `confirmed=true` and that token.
-5. Harness and validator paths are exposed only once the job becomes active.
+4. Only after explicit confirmation may it call `job_select` again with `confirmed=true` and that token.
+5. Pack-local skill/harness paths are exposed only after activation.
 
-Switching or stopping clears the previous job state so Job Pack rules do not leak across jobs.
+Placeholder packs are rejected before this flow begins.
 
 ## Repository structure
 
@@ -166,25 +176,21 @@ Switching or stopping clears the previous job state so Job Pack rules do not lea
 chatgpt-local-worker/
 ├─ WORKER.md
 ├─ jobs/
-│  ├─ hvac-takeoff/
-│  ├─ software-development/
-│  ├─ technical-review/
-│  └─ cad-fix/
+│  ├─ coding/            # ready
+│  └─ mto/               # placeholder, non-runnable
 ├─ shared-harness/
 ├─ profiles/
 ├─ src/
-│  ├─ jobs/             # Job Runtime
-│  ├─ tools/            # existing core + job control tools
+│  ├─ jobs/              # Job Runtime
+│  ├─ tools/             # existing core + job control tools
 │  └─ lib/
 └─ scripts/
 ```
 
-## Scope of v0.1
+## Design rule for future jobs
 
-v0.1 is intentionally small. `permissions` in each Job Pack are an operational contract for ChatGPT/`WORKER.md`; this release does not wrap every filesystem/shell/git tool in a new permission engine. The existing MCP core remains the execution substrate.
-
-Future work should extend individual Job Packs and deterministic harnesses before adding more generic tools or orchestration layers.
+Do not add a new Job Pack just because a domain name exists. Add it only when the domain has enough real evidence to define its inputs/outputs, rules, SOP, deterministic harness, and completion criteria without guessing.
 
 ## Upstream and license
 
-Core MCP implementation is based on [`hoangcoderr/chatgpt-local-coder`](https://github.com/hoangcoderr/chatgpt-local-coder) and remains under the repository's MIT license. Upstream attribution is retained in the source history and license.
+Core MCP implementation is based on [`hoangcoderr/chatgpt-local-coder`](https://github.com/hoangcoderr/chatgpt-local-coder) and remains under the repository's MIT license.
