@@ -1,40 +1,52 @@
 # MTO Rules
 
-MTO uses **rules**, not specialist coding-style skills, for equipment business semantics.
+MTO uses **rules**, not specialist coding-style skills, for equipment/schedule business semantics.
 
 ## Layers
 
 - `_common/*.md` — shared operational source authority, template handling, drawing reconciliation, live-schedule update, conflict/audit, reporting, and source-model rules.
-- `_common/drawing-export-driven.md` — **operational drawing-export source model** used in real project work. Individual schedule rules using it may still remain draft while their field semantics are refined.
-- `ac.md` — operational AC-specific field semantics and allowed derivations.
-- `fan.md` — operational Fan-specific field semantics and allowed derivations.
-- `equipment-registry.json` — deterministic mapping for equipment that is actually selectable/runnable by the MTO Job Pack.
-- `drafts/*.md` — candidate schedule/equipment business rules that are not yet registered as runnable rules.
+- `_common/drawing-export-driven.md` — **operational drawing-export source model** already used in real project work.
+- `ac.md` — stable AC-specific rule.
+- `fan.md` — stable Fan-specific rule.
+- `drafts/*.md` — **runnable draft rules** used for real-project development and validation.
+- `equipment-registry.json` — deterministic mapping for all runnable stable + draft rules, with explicit `status` and `source_model`.
 
-A file existing under `drafts/` does not make that equipment/schedule selectable in MTO. This is separate from whether its underlying source model is already operational.
+## Rule status
+
+Registry status is intentionally separate from run permission:
+
+- `stable` — runnable without draft warning;
+- `draft` — runnable, but GPT must explicitly warn that the rule is not final and the result needs careful review;
+- missing/disabled/placeholder — not runnable.
+
+A draft rule is not a fake or blocked rule. It is a development-stage professional rule intended to be exercised on real projects so its assumptions can be tested and refined.
 
 ## Runtime precedence
 
-For operational equipment/schedules:
+For every runnable equipment/schedule:
 
 1. explicit user instruction for the current run;
 2. project overrides in `<project>/qto-rules/`;
-3. base operational rules in this directory.
+3. resolved base rule from the registry (stable or draft).
 
 Project rules may refine business behavior but cannot authorize writes outside `01 WIP/SCHEDULE/eqm/**` or into `02 Output/**`.
 
 ## Draft rule policy
 
-Draft rules are intentionally allowed to contain:
+Draft rules may contain:
 
 - `TBC` / unresolved field semantics;
 - known template defects or contaminated sample rows;
-- provisional defaults that require project evidence;
-- validation/promote blockers.
+- provisional defaults requiring project evidence;
+- validation/promotion blockers.
 
-They must say clearly that they are **DRAFT / NOT FINAL — requires real-project implementation and validation** when their schedule-specific semantics are not yet final.
+When a draft rule is selected, GPT must show a warning equivalent to:
 
-Current draft candidates:
+> **DRAFT / NOT FINAL — this rule is usable, but the result must be checked carefully. Findings from this project should be fed back into the rule.**
+
+The report and completion summary must retain that status.
+
+Current draft rules:
 
 - `drafts/chw-pump.md`
 - `drafts/chiller.md`
@@ -47,9 +59,21 @@ Current draft candidates:
 - `drafts/door-grille.md`
 - `drafts/flexible-connection.md`
 
-The last three use the already-operational drawing-export source model; they remain draft only at the schedule/business-rule layer.
+All are registered with `status: draft` and are selectable/runnable. They remain draft because their field-level semantics/defaults/merge behavior still need more implementation evidence, not because GPT is forbidden to use them.
 
-Do not add a draft rule to `equipment-registry.json` until its schedule-specific mapping and merge behavior are precise enough for deterministic execution.
+## Source models
+
+### Selection-driven
+
+Primary source is project EQM selection under dated `00 Input`; exact-model technical data supplements missing fields. Revision may be explicit or `latest`.
+
+### Drawing-export-driven
+
+Primary source is the current Lisp block-attribute export in `01 WIP`. No synthetic input revision is required. Live schedule is working truth and may contain valid manual edits/enrichment. Normal flow is:
+
+`current export -> compare -> change report -> controlled merge`
+
+The drawing-export source model is already operational even while Grille / Door Grille / Flexible Connection business rules remain draft.
 
 ## Result artifacts
 
@@ -57,23 +81,23 @@ MTO keeps distinct artifacts:
 
 - live Excel schedule — current working truth;
 - `_audit/<equipment-or-schedule>.json` — machine-readable append history;
-- human-readable takeoff/change report — review surface with change summary, traceability, reconciliation and RFI/review items.
+- human-readable takeoff/change report — reviewer-facing change summary, traceability, reconciliation and RFI/review items.
 
-For selection-driven equipment, the report can be keyed by the selected `input_rev`. For drawing-export-driven schedules, do not invent a synthetic input revision; record the actual export path/hash and optional supplemental input revision separately.
+For selection-driven equipment, reports are normally keyed by resolved input revision. For drawing-export-driven schedules, do not invent a dated input revision; record actual export path/hash and optional supplemental input revision separately.
 
-Do not collapse these roles into one artifact.
+For draft rules, reports must visibly identify the rule as `DRAFT / NOT FINAL`.
 
-## Promoting another equipment/schedule rule
+## Promoting draft to stable
 
-Do not add only a registry entry. Promotion from draft to runnable requires:
+Promotion does **not** make the rule runnable for the first time. It removes the mandatory draft warning after sufficient evidence exists.
 
-- real project workflow/sample evidence;
-- a dedicated refined rule under `rules/<equipment-or-schedule>.md`;
-- unresolved semantics needed for execution resolved or explicitly handled;
-- template/live-schedule mapping;
-- extraction/field semantics precise enough to avoid invention;
-- update/audit/report behavior defined;
-- harness/tests updated for deterministic resolution;
-- `equipment-registry.json` updated only after those checks are satisfied.
+Promote when:
 
-An already-operational source model, such as drawing export, does not by itself mean every schedule rule using that source model is final.
+- field semantics are sufficiently proven;
+- important TBC/defaults are resolved or intentionally documented;
+- template/live mapping is reliable;
+- update/merge behavior has project evidence;
+- audit/report behavior is satisfactory;
+- deterministic harness/tests adequately cover the source model.
+
+Until then, keep the rule runnable as `draft` and use implementation feedback to improve it.
