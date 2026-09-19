@@ -26,6 +26,7 @@ import {
   type InstructionContext,
 } from "./lib/instruction-context.js";
 import { getChatGptToolProfile } from "./lib/tool-profile.js";
+import { buildLegacyDiscoverFallback } from "./lib/mcp-discover-compat.js";
 
 const PORT = parseInt(process.env.PORT || "3000", 10);
 const HOST = process.env.HOST || "127.0.0.1";
@@ -174,6 +175,17 @@ async function handleMcpPost(req: express.Request, res: express.Response): Promi
     const sessionId = req.headers["mcp-session-id"] as string | undefined;
     const requestId = extractRequestId(req.body);
 
+    // MCP 2026-07-28 clients probe legacy servers with server/discover first.
+    // Do not create/recover a stateful v1 session for this stateless probe:
+    // returning JSON-RPC MethodNotFound with HTTP 200 tells modern clients to
+    // fall back to the legacy initialize handshake without retaining a session ID.
+    const discoverFallback = buildLegacyDiscoverFallback(req.body);
+    if (discoverFallback) {
+      console.log("[MCP] server/discover -> legacy initialize fallback");
+      res.status(200).json(discoverFallback);
+      return;
+    }
+
     const existing = sessionId ? sessionManager.get(sessionId) : undefined;
     if (existing) {
       await sessionManager.handleExisting(existing, req, res, req.body);
@@ -202,9 +214,8 @@ async function handleMcpPost(req: express.Request, res: express.Response): Promi
       return;
     }
 
-    // ChatGPT gui mot so request (vd "server/discover") KHONG kem Mcp-Session-Id.
-    // Tra 400 o day khien connector retry vo han ("loading mai"). Thay vao do tao
-    // session moi + warm-up roi phuc vu request, de SDK tra loi JSON-RPC hop le.
+    // Other sessionless legacy requests may still need recovery/adoption.
+    // server/discover is handled above as a stateless compatibility probe.
     if (SESSION_RECOVERY) {
       const adopted = await sessionManager.tryRecoverStale(
         randomUUID(),
