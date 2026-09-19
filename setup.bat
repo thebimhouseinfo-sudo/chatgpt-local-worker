@@ -62,19 +62,51 @@ if errorlevel 1 goto :failed
 
 echo.
 echo ========================================
+echo   Starting local GPTWorker
+echo ========================================
+
+set "WORKER_PORT=3000"
+for /f "tokens=2 delims==" %%A in ('findstr /B /C:"PORT=" ".env"') do set "WORKER_PORT=%%A"
+
+start "GPTWorker Server" /min powershell -NoProfile -ExecutionPolicy Bypass -NoExit -File "%~dp0start.ps1" -Port %WORKER_PORT% -Force
+
+echo Waiting for local Worker on port %WORKER_PORT%...
+powershell -NoProfile -Command "$ok=$false; foreach ($i in 1..30) { try { $r=Invoke-WebRequest 'http://127.0.0.1:%WORKER_PORT%/health' -UseBasicParsing -TimeoutSec 1; if ($r.StatusCode -eq 200) { $ok=$true; break } } catch {}; Start-Sleep -Milliseconds 500 }; if (-not $ok) { exit 1 }"
+if errorlevel 1 (
+  echo [ERROR] Local Worker did not become ready before tunnel doctor.
+  echo Check the GPTWorker Server window.
+  goto :failed
+)
+
+echo [OK] Local Worker is ready.
+
+echo.
+echo ========================================
 echo   OpenAI Secure MCP Tunnel setup
 echo ========================================
-echo This is the only connection setup step.
+echo The local Worker is running, so tunnel doctor can validate the MCP target.
 echo Follow the prompts. The ChatGPT connection should be named: gptworker
 
 echo.
 powershell -NoProfile -ExecutionPolicy Bypass -File "%~dp0openai-tunnel.ps1" -Init
 if errorlevel 1 goto :failed
 
+set "TUNNEL_HEALTH_PORT=8080"
+for /f "tokens=2 delims==" %%A in ('findstr /B /C:"OPENAI_TUNNEL_HEALTH_PORT=" ".env"') do set "TUNNEL_HEALTH_PORT=%%A"
+
 echo.
-echo Starting GPTWorker so ChatGPT can connect...
-call "%~dp0run.bat"
-if errorlevel 1 goto :failed
+echo Starting Secure MCP Tunnel...
+start "GPTWorker Tunnel" /min powershell -NoProfile -ExecutionPolicy Bypass -NoExit -File "%~dp0openai-tunnel.ps1" -Port %WORKER_PORT%
+
+echo Waiting for tunnel readiness on port %TUNNEL_HEALTH_PORT%...
+powershell -NoProfile -Command "$ok=$false; foreach ($i in 1..40) { try { $r=Invoke-WebRequest 'http://127.0.0.1:%TUNNEL_HEALTH_PORT%/readyz' -UseBasicParsing -TimeoutSec 1; if ($r.StatusCode -eq 200) { $ok=$true; break } } catch {}; Start-Sleep -Milliseconds 500 }; if (-not $ok) { exit 1 }"
+if errorlevel 1 (
+  echo [ERROR] Secure MCP Tunnel did not become ready.
+  echo Check the GPTWorker Tunnel window.
+  goto :failed
+)
+
+echo [OK] GPTWorker and Secure MCP Tunnel are ready.
 
 echo.
 echo Opening ChatGPT app/connector settings...
