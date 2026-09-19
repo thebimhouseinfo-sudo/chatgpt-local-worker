@@ -99,10 +99,14 @@ echo Starting Secure MCP Tunnel...
 start "GPTWorker Tunnel" /min powershell -NoProfile -ExecutionPolicy Bypass -NoExit -File "%~dp0openai-tunnel.ps1" -Port %WORKER_PORT%
 
 echo Waiting for tunnel readiness on port %TUNNEL_HEALTH_PORT%...
-powershell -NoProfile -Command "$ok=$false; foreach ($i in 1..40) { try { $r=Invoke-WebRequest 'http://127.0.0.1:%TUNNEL_HEALTH_PORT%/readyz' -UseBasicParsing -TimeoutSec 1; if ($r.StatusCode -eq 200) { $ok=$true; break } } catch {}; Start-Sleep -Milliseconds 500 }; if (-not $ok) { exit 1 }"
+powershell -NoProfile -Command "$ok=$false; foreach ($i in 1..120) { try { $r=Invoke-WebRequest 'http://127.0.0.1:%TUNNEL_HEALTH_PORT%/readyz' -UseBasicParsing -TimeoutSec 1; if ($r.StatusCode -eq 200) { $ok=$true; break } } catch {}; Start-Sleep -Milliseconds 500 }; if (-not $ok) { exit 1 }"
 if errorlevel 1 (
-  echo [ERROR] Secure MCP Tunnel did not become ready.
-  echo Check the GPTWorker Tunnel window.
+  echo.
+  echo [ERROR] Secure MCP Tunnel is live or starting but did not become ready within 60 seconds.
+  echo Printing tunnel health diagnostics...
+  powershell -NoProfile -Command "$urls=@('http://127.0.0.1:%TUNNEL_HEALTH_PORT%/healthz','http://127.0.0.1:%TUNNEL_HEALTH_PORT%/readyz','http://127.0.0.1:%TUNNEL_HEALTH_PORT%/health/control-plane','http://127.0.0.1:%TUNNEL_HEALTH_PORT%/health/mcp','http://127.0.0.1:%TUNNEL_HEALTH_PORT%/health/oauth','http://127.0.0.1:%TUNNEL_HEALTH_PORT%/health?details=true'); foreach($u in $urls){ Write-Host ''; Write-Host ('--- '+$u+' ---') -ForegroundColor Cyan; try { $r=Invoke-WebRequest $u -UseBasicParsing -TimeoutSec 3; Write-Host ('HTTP '+[int]$r.StatusCode); Write-Host $r.Content } catch { if ($_.Exception.Response) { try { Write-Host ('HTTP '+[int]$_.Exception.Response.StatusCode.value__); } catch {} }; if ($_.ErrorDetails.Message) { Write-Host $_.ErrorDetails.Message } else { Write-Host $_.Exception.Message } } }"
+  echo.
+  echo Keep the GPTWorker Tunnel window open; the diagnostics above identify the failing component.
   goto :failed
 )
 
