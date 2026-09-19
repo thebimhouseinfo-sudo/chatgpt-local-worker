@@ -12,7 +12,7 @@ $ErrorActionPreference = "Stop"
 $ScriptDir = Split-Path -Parent $MyInvocation.MyCommand.Path
 Set-Location $ScriptDir
 
-$TUNNEL_VERSION = "v0.0.10"
+$TUNNEL_VERSION = "v0.0.14"
 $BinDir = Join-Path $ScriptDir "bin"
 $TunnelExe = Join-Path $BinDir "tunnel-client.exe"
 # Keep profile filename for compatibility with existing local installs.
@@ -64,10 +64,30 @@ function Get-TunnelClientPath {
     return $null
 }
 
+function Get-TunnelClientVersion([string]$Path) {
+    if (-not $Path -or -not (Test-Path $Path)) { return $null }
+    try {
+        $line = (& $Path --version 2>$null | Select-Object -First 1)
+        if ($line -and $line.ToString() -match '(\d+\.\d+\.\d+)') {
+            return $Matches[1]
+        }
+    } catch {}
+    return $null
+}
+
 function Install-TunnelClient {
+    $targetVersion = $TUNNEL_VERSION.TrimStart('v')
+
     if (Test-Path $TunnelExe) {
-        Write-Host "tunnel-client da co: $TunnelExe" -ForegroundColor Green
-        return $TunnelExe
+        $installedVersion = Get-TunnelClientVersion $TunnelExe
+        if ($installedVersion -eq $targetVersion) {
+            Write-Host "tunnel-client $installedVersion da co: $TunnelExe" -ForegroundColor Green
+            return $TunnelExe
+        }
+
+        $displayVersion = if ($installedVersion) { $installedVersion } else { "unknown" }
+        Write-Host "Nang cap tunnel-client $displayVersion -> $targetVersion ..." -ForegroundColor Yellow
+        Remove-Item $TunnelExe -Force
     }
 
     Write-Host "Dang tai tunnel-client $TUNNEL_VERSION ..." -ForegroundColor Yellow
@@ -128,7 +148,7 @@ function Ensure-Profile([string]$McpUrl, [string]$TunnelId, [int]$TargetHealthPo
 config_version: 1
 control_plane:
   tunnel_id: $TunnelId
-  api_key: env:OPENAI_TUNNEL_API_KEY
+  api_key: env:CONTROL_PLANE_API_KEY
 log:
   level: info
   format: struct-text
@@ -153,18 +173,19 @@ function Test-McpServer([int]$TargetPort) {
 
 function Show-ConnectorGuide([string]$TunnelId, [int]$UiPort = 8080) {
     Write-Host ""
-    Write-Host "=== ChatGPT Connector (chi lam 1 lan) ===" -ForegroundColor Cyan
-    Write-Host "1. Giu terminal nay chay (tunnel-client)"
-    Write-Host "2. Mo: https://chatgpt.com/#settings/Connectors"
-    Write-Host "3. Them connector -> Connection: Tunnel -> chon 'my tunnel'"
-    Write-Host "   Hoac dan tunnel_id: $TunnelId"
-    Write-Host "4. Settings -> Apps -> dat quyen connector"
-    Write-Host "5. Refresh connector, mo chat moi"
+    Write-Host "=== ChatGPT App / Connector (chi lam 1 lan) ===" -ForegroundColor Cyan
+    Write-Host "1. Giu tunnel-client dang chay."
+    Write-Host "2. Mo ChatGPT Settings -> Apps. Neu can, bat Developer Mode."
+    Write-Host "3. Tao app/connector moi va chon Connection: Tunnel."
+    Write-Host "4. Chon tunnel trong danh sach, hoac paste Tunnel ID:"
+    Write-Host "   $TunnelId" -ForegroundColor Cyan
+    Write-Host "5. Scan Tools / Test connection, sau do dat ten app: gptworker."
     Write-Host ""
-    Write-Host "Admin UI: http://127.0.0.1:$UiPort/ui" -ForegroundColor Green
-    Write-Host "Health:   http://127.0.0.1:$UiPort/readyz" -ForegroundColor Green
+    Write-Host "KHONG nhap http://127.0.0.1:3000/mcp vao ChatGPT." -ForegroundColor Yellow
+    Write-Host "Secure MCP Tunnel dung Tunnel ID de noi ChatGPT voi MCP local." -ForegroundColor DarkGray
     Write-Host ""
-    Write-Host "LUU Y: Khong bam 'Luon cho phep' tren popup ChatGPT" -ForegroundColor Yellow
+    Write-Host "Tunnel UI: http://127.0.0.1:$UiPort/ui" -ForegroundColor Green
+    Write-Host "Ready:     http://127.0.0.1:$UiPort/readyz" -ForegroundColor Green
 }
 
 function Invoke-TunnelInit {
@@ -218,10 +239,32 @@ function Invoke-TunnelInit {
     $env:CONTROL_PLANE_TUNNEL_ID = $tunnelId
 
     Write-Host ""
+    Write-Host "tunnel-client version: $(& $bin --version)" -ForegroundColor DarkGray
     Write-Host "Chay doctor..." -ForegroundColor Yellow
     & $bin doctor --profile-file $ProfileFile --explain
     if ($LASTEXITCODE -ne 0) {
-        Write-Host "Doctor that bai - kiem tra tunnel_id, api key, va quyen Tunnels Read+Use" -ForegroundColor Red
+        Write-Host ""
+        Write-Host "Doctor that bai." -ForegroundColor Red
+        Write-Host "Kiem tra theo thu tu:" -ForegroundColor Yellow
+        Write-Host "  1. Tunnel ID dung organization/workspace."
+        Write-Host "  2. Runtime API key la Restricted va co Tunnels Read + Use."
+        Write-Host "  3. Neu vua tao tunnel/doi role, doi 30 giay den vai phut roi thu lai."
+        Write-Host "  4. Runtime key phai duoc tao boi principal co quyen tren tunnel do."
+        Write-Host ""
+        Write-Host "Dang thu doc metadata tunnel bang CHINH runtime key..." -ForegroundColor Yellow
+
+        $savedAdminKey = $env:OPENAI_ADMIN_KEY
+        try {
+            Remove-Item Env:OPENAI_ADMIN_KEY -ErrorAction SilentlyContinue
+            & $bin admin tunnels get $tunnelId --json
+            if ($LASTEXITCODE -ne 0) {
+                Write-Host "Runtime key khong doc duoc tunnel. Kiem tra organization/workspace va RBAC Read+Use." -ForegroundColor Red
+            } else {
+                Write-Host "Runtime key doc duoc tunnel metadata; xem CHECK fail phia tren de sua local/profile." -ForegroundColor Green
+            }
+        } finally {
+            if ($savedAdminKey) { $env:OPENAI_ADMIN_KEY = $savedAdminKey }
+        }
         exit 1
     }
 

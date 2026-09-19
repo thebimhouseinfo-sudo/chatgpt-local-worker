@@ -77,11 +77,18 @@ call "%~dp0run.bat"
 if errorlevel 1 goto :failed
 
 echo.
-echo Opening ChatGPT connector settings...
+echo Opening ChatGPT app/connector settings...
 start "" "https://chatgpt.com/#settings/Connectors"
 
 echo.
-echo Create/select the tunnel connection and name it: gptworker
+echo In ChatGPT:
+echo   1. Enable Developer Mode if the UI asks for it.
+echo   2. Apps / Create -> Connection: Tunnel.
+echo   3. Select your tunnel or paste the tunnel ID.
+echo   4. Scan Tools / Test connection.
+echo   5. Name the app: gptworker
+echo.
+echo Do NOT enter http://127.0.0.1:3000/mcp into ChatGPT.
 echo.
 echo ========================================
 echo   Setup complete
