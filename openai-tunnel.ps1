@@ -244,14 +244,16 @@ function Invoke-TunnelInit {
     & $bin doctor --profile-file $ProfileFile --explain
     if ($LASTEXITCODE -ne 0) {
         Write-Host ""
-        Write-Host "Doctor that bai." -ForegroundColor Red
-        Write-Host "Kiem tra theo thu tu:" -ForegroundColor Yellow
-        Write-Host "  1. Tunnel ID dung organization/workspace."
-        Write-Host "  2. Runtime API key la Restricted va co Tunnels Read + Use."
-        Write-Host "  3. Neu vua tao tunnel/doi role, doi 30 giay den vai phut roi thu lai."
-        Write-Host "  4. Runtime key phai duoc tao boi principal co quyen tren tunnel do."
+        Write-Host "Doctor that bai. Xem FAILED_CHECKS phia tren." -ForegroundColor Red
+        Write-Host "Neu fail mcp_server_reachable/oauth_metadata:" -ForegroundColor Yellow
+        Write-Host "  - local GPTWorker phai dang chay tren port MCP truoc khi doctor."
+        Write-Host "  - kiem tra http://127.0.0.1:$resolvedPort/health."
+        Write-Host "Neu fail tunnel_id/control_plane_api_key:" -ForegroundColor Yellow
+        Write-Host "  - Tunnel ID va runtime key phai cung organization/workspace."
+        Write-Host "  - Runtime API key can Tunnels Read + Use."
+        Write-Host "  - Neu vua tao tunnel/doi role, cho propagation roi thu lai."
         Write-Host ""
-        Write-Host "Dang thu doc metadata tunnel bang CHINH runtime key..." -ForegroundColor Yellow
+        Write-Host "Dang thu doc metadata tunnel bang CHINH runtime key de tach loi auth khoi loi local..." -ForegroundColor Yellow
 
         $savedAdminKey = $env:OPENAI_ADMIN_KEY
         try {
