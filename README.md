@@ -48,8 +48,9 @@ setup.bat
 4. build the Worker;
 5. validate Job Packs;
 6. run the test suite;
-7. install/upgrade the supported OpenAI `tunnel-client` and initialize the Secure MCP Tunnel;
-8. start GPTWorker + tunnel and open ChatGPT app/connector settings.
+7. start the local GPTWorker and wait for its health endpoint;
+8. install/upgrade the supported OpenAI `tunnel-client`, run tunnel `doctor`, then start the Secure MCP Tunnel;
+9. wait for tunnel readiness and open ChatGPT app/connector settings.
 
 During the one-time tunnel step, use a **Runtime API key** restricted to **Tunnels: Read + Use**. The setup uses the supported `tunnel-client v0.0.14` and automatically upgrades an older bundled binary.
 
@@ -210,6 +211,7 @@ The older PowerShell helpers remain available for development/troubleshooting, b
 | `@gptworker` is unavailable | Confirm the ChatGPT connection named `gptworker` still exists |
 | Worker does not start | Check the minimized `GPTWorker Server` PowerShell window |
 | Tunnel does not connect | Check the minimized `GPTWorker Tunnel` PowerShell window; confirm `tunnel-client --version` is 0.0.14 and rerun `openai-tunnel.ps1 -Doctor` |
+| Doctor reports `mcp_server_reachable` / `oauth_metadata` connection refused | The local Worker is not listening yet. Pull the latest repo and rerun `setup.bat`; setup now starts and health-checks the Worker before doctor. |
 | Doctor fails with 401/403 | Verify the tunnel and runtime key belong to the intended organization/workspace; the key principal needs Tunnels Read + Use. New tunnel/role changes can take time to propagate. |
 | ChatGPT asks for an MCP endpoint | Prefer **Connection: Tunnel** and select/paste the tunnel ID. Do not paste the localhost MCP URL. |
 | Wrong project | Check the `FOLDER:` line before confirming and inspect `worker-state.json` |
