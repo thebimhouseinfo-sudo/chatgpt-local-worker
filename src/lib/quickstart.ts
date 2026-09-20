@@ -1,6 +1,38 @@
+export const GPTWORKER_HELP = `
+# GPTWorker — Hướng dẫn nhanh
+
+GPTWorker cho phép ChatGPT làm việc trực tiếp trên máy của bạn thông qua các Job Pack.
+
+## Cách dùng cơ bản
+1. Xem Job có sẵn bằng: gptworker/job list
+2. Nói việc cần làm và cung cấp thư mục tuyệt đối, ví dụ: D:\\Projects\\MyApp
+3. GPTWorker sẽ hiện JOB + FOLDER để bạn xác nhận trước khi chạy.
+4. Khi xong, dùng gptworker/job stop. Nếu bỏ chat không làm gì trong 10 phút, Job sẽ tự stop.
+
+Mỗi chat chỉ có 1 Job + 1 Workspace đang hoạt động. Chat mới luôn bắt đầu ở trạng thái idle và không tự nhớ Workspace của chat cũ.
+
+## Quản lý custom Job
+- gptworker/job create — tạo custom Job mới
+- gptworker/job update — sửa custom Job
+- gptworker/job remove — xóa custom Job sau khi kiểm tra trạng thái và xác nhận
+- gptworker/job export — đóng gói custom Job thành file ZIP
+- gptworker/job import — nhập custom Job từ file ZIP
+
+Bundled Job đi kèm GPTWorker là read-only. Custom Job được lưu riêng trong AppData.
+
+## Quy tắc an toàn
+- Mọi đường dẫn file/thư mục phải là đường dẫn tuyệt đối.
+- GPTWorker luôn hỏi xác nhận trước khi bắt đầu Job.
+- Nếu remove một Job đang làm việc, GPTWorker sẽ báo số tool call đang chạy và hỏi lại trước khi ngắt Job rồi remove.
+- Một chat không được tự dừng WorkRegistration thuộc chat khác.
+
+Bạn có thể bắt đầu bằng gptworker/job list hoặc chỉ mô tả việc muốn làm; GPTWorker sẽ chọn Job phù hợp nếu có.
+`.trim();
+
 export const MCP_QUICKSTART = `
 ## GPTWorker root command surface
-When the user sends exactly gptworker/ (or asks what GPTWorker commands are available), show only these seven fixed management commands:
+When the user sends exactly gptworker/ (or asks what GPTWorker commands are available), show only these eight fixed root commands:
+- gptworker/help
 - gptworker/job list
 - gptworker/job create
 - gptworker/job update
@@ -10,6 +42,9 @@ When the user sends exactly gptworker/ (or asks what GPTWorker commands are avai
 - gptworker/job stop
 
 Never add Job Pack ids such as rename, dev-coding, mto, or any dynamically discovered job to this root command menu. Job Pack ids belong only in job_list results or natural-language job selection.
+
+## gptworker/help
+When the user sends exactly gptworker/help, reply with the prewritten GPTWORKER_HELP guide above. This is chat-only help: do not call an MCP tool, do not create/select a Job, do not infer a Workspace, and do not change Worker state.
 
 ## GPTWorker workflow
 1. Public Job Pack lifecycle commands (job_list / job_create / job_update / job_remove / job_export / job_import) do not require an active Job + Workspace. Never activate dev-coding, reuse a previous workspace, or infer a FOLDER just to author a Job Pack.
@@ -108,9 +143,10 @@ export function buildServerInstructions(
     "## Quick pointers",
     `Startup root: ${workspaceRoot}`,
     `Startup roots: ${workspaceRoots.join("; ")}`,
+    "gptworker/help — reply with the prewritten newcomer guide only; do not call tools or change Worker state",
     "job_status — inspect this chat's work only when its work_handle is supplied; otherwise report unemployed",
     "job_list — list/suggest jobs when JOB is not already clear from chat",
-    "Root gptworker/ menu is fixed: job list, job create, job update, job remove, job export, job import, job stop. Never append dynamic Job Pack ids.",
+    "Root gptworker/ menu is fixed: help, job list, job create, job update, job remove, job export, job import, job stop. Never append dynamic Job Pack ids.",
     "job_create — create a Job Pack without activating dev-coding or inheriting a workspace",
     "job_remove — remove an inactive custom Job Pack only after explicit confirmation; bundled defaults remain protected",
     "job_export — export a custom Job as <id>.zip to an absolute local destination directory",
