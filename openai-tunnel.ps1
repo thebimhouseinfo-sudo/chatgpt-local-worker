@@ -288,22 +288,28 @@ function Resolve-TunnelIdForSetup {
         throw "Chua co Tunnel ID. Setup UI phai cung cap -TunnelId."
     }
 
-    Show-SetupWizardStep -Step "1/2" -Title "Create Secure MCP Tunnel" -Subtitle "OpenAI Tunnels will open in your browser."
-    Write-Host "In OpenAI Platform:" -ForegroundColor White
-    Write-Host "  1. Open Organization -> Tunnels." -ForegroundColor White
-    Write-Host "  2. Make sure your role has Tunnels: Read + Use." -ForegroundColor White
-    Write-Host "     If you create/edit the tunnel yourself, your role also needs Manage." -ForegroundColor DarkGray
-    Write-Host "  3. Create a tunnel named gptworker (recommended)." -ForegroundColor White
-    Write-Host "  4. Attach/select the ChatGPT workspace that will use GPTWorker." -ForegroundColor White
-    Write-Host "  5. Create the tunnel, then copy the Tunnel ID." -ForegroundColor White
-    Write-Host "     Real value format: tunnel_ + 32 lowercase hex characters." -ForegroundColor DarkGray
+    Show-SetupWizardStep -Step "1/2" -Title "Tao Secure MCP Tunnel" -Subtitle "Trang OpenAI Tunnels se mo tren trinh duyet."
+    Write-Host "Lam lan luot nhu sau:" -ForegroundColor White
     Write-Host ""
-    Write-Host "Why this matters:" -ForegroundColor Cyan
-    Write-Host "  - Use is required to run/attach to the tunnel." -ForegroundColor DarkGray
-    Write-Host "  - The correct workspace attachment makes the tunnel appear later in ChatGPT." -ForegroundColor DarkGray
+    Write-Host "  1. Tren trang OpenAI, vao Organization -> Tunnels." -ForegroundColor White
+    Write-Host "  2. Neu trang hoi quyen, tai muc Tunnels hay bat:" -ForegroundColor White
+    Write-Host "       [x] Read" -ForegroundColor Green
+    Write-Host "       [x] Use" -ForegroundColor Green
+    Write-Host "     Neu ban la nguoi tao/sua Tunnel, bat them Manage." -ForegroundColor DarkGray
+    Write-Host "  3. Bam tao Tunnel moi." -ForegroundColor White
+    Write-Host "  4. Dat ten de de nhan ra, vi du: gptworker." -ForegroundColor White
+    Write-Host "  5. Neu co muc chon ChatGPT workspace, chon dung workspace" -ForegroundColor White
+    Write-Host "     ma ban se dung GPTWorker." -ForegroundColor White
+    Write-Host "  6. Bam Create/Save." -ForegroundColor White
+    Write-Host "  7. Sau khi tao xong, copy Tunnel ID." -ForegroundColor White
+    Write-Host "     Tunnel ID that thuong bat dau bang: tunnel_..." -ForegroundColor DarkGray
+    Write-Host ""
+    Write-Host "Giai thich ngan:" -ForegroundColor Cyan
+    Write-Host "  Tunnel la duong noi an toan giua ChatGPT va GPTWorker tren may ban." -ForegroundColor DarkGray
+    Write-Host "  Quyen Use la quyen cho phep GPTWorker su dung duong noi nay." -ForegroundColor DarkGray
     Write-Host ""
     if ($WizardPreview) {
-        Show-PreviewHint -Label "demo-tunnel"
+        Show-PreviewHint -Label "demo"
     }
 
     Start-Process $TunnelsUrl
@@ -354,23 +360,27 @@ function Resolve-ApiKeyForSetup {
         throw "Chua co Runtime API key. Setup UI phai cung cap -ApiKey."
     }
 
-    Show-SetupWizardStep -Step "2/2" -Title "Create Runtime API Key" -Subtitle "OpenAI API Keys will open in your browser."
-    Write-Host "Create the runtime key used by tunnel-client:" -ForegroundColor White
-    Write-Host "  1. Click Create new secret key." -ForegroundColor White
-    Write-Host "  2. Name it gptworker-runtime (recommended)." -ForegroundColor White
-    Write-Host "  3. Permissions: choose Restricted." -ForegroundColor Yellow
-    Write-Host "  4. In Tunnels permissions, enable BOTH:" -ForegroundColor Yellow
+    Show-SetupWizardStep -Step "2/2" -Title "Tao API key cho GPTWorker" -Subtitle "Trang OpenAI API Keys se mo tren trinh duyet."
+    Write-Host "Lam lan luot nhu sau:" -ForegroundColor White
+    Write-Host ""
+    Write-Host "  1. Bam Create new secret key." -ForegroundColor White
+    Write-Host "  2. Dat ten de de nhan ra, vi du: gptworker-runtime." -ForegroundColor White
+    Write-Host "  3. Tai Permissions, chon Restricted." -ForegroundColor Yellow
+    Write-Host "  4. Tim dong Tunnels, sau do bat CA HAI quyen:" -ForegroundColor Yellow
     Write-Host "       [x] Read" -ForegroundColor Green
     Write-Host "       [x] Use" -ForegroundColor Green
-    Write-Host "  5. Do NOT use Read Only." -ForegroundColor White
-    Write-Host "  6. You do NOT need to grant All permissions to the whole API key." -ForegroundColor DarkGray
-    Write-Host "  7. Create the key and copy the secret immediately." -ForegroundColor White
-    Write-Host "     Real value should begin with sk-." -ForegroundColor DarkGray
+    Write-Host "  5. Khong chon Read Only, vi Read Only se thieu quyen Use." -ForegroundColor White
+    Write-Host "  6. Khong can bat All cho toan bo API key." -ForegroundColor DarkGray
+    Write-Host "     Chi can Tunnels: Read + Use la du cho GPTWorker." -ForegroundColor DarkGray
+    Write-Host "  7. Bam Create secret key." -ForegroundColor White
+    Write-Host "  8. Copy key ngay khi OpenAI hien ra; key that thuong bat dau bang sk-." -ForegroundColor White
     Write-Host ""
-    Write-Host "Important: Tunnels Use is mandatory for tunnel-client run/poll." -ForegroundColor Cyan
+    Write-Host "Giai thich ngan:" -ForegroundColor Cyan
+    Write-Host "  API key nay giong nhu chia khoa de GPTWorker duoc phep dung Tunnel." -ForegroundColor DarkGray
+    Write-Host "  Quyen Use la bat buoc; chi co Read thi GPTWorker se khong ket noi duoc." -ForegroundColor DarkGray
     Write-Host ""
     if ($WizardPreview) {
-        Show-PreviewHint -Label "demo-api-key"
+        Show-PreviewHint -Label "demo"
     }
 
     Start-Process $ApiKeysUrl
