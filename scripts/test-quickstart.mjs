@@ -14,6 +14,9 @@ const expectedRootCommands = [
   "gptworker/job list",
   "gptworker/job create",
   "gptworker/job update",
+  "gptworker/job remove",
+  "gptworker/job export",
+  "gptworker/job import",
   "gptworker/job stop",
 ];
 
@@ -32,7 +35,7 @@ const listed = menuSlice
 assert.deepEqual(
   listed,
   expectedRootCommands,
-  "gptworker/ root menu must contain exactly the five fixed commands"
+  "gptworker/ root menu must contain exactly the eight fixed commands"
 );
 
 const instructions = buildServerInstructions(
@@ -54,7 +57,7 @@ assert.ok(
   "final MCP instructions missing MCP_QUICKSTART"
 );
 assert.ok(
-  instructions.includes("GPTWorker cho phép ChatGPT làm việc trực tiếp"),
+  instructions.includes("# GPTWorker Help"),
   "final MCP instructions missing prewritten gptworker/help content"
 );
 assert.ok(
@@ -74,12 +77,18 @@ assert.equal(
   "help response contract duplicated"
 );
 
-assert.ok(GPTWORKER_HELP.includes("layla"));
+assert.ok(GPTWORKER_HELP.includes("**Job + Workspace local**"));
+assert.ok(GPTWORKER_HELP.includes("## Layla"));
+assert.ok(GPTWORKER_HELP.includes("TXT, Markdown, Word, Excel, PowerPoint, PDF"));
+assert.ok(GPTWORKER_HELP.includes("## Tạo Job mới"));
+assert.ok(GPTWORKER_HELP.includes("## Quản lý Job"));
+assert.ok(GPTWORKER_HELP.includes("## Cách dùng"));
 assert.ok(GPTWORKER_HELP.includes("gptworker/job list"));
 assert.ok(GPTWORKER_HELP.includes("gptworker/job create"));
 assert.ok(GPTWORKER_HELP.includes("gptworker/job update"));
+assert.ok(GPTWORKER_HELP.includes("gptworker/job remove"));
+assert.ok(GPTWORKER_HELP.includes("gptworker/job export"));
+assert.ok(GPTWORKER_HELP.includes("import"));
 assert.ok(GPTWORKER_HELP.includes("gptworker/job stop"));
-assert.equal(GPTWORKER_HELP.includes("gptworker/job export"), false);
-assert.equal(GPTWORKER_HELP.includes("gptworker/job import"), false);
 
 console.log("test-quickstart: ok");
