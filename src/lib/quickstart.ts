@@ -1,4 +1,14 @@
 export const MCP_QUICKSTART = `
+## GPTWorker root command surface
+When the user sends exactly gptworker/ (or asks what GPTWorker commands are available), show only these five fixed management commands:
+- gptworker/job list
+- gptworker/job create
+- gptworker/job update
+- gptworker/job remove
+- gptworker/job stop
+
+Never add Job Pack ids such as rename, dev-coding, mto, or any dynamically discovered job to this root command menu. Job Pack ids belong only in job_list results or natural-language job selection.
+
 ## GPTWorker workflow
 1. Public Job Pack lifecycle commands (job_list / job_create / job_update / job_remove) do not require an active Job + Workspace. Never activate dev-coding, reuse a previous workspace, or infer a FOLDER just to author a Job Pack.
 2. For job-specific execution, call job_status with this chat's current work_handle when one exists. Without a work_handle, treat the chat as unemployed.
@@ -86,7 +96,9 @@ export function buildServerInstructions(
     `Startup roots: ${workspaceRoots.join("; ")}`,
     "job_status — inspect this chat's work only when its work_handle is supplied; otherwise report unemployed",
     "job_list — list/suggest jobs when JOB is not already clear from chat",
+    "Root gptworker/ menu is fixed: job list, job create, job update, job remove, job stop. Never append dynamic Job Pack ids.",
     "job_create — create a Job Pack without activating dev-coding or inheriting a workspace",
+    "job_remove — remove a custom Job Pack; bundled defaults remain protected",
     "job_stop — explicitly end this chat's active work; idle timeout is the abandoned-chat fallback",
     "project_context() — load instructions from the confirmed active workspace",
     "agent_status — optional diagnostics",
