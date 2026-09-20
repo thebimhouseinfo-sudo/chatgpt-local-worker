@@ -189,10 +189,12 @@ app.get("/health", (_req, res) => {
   const activeWork = getWorkRegistrationCount();
   const gateway = getWorkGatewayTelemetry();
   const runtimeMode =
-    gateway.loaded_family_count > 0
-      ? "on-demand-execution"
-      : activeWork > 0
-        ? "armed"
+    activeWork > 0
+      ? gateway.loaded_family_count > 0
+        ? "execution-ready"
+        : "armed"
+      : gateway.loaded_family_count > 0
+        ? "preloaded-cache"
         : "control-plane";
   res.json({
     status: "ok",
