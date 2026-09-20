@@ -2,7 +2,7 @@ import fs from "node:fs/promises";
 import os from "node:os";
 import path from "node:path";
 import { registerWorkspaceDiscoveryTool } from "../dist/tools/workspace-discovery.js";
-import { checkAdmission } from "../dist/lib/activation-policy.js";
+import { AdmissionRuntime } from "../dist/lib/activation-policy.js";
 
 const tmpDir = await fs.mkdtemp(path.join(os.tmpdir(), "gptworker-discovery-"));
 const outsideDir = await fs.mkdtemp(path.join(os.tmpdir(), "gptworker-outside-"));
@@ -26,17 +26,18 @@ try {
     },
   };
 
-  registerWorkspaceDiscoveryTool(fakeServer);
+  const admissionRuntime = new AdmissionRuntime();
+  registerWorkspaceDiscoveryTool(fakeServer, admissionRuntime);
   const discovery = registered.get("workspace_discover");
   if (!discovery) throw new Error("workspace_discover was not registered");
 
   const activationRequest = `Inspect files in ${tmpDir} and choose the right Job.`;
-  const admission = checkAdmission({
+  const admission = admissionRuntime.check({
     userTurn: activationRequest,
     hasConcreteTask: true,
     workspace: tmpDir,
   });
-  if (admission.mode !== "active" || !admission.admissionToken) {
+  if (admission.mode !== "ACTIVE" || !admission.admission_token) {
     throw new Error("test admission did not become ACTIVE");
   }
 
@@ -45,7 +46,7 @@ try {
     task: "inspect project",
     operation: "list_directory",
     arguments: {},
-    admission_token: admission.admissionToken,
+    admission_token: admission.admission_token,
   });
   if (!JSON.stringify(listResult).includes("README.md")) {
     throw new Error("discovery list did not return workspace file");
@@ -56,7 +57,7 @@ try {
     task: "inspect project",
     operation: "read_text_file",
     arguments: { path: file },
-    admission_token: admission.admissionToken,
+    admission_token: admission.admission_token,
   });
   if (!JSON.stringify(readResult).includes("hello discovery")) {
     throw new Error("discovery read did not return file content");
@@ -69,8 +70,7 @@ try {
       task: "inspect project",
       operation: "read_text_file",
       arguments: { path: path.join(outsideDir, "secret.txt") },
-      activation_trigger: "task_with_workspace",
-      activation_request: activationRequest,
+      admission_token: admission.admission_token,
     });
   } catch (error) {
     blocked = /restricted to the supplied Workspace/i.test(String(error?.message || error));
