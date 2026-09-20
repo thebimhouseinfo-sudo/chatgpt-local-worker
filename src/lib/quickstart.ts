@@ -1,15 +1,20 @@
 export const MCP_QUICKSTART = `
 ## GPTWorker workflow
-1. Call job_status before job-specific work.
-2. Resolve JOB and local FOLDER from the current conversation first. Do not ask again when the chat already provides them clearly.
-3. If JOB is missing/ambiguous, call job_list and ask only for the missing job choice.
-4. If FOLDER is missing/ambiguous, ask only for the absolute local folder path.
-5. Resolve any other required Job Pack bindings from the user's request.
-6. Call job_select with confirmed=false.
-7. Present a short preflight confirmation centered on JOB + FOLDER. Do not execute yet.
-8. Only after explicit user confirmation, call job_select again with confirmed=true + confirmation_token.
-9. Activation writes worker-state.json, switches the default cwd to the confirmed workspace, and makes it the anchor for filesystem/shell/git/project-context tools.
-10. Execute, validate, then report. Use job_switch when the user intentionally changes work. Work registration cleanup remains an internal runtime concern.
+1. Public Job Pack lifecycle commands (job_list / job_create / job_update / job_remove) do not require an active Job + Workspace. Never activate dev-coding, reuse a previous workspace, or infer a FOLDER just to author a Job Pack.
+2. For job-specific execution, call job_status with this chat's current work_handle when one exists. Without a work_handle, treat the chat as unemployed.
+3. Resolve JOB and local FOLDER from the current conversation only. Do not reuse worker-state.json, startup cwd, the most recent Job, or the most recent Workspace as authority.
+4. If JOB is missing/ambiguous, call job_list and ask only for the missing job choice.
+5. If FOLDER is missing/ambiguous, ask only for the absolute local folder path.
+6. Resolve any other required Job Pack bindings from the user's request.
+7. Call job_select with confirmed=false.
+8. Present a short preflight confirmation centered on JOB + FOLDER. Do not execute yet.
+9. Only after explicit user confirmation, call job_select again with confirmed=true + confirmation_token.
+10. Execute, validate, then report. Use job_stop when the work is finished. Use job_switch only when the user intentionally changes Job/Workspace. Idle work auto-stops after the configured inactivity timeout.
+
+## Job Pack authoring
+- job_create creates the Job Pack definition itself. It must not open a project workspace first.
+- If the new Job will later operate on a folder, define that folder/workspace as a Job input. Ask for the concrete target folder only when it is actually required by the current request.
+- A new chat starts with no active Job, no active Workspace, and no inherited work authority.
 
 ## Required confirmation style
 JOB: <resolved job>
@@ -24,6 +29,7 @@ Xác nhận bắt đầu?
 4. Run builds/tests with run_command for short work or start_process + process_output for long-running work.
 5. Use git tools without path arguments to operate on the confirmed active workspace.
 6. Undo tracked file edits with rewind when needed. Shell-created changes are not automatically checkpointed.
+7. End the work with job_stop when the user is done; the 10-minute idle timeout is only the safety fallback for abandoned chats.
 
 ## apply_patch
 Single-file hunk:
@@ -44,7 +50,8 @@ Multi-file form:
 All tools return JSON: { ok, tool, summary, data }
 
 ## Tool cheat sheet
-- job_list / job_create / job_update / job_remove: public Job lifecycle\n- job_select / job_status / job_switch: internal execution/runtime control
+- job_list / job_create / job_update / job_remove: public Job Pack lifecycle
+- job_select / job_status / job_switch / job_stop: work registration and execution lifecycle
 - glob / grep / read_text_file: explore
 - apply_patch / multi_edit / edit_file / write_file: edit
 - create_directory / delete_directory / copy_file / move_file / delete_file: filesystem operations
@@ -69,16 +76,18 @@ export function buildServerInstructions(
   const header = [
     "# GPTWorker MCP",
     "Full machine access: ON.",
-    "The startup cwd is not project authority. JOB + absolute local FOLDER must be resolved and explicitly confirmed before job-specific execution.",
-    "After confirmation, worker-state.json is the persistent source of current_job and active_workspace.",
+    "The startup cwd is not project authority. JOB + absolute local FOLDER must be resolved from the current chat and explicitly confirmed before job-specific execution.",
+    "A work_handle is the only active-work authority. worker-state.json is compatibility/diagnostic state only and must never be used to infer or resume another chat's Job or Workspace.",
   ].join("\n");
 
   const footer = [
     "## Quick pointers",
     `Startup root: ${workspaceRoot}`,
     `Startup roots: ${workspaceRoots.join("; ")}`,
-    "job_status — internal session/work state",
+    "job_status — inspect this chat's work only when its work_handle is supplied; otherwise report unemployed",
     "job_list — list/suggest jobs when JOB is not already clear from chat",
+    "job_create — create a Job Pack without activating dev-coding or inheriting a workspace",
+    "job_stop — explicitly end this chat's active work; idle timeout is the abandoned-chat fallback",
     "project_context() — load instructions from the confirmed active workspace",
     "agent_status — optional diagnostics",
   ].join("\n");
