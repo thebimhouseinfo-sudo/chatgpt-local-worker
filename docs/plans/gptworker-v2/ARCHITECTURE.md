@@ -91,15 +91,17 @@ Hash is deterministic from normalized canonical absolute path. Slug is human-rea
 ### ExecutionId
 
 ~~~text
-exec:<job-id>@<workspace-key>:g<generation>
+exec:<job-id>@<workspace-key>:e<driver-epoch>:g<generation>
 ~~~
 
-Generation changes when the binding is invalidated and re-created. ID is readable and deterministic in structure; it is not a random conversation identifier.
+`driver-epoch` is a monotonically increasing host epoch incremented on each Driver start. It is runtime state, not a second Job registry. `generation` increases whenever a registration for that workspace is replaced/re-created within the same epoch. This prevents a readable execution ID from being reused after stop/re-register or Driver restart.
+
+ExecutionId is human-readable routing/diagnostic identity, not a credential. Each active registration also has a separate opaque `authorityToken` that is never derived from Job/workspace naming. Execution tools require both the readable ID and the valid token; the user does not manage this token manually.
 
 ### ToolLeaseId
 
 ~~~text
-tool:<family>@<job-id>@<workspace-key>:g<generation>:c<call-sequence>
+tool:<family>@<job-id>@<workspace-key>:e<driver-epoch>:g<generation>:c<call-sequence>
 ~~~
 
 This is an active borrowing record, not a permanent physical inventory ID.
@@ -109,6 +111,8 @@ This is an active borrowing record, not a permanent physical inventory ID.
 ~~~text
 WorkRegistration
   executionId
+  authorityToken
+  driverEpoch
   generation
   phase
   jobId
@@ -127,8 +131,9 @@ Rules:
 2. execution tools require a valid registration;
 3. missing/stale registration → NO_ACTIVE_WORK;
 4. no fallback to global cwd/state;
-5. Driver restart invalidates live registrations;
-6. no inactivity timeout by default.
+5. Driver restart increments driverEpoch and invalidates every prior authorityToken;
+6. generation is monotonic for a workspace within one Driver epoch;
+7. no inactivity timeout by default.
 
 ## Workspace Ownership
 
@@ -140,6 +145,8 @@ Workspace B → exec_B
 ~~~
 
 A second independent registration for Workspace A returns WORKSPACE_BUSY. It does not silently join or steal the existing owner.
+
+If the caller still has the valid `executionId + authorityToken`, registration may be treated idempotently. If the handle was lost or the previous chat disappeared without a reliable close signal, recovery is explicit: re-register the exact Job + Workspace with a replace request, confirm that exact scope, transition the old execution to CLOSING, invalidate its token/generation, clean owned resources, then issue a new registration. This is replacement, not auto-attach.
 
 This workspace-level invariant removes the need for general file-level locking between independent Jobs in the intended workflow.
 
@@ -195,6 +202,7 @@ Every tool instance is born from an active ExecutionContext.
 ToolContext
   family
   executionId
+  driverEpoch
   generation
   jobId
   workspaceCanonicalPath
@@ -261,9 +269,12 @@ Confirmation must bind:
 
 - Job;
 - canonical Workspace;
+- driver epoch;
 - generation;
 - pack revision;
 - bindings affecting scope.
+
+Every execution tool call must present the matching `executionId + authorityToken`. A readable execution ID by itself never grants authority.
 
 Every execution path checks ACTIVE registration before creating an instance.
 
@@ -353,7 +364,7 @@ gptworker/job update
 gptworker/job stop
 ~~~
 
-Internal tools may implement select/register/status/switch/diagnostics. The user does not manage execution IDs manually; ChatGPT carries them between tool calls.
+Internal tools may implement select/register/status/switch/diagnostics. The user does not manage execution IDs or authority tokens manually; ChatGPT carries the work handle between tool calls. P1 must prove this behavior with the live connector before broader refactors depend on it.
 
 ## Invariants
 
@@ -367,16 +378,17 @@ Internal tools may implement select/register/status/switch/diagnostics. The user
 8. Same Tool Family may run concurrently across different workspaces.
 9. No machine-global active Job/cwd/process registry as execution authority.
 10. Worker sleep does not end Work Registration.
-11. Driver restart invalidates prior execution authority.
-12. No auto-attach to most recent Job/workspace.
-13. Ambiguous/unknown execution never replays mutation.
-14. job.yaml is the only Job registry authority on disk.
+11. Driver restart changes driverEpoch and invalidates prior execution authority.
+12. Readable execution IDs are never sufficient authority without the matching opaque token.
+13. No auto-attach to most recent Job/workspace; orphan recovery requires explicit confirmed replacement.
+14. Ambiguous/unknown execution never replays mutation.
+15. job.yaml is the only Job registry authority on disk.
 
 ## Security / Trust Model
 
 GPTWorker remains a trusted local worker with broad machine access. Work Registration and workspace binding prevent accidental cross-job context drift; they are not an OS sandbox.
 
-Credentials are never embedded in execution IDs, tool lease IDs or Job state. Diagnostic logs remain private operational evidence and use redaction.
+Credentials are never embedded in readable execution IDs, tool lease IDs or Job state. The opaque authority token is treated as a credential: redacted from normal logs/diagnostics and rotated on every new registration. Diagnostic logs remain private operational evidence and use redaction.
 
 ## Deferred
 

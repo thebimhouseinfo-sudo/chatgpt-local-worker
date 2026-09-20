@@ -51,26 +51,30 @@ Hash là deterministic từ canonical absolute path sau normalization; slug lấ
 Execution ID:
 
 ~~~text
-exec:<job-id>@<workspace-key>:g<generation>
+exec:<job-id>@<workspace-key>:e<driver-epoch>:g<generation>
 ~~~
 
 Ví dụ:
 
 ~~~text
-exec:dev-coding@audio-library-for-english#8f31c2:g1
-exec:dev-coding@ke-math-grade1#41bd77:g1
+exec:dev-coding@audio-library-for-english#8f31c2:e12:g1
+exec:dev-coding@ke-math-grade1#41bd77:e12:g1
 ~~~
+
+`driver-epoch` tăng đơn điệu mỗi lần Driver khởi động. `generation` tăng mỗi lần cùng workspace được replace/re-register trong một epoch. ID vẫn human-readable nhưng không bị tái sử dụng sau restart.
+
+Execution ID không phải credential. Mỗi registration còn có một `authorityToken` opaque, random/unguessable, bind với Job + Workspace + epoch + generation + pack revision. Execution tool phải có cả ID và token đúng. User không quản lý token này; ChatGPT giữ work handle nội bộ.
 
 Ephemeral tool lease / instance identity:
 
 ~~~text
-tool:<family>@<job-id>@<workspace-key>:g<generation>:c<call-sequence>
+tool:<family>@<job-id>@<workspace-key>:e<driver-epoch>:g<generation>:c<call-sequence>
 ~~~
 
 Ví dụ:
 
 ~~~text
-tool:filesystem@dev-coding@ke-math-grade1#41bd77:g1:c27
+tool:filesystem@dev-coding@ke-math-grade1#41bd77:e12:g1:c27
 ~~~
 
 Một instance tạm được tạo khi call bắt đầu và bị destroy/release khi call/resource kết thúc. Không có trạng thái FREE để tái sử dụng như một inventory cố định.
@@ -113,6 +117,8 @@ Driver giữ authority và bookkeeping. Worker executor không giữ machine-glo
 ~~~text
 WorkRegistration
   executionId
+  authorityToken
+  driverEpoch
   generation
   phase: AWAITING_CONFIRMATION | ACTIVE | CLOSING
   jobId
@@ -126,7 +132,7 @@ WorkRegistration
   activeResourceLeases
 ~~~
 
-Không cần conversationId để runtime đúng. ChatGPT giữ executionId trong work session và gửi lại khi gọi execution tools.
+Không cần conversationId để runtime đúng. ChatGPT giữ `executionId + authorityToken` trong work session và gửi lại khi gọi execution tools. P1 phải chứng minh live qua connector rằng một chat giữ đúng handle qua nhiều calls, và hai chats xen kẽ không hoán đổi handle.
 
 ### WorkspaceOwnership
 
@@ -165,12 +171,14 @@ git
 
 Job Pack chỉ khai báo family/capability được phép dùng. Không tạo coding_read_file, mto_read_file hoặc duplicate implementation chỉ vì nhiều Job cùng dùng filesystem.
 
+Tool Family là lớp tổ chức/runtime context, không bắt buộc gom mọi operation vào một mega MCP tool. Các public tool schema hiện tại có thể tiếp tục tách riêng (read/write/edit/run/...) nhưng cùng resolve qua một family factory/context dùng chung.
+
 ## Tool Call Lifecycle
 
 ~~~text
 incoming execution tool call
   ↓
-require execution_id
+require execution_id + authority_token
   ↓
 resolve active WorkRegistration
   ↓
@@ -201,6 +209,7 @@ ToolContext tối thiểu:
 ToolContext
   family
   executionId
+  driverEpoch
   generation
   jobId
   workspaceCanonicalPath
@@ -254,16 +263,21 @@ select Job
   + resolve Workspace
   + confirm
   → acquire WorkspaceOwnership
-  → generation++
-  → issue executionId
+  → driverEpoch + generation binding
+  → issue executionId + authorityToken
   → ACTIVE
 ~~~
 
 Một work session chỉ dùng một active Job + Workspace. Khi cần đổi việc, phải stop/switch bằng execution hiện tại rồi register binding mới.
 
+Nếu exact workspace đang bận:
+- caller có valid handle hiện tại → registration là idempotent;
+- caller không còn handle → trả WORKSPACE_BUSY, không auto-attach;
+- caller có thể explicit re-register/replace đúng Job + Workspace, confirm lại scope; Driver đóng execution cũ, invalidate token/generation, cleanup owned resources rồi cấp handle mới.
+
 ### No active work
 
-Bất kỳ execution tool nào thiếu/không tìm thấy/không còn hợp lệ execution_id:
+Bất kỳ execution tool nào thiếu/không tìm thấy/không còn hợp lệ `execution_id + authority_token`:
 
 ~~~text
 NO_ACTIVE_WORK
@@ -303,20 +317,25 @@ Acceptance: code + CI + live runtime evidence hoàn tất.
 
 Implement contract mới trước khi sửa tool internals:
 
-- WorkspaceKey canonicalization + deterministic hash.
+- WorkspaceKey canonicalization + deterministic hash; normalize drive-letter/case/separators/trailing slash và resolve real path/reparse target khi khả dụng.
+- persistent monotonic DriverEpoch counter (runtime metadata, không phải Job registry).
 - WorkRegistrationStore.
 - WorkspaceOwnershipRegistry.
-- human-readable executionId + generation.
+- human-readable executionId + authorityToken + generation.
 - registration/confirmation creates ACTIVE execution.
 - explicit NO_ACTIVE_WORK.
 - duplicate workspace activation → WORKSPACE_BUSY.
-- Driver restart invalidates old registration.
+- explicit confirmed replace path cho orphaned/lost-handle registration.
+- Driver restart increments epoch and invalidates old registration.
 
 Acceptance:
 - hai work sessions register hai workspace khác nhau;
 - mỗi execution chỉ có một Job + Workspace;
 - cùng workspace không tạo hai active owners;
-- missing/stale execution ID không chạy execution tool;
+- missing/stale ID hoặc wrong token không chạy execution tool;
+- stop/re-register và Driver restart không bao giờ tái sử dụng cùng execution identity;
+- lost handle có thể recover bằng explicit confirmed replace, không auto-attach;
+- live connector: một chat giữ đúng handle qua >=5 execution calls; hai chats xen kẽ giữ hai handles riêng;
 - không có fallback global state.
 
 ### P2 — ExecutionContext + Tool Gate
@@ -324,7 +343,7 @@ Acceptance:
 Loại bỏ authority từ global mutable state:
 
 - cwd/context/project instructions theo execution.
-- confirmation token bind Job + Workspace + generation + pack revision.
+- confirmation token bind Job + Workspace + driver epoch + generation + pack revision.
 - every native/upstream execution path receives ExecutionContext.
 - preflight/control tools được allowlist rõ ràng.
 - direct execution trước ACTIVE bị blocked.
@@ -466,15 +485,16 @@ Acceptance release:
 |---|---|
 | Work registration | Job + Workspace required; stale/missing execution rejected |
 | Workspace ownership | one active owner per canonical workspace |
-| Naming | deterministic workspace key; readable execution/tool lease IDs; collision test |
-| Confirmation | token bound to execution/generation/workspace/pack revision |
+| Naming | deterministic workspace key; readable execution/tool lease IDs; epoch/generation non-reuse; collision test |
+| Work handle continuity | live ChatGPT carries execution ID + authority token across repeated/interleaved calls |
+| Confirmation | token bound to execution/driver-epoch/generation/workspace/pack revision |
 | Tool family | one shared implementation/factory family; no per-Job duplicated core tools |
 | Ephemeral instances | on-demand spawn, immutable binding, release after lifetime |
 | Concurrency | many executions same family, different workspaces, no family-level queue |
 | Isolation | no global cwd/process/REPL/context drift |
 | Stop | releases workspace + owned resources only |
 | Sleep/wake | quiescence-based; registration survives Worker sleep |
-| Driver restart | old executions invalid, must register again |
+| Driver restart | epoch changes; old execution ID/token rejected; must register again |
 | Packs | AppData portable, immutable active revision |
 | Publish | validated transactional update |
 | Deployment | Windows logon, tunnel/Driver light, executor on-demand |
