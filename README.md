@@ -116,7 +116,8 @@ Use **ChatGPT on the web** for this one-time connection step. Keep the local gui
 5. Do **not** use **Use tunnel ID instead**.
 6. Tick the confirmation checkbox shown in the dialog and press **Connect/Create**.
 7. Follow screenshot `5.png`: **restart Windows**. This verifies that GPTWorker really starts automatically with the current Windows user.
-8. After Windows starts again, open ChatGPT and invoke `@gptworker` to begin using GPTWorker.
+8. After Windows starts again, open ChatGPT and invoke `@gptworker`.
+9. Then type `gptworker/help` and read the usage guide before starting the first Job.
 
 The visual guide uses the screenshots in:
 
@@ -156,7 +157,13 @@ Then open ChatGPT and invoke:
 @gptworker
 ```
 
-That is the normal way to start using GPTWorker. During source development, `run.bat` remains available only as a fallback/manual launcher.
+For the first use, continue with:
+
+```text
+gptworker/help
+```
+
+Read the built-in guide before starting the first Job. After that, `@gptworker` is the normal entry point. During source development, `run.bat` remains available only as a fallback/manual launcher.
 
 ### Setup core and future Wizard
 
@@ -177,9 +184,15 @@ During development, run:
 setup-test.bat
 ```
 
-This combines a **fake credential-onboarding test** with the **real source tray runtime**. The Tunnel/API values typed into the fake prompts are never saved and should be fake values only. At step 3 the script uses the existing saved `.env` to run `npm run build`, register per-user Windows auto-start, start the real tray host, and verify the real Worker + Secure MCP Tunnel.
+This is a **terminal-only Setup Wizard dry-run**. It follows the real first-time sequence instead of using simplified fake prompts:
 
-This is the recommended final source test because it exercises onboarding, build, tray, auto-start registration, live tunnel readiness, the HTML guide, and the real ChatGPT connection in one pass.
+1. checks Node.js and Git;
+2. installs/builds/validates/tests GPTWorker;
+3. runs the same Tunnel → Runtime API key terminal prompts used by `setup.bat`, opening the real OpenAI pages at the correct moment and validating the entered formats;
+4. does **not** save the entered Tunnel ID/API key or replace the current `.env`;
+5. when an existing configured `.env` is available, launches the real tray/runtime for the integration check and opens the ChatGPT onboarding guide.
+
+This keeps the test UX aligned with production while protecting the current connection.
 
 ## Daily use
 
