@@ -190,7 +190,7 @@ export function registerJobTools(
     {
       title: "Job List",
       description:
-        "List available Job Packs. Optional query only suggests matches; it never selects or runs a job.",
+        "List available Job Packs. Use for an explicit gptworker/job list request, or after a valid GPTWorker activation trigger when JOB is unclear. Do not call this tool merely because an ordinary chat request resembles a Job. Optional query only suggests matches; it never selects or runs a job.",
       inputSchema: {
         query: z
           .string()
@@ -472,7 +472,7 @@ export function registerJobTools(
     {
       title: "Job Status",
       description:
-        "Show active work only when the caller supplies its current work_handle. Without a work_handle, report idle/unemployed and never reuse the last Job or Workspace from another chat.",
+        "Show active work only when the caller supplies its current work_handle. Without a work_handle, report idle/unemployed and never reuse the last Job or Workspace from another chat. Do not use job_status as a reason to activate GPTWorker in an otherwise ordinary chat.",
       inputSchema: {
         execution_id: z.string().optional().describe("Current work_handle.execution_id, if this chat has active work"),
         authority_token: z.string().optional().describe("Current work_handle.authority_token"),
