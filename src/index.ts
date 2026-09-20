@@ -28,6 +28,7 @@ import {
 import { getChatGptToolProfile } from "./lib/tool-profile.js";
 import { buildLegacyDiscoverFallback } from "./lib/mcp-discover-compat.js";
 import { flushRuntimeLog } from "./lib/runtime-log.js";
+import { getWorkRegistrationCount } from "./lib/work-registration.js";
 
 const PORT = parseInt(process.env.PORT || "3000", 10);
 const HOST = process.env.HOST || "127.0.0.1";
@@ -182,6 +183,9 @@ if (MCP_TOKEN) {
 }
 
 app.get("/health", (_req, res) => {
+  const memory = process.memoryUsage();
+  const mb = (bytes: number) => Math.round((bytes / 1024 / 1024) * 10) / 10;
+  const activeWork = getWorkRegistrationCount();
   res.json({
     status: "ok",
     name: "chatgpt-local-worker",
@@ -190,6 +194,14 @@ app.get("/health", (_req, res) => {
     fullMachineAccess: true,
     fullDiskAccess: getFullDiskAccess(),
     activeSessions: sessionManager.count(),
+    activeWork,
+    runtimeMode: activeWork > 0 ? "execution" : "control-plane",
+    memory: {
+      rss_mb: mb(memory.rss),
+      heap_used_mb: mb(memory.heapUsed),
+      heap_total_mb: mb(memory.heapTotal),
+      external_mb: mb(memory.external),
+    },
     sessionRecovery: SESSION_RECOVERY,
     mcpEndpoints: MCP_PATHS,
     instructions: summarizeInstructionContext(instructionContext),
