@@ -15,7 +15,17 @@ assert.equal(latest.kind, "tool");
 
 // logMcpRequest tools/call
 logMcpRequest(
-  { method: "tools/call", params: { name: "read_text_file", arguments: { path: "/tmp/x" } } },
+  {
+    method: "tools/call",
+    params: {
+      name: "read_text_file",
+      arguments: {
+        execution_id: "exec:dev-coding@test#123456:e1:g1",
+        authority_token: "super-secret-authority-token-value",
+        path: "/tmp/x",
+      },
+    },
+  },
   "sess-abc-123",
   42,
   200
@@ -25,6 +35,27 @@ assert.ok(mcp, "expected mcp tools/call entry");
 assert.equal(mcp.client, "chatgpt");
 assert.equal(mcp.duration_ms, 42);
 assert.equal(mcp.summary, "/tmp/x");
+assert.equal(mcp.status, "ok");
+
+// missing work handle is an application-level rejection even though MCP uses HTTP 200
+logMcpRequest(
+  { method: "tools/call", params: { name: "read_text_file", arguments: { path: "/tmp/y" } } },
+  "sess-missing-work",
+  7,
+  200
+);
+const rejected = getRecentActivity(10).find(
+  (e) => e.action === "tool_lease_rejected" && e.tool === "read_text_file"
+);
+assert.ok(rejected, "expected missing work handle to create tool_lease_rejected");
+assert.equal(rejected.status, "blocked");
+assert.equal(rejected.tool_family, "filesystem");
+const blockedMcp = getRecentActivity(10).find(
+  (e) => e.kind === "mcp" && e.tool === "read_text_file" && e.session_id === "sess-missing-work"
+);
+assert.ok(blockedMcp, "expected blocked MCP entry for missing work handle");
+assert.equal(blockedMcp.status, "blocked");
+assert.match(blockedMcp.summary || "", /NO_ACTIVE_WORK/);
 
 // filter since
 const all = getRecentActivity(500);
