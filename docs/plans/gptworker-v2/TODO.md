@@ -24,7 +24,15 @@
 - [ ] Replace repo-relative harness imports with portable runner/API.
 - [ ] Implement immutable pack snapshots and publish transaction.
 - [ ] Live-test AppData custom Job authoring: create → list → update → remove through ChatGPT.
-- [ ] AFTER AppData custom Job trial: decide whether Windows logon supervision is useful; manual launch is acceptable.
+- [ ] Implement per-user Windows logon auto-start for a single-instance GPTWorker resident host; normal daily use must not require run.bat.
+- [ ] Add system-tray icon with minimal menu: status, Open setup guide, Restart GPTWorker, Exit GPTWorker.
+- [ ] Make normal resident startup hidden: no launcher/console window in everyday use.
+- [ ] Enforce thin idle contract: event-driven resident host+tunnel only; no shell/REPL/tool pool/managed execution process or active Job kept solely for readiness.
+- [ ] Wake execution resources on real MCP work and return to quiescent state after calls/resources drain.
+- [ ] Verify tray Exit stops GPTWorker-owned host+tunnel/execution children only; never unrelated user apps.
+- [ ] Keep run.bat as source-build fallback/manual recovery until packaging.
+- [ ] Run final live Windows source acceptance for auto-start/tray/idle/wake/restart/Exit and multi-workspace isolation.
+- [ ] BLOCK packaging until the final live source acceptance passes and the user explicitly approves packaging.
 - [ ] Define retention for history/cache/checkpoints/transaction journals; this must not expire ACTIVE WorkRegistration.
 
 ## Explicitly Rejected / Removed
@@ -42,7 +50,8 @@
 
 - [ ] Resume active WorkRegistration after Driver restart/reboot.
 - [ ] Concurrent independent executions against the same canonical workspace.
-- [ ] Driver/Windows Service unless manual launch becomes insufficient.
+- [ ] Windows Service; not required for the target desktop UX because per-user logon auto-start + tray is authoritative.
+- [ ] Physical Driver/Executor process split unless thin-idle measurements prove it necessary.
 - [ ] Full YAML parser; initial v2 keeps JSON-compatible YAML.
 - [ ] Public rollback/enable/disable commands. `job remove` is now part of the core public lifecycle.
 - [ ] Job marketplace/dependency auto-download.
