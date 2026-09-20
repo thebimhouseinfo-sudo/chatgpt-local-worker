@@ -1,5 +1,6 @@
 import path from "node:path";
 import { registerAdmissionTool } from "../dist/tools/admission.js";
+import { AdmissionRuntime } from "../dist/lib/activation-policy.js";
 
 const registered = new Map();
 const fakeServer = {
@@ -15,7 +16,8 @@ const fakeServer = {
   },
 };
 
-registerAdmissionTool(fakeServer);
+const runtime = new AdmissionRuntime();
+registerAdmissionTool(fakeServer, runtime);
 const admission = registered.get("gptworker_admission");
 if (!admission) throw new Error("gptworker_admission was not registered");
 
