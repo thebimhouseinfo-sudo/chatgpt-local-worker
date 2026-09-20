@@ -484,6 +484,18 @@ Acceptance:
 
 ### P8 — Windows Resident Host + Tray + Auto-start — REQUIRED BEFORE PACKAGING
 
+**Source implementation status: IMPLEMENTED, awaiting live Windows acceptance.**
+
+Current source host:
+- `gptworker-tray.ps1` uses Windows Forms `NotifyIcon` and a named mutex for single-instance behavior;
+- `setup.bat` registers a per-user `HKCU\...\Run` entry and launches the hidden tray host;
+- `run.bat` performs `npm run build` then launches the tray host as source fallback;
+- tray starts/adopts Worker + Secure MCP Tunnel in hidden processes;
+- hidden process output goes to `%LOCALAPPDATA%\GPTWorker\logs`;
+- tray status refreshes on menu-open plus a low-frequency 60-second timer, not busy polling;
+- `setup-test.bat` combines fake credential onboarding with the real saved-config tray runtime for final acceptance;
+- tray Exit refuses to kill an unknown Worker port owner and only stops a health-verified GPTWorker worker, `tunnel-client` on the configured health port, and tray-owned launcher processes.
+
 Implement and live-test the desktop lifecycle **from source first**:
 
 - per-user Windows logon auto-start; no admin/Windows Service requirement for normal install;
