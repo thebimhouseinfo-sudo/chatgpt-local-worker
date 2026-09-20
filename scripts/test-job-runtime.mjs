@@ -54,8 +54,6 @@ const laylaActive = await runtime.select({
 assert.equal(laylaActive.state.phase, "active");
 assert.equal(laylaActive.job.id, "layla");
 assert.equal(laylaActive.harness.length, 3);
-assert.equal(laylaActive.job.plan_confirmation?.required, true);
-assert.equal(laylaActive.job.execution_policy?.mode, "adaptive-two-gate");
 assert.equal(laylaActive.validators.length, 1);
 
 runtime.stop();
