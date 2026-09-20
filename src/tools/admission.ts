@@ -1,10 +1,13 @@
 import { z } from "zod";
 import type { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
-import { checkAdmission } from "../lib/activation-policy.js";
+import type { AdmissionRuntime } from "../lib/activation-policy.js";
 import { toolAnnotations } from "../lib/tool-annotations.js";
 import { toolResult } from "../lib/tool-result.js";
 
-export function registerAdmissionTool(server: McpServer): void {
+export function registerAdmissionTool(
+  server: McpServer,
+  admissionRuntime: AdmissionRuntime
+): void {
   server.registerTool(
     "gptworker_admission",
     {
@@ -33,7 +36,7 @@ export function registerAdmissionTool(server: McpServer): void {
       annotations: toolAnnotations("read"),
     },
     async ({ user_turn, has_concrete_task, workspace }) => {
-      const decision = checkAdmission({
+      const decision = admissionRuntime.check({
         userTurn: user_turn,
         hasConcreteTask: has_concrete_task,
         workspace,
