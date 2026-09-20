@@ -24,14 +24,14 @@
 - [ ] Replace repo-relative harness imports with portable runner/API.
 - [ ] Implement immutable pack snapshots and publish transaction.
 - [ ] Live-test AppData custom Job authoring: create → list → update → remove through ChatGPT.
-- [ ] Implement per-user Windows logon auto-start for a single-instance GPTWorker resident host; normal daily use must not require run.bat.
-- [ ] Add system-tray icon with minimal menu: status, Open setup guide, Restart GPTWorker, Exit GPTWorker.
-- [ ] Make normal resident startup hidden: no launcher/console window in everyday use.
-- [ ] Enforce thin idle contract: event-driven resident host+tunnel only; no shell/REPL/tool pool/managed execution process or active Job kept solely for readiness.
-- [ ] Wake execution resources on real MCP work and return to quiescent state after calls/resources drain.
-- [ ] Verify tray Exit stops GPTWorker-owned host+tunnel/execution children only; never unrelated user apps.
-- [ ] Keep run.bat as source-build fallback/manual recovery until packaging.
-- [ ] Run final live Windows source acceptance for auto-start/tray/idle/wake/restart/Exit and multi-workspace isolation.
+- [x] Implement per-user Windows logon auto-start for a single-instance GPTWorker resident host; normal daily use does not require run.bat after real setup.
+- [x] Add system-tray icon with minimal menu: status, Open setup guide, Restart GPTWorker, Exit GPTWorker.
+- [x] Make normal resident startup hidden: no launcher/console window in everyday use.
+- [x] Enforce source-level thin idle contract: resident tray + MCP Worker + tunnel only; no shell/REPL/tool pool/managed execution process or active Job kept solely for readiness; tray health refresh is 60s plus menu events.
+- [x] Keep execution resources demand-driven through existing tool-lease model; tray keeps only the MCP front door/runtime process + tunnel resident between calls.
+- [ ] LIVE VERIFY tray Exit: implementation only stops a health-verified GPTWorker port owner, tunnel-client on the configured health port, and tray-owned launcher processes; confirm on Windows.
+- [x] Keep run.bat as source-build fallback/manual recovery until packaging; it builds then launches the single-instance tray host.
+- [ ] Run final live Windows source acceptance using setup-test.bat for onboarding + build + tray + tunnel + ChatGPT, then verify auto-start/restart/Exit and multi-workspace isolation.
 - [ ] BLOCK packaging until the final live source acceptance passes and the user explicitly approves packaging.
 - [ ] Define retention for history/cache/checkpoints/transaction journals; this must not expire ACTIVE WorkRegistration.
 
