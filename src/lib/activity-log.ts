@@ -33,14 +33,26 @@ function trimSummary(text: string, max = 160): string {
 }
 
 const SENSITIVE_KEY = /(token|secret|password|passwd|api[_-]?key|authorization|cookie|credential|private[_-]?key)/i;
-const SENSITIVE_STRING = /(sk-[A-Za-z0-9_-]{16,}|Bearer\s+[A-Za-z0-9._~+/=-]+)/gi;
-const SENSITIVE_ASSIGNMENT = /((?:OPENAI|MCP|CONTROL_PLANE)[A-Z0-9_]*(?:KEY|TOKEN)\s*[=:]\s*)[^\s,;]+/gi;
+const SENSITIVE_STRING = /(sk-[A-Za-z0-9_-]{16,}|ghp_[A-Za-z0-9]{20,}|github_pat_[A-Za-z0-9_]{20,}|xox[baprs]-[A-Za-z0-9-]{10,}|npm_[A-Za-z0-9]{20,}|Bearer\s+[A-Za-z0-9._~+/=-]+)/gi;
+const SENSITIVE_ASSIGNMENT = /(\b(?:(?:[A-Z][A-Z0-9_]*)(?:TOKEN|KEY|SECRET|PASSWORD|PASSWD|CREDENTIAL)|DATABASE_URL)\s*[=:]\s*)(?:"[^"]*"|'[^']*'|[^\s,;]+)/gi;
+const CREDENTIAL_URL = /\b(?:postgres(?:ql)?|mysql|mongodb(?:\+srv)?|redis):\/\/[^\s]+/gi;
 const MAX_VALUE_DEPTH = 5;
 
+function redactConfiguredSecrets(value: string): string {
+  let redacted = value;
+  for (const [envKey, envValue] of Object.entries(process.env)) {
+    if (!envValue || envValue.length < 6) continue;
+    if (!SENSITIVE_KEY.test(envKey) && envKey.toUpperCase() !== "DATABASE_URL") continue;
+    redacted = redacted.split(envValue).join("[REDACTED]");
+  }
+  return redacted;
+}
+
 function redactString(value: string): string {
-  return value
+  return redactConfiguredSecrets(value)
     .replace(SENSITIVE_STRING, "[REDACTED]")
     .replace(SENSITIVE_ASSIGNMENT, "$1[REDACTED]")
+    .replace(CREDENTIAL_URL, "[REDACTED_URL]")
     .slice(0, 4000);
 }
 
@@ -87,6 +99,7 @@ export function appendActivity(partial: Omit<ActivityEntry, "id" | "time"> & { t
     schema_version: 1,
     pid: process.pid,
     ...partial,
+    action: partial.action ? redactString(partial.action) : partial.action,
     summary: partial.summary ? redactString(partial.summary) : partial.summary,
     target: partial.target ? redactString(partial.target) : partial.target,
     details: partial.details

@@ -4,7 +4,7 @@ Tất cả task triển khai dưới đây chưa thực hiện. READY nghĩa là
 
 | ID | Status | Task / Output | Depends On | Acceptance | Subplan | Progress / Notes |
 |---|---|---|---|---|---|---|
-| TASK-V2-LOG-001 | IN_PROGRESS | Automatic structured runtime logging, redaction, rotation và Admin history | None | MCP/tool/session/HTTP/system events tự ghi JSONL; logging fail-open; secret được redact; record/file bounded; build + validate + test pass | None | P0 scope đã chốt; implementation đang thực hiện |
+| TASK-V2-LOG-001 | IN_PROGRESS | Automatic structured runtime logging, redaction, rotation và Admin history | None | MCP/tool/session/HTTP/system events tự ghi JSONL; logging fail-open; secret được redact; record/file bounded; build + validate + test pass | None | Implementation + hardening đã code; chờ CI và live Windows/ChatGPT logging evidence trước khi DONE |
 | TASK-V2-001 | READY | Baseline/regression specification và test diagnostics | None | Ghi build/jobs/test baseline; meaningful regressions cho R01–R05; spawn failure hiển thị error code | None | Baseline PASS, probes R01/R02/R03 đã có; regression files chưa viết |
 | TASK-V2-002 | READY | Live ChatGPT/Tunnel identity + timing spike, quyết định OQ-01/OQ-02 | None | Evidence nhiều tool calls/hai chat/reconnect/close/probes; kết luận resume mapping và measured wake budget | None | Chưa chạy connector thật; không có permission mở chat/gửi request thay người dùng được suy từ review |
 | TASK-V2-003 | TODO | Session ExecutionContext thay global cwd/shell/process/context/checkpoint scope | TASK-V2-001 | A/B xen kẽ async operations không lẫn; context đúng workspace sau activation/switch | None | R01/R10; bao gồm project instructions và startup bootstrap race |
@@ -31,4 +31,4 @@ Tất cả task triển khai dưới đây chưa thực hiện. READY nghĩa là
 
 ## Completion Summary
 
-2026-09-20: P0 được thu hẹp theo quyết định người dùng vào automatic runtime logging. Baseline build/validate/jobs/npm test PASS; đã reproduces changed-binding confirmation bug nhưng chưa xử lý vì ngoài P0. TASK-V2-LOG-001 đang triển khai; Driver, AppData migration, authoring và packaging chưa bắt đầu.
+2026-09-20: P0 được thu hẹp theo quyết định người dùng vào automatic runtime logging. Baseline build/validate/jobs/npm test PASS; đã reproduces changed-binding confirmation bug nhưng chưa xử lý vì ngoài P0. Logging implementation và hardening đã code; TASK-V2-LOG-001 vẫn IN_PROGRESS cho tới khi có CI + live Windows/ChatGPT evidence. Driver, AppData migration, authoring và packaging chưa bắt đầu.
