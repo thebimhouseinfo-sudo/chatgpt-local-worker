@@ -67,7 +67,17 @@ if (since) {
 
 // error logging with message
 logMcpRequest(
-  { method: "tools/call", params: { name: "write_file", arguments: { path: "/x" } } },
+  {
+    method: "tools/call",
+    params: {
+      name: "write_file",
+      arguments: {
+        execution_id: "exec:dev-coding@test#123456:e1:g1",
+        authority_token: "test-authority-token",
+        path: "/x",
+      },
+    },
+  },
   "sess-err",
   2,
   400,
