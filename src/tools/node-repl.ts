@@ -34,6 +34,34 @@ interface WindowsComputerUseClientConstructor {
   new (options: { transport: SkyTransport }): unknown;
 }
 
+export function createWorkspaceProcessView(workspaceRoot: string): NodeJS.Process {
+  const resolved = path.resolve(workspaceRoot);
+  const env = {
+    ...process.env,
+    PWD: resolved,
+    INIT_CWD: resolved,
+  };
+
+  return new Proxy(process, {
+    get(target, prop) {
+      if (prop === "cwd") return () => resolved;
+      if (prop === "chdir") {
+        return () => {
+          throw new Error(
+            "process.chdir() is disabled inside node_repl because it would change GPTWorker's global cwd. Use absolute paths rooted at workspaceRoot instead."
+          );
+        };
+      }
+      if (prop === "env") return env;
+      const value = Reflect.get(target, prop, target);
+      return typeof value === "function" ? value.bind(target) : value;
+    },
+    set() {
+      throw new Error("Top-level process mutation is disabled inside node_repl.");
+    },
+  }) as NodeJS.Process;
+}
+
 async function loadSky(): Promise<{ sky?: unknown; error?: string }> {
   if (!isComputerUseEnabled()) return { error: "Computer Use plugin is disabled in Admin UI" };
   if (process.platform !== "win32") return { error: "Computer Use is only available on Windows" };
@@ -67,7 +95,8 @@ async function createState(workspaceRoot: string): Promise<ReplState> {
   };
   const sandbox: Record<string, unknown> = {
     Buffer,
-    process,
+    process: createWorkspaceProcessView(workspaceRoot),
+    workspaceRoot,
     setTimeout,
     clearTimeout,
     fetch,
@@ -91,7 +120,7 @@ export function registerNodeReplTool(server: McpServer, _startupWorkspaceRoot: s
     "node_repl",
     {
       title: "Node REPL",
-      description: "Stateful JavaScript session rooted at the confirmed active workspace. Store state on globalThis. When the Computer Use plugin is enabled and its skill is loaded, globalThis.sky exposes Codex Windows Computer Use.",
+      description: "Stateful JavaScript session rooted at the confirmed active workspace. process.cwd() and workspaceRoot resolve to that workspace; process.chdir() is disabled to prevent changing GPTWorker's host cwd. Prefer dedicated filesystem tools for routine file mutations. Store state on globalThis. When the Computer Use plugin is enabled and its skill is loaded, globalThis.sky exposes Codex Windows Computer Use.",
       inputSchema: {
         action: z.enum(["eval", "reset", "status"]).default("eval"),
         code: z.string().optional().describe("JavaScript. Use globalThis for state across calls; nodeRepl.write() emits text."),

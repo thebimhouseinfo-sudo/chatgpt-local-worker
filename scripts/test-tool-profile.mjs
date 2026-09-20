@@ -26,6 +26,7 @@ try {
     "job_update",
     "job_remove",
     "job_stop",
+    "move_file",
   ]) {
     if (!shouldExposeTool(t, "slim")) throw new Error(`${t} missing from slim`);
   }

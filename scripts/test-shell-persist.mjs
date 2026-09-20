@@ -1,5 +1,5 @@
 /**
- * Global shell cwd persists across bootstrap (simulates ChatGPT new MCP sessions).
+ * Persistent shell state is isolated by concrete workspace.
  */
 import fs from "fs/promises";
 import path from "path";
@@ -8,13 +8,18 @@ import {
   bootstrapShellSession,
   execInShellSession,
   getShellStatus,
+  resetAllShellSessionsForTests,
 } from "../dist/lib/persistent-shell.js";
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const root = path.resolve(__dirname, "..");
 const stateDir = path.join(root, ".tool-test-tmp", "shell-persist");
+const workspaceA = path.join(stateDir, "workspace-a");
+const workspaceB = path.join(stateDir, "workspace-b");
+const subA = path.join(workspaceA, "sub");
+const subB = path.join(workspaceB, "sub");
 
-process.env.MCP_SHELL_STATE_DIR = stateDir;
+process.env.MCP_SHELL_STATE_DIR = path.join(stateDir, "state");
 
 let passed = 0;
 let failed = 0;
@@ -23,22 +28,44 @@ function fail(m, e) { console.error(`FAIL ${m}: ${e && e.stack || e}`); failed++
 
 try {
   await fs.rm(stateDir, { recursive: true, force: true });
-  await bootstrapShellSession(root);
-  await execInShellSession(process.platform === "win32" ? "cd src" : "cd src", root, 5000);
+  await fs.mkdir(subA, { recursive: true });
+  await fs.mkdir(subB, { recursive: true });
+  resetAllShellSessionsForTests();
 
-  const cwd1 = getShellStatus().cwd;
-  if (!cwd1.replace(/\\/g, "/").endsWith("/src")) {
-    throw new Error(`expected cwd in src, got ${cwd1}`);
+  await bootstrapShellSession(workspaceA);
+  await bootstrapShellSession(workspaceB);
+
+  await execInShellSession("cd sub", workspaceA, 5000);
+  await execInShellSession("cd sub", workspaceB, 5000);
+
+  const statusA = getShellStatus(workspaceA);
+  const statusB = getShellStatus(workspaceB);
+  if (path.resolve(statusA.cwd) !== path.resolve(subA)) {
+    throw new Error(`workspace A cwd mismatch: ${statusA.cwd}`);
   }
-  ok(`cwd after cd: ${cwd1}`);
+  if (path.resolve(statusB.cwd) !== path.resolve(subB)) {
+    throw new Error(`workspace B cwd mismatch: ${statusB.cwd}`);
+  }
+  ok("two workspaces keep independent shell cwd");
 
-  await bootstrapShellSession(root);
-  const cwd2 = getShellStatus().cwd;
-  if (cwd2 !== cwd1) throw new Error(`persist failed: ${cwd1} -> ${cwd2}`);
-  ok("cwd restored after re-bootstrap");
+  resetAllShellSessionsForTests();
+  await bootstrapShellSession(workspaceA);
+  const restoredA = getShellStatus(workspaceA).cwd;
+  if (path.resolve(restoredA) !== path.resolve(subA)) {
+    throw new Error(`persist failed for workspace A: ${restoredA}`);
+  }
+  ok("workspace shell cwd restores from its own persisted state");
+
+  await bootstrapShellSession(workspaceB);
+  const restoredB = getShellStatus(workspaceB).cwd;
+  if (path.resolve(restoredB) !== path.resolve(subB)) {
+    throw new Error(`persist failed for workspace B: ${restoredB}`);
+  }
+  ok("workspace B restore does not reuse workspace A state");
 } catch (e) {
-  fail("shell persist", e.message || e);
+  fail("shell workspace isolation", e.message || e);
 }
 
+await fs.rm(stateDir, { recursive: true, force: true });
 console.log(`\n${passed} passed, ${failed} failed`);
 process.exit(failed ? 1 : 0);

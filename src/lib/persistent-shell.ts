@@ -1,6 +1,7 @@
 import { spawn } from "child_process";
 import fs from "fs";
 import path from "path";
+import { loadGlobalShellState, saveGlobalShellState } from "./global-shell-state.js";
 
 export interface ShellExecResult {
   command: string;
@@ -11,59 +12,84 @@ export interface ShellExecResult {
   timed_out: boolean;
 }
 
-import { loadGlobalShellState, saveGlobalShellState } from "./global-shell-state.js";
+interface ShellSessionState {
+  workspaceRoot: string;
+  cwd: string;
+  initializedAt: string;
+  history: string[];
+}
 
-let sessionCwd: string | null = null;
-let sessionInitializedAt: string | null = null;
-let persistenceRoot: string | null = null;
-const history: string[] = [];
+const sessions = new Map<string, ShellSessionState>();
 const MAX_HISTORY = 50;
 
-export function setShellPersistenceRoot(workspaceRoot: string): void {
-  persistenceRoot = path.resolve(workspaceRoot);
+function canonicalWorkspace(workspaceRoot: string): string {
+  return path.resolve(workspaceRoot);
+}
+
+function workspaceKey(workspaceRoot: string): string {
+  const resolved = canonicalWorkspace(workspaceRoot);
+  return process.platform === "win32" ? resolved.toLowerCase() : resolved;
+}
+
+function newSession(
+  workspaceRoot: string,
+  cwd = workspaceRoot,
+  initializedAt = new Date().toISOString(),
+  history: string[] = []
+): ShellSessionState {
+  return {
+    workspaceRoot: canonicalWorkspace(workspaceRoot),
+    cwd: path.resolve(cwd),
+    initializedAt,
+    history: [...history].slice(-MAX_HISTORY),
+  };
+}
+
+function ensureShellSession(workspaceRoot: string): ShellSessionState {
+  const root = canonicalWorkspace(workspaceRoot);
+  const key = workspaceKey(root);
+  let state = sessions.get(key);
+  if (!state) {
+    state = newSession(root);
+    sessions.set(key, state);
+  }
+  return state;
 }
 
 export function initShellSession(defaultCwd: string): void {
-  sessionCwd = path.resolve(defaultCwd);
-  sessionInitializedAt = new Date().toISOString();
-  history.length = 0;
+  const root = canonicalWorkspace(defaultCwd);
+  sessions.set(workspaceKey(root), newSession(root));
 }
 
-/** Restore cwd from disk (ChatGPT = new MCP session per tool call). */
+/** Restore cwd from disk for one concrete workspace. */
 export async function bootstrapShellSession(defaultCwd: string): Promise<void> {
-  setShellPersistenceRoot(defaultCwd);
-  const saved = await loadGlobalShellState(defaultCwd, defaultCwd);
-  if (saved?.cwd) {
-    sessionCwd = path.resolve(saved.cwd);
-    sessionInitializedAt = saved.updated_at;
-    if (saved.recent_commands?.length) {
-      history.length = 0;
-      history.push(...saved.recent_commands.slice(-MAX_HISTORY));
-    }
-    return;
-  }
-  initShellSession(defaultCwd);
+  const root = canonicalWorkspace(defaultCwd);
+  const saved = await loadGlobalShellState(root, root);
+  const state = saved?.cwd
+    ? newSession(root, saved.cwd, saved.updated_at, saved.recent_commands ?? [])
+    : newSession(root);
+  sessions.set(workspaceKey(root), state);
 }
 
-export function getShellCwd(): string {
-  if (!sessionCwd) throw new Error("Shell session not initialized");
-  return sessionCwd;
+export function getShellCwd(workspaceRoot: string): string {
+  return ensureShellSession(workspaceRoot).cwd;
 }
 
-export function resetShellSession(cwd: string): void {
-  sessionCwd = path.resolve(cwd);
-  sessionInitializedAt = new Date().toISOString();
-  if (persistenceRoot) {
-    void saveGlobalShellState(persistenceRoot, sessionCwd, undefined, null);
-  }
+export function resetShellSession(cwd: string, workspaceRoot = cwd): void {
+  const root = canonicalWorkspace(workspaceRoot);
+  const state = newSession(root, cwd);
+  sessions.set(workspaceKey(root), state);
+  void saveGlobalShellState(root, state.cwd, undefined, null);
 }
 
-export function getShellStatus() {
+export function getShellStatus(workspaceRoot: string) {
+  const state = ensureShellSession(workspaceRoot);
   return {
-    active: sessionCwd !== null,
-    cwd: sessionCwd,
-    started_at: sessionInitializedAt,
-    recent_commands: [...history].slice(-10),
+    active: true,
+    workspace: state.workspaceRoot,
+    cwd: state.cwd,
+    started_at: state.initializedAt,
+    recent_commands: [...state.history].slice(-10),
   };
 }
 
@@ -77,8 +103,11 @@ function resolveCdTarget(current: string, target: string): string {
   return path.isAbsolute(cleaned) ? path.resolve(cleaned) : path.resolve(current, cleaned);
 }
 
-/** Cập nhật cwd khi gặp cd / Set-Location ở đầu command (giống Bash persistent). */
-export function applyCwdDirectives(currentCwd: string, command: string): { cwd: string; command: string } {
+/** Update cwd when cd / Set-Location appears at the start of a command. */
+export function applyCwdDirectives(
+  currentCwd: string,
+  command: string
+): { cwd: string; command: string } {
   let cwd = currentCwd;
   let rest = command.trim();
 
@@ -169,8 +198,14 @@ export function transpileCompoundOperators(cmd: string): string {
 
 export function getWinShell(): { shell: string; isPwsh: boolean } {
   const configuredShell = process.env.SHELL?.trim();
-  if (configuredShell && /(?:^|[\\/])(pwsh|powershell)(?:\.exe)?$/i.test(configuredShell)) {
-    return { shell: configuredShell, isPwsh: /pwsh(?:\.exe)?$/i.test(configuredShell) };
+  if (
+    configuredShell &&
+    /(?:^|[\\/])(pwsh|powershell)(?:\.exe)?$/i.test(configuredShell)
+  ) {
+    return {
+      shell: configuredShell,
+      isPwsh: /pwsh(?:\.exe)?$/i.test(configuredShell),
+    };
   }
 
   const pwshPaths = [
@@ -181,13 +216,20 @@ export function getWinShell(): { shell: string; isPwsh: boolean } {
     if (fs.existsSync(p)) return { shell: p, isPwsh: true };
   }
 
-  const sysPowerShell = "C:\\Windows\\System32\\WindowsPowerShell\\v1.0\\powershell.exe";
-  if (fs.existsSync(sysPowerShell)) return { shell: sysPowerShell, isPwsh: false };
+  const sysPowerShell =
+    "C:\\Windows\\System32\\WindowsPowerShell\\v1.0\\powershell.exe";
+  if (fs.existsSync(sysPowerShell)) {
+    return { shell: sysPowerShell, isPwsh: false };
+  }
 
   return { shell: "powershell.exe", isPwsh: false };
 }
 
-function runOnce(command: string, cwd: string, timeoutMs: number): Promise<ShellExecResult> {
+function runOnce(
+  command: string,
+  cwd: string,
+  timeoutMs: number
+): Promise<ShellExecResult> {
   return new Promise((resolve, reject) => {
     let effectiveCommand = command;
     let shell = "bash";
@@ -199,7 +241,14 @@ function runOnce(command: string, cwd: string, timeoutMs: number): Promise<Shell
       if (!winShellInfo.isPwsh) {
         effectiveCommand = transpileCompoundOperators(command);
       }
-      args = ["-NoProfile", "-NonInteractive", "-ExecutionPolicy", "Bypass", "-Command", effectiveCommand];
+      args = [
+        "-NoProfile",
+        "-NonInteractive",
+        "-ExecutionPolicy",
+        "Bypass",
+        "-Command",
+        effectiveCommand,
+      ];
     }
 
     const child = spawn(shell, args, {
@@ -207,6 +256,8 @@ function runOnce(command: string, cwd: string, timeoutMs: number): Promise<Shell
       windowsHide: true,
       env: {
         ...process.env,
+        PWD: cwd,
+        INIT_CWD: cwd,
         CI: "true",
         PAGER: "cat",
         GIT_PAGER: "cat",
@@ -215,9 +266,7 @@ function runOnce(command: string, cwd: string, timeoutMs: number): Promise<Shell
       },
     });
 
-    if (child.stdin) {
-      child.stdin.end();
-    }
+    child.stdin?.end();
 
     let stdout = "";
     let stderr = "";
@@ -254,29 +303,31 @@ function runOnce(command: string, cwd: string, timeoutMs: number): Promise<Shell
 
 export async function execInShellSession(
   command: string,
-  defaultCwd: string,
+  workspaceRoot: string,
   timeoutMs: number,
   workingDirectory?: string
 ): Promise<ShellExecResult> {
-  if (!sessionCwd) initShellSession(defaultCwd);
+  const root = canonicalWorkspace(workspaceRoot);
+  const state = ensureShellSession(root);
+  const oneOffCwd = workingDirectory ? path.resolve(workingDirectory) : undefined;
+  const startCwd = oneOffCwd ?? state.cwd;
+  const { cwd, command: effective } = applyCwdDirectives(startCwd, command);
 
-  if (workingDirectory) {
-    sessionCwd = path.resolve(await Promise.resolve(workingDirectory));
-  }
-
-  const { cwd, command: effective } = applyCwdDirectives(sessionCwd!, command);
-  sessionCwd = cwd;
-
-  history.push(effective);
-  if (history.length > MAX_HISTORY) history.shift();
+  state.history.push(effective);
+  if (state.history.length > MAX_HISTORY) state.history.shift();
 
   const result = await runOnce(effective, cwd, timeoutMs);
-  sessionCwd = cwd;
 
-  if (persistenceRoot) {
-    const prev = await loadGlobalShellState(persistenceRoot, defaultCwd);
-    await saveGlobalShellState(persistenceRoot, cwd, effective, prev);
+  if (!oneOffCwd) {
+    state.cwd = cwd;
   }
 
+  const prev = await loadGlobalShellState(root, root);
+  await saveGlobalShellState(root, state.cwd, effective, prev);
+
   return result;
+}
+
+export function resetAllShellSessionsForTests(): void {
+  sessions.clear();
 }

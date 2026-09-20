@@ -35,11 +35,12 @@ Xác nhận bắt đầu?
 ## Core tool workflow (after confirmation)
 1. Call project_context() to load instructions from the confirmed active workspace when needed.
 2. Explore with glob (file names), grep (content), then read_text_file.
-3. Edit with apply_patch (preferred), multi_edit, edit_file, or write_file.
-4. Run builds/tests with run_command for short work or start_process + process_output for long-running work.
-5. Use git tools without path arguments to operate on the confirmed active workspace.
-6. Undo tracked file edits with rewind when needed. Shell-created changes are not automatically checkpointed.
-7. End the work with job_stop when the user is done; the 10-minute idle timeout is only the safety fallback for abandoned chats.
+3. For file rename/move operations, use move_file. Do not fall back to node_repl for routine filesystem mutations.
+4. Edit file contents with apply_patch (preferred), multi_edit, edit_file, or write_file.
+5. Run builds/tests with run_command for short work or start_process + process_output for long-running work.
+6. Use git tools without path arguments to operate on the confirmed active workspace.
+7. Undo tracked file edits with rewind when needed. Shell-created changes are not automatically checkpointed.
+8. End the work with job_stop when the user is done; the 10-minute idle timeout is only the safety fallback for abandoned chats.
 
 ## apply_patch
 Single-file hunk:
@@ -64,14 +65,15 @@ All tools return JSON: { ok, tool, summary, data }
 - job_select / job_status / job_switch / job_stop: work registration and execution lifecycle
 - glob / grep / read_text_file: explore
 - apply_patch / multi_edit / edit_file / write_file: edit
-- create_directory / delete_directory / copy_file / move_file / delete_file: filesystem operations
+- move_file: preferred tool for rename/move operations inside the active workspace
+- create_directory / delete_directory / copy_file / delete_file: other filesystem operations
 - run_command / start_process / process_output / process_status / stop_process: execute
 - shell_status / shell_reset: persistent shell state
 - git_status / git_diff / git_add / git_commit / git_branch / git_restore / git_stash: git
 - project_context / list_skills / load_skill / load_path_rules: active-workspace context
 - rewind: checkpoint/undo
 - enabled upstream MCP tools are exposed directly as <server>__<tool>; mcp_servers / mcp_tools / mcp_call remain diagnostics/fallback
-- when a dedicated operation is unavailable, run_command is the general local fallback
+- when a dedicated operation is unavailable, run_command is the general local fallback; node_repl is not the fallback for routine filesystem mutation
 
 ## Paths
 Full machine access is intentional. The confirmed FOLDER is the default working context, equivalent to Open Folder in an IDE. Absolute paths remain allowed when the task needs them.

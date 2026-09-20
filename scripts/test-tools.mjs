@@ -4,6 +4,7 @@ import { fileURLToPath } from "url";
 import { globFiles } from "../dist/lib/glob-search.js";
 import { grepSearch } from "../dist/lib/grep-search.js";
 import { applyMultiFilePatch, applyUnifiedPatchToText, isMultiFilePatch } from "../dist/lib/patch.js";
+import { createWorkspaceProcessView } from "../dist/tools/node-repl.js";
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const root = path.resolve(__dirname, "..");
@@ -103,6 +104,25 @@ await run("multi-file patch apply", async () => {
   if (results.length !== 1 || !results[0].ok) throw new Error(JSON.stringify(results));
   const text = await fs.readFile(file, "utf-8");
   if (!text.includes("gamma")) throw new Error(text);
+});
+
+await run("node_repl process view is workspace-bound", async () => {
+  const hostCwd = process.cwd();
+  const view = createWorkspaceProcessView(tmpDir);
+  if (view.cwd() !== path.resolve(tmpDir)) {
+    throw new Error(`expected workspace cwd ${tmpDir}, got ${view.cwd()}`);
+  }
+  if (view.env.PWD !== path.resolve(tmpDir)) {
+    throw new Error(`expected PWD ${tmpDir}, got ${view.env.PWD}`);
+  }
+  let blocked = false;
+  try {
+    view.chdir(root);
+  } catch {
+    blocked = true;
+  }
+  if (!blocked) throw new Error("process.chdir should be blocked inside node_repl");
+  if (process.cwd() !== hostCwd) throw new Error("host process cwd was mutated");
 });
 
 await run("delete and move file", async () => {
