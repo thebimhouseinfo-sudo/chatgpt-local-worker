@@ -6,6 +6,7 @@ param(
     [switch]$Doctor,
     [switch]$Init,
     [switch]$Force,
+    [switch]$WizardPreview,
     [string]$TunnelId = "",
     [string]$ApiKey = "",
     [switch]$NoBrowser
@@ -237,11 +238,13 @@ function Resolve-TunnelIdForSetup {
         return $TunnelId
     }
 
-    $existingId = Get-DotEnvValue "OPENAI_TUNNEL_ID"
-    if (Test-TunnelIdValue $existingId) {
-        Write-Host "[1/2] Secure MCP Tunnel: da cau hinh" -ForegroundColor Green
-        Write-Host "Tunnel ID: $existingId" -ForegroundColor DarkGray
-        return $existingId
+    if (-not $WizardPreview) {
+        $existingId = Get-DotEnvValue "OPENAI_TUNNEL_ID"
+        if (Test-TunnelIdValue $existingId) {
+            Write-Host "[1/2] Secure MCP Tunnel: da cau hinh" -ForegroundColor Green
+            Write-Host "Tunnel ID: $existingId" -ForegroundColor DarkGray
+            return $existingId
+        }
     }
 
     if ($NoBrowser) {
@@ -272,10 +275,12 @@ function Resolve-ApiKeyForSetup {
         return $ApiKey
     }
 
-    $existingKey = Get-DotEnvValue "OPENAI_TUNNEL_API_KEY"
-    if (Test-ApiKeyValue $existingKey) {
-        Write-Host "[2/2] Runtime API key: da cau hinh" -ForegroundColor Green
-        return $existingKey
+    if (-not $WizardPreview) {
+        $existingKey = Get-DotEnvValue "OPENAI_TUNNEL_API_KEY"
+        if (Test-ApiKeyValue $existingKey) {
+            Write-Host "[2/2] Runtime API key: da cau hinh" -ForegroundColor Green
+            return $existingKey
+        }
     }
 
     if ($NoBrowser) {
@@ -312,6 +317,17 @@ function Invoke-TunnelInit {
     # reuse the same validation, persistence, doctor, and tunnel configuration.
     $resolvedTunnelId = Resolve-TunnelIdForSetup
     $resolvedApiKey = Resolve-ApiKeyForSetup
+
+    if ($WizardPreview) {
+        Write-Host ""
+        Write-Host "[OK] Tunnel ID hop le." -ForegroundColor Green
+        Write-Host "[OK] Runtime API key co dung dinh dang." -ForegroundColor Green
+        Write-Host ""
+        Write-Host "Wizard preview hoan tat." -ForegroundColor Cyan
+        Write-Host "Khong ghi .env, khong chay doctor va khong thay doi ket noi hien tai." -ForegroundColor DarkGray
+        return
+    }
+
     Save-TunnelCredentials -ResolvedTunnelId $resolvedTunnelId -ResolvedApiKey $resolvedApiKey
 
     Write-Host ""
