@@ -101,13 +101,13 @@ export async function createWorkRegistration(
   workspaceInput: string
 ): Promise<WorkRegistration> {
   const workspace = await canonicalWorkspace(workspaceInput);
-  const key = \`\${workspaceSlug(workspace)}#\${shortHash(workspace)}\`;
+  const key = `${workspaceSlug(workspace)}#${shortHash(workspace)}`;
   const existingOwner = workspaceOwners.get(workspace);
 
   if (existingOwner && registrations.has(existingOwner)) {
     throw new WorkRegistrationError(
       "WORKSPACE_BUSY",
-      \`Workspace is already registered by \${existingOwner}. Stop or explicitly replace that work registration before opening it again.\`
+      `Workspace is already registered by ${existingOwner}. Stop or explicitly replace that work registration before opening it again.`
     );
   }
 
@@ -115,7 +115,7 @@ export async function createWorkRegistration(
   const generation = (workspaceGenerations.get(workspace) || 0) + 1;
   workspaceGenerations.set(workspace, generation);
 
-  const executionId = \`exec:\${jobId}@\${key}:e\${driverEpoch}:g\${generation}\`;
+  const executionId = `exec:${jobId}@${key}:e${driverEpoch}:g${generation}`;
   const now = new Date().toISOString();
   const registration: WorkRegistration = {
     executionId,
@@ -138,7 +138,7 @@ export async function createWorkRegistration(
     action: "work_registered",
     status: "ok",
     target: key,
-    summary: \`\${jobId} @ \${key}\`,
+    summary: `${jobId} @ ${key}`,
     work_id: executionId,
     job_id: jobId,
     workspace_key: key,
@@ -278,8 +278,8 @@ export function acquireToolLease(
   registration.callSequence += 1;
   const sequence = registration.callSequence;
   const leaseId =
-    \`tool:\${family}@\${registration.jobId}@\${registration.workspaceKey}\` +
-    \`:e\${registration.driverEpoch}:g\${registration.generation}:c\${sequence}\`;
+    `tool:${family}@${registration.jobId}@${registration.workspaceKey}` +
+    `:e${registration.driverEpoch}:g${registration.generation}:c${sequence}`;
   const lease: ToolLease = {
     leaseId,
     family,
