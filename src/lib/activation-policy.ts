@@ -231,9 +231,8 @@ export class AdmissionRuntime {
         );
       }
 
-      if (!proof.workspace) {
-        proof.workspace = path.resolve(workspace);
-      } else if (
+      if (
+        proof.workspace &&
         normalizedPath(proof.workspace) !== normalizedPath(workspace)
       ) {
         throw new Error(
@@ -243,6 +242,29 @@ export class AdmissionRuntime {
     }
 
     return proof;
+  }
+
+  bindWorkspace(token: string | undefined, workspace: string): string {
+    const proof = this.validate(token);
+    const trimmed = workspace.trim();
+    if (!path.isAbsolute(trimmed)) {
+      throw new Error(
+        "ADMISSION_REQUIRED: Workspace must be an absolute local Workspace path."
+      );
+    }
+
+    const resolved = path.resolve(trimmed);
+    if (
+      proof.workspace &&
+      normalizedPath(proof.workspace) !== normalizedPath(resolved)
+    ) {
+      throw new Error(
+        "ADMISSION_REQUIRED: Workspace does not match the Workspace admitted in this @gptworker flow."
+      );
+    }
+
+    if (!proof.workspace) proof.workspace = resolved;
+    return proof.workspace;
   }
 
   activation(
