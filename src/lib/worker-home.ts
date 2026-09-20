@@ -34,23 +34,23 @@ export function getDefaultJobsRoot(): string {
 }
 
 export function getCustomJobsRoot(): string {
-  // JOB_PACKS_PATH is kept as a compatibility override for the mutable/user root.
+  // Compatibility override for tests/manual routing.
   const configured = (process.env.JOB_PACKS_PATH || "").trim();
   if (configured) return path.resolve(configured);
   return path.join(getWorkerDataRoot(), "jobs");
 }
 
 export function getJobPackRoots(): {
-  user: string;
   defaults: string;
+  custom: string;
 } {
   return {
-    user: getUserJobsRoot(),
     defaults: getDefaultJobsRoot(),
+    custom: getCustomJobsRoot(),
   };
 }
 
-// Backward-compatible alias. Mutable Job authoring now targets AppData/user jobs.
+// Backward-compatible alias: mutable authoring always targets custom jobs.
 export function getJobsRoot(): string {
   return getCustomJobsRoot();
 }
