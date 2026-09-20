@@ -186,11 +186,12 @@ export function registerJobTools(
     {
       title: "Job Create",
       description:
-        "Create and validate a new custom Job Pack under %LOCALAPPDATA%/GPTWorker/jobs/<id>. Bundled repo Job ids are reserved and cannot be reused.",
+        "Create a new custom Job Pack under %LOCALAPPDATA%/GPTWorker/jobs/<id>. Create from scratch with name+description, or set clone_from to clone an existing default/custom Job into a new unique custom id. Bundled repo Job ids are reserved and cannot be reused.",
       inputSchema: {
         id: z.string().min(1),
-        name: z.string().min(1),
-        description: z.string().min(1),
+        clone_from: z.string().min(1).optional().describe("Optional existing Job id to clone into this new custom Job"),
+        name: z.string().min(1).optional(),
+        description: z.string().min(1).optional(),
         version: z.string().min(1).optional(),
         status: z.enum(["ready", "placeholder"]).optional(),
         aliases: z.array(z.string()).optional(),
@@ -212,6 +213,7 @@ export function registerJobTools(
       safe("job_create", () =>
         createJobPack({
           id: args.id,
+          clone_from: args.clone_from,
           name: args.name,
           description: args.description,
           version: args.version,
