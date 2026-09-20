@@ -130,7 +130,16 @@ function buildManifest(draft: JobPackDraft) {
     description: draft.description.trim(),
     aliases: draft.aliases || [],
     keywords: draft.keywords || [],
-    inputs: (draft.inputs || []).map(normalizeField),
+    inputs: (
+      draft.inputs || [
+        {
+          key: "workspace",
+          type: "directory",
+          required: true,
+          description: "Target local workspace for this Job.",
+        },
+      ]
+    ).map(normalizeField),
     outputs: (draft.outputs || []).map(normalizeField),
     permissions: draft.permissions || {},
     confirmation: {
@@ -214,6 +223,12 @@ export async function validateJobPack(packDir: string): Promise<JobPackValidatio
     if (!meta.name || typeof meta.name !== "string") errors.push("job.yaml name must be non-empty");
     if (!meta.description || typeof meta.description !== "string") {
       errors.push("job.yaml description must be non-empty");
+    }
+    const workspaceInput = Array.isArray(meta.inputs)
+      ? meta.inputs.find((item: any) => item?.key === "workspace")
+      : undefined;
+    if (!workspaceInput || workspaceInput.required === false) {
+      errors.push("job.yaml must define required input 'workspace'");
     }
 
     const refs: Array<readonly [string, string]> = [
