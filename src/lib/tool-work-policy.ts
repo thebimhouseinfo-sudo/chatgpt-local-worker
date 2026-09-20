@@ -1,5 +1,8 @@
 const CONTROL_TOOLS = new Set([
   "job_list",
+  "job_create",
+  "job_update",
+  "job_remove",
   "job_status",
   "job_select",
   "job_switch",

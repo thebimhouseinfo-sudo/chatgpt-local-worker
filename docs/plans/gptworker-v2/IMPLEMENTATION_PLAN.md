@@ -407,54 +407,50 @@ Acceptance:
 - không cross-workspace access do runtime context drift;
 - explicit workspace path ngoài binding bị policy reject theo capability contract.
 
-### P5 — Driver / Executor Split + Event-Driven Sleep
+### P5 — Repo-local Job Authoring — CURRENT
 
-- public MCP protocol stays in Driver.
-- Worker executor on demand qua versioned IPC.
-- protocol/discovery/health/probes không cần tool implementation.
-- WakeCoordinator single-flight.
-- Worker sleep dựa trên quiescence, không inactivity timeout.
-- active stateful resources giữ Worker awake.
-- crash không replay ambiguous mutation.
-- Driver restart invalidates authority.
+- public Job lifecycle: `job list / create / update / remove`.
+- mutable packs remain in repo `jobs/<job-id>/` during finalization.
+- create/update use staging outside `jobs/`, validate, then publish.
+- invalid packs never become live.
+- `job stop` remains an internal cleanup primitive, not public UX.
+- no second Job registry.
 
 Acceptance:
-- multiple simultaneous calls chỉ tạo một executor startup;
-- active registrations survive >=3 Worker sleep/wake cycles;
-- sleep không xóa Job/Workspace registration;
-- no execution work khi Worker wake mà registration không hợp lệ.
+- create → list → update → remove works through ChatGPT;
+- invalid packs never appear in `job list`;
+- path traversal references are rejected;
+- repo-local Job authoring survives normal runtime use.
 
-### P6 — AppData Paths + Portable Job Packs
+### P6 — Stateful Tool Isolation + Concurrency
 
-- split installRoot/dataRoot.
-- %LOCALAPPDATA%\GPTWorker\jobs\<job-id>\.
-- job.yaml là registration source duy nhất.
-- no duplicate registry.
-- portable harness runner.
-- immutable pack revision snapshots.
-- seed missing packs only; never overwrite customized packs.
-
-Acceptance:
-- packs chạy ngoài source checkout;
-- update application không overwrite user packs;
-- malformed/colliding/outside-pack resources fail deterministically.
-
-### P7 — Job Authoring + Publish Transaction
-
-- staging/validate/publish/history.
-- per-job publish lock.
-- expected base revision + content hash.
-- journal recovery.
-- active execution pins pack revision.
-- create/update qua job-authoring workflow.
+- shell cwd/history keyed by WorkRegistration, not machine-global state.
+- process registry owned by `work_id`.
+- stateful resource leases follow actual resource lifetime.
+- idle resource release target: 5 minutes.
+- cleanup affects only the owning work.
+- stress concurrent filesystem/git/shell/process across workspaces.
 
 Acceptance:
-- invalid pack không live;
-- concurrent update conflict rõ;
-- crash recovery giữ một live revision hợp lệ;
-- execution cũ giữ revision cũ, registration mới nhận revision mới.
+- A/B shell cwd cannot cross;
+- process created by A cannot be controlled by B;
+- same Tool Family can overlap without family-level queue;
+- idle cleanup does not expire WorkRegistration.
 
-### P8 — Chat UX + Diagnostics
+### P7 — AppData Migration Trial — AFTER V2 FINALIZE
+
+- move mutable Job Packs to `%LOCALAPPDATA%\GPTWorker\jobs\<job-id>\`.
+- keep `job.yaml` as the only registry authority.
+- verify portable harness/skill paths.
+- preserve customized Jobs across updates.
+- Driver split is not required for this migration.
+
+Acceptance:
+- same create/update/remove lifecycle works from AppData;
+- customized Jobs survive migration/update;
+- repo-local and AppData modes behave equivalently.
+
+### P8 — Optional Driver / Background Host + Diagnostics
 
 Public UX giữ tối giản:
 
@@ -462,7 +458,7 @@ Public UX giữ tối giản:
 gptworker/job list
 gptworker/job create
 gptworker/job update
-gptworker/job stop
+gptworker/job remove
 ~~~
 
 Selection/register/status/switch có thể là internal MCP tools để ChatGPT orchestration dùng, không cần biến thành command người dùng.
@@ -477,16 +473,12 @@ Diagnostics hiển thị:
 
 Không expose credential hoặc full hidden authority token.
 
-### P9 — Windows Background + Packaging
+### P9 — EXE Packaging — LAST
 
-- Driver + tunnel auto-start ở Windows logon.
-- Worker executor on-demand.
-- single instance.
-- restart/backoff.
-- sleep/resume/network reconnect.
-- drive readiness.
-- clean-machine packaging.
-- upgrade giữ AppData Jobs.
+- begin only after AppData migration trial passes.
+- manual launch remains acceptable if sufficient.
+- auto-start/Driver work is optional hardening, not a release gate.
+- clean-machine packaging and upgrade preservation.
 
 Acceptance release:
 - install → logon → ChatGPT → register Job+Workspace → tools;

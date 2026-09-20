@@ -26,7 +26,13 @@ Do đó:
 - không auto-attach vào Job/workspace gần nhất.
 - Work identity được tạo từ explicit Job + Workspace registration.
 
-## Target Architecture
+## Current Finalization Mode
+
+During v2 finalization, keep the current monolithic GPTWorker process and repo-local mutable Job Packs. Driver/Executor split is optional hardening, not a release gate. Manual launch remains acceptable if it is reliable.
+
+Current mutable Job root: `jobs/<job-id>/`. After repo-local behavior is finalized, run an AppData migration trial. Only after that trial passes should EXE packaging begin.
+
+## Optional Future Driver Architecture
 
 ~~~text
 ChatGPT
@@ -45,7 +51,7 @@ ChatGPT
           ├─ ephemeral tool instances
           └─ upstream adapters
 
-Data: %LOCALAPPDATA%\GPTWorker\
+Future data target after repo-local finalization: %LOCALAPPDATA%\GPTWorker\
 ~~~
 
 ### Driver owns
@@ -327,7 +333,9 @@ Only owned child resources are terminated. Do not kill user applications merely 
 
 ## Paths / Job Packs
 
-Target mutable root:
+Current finalization root is repo-local `jobs/<job-id>/`. `job create/update` stage and validate outside `jobs/` before publish; `job remove` deletes the selected pack. `job.yaml` remains the only Job registry authority.
+
+Only after v2 behavior is finalized, trial the future mutable root:
 
 ~~~text
 %LOCALAPPDATA%\GPTWorker\
@@ -361,7 +369,7 @@ Daily UX remains intentionally small:
 gptworker/job list
 gptworker/job create
 gptworker/job update
-gptworker/job stop
+gptworker/job remove
 ~~~
 
 Internal tools may implement select/register/status/switch/diagnostics. The user does not manage execution IDs or authority tokens manually; ChatGPT carries the work handle between tool calls. P1 must prove this behavior with the live connector before broader refactors depend on it.
@@ -397,4 +405,7 @@ Credentials are never embedded in readable execution IDs, tool lease IDs or Job 
 - multi-machine execution;
 - untrusted pack OS sandbox;
 - marketplace/package manager;
-- Windows Service in first release.
+- Driver/Executor split unless manual launch proves insufficient;
+- Windows Service;
+- AppData migration until repo-local behavior is finalized;
+- EXE packaging until AppData migration passes live tests.

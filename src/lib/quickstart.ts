@@ -9,7 +9,7 @@ export const MCP_QUICKSTART = `
 7. Present a short preflight confirmation centered on JOB + FOLDER. Do not execute yet.
 8. Only after explicit user confirmation, call job_select again with confirmed=true + confirmation_token.
 9. Activation writes worker-state.json, switches the default cwd to the confirmed workspace, and makes it the anchor for filesystem/shell/git/project-context tools.
-10. Execute, validate, then report. Use job_switch or job_stop when the user intentionally changes/stops work.
+10. Execute, validate, then report. Use job_switch when the user intentionally changes work. Work registration cleanup remains an internal runtime concern.
 
 ## Required confirmation style
 JOB: <resolved job>
@@ -44,7 +44,7 @@ Multi-file form:
 All tools return JSON: { ok, tool, summary, data }
 
 ## Tool cheat sheet
-- job_list / job_select / job_status / job_switch / job_stop: controlled Job Runtime
+- job_list / job_create / job_update / job_remove: public Job lifecycle\n- job_select / job_status / job_switch: internal execution/runtime control
 - glob / grep / read_text_file: explore
 - apply_patch / multi_edit / edit_file / write_file: edit
 - create_directory / delete_directory / copy_file / move_file / delete_file: filesystem operations
@@ -77,7 +77,7 @@ export function buildServerInstructions(
     "## Quick pointers",
     `Startup root: ${workspaceRoot}`,
     `Startup roots: ${workspaceRoots.join("; ")}`,
-    "job_status — session state + persistent worker-state.json",
+    "job_status — internal session/work state",
     "job_list — list/suggest jobs when JOB is not already clear from chat",
     "project_context() — load instructions from the confirmed active workspace",
     "agent_status — optional diagnostics",

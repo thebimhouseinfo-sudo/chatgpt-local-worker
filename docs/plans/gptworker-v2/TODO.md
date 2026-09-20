@@ -2,6 +2,7 @@
 
 ## Active Backlog
 
+- [ ] Repo-local Job lifecycle is the current authority: `job list / create / update / remove`. Do not migrate to AppData or package EXE before this live test passes.
 - [ ] Complete P1A live lease pilot in [WORK_TOOL_LEASE_PILOT.md](WORK_TOOL_LEASE_PILOT.md): 2 chats, 2 workspaces, interleaved filesystem calls, no handle swap, no token leak.
 - [ ] Implement deterministic WorkspaceKey: readable slug + stable hash of canonical absolute path.
 - [ ] Implement WorkRegistrationStore, persistent monotonic DriverEpoch, readable ExecutionId and opaque authorityToken.
@@ -17,13 +18,13 @@
 - [ ] Implement immutable ToolContext and ActiveToolLeaseRegistry; include driver epoch in tool identity.
 - [ ] Define lifecycle for stateful resources: shell process, REPL, upstream/external session.
 - [ ] Add multi-execution stress tests using same Tool Family across different workspaces.
-- [ ] Split Driver protocol gateway from Worker executor.
+- [ ] OPTIONAL: split Driver protocol gateway from Worker executor only if monolithic/manual launch proves insufficient.
 - [ ] Implement quiescence-based Worker sleep; do not use inactivity timeout to end active registration.
-- [ ] Move mutable Job Packs to %LOCALAPPDATA%\GPTWorker\jobs.
+- [ ] AFTER V2 FINALIZE: trial moving mutable Job Packs to %LOCALAPPDATA%\GPTWorker\jobs.
 - [ ] Replace repo-relative harness imports with portable runner/API.
 - [ ] Implement immutable pack snapshots and publish transaction.
-- [ ] Implement Job Authoring workflow.
-- [ ] Add Windows logon supervision and clean-machine release acceptance.
+- [ ] Live-test repo-local Job authoring: create → list → update → remove through ChatGPT.
+- [ ] AFTER AppData trial: decide whether Windows logon supervision is useful; manual launch is acceptable.
 - [ ] Define retention for history/cache/checkpoints/transaction journals; this must not expire ACTIVE WorkRegistration.
 
 ## Explicitly Rejected / Removed
@@ -42,9 +43,9 @@
 
 - [ ] Resume active WorkRegistration after Driver restart/reboot.
 - [ ] Concurrent independent executions against the same canonical workspace.
-- [ ] Windows Service; release-first host is user-logon background process.
+- [ ] Driver/Windows Service unless manual launch becomes insufficient.
 - [ ] Full YAML parser; initial v2 keeps JSON-compatible YAML.
-- [ ] Public rollback/remove/enable/disable commands.
+- [ ] Public rollback/enable/disable commands. `job remove` is now part of the core public lifecycle.
 - [ ] Job marketplace/dependency auto-download.
 - [ ] OS-enforced sandbox for untrusted packs.
 - [ ] Multi-machine work session.

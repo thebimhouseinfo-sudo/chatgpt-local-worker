@@ -3,6 +3,7 @@ import path from "path";
 import { z } from "zod";
 import type { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import { JobRuntime } from "../jobs/job-runtime.js";
+import { createJobPack, updateJobPack, removeJobPack } from "../jobs/job-authoring.js";
 import { setDefaultCwd } from "../lib/path-security.js";
 import { resetShellSession } from "../lib/persistent-shell.js";
 import {
@@ -19,6 +20,23 @@ import {
 } from "../lib/work-registration.js";
 
 const BindingsSchema = z.record(z.string(), z.string());
+
+const JobFieldDefinitionSchema = z.object({
+  key: z.string().min(1),
+  type: z.string().min(1).optional(),
+  required: z.boolean().optional(),
+  description: z.string().optional(),
+});
+
+const JobConfirmationSchema = z.object({
+  required: z.boolean().optional(),
+  template: z.string().min(1).optional(),
+});
+
+const JobFilesSchema = z
+  .record(z.string(), z.string())
+  .optional()
+  .describe("Additional pack files keyed by relative path, e.g. skills/foo.md or harness/validate.mjs");
 
 const CONFIRMATION_PROOF_TTL_MS = 30 * 60 * 1000;
 const pendingConfirmations = new Map<
@@ -163,6 +181,104 @@ export function registerJobTools(
       annotations: toolAnnotations("read"),
     },
     async ({ query }) => safe("job_list", () => sessionRuntime.list(query))
+  );
+
+
+  server.registerTool(
+    "job_create",
+    {
+      title: "Job Create",
+      description:
+        "Create and validate a new repo-local Job Pack under jobs/<id>. Writes through staging so incomplete packs are never published.",
+      inputSchema: {
+        id: z.string().min(1),
+        name: z.string().min(1),
+        description: z.string().min(1),
+        version: z.string().min(1).optional(),
+        status: z.enum(["ready", "placeholder"]).optional(),
+        aliases: z.array(z.string()).optional(),
+        keywords: z.array(z.string()).optional(),
+        inputs: z.array(JobFieldDefinitionSchema).optional(),
+        outputs: z.array(JobFieldDefinitionSchema).optional(),
+        permissions: z.record(z.string(), z.string()).optional(),
+        confirmation: JobConfirmationSchema.optional(),
+        skills: z.array(z.string()).optional(),
+        harness_entrypoints: z.array(z.string()).optional(),
+        validators: z.array(z.string()).optional(),
+        job_md: z.string().optional(),
+        skill_md: z.string().optional(),
+        files: JobFilesSchema,
+      },
+      annotations: toolAnnotations("edit"),
+    },
+    async (args) =>
+      safe("job_create", () =>
+        createJobPack({
+          id: args.id,
+          name: args.name,
+          description: args.description,
+          version: args.version,
+          status: args.status,
+          aliases: args.aliases,
+          keywords: args.keywords,
+          inputs: args.inputs,
+          outputs: args.outputs,
+          permissions: args.permissions,
+          confirmation: args.confirmation,
+          skills: args.skills,
+          harness_entrypoints: args.harness_entrypoints,
+          validators: args.validators,
+          job_md: args.job_md,
+          skill_md: args.skill_md,
+          files: args.files,
+        })
+      )
+  );
+
+  server.registerTool(
+    "job_update",
+    {
+      title: "Job Update",
+      description:
+        "Update an existing repo-local Job Pack through staged copy + validation + replacement. Job id cannot be renamed in place.",
+      inputSchema: {
+        id: z.string().min(1),
+        name: z.string().min(1).optional(),
+        description: z.string().min(1).optional(),
+        version: z.string().min(1).optional(),
+        status: z.enum(["ready", "placeholder"]).optional(),
+        aliases: z.array(z.string()).optional(),
+        keywords: z.array(z.string()).optional(),
+        inputs: z.array(JobFieldDefinitionSchema).optional(),
+        outputs: z.array(JobFieldDefinitionSchema).optional(),
+        permissions: z.record(z.string(), z.string()).optional(),
+        confirmation: JobConfirmationSchema.optional(),
+        skills: z.array(z.string()).optional(),
+        harness_entrypoints: z.array(z.string()).optional(),
+        validators: z.array(z.string()).optional(),
+        job_md: z.string().optional(),
+        skill_md: z.string().optional(),
+        files: JobFilesSchema,
+        remove_files: z.array(z.string()).optional(),
+      },
+      annotations: toolAnnotations("edit"),
+    },
+    async ({ id, ...patch }) =>
+      safe("job_update", () => updateJobPack(id, patch))
+  );
+
+  server.registerTool(
+    "job_remove",
+    {
+      title: "Job Remove",
+      description:
+        "Remove a repo-local Job Pack directory from jobs/. Use only when the user explicitly requests deleting that Job.",
+      inputSchema: {
+        id: z.string().min(1).describe("Exact Job id to remove"),
+      },
+      annotations: toolAnnotations("edit"),
+    },
+    async ({ id }) => safe("job_remove", () => removeJobPack(id))
   );
 
   server.registerTool(
