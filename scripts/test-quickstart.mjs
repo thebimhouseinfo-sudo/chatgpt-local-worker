@@ -94,7 +94,7 @@ assert.deepEqual(
   "gptworker/ must render exactly the eight fixed system commands"
 );
 assert.ok(MCP_QUICKSTART.includes("## Bare GPTWorker invocation — zero-tool response"));
-assert.ok(MCP_QUICKSTART.includes("gptworker/ — ZERO tools"));
+assert.ok(instructions.includes("gptworker/ — ZERO tools"));
 assert.ok(MCP_QUICKSTART.includes("reply with the prewritten GPTWORKER_ROOT_MENU"));
 assert.ok(MCP_QUICKSTART.includes("DO NOT call any MCP tool at all"));
 assert.ok(MCP_QUICKSTART.includes("## Fast Job nomination"));
