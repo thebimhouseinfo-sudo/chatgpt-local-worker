@@ -6,6 +6,7 @@ param(
     [switch]$Doctor,
     [switch]$Init,
     [switch]$Force,
+    [switch]$FreshSetup,
     [string]$TunnelId = "",
     [string]$ApiKey = "",
     [switch]$NoBrowser
@@ -220,11 +221,15 @@ function Resolve-TunnelIdForSetup {
         return $TunnelId
     }
 
-    $existingId = Get-DotEnvValue "OPENAI_TUNNEL_ID"
-    if (Test-TunnelIdValue $existingId) {
-        Write-Host "[1/2] Secure MCP Tunnel: da cau hinh" -ForegroundColor Green
-        Write-Host "Tunnel ID: $existingId" -ForegroundColor DarkGray
-        return $existingId
+    if (-not $FreshSetup) {
+        $existingId = Get-DotEnvValue "OPENAI_TUNNEL_ID"
+        if (Test-TunnelIdValue $existingId) {
+            Write-Host "[1/2] Secure MCP Tunnel: da cau hinh" -ForegroundColor Green
+            Write-Host "Tunnel ID: $existingId" -ForegroundColor DarkGray
+            return $existingId
+        }
+    } else {
+        Write-Host "[1/2] Fresh setup: bo qua Tunnel ID cu trong .env." -ForegroundColor DarkGray
     }
 
     if ($NoBrowser) {
@@ -255,10 +260,14 @@ function Resolve-ApiKeyForSetup {
         return $ApiKey
     }
 
-    $existingKey = Get-DotEnvValue "OPENAI_TUNNEL_API_KEY"
-    if (Test-ApiKeyValue $existingKey) {
-        Write-Host "[2/2] Runtime API key: da cau hinh" -ForegroundColor Green
-        return $existingKey
+    if (-not $FreshSetup) {
+        $existingKey = Get-DotEnvValue "OPENAI_TUNNEL_API_KEY"
+        if (Test-ApiKeyValue $existingKey) {
+            Write-Host "[2/2] Runtime API key: da cau hinh" -ForegroundColor Green
+            return $existingKey
+        }
+    } else {
+        Write-Host "[2/2] Fresh setup: bo qua Runtime API key cu trong .env." -ForegroundColor DarkGray
     }
 
     if ($NoBrowser) {
