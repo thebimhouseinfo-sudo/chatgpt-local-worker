@@ -330,6 +330,7 @@ setup.bat                # real first-time setup + Windows auto-start registrati
 setup-test.bat           # combined fake onboarding + real source tray test
 run.bat                  # source build + manual tray launcher/fallback
 gptworker-tray.ps1       # Windows tray supervisor / resident source host
+gptworker icon.png        # GPTWorker system-tray icon asset
 worker-state.json        # local current job/workspace (created locally, git-ignored)
 WORKER.md                # authoritative runtime policy
 AGENTS.md                # instructions for agents modifying this repo
