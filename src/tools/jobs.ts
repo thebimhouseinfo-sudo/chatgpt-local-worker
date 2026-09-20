@@ -12,6 +12,11 @@ import {
 } from "../lib/worker-state.js";
 import { toolAnnotations } from "../lib/tool-annotations.js";
 import { toolError, toolResult } from "../lib/tool-result.js";
+import {
+  createWorkRegistration,
+  getPublicWorkHandle,
+  releaseWorkRegistration,
+} from "../lib/work-registration.js";
 
 const BindingsSchema = z.record(z.string(), z.string());
 
@@ -60,10 +65,18 @@ async function persistActiveSelection(result: any) {
     throw new Error("Active job must have both a canonical job id and workspace binding.");
   }
 
+  const registration = await createWorkRegistration(jobId, workspace);
   setDefaultCwd(workspace);
   resetShellSession(workspace);
   const persistentState = await writeWorkerState(jobId, workspace);
-  return { ...result, worker_state: persistentState };
+  return {
+    ...result,
+    worker_state: persistentState,
+    work_handle: getPublicWorkHandle(registration),
+    next:
+      "Use work_handle.execution_id + work_handle.authority_token on every execution tool call. " +
+      "Do not re-select the Job unless this work handle becomes invalid.",
+  };
 }
 
 export function registerJobTools(
@@ -143,7 +156,7 @@ export function registerJobTools(
     {
       title: "Job Select",
       description:
-        "Select/configure/activate one Job Pack. Resolve JOB + absolute local workspace folder first. Two-phase by default: show confirmation first; only activate after explicit user confirmation.",
+        "Select/configure/activate one Job Pack. Resolve JOB + absolute local workspace folder first. Two-phase by default: show confirmation first; only activate after explicit user confirmation. ACTIVE response returns work_handle; carry it to every execution tool call.",
       inputSchema: {
         job: z
           .string()
@@ -189,11 +202,19 @@ export function registerJobTools(
       inputSchema: {
         job: z.string().min(1),
         bindings: BindingsSchema.optional(),
+        execution_id: z.string().optional().describe("Current work execution id, if an active registration exists"),
+        authority_token: z.string().optional().describe("Current work authority token"),
       },
       annotations: toolAnnotations("edit"),
     },
-    async ({ job, bindings }) =>
+    async ({ job, bindings, execution_id, authority_token }) =>
       safe("job_switch", async () => {
+        if (execution_id || authority_token) {
+          if (!execution_id || !authority_token) {
+            throw new Error("Both execution_id and authority_token are required to release the current work registration.");
+          }
+          releaseWorkRegistration(execution_id, authority_token);
+        }
         const persistentState = await clearWorkerState();
         await bindRuntimeToWorkspace(bindings, true);
         const selected = await sessionRuntime.switch(job, bindings);
@@ -207,14 +228,25 @@ export function registerJobTools(
     {
       title: "Job Stop",
       description:
-        "Stop the current job and clear worker-state.json so no job/workspace remains active.",
-      inputSchema: {},
+        "Stop the current job, release its Job + Workspace work registration, and clear worker-state.json.",
+      inputSchema: {
+        execution_id: z.string().min(1).describe("Current work_handle.execution_id"),
+        authority_token: z.string().min(1).describe("Current work_handle.authority_token"),
+      },
       annotations: toolAnnotations("edit"),
     },
-    async () =>
-      safe("job_stop", async () => ({
-        ...sessionRuntime.stop(),
-        worker_state: await clearWorkerState(),
-      }))
+    async ({ execution_id, authority_token }) =>
+      safe("job_stop", async () => {
+        const released = releaseWorkRegistration(execution_id, authority_token);
+        return {
+          ...sessionRuntime.stop(),
+          released_work: {
+            execution_id: released.executionId,
+            job_id: released.jobId,
+            workspace_key: released.workspaceKey,
+          },
+          worker_state: await clearWorkerState(),
+        };
+      })
   );
 }
