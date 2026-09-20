@@ -1,15 +1,24 @@
 import fs from "fs";
 import path from "path";
 import os from "os";
+import { AsyncLocalStorage } from "node:async_hooks";
 
 let defaultCwd = process.cwd();
+const callWorkspace = new AsyncLocalStorage<string>();
 
 export function setDefaultCwd(cwd: string): void {
   defaultCwd = path.resolve(cwd);
 }
 
 export function getDefaultCwd(): string {
-  return defaultCwd;
+  return callWorkspace.getStore() ?? defaultCwd;
+}
+
+export function runWithWorkspaceCwd<T>(
+  cwd: string,
+  fn: () => T
+): T {
+  return callWorkspace.run(path.resolve(cwd), fn);
 }
 
 /** @deprecated use getDefaultCwd — kept for compatibility */
@@ -19,7 +28,7 @@ export function setAllowedRoots(roots: string[]): void {
 
 /** Returns default working directory, not an access boundary */
 export function getAllowedRoots(): string[] {
-  return [defaultCwd];
+  return [getDefaultCwd()];
 }
 
 export function setFullDiskAccess(_enabled: boolean): void {}
@@ -37,7 +46,7 @@ export async function validatePath(inputPath: string): Promise<string> {
   }
 
   // Relative paths resolve from default cwd (WORKSPACE_PATH), not a sandbox boundary.
-  return path.resolve(defaultCwd, trimmed);
+  return path.resolve(getDefaultCwd(), trimmed);
 }
 
 export function getMachineRoots(): string[] {
