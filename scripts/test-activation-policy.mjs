@@ -34,7 +34,7 @@ assert.equal(typeof explicitAdmission.admission_token, "string");
 
 // A current-turn @gptworker request must not leave a stale arm behind either.
 const directAfterExplicit = fresh.check({
-  userTurn: `Tiếp tục sửa ${workspace} nhưng không gọi @gptworker`,
+  userTurn: `Tiếp tục sửa ${workspace}`,
   hasConcreteTask: true,
   workspace,
 });
@@ -42,6 +42,11 @@ assert.equal(
   directAfterExplicit.mode,
   "INACTIVE",
   "explicit @gptworker admission must not arm future direct requests"
+);
+assert.equal(
+  fresh.isExplicitAtFlowArmed(),
+  false,
+  "explicit admission must consume the temporary @ arm"
 );
 
 // Bare @gptworker can arm the same MCP session for the next Job+Workspace reply.
@@ -67,7 +72,7 @@ assert.equal(typeof continuationAdmission.admission_token, "string");
 // The @ arm is one-shot. After the first admitted continuation, a later
 // direct task+path in the same MCP session must NOT inherit GPTWorker authority.
 const secondDirectAfterContinuation = continuationRuntime.check({
-  userTurn: `Sửa tiếp repo ở ${workspace} mà không gọi @gptworker`,
+  userTurn: `Sửa tiếp repo ở ${workspace}`,
   hasConcreteTask: true,
   workspace,
 });
@@ -75,6 +80,11 @@ assert.equal(
   secondDirectAfterContinuation.mode,
   "INACTIVE",
   "armed @gptworker authority must be consumed after the first continuation"
+);
+assert.equal(
+  continuationRuntime.isExplicitAtFlowArmed(),
+  false,
+  "continuation admission must consume the temporary @ arm"
 );
 
 assert.equal(
