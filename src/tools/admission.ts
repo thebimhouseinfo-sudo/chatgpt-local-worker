@@ -13,7 +13,7 @@ export function registerAdmissionTool(
     {
       title: "GPTWorker Admission",
       description:
-        "Internal non-user-facing admission handshake. Call this first whenever ChatGPT is considering GPTWorker for a normal work request. Pass the exact current user turn. ACTIVE only when that turn literally contains @gptworker, or when ChatGPT identifies a concrete work request and the exact absolute local Workspace appears in that same turn. CONTROL is for explicit gptworker/ commands. INACTIVE means GPTWorker must stop immediately; do not ask the user to activate GPTWorker, do not nominate a Job, and continue as normal ChatGPT or use the plugin/tool the user actually requested.",
+        "Internal non-user-facing admission handshake for a concrete GPTWorker work request that is ready for nomination. Do NOT call this for a bare @gptworker/plugin invocation or when task/Workspace information is still missing; answer those cases directly in chat. Pass the exact current user turn. ACTIVE only when that turn literally contains @gptworker, or when ChatGPT identifies a concrete work request and the exact absolute local Workspace appears in that same turn. CONTROL is for explicit gptworker/ commands. INACTIVE means GPTWorker must stop immediately; do not ask the user to activate GPTWorker, do not nominate a Job, and continue as normal ChatGPT or use the plugin/tool the user actually requested.",
       inputSchema: {
         user_turn: z
           .string()
