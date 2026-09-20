@@ -169,13 +169,13 @@ start "" "%~dp0docs\setup-guide\index.html"
 
 echo.
 echo Follow the visual guide that just opened:
-echo   1. Enable Developer mode in Plugins settings.
-echo   2. Open Plugins and click + to create a new plugin.
-echo   3. Create gptworker, choose Connection: Tunnel, then Scan/Test Tools.
-echo   4. Open a new chat and call @gptworker, then try gptworker/
+echo   1. Images 1 + 2: open Plugins settings and enable Developer mode.
+echo   2. Image 3: open Plugins and click + to create a new plugin.
+echo   3. Image 4: Name=gptworker, Connection=Tunnel, select the Tunnel from the list, Authentication=No Auth.
+echo   4. Do NOT enter a Server URL and do NOT use "Use tunnel ID instead".
+echo   5. After Connect/Create, open a new chat and call @gptworker, then try gptworker/
 echo.
 echo The guide images live in docs\setup-guide\images\.
-echo Do NOT enter http://127.0.0.1:3000/mcp into ChatGPT.
 echo.
 echo ========================================
 echo   Setup complete
