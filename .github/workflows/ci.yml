@@ -76,6 +76,21 @@ jobs:
       - name: Build
         run: npm run build
 
+      - name: Validate tunnel script with Windows PowerShell 5.1
+        shell: powershell
+        run: |
+          $tokens = $null
+          $errors = $null
+          [System.Management.Automation.Language.Parser]::ParseFile(
+            (Resolve-Path ".\openai-tunnel.ps1"),
+            [ref]$tokens,
+            [ref]$errors
+          ) | Out-Null
+          if ($errors.Count -gt 0) {
+            $errors | ForEach-Object { Write-Error $_.Message }
+            throw "openai-tunnel.ps1 is not compatible with Windows PowerShell 5.1 parser."
+          }
+
       - name: Start detached Worker and verify health
         shell: pwsh
         run: |
