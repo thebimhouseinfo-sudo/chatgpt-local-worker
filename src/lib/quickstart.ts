@@ -166,7 +166,7 @@ When calling \`job_select\`, always pass the valid \`activation_trigger\` plus t
 7. Call job_select with confirmed=false plus valid activation evidence.
 8. Present a short preflight confirmation centered on JOB + FOLDER. Do not execute yet.
 9. Only after explicit user confirmation, call job_select again with confirmed=true + confirmation_token and the same valid activation mode.
-10. Execute, validate, then report. Use job_stop when the work is finished. Use job_switch only when the user intentionally changes Job/Workspace. Idle work auto-stops after the configured inactivity timeout.
+10. After confirmation, keep the runtime lightweight until actual work is needed. Execute each work operation through work_tool; work_tool lazy-loads only the requested operation family on its first real call. Do not preload filesystem/shell/git/context/REPL/rewind/upstream modules merely because a Job was selected or confirmed. Validate, then report. Use job_stop when the work is finished. Use job_switch only when the user intentionally changes Job/Workspace. Idle work auto-stops after the configured inactivity timeout.
 
 ## Job Pack authoring
 - job_create creates the Job Pack definition itself. It must not open a project workspace first.
@@ -190,14 +190,16 @@ Xác nhận bắt đầu?
 - node_repl may not access fs/fs-promises directly. Use dedicated filesystem tools with absolute paths.
 
 ## Core tool workflow (after confirmation)
-1. Call project_context() to load instructions from the confirmed active workspace when needed.
-2. Explore with glob (file names), grep (content), then read_text_file.
-3. For file rename/move operations, use move_file. Do not fall back to node_repl for routine filesystem mutations.
-4. Edit file contents with apply_patch (preferred), multi_edit, edit_file, or write_file.
-5. Run builds/tests with run_command for short work or start_process + process_output for long-running work.
-6. Use git tools without path arguments to operate on the confirmed active workspace.
-7. Undo tracked file edits with rewind when needed. Shell-created changes are not automatically checkpointed.
-8. End the work with job_stop when the user is done; the 10-minute idle timeout is only the safety fallback for abandoned chats.
+All actual workspace execution goes through work_tool. Selecting or confirming a Job must not preload any execution family.
+1. When project context is actually needed, call work_tool with tool=project_context.
+2. Explore through work_tool using glob (file names), grep (content), then read_text_file.
+3. For file rename/move operations, dispatch move_file through work_tool. Do not fall back to node_repl for routine filesystem mutations.
+4. Edit through work_tool with apply_patch (preferred), multi_edit, edit_file, or write_file.
+5. Run builds/tests through work_tool with run_command for short work or start_process + process_output for long-running work.
+6. Dispatch git operations through work_tool without path arguments so they operate on the confirmed active workspace.
+7. Dispatch rewind through work_tool when needed. Shell-created changes are not automatically checkpointed.
+8. Each execution family is imported only on its first real work_tool call and then cached; unrelated families remain unloaded.
+9. End the work with job_stop when the user is done; the 10-minute idle timeout is only the safety fallback for abandoned chats.
 
 ## apply_patch
 Single-file hunk:
@@ -218,19 +220,20 @@ Multi-file form:
 All tools return JSON: { ok, tool, summary, data }
 
 ## Tool cheat sheet
-- job_list / job_create / job_update / job_remove / job_export / job_import: public Job Pack lifecycle
-- job_select / job_status / job_switch / job_stop: work registration and execution lifecycle
-- glob / grep / read_text_file: explore
-- apply_patch / multi_edit / edit_file / write_file: edit
-- move_file: preferred tool for rename/move operations inside the active workspace
-- create_directory / delete_directory / copy_file / delete_file: other filesystem operations
-- run_command / start_process / process_output / process_status / stop_process: execute
-- shell_status / shell_reset: persistent shell state
-- git_status / git_diff / git_add / git_commit / git_branch / git_restore / git_stash: git
-- project_context / list_skills / load_skill / load_path_rules: active-workspace context
-- rewind: checkpoint/undo
-- enabled upstream MCP tools are exposed directly as <server>__<tool>; mcp_servers / mcp_tools / mcp_call remain diagnostics/fallback
-- when a dedicated operation is unavailable, run_command is the general local fallback; node_repl is not the fallback for routine filesystem mutation
+- job_list / job_create / job_update / job_remove / job_export / job_import: lightweight public Job Pack lifecycle
+- job_select / job_status / job_switch / job_stop: lightweight work registration lifecycle
+- work_tool: the single execution gateway; it receives tool=<operation> + arguments={...} and lazy-loads only that operation family on first use
+- work_tool operations glob / grep / read_text_file: explore
+- work_tool operations apply_patch / multi_edit / edit_file / write_file: edit
+- work_tool operation move_file: preferred rename/move operation inside the active workspace
+- work_tool operations create_directory / delete_directory / copy_file / delete_file: other filesystem operations
+- work_tool operations run_command / start_process / process_output / process_status / stop_process: execute
+- work_tool operations shell_status / shell_reset: persistent shell state
+- work_tool operations git_status / git_diff / git_add / git_commit / git_branch / git_restore / git_stash: git
+- work_tool operations project_context / list_skills / load_skill / load_path_rules: active-workspace context
+- work_tool operation rewind: checkpoint/undo
+- work_tool operations mcp_servers / mcp_tools / mcp_call: upstream MCP diagnostics/fallback when enabled by the tool profile
+- when a dedicated operation is unavailable, dispatch run_command through work_tool; node_repl is not the fallback for routine filesystem mutation
 
 ## Paths
 Full machine access is intentional, but path-bearing tool arguments are absolute-path-only. The confirmed FOLDER is the work authority, not an implicit base for relative paths.
@@ -263,8 +266,8 @@ export function buildServerInstructions(
     "job_export — export a custom Job as <id>.zip to an absolute local destination directory",
     "job_import — import a validated custom Job from an absolute local ZIP path or directory containing exactly one ZIP",
     "job_stop — explicitly end this chat's active work; idle timeout is the abandoned-chat fallback",
-    "project_context() — load instructions from the confirmed active workspace",
-    "agent_status — optional diagnostics",
+    "work_tool — only execution gateway; do not preload execution modules on Job selection/confirmation; lazy-load the requested family on the first actual work call",
+    "project_context / agent_status and all other workspace operations are dispatched through work_tool",
   ].join("\n");
 
   const body = contextBlock?.trim();

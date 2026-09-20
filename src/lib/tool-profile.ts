@@ -4,7 +4,7 @@ import path from "path";
 export type ToolProfileName = "full" | "slim";
 
 export const LOCAL_TOOL_CATALOG = [
-  "job_list", "job_create", "job_update", "job_remove", "job_export", "job_import", "job_select", "job_status", "job_stop", "job_switch",
+  "job_list", "job_create", "job_update", "job_remove", "job_export", "job_import", "job_select", "job_status", "job_stop", "job_switch", "work_tool",
   "read_text_file", "write_file", "edit_file", "multi_edit", "apply_patch", "glob", "grep", "list_directory", "move_file",
   "run_command", "shell_status", "shell_reset", "start_process", "process_output", "node_repl", "ponytail_turn",
   "git_status", "git_diff", "git_add", "git_commit", "git_restore", "agent_status", "project_context",
@@ -17,18 +17,24 @@ interface LocalToolOverrides {
 }
 
 const overridesPath = () => path.resolve(process.cwd(), "profiles", "tool-overrides.json");
+let cachedOverrides: LocalToolOverrides | null = null;
 
 export function getLocalToolOverrides(): LocalToolOverrides {
+  if (cachedOverrides) return cachedOverrides;
   try {
-    return JSON.parse(fs.readFileSync(overridesPath(), "utf-8")) as LocalToolOverrides;
+    cachedOverrides = JSON.parse(
+      fs.readFileSync(overridesPath(), "utf-8")
+    ) as LocalToolOverrides;
   } catch {
-    return {};
+    cachedOverrides = {};
   }
+  return cachedOverrides;
 }
 
 export function saveLocalToolOverrides(next: LocalToolOverrides): void {
   fs.mkdirSync(path.dirname(overridesPath()), { recursive: true });
   fs.writeFileSync(overridesPath(), JSON.stringify(next, null, 2));
+  cachedOverrides = next;
 }
 
 /** Core tools for ChatGPT web — smaller tools/list payload, fewer discovery errors. */
@@ -43,6 +49,7 @@ export const SLIM_CHATGPT_TOOLS = new Set([
   "job_status",
   "job_stop",
   "job_switch",
+  "work_tool",
   "read_text_file",
   "write_file",
   "edit_file",

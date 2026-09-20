@@ -9,7 +9,6 @@ import {
 import type { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import { createMcpServer } from "../server-factory.js";
 import { getUpstreamManager } from "./mcp-upstream-manager.js";
-import { refreshProxiedTools } from "./mcp-tool-proxy.js";
 import {
   getCachedCodexSessionStartHooks,
   primeCodexSessionStartHooks,
@@ -273,11 +272,8 @@ export function createSessionManager(config: SessionManagerConfig): SessionManag
     };
 
     await mcpServer.connect(transport);
-    // Native tools must be available immediately. Upstream discovery can spawn
-    // local processes or wait on remote MCPs, so publish it when ready instead.
-    void refreshProxiedTools(mcpServer, getUpstreamManager())
-      .then(() => mcpServer.sendToolListChanged())
-      .catch((error) => console.warn("[MCP] Upstream tool refresh failed:", error));
+    // Do not probe/connect/spawn upstream MCPs during session initialization.
+    // Upstream access is deferred to the first explicit mcp_* work_tool call.
 
     const sid = transport.sessionId ?? preferredSessionId ?? randomUUID();
     return (
