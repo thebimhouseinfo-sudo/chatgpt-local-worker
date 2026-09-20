@@ -36,7 +36,8 @@ try {
 
   if (shouldExposeTool("mcp_call", "slim")) throw new Error("mcp_call should be hidden in slim");
   if (shouldExposeTool("delete_directory", "slim")) throw new Error("delete_directory hidden");
-  ok("heavy tools hidden in slim");
+  if (shouldExposeTool("help", "slim")) throw new Error("gptworker/help must stay chat-only, not an MCP tool");
+  ok("heavy tools and chat-only help hidden from MCP tool surface");
 
   if (!shouldExposeTool("mcp_call", "full")) throw new Error("full should expose all");
   ok("full profile exposes all");
