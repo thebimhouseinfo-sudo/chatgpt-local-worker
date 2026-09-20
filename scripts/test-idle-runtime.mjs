@@ -28,6 +28,12 @@ for (const modulePath of heavyModules) {
 if (!serverFactory.includes("registerWorkGateway(")) {
   throw new Error("lightweight work gateway is not registered");
 }
+if (!serverFactory.includes("registerWorkspaceDiscoveryTool(")) {
+  throw new Error("minimal pre-confirmation workspace discovery is not registered");
+}
+if (!serverFactory.includes(".prepareJob(job.id")) {
+  throw new Error("nominated Job profile is not preloaded while awaiting confirmation");
+}
 if (serverFactory.includes("onWorkActivated") || jobs.includes("onWorkActivated")) {
   throw new Error("Job confirmation must not activate execution modules");
 }
@@ -42,6 +48,12 @@ if (!workGateway.includes('import("./git.js")')) {
 }
 if (!workGateway.includes("async resolve(tool: string)")) {
   throw new Error("work gateway does not resolve operations on demand");
+}
+if (!workGateway.includes("async prepareJob(jobId: string")) {
+  throw new Error("work gateway does not support nomination-time preload");
+}
+if (!workGateway.includes("preloadGeneration")) {
+  throw new Error("work gateway must invalidate stale nomination preload generations");
 }
 
 if (sessionManager.includes("refreshProxiedTools")) {
