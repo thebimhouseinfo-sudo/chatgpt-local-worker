@@ -114,24 +114,18 @@ if errorlevel 1 (
 echo [OK] GPTWorker and Secure MCP Tunnel are ready.
 
 echo.
-echo Opening ChatGPT...
-start "" "https://chatgpt.com/"
+echo Opening ChatGPT Settings and the local visual setup guide...
+start "" "https://chatgpt.com/#settings/Connectors"
+start "" "%~dp0docs\setup-guide\index.html"
 
 echo.
-echo Create the GPTWorker Plugin/App in ChatGPT:
-echo   1. Use ChatGPT on the web.
-echo   2. Enable Developer Mode:
-echo      Settings ^> Apps ^> Advanced Settings ^> Developer Mode
-echo   3. Open Plugins ^> +, or Settings ^> Apps ^> Create.
-echo   4. Create a new custom app/plugin.
-echo   5. Name: gptworker
-echo   6. Connection: Tunnel
-echo   7. Select your tunnel or paste the tunnel_... ID.
-echo   8. Scan Tools / Test connection, then Create/Save.
+echo Follow the visual guide that just opened:
+echo   1. Enable Developer Mode.
+echo   2. Create the gptworker Plugin/App and connect it to your Tunnel.
+echo   3. Scan/Test Tools and save.
+echo   4. Open a new chat and call @gptworker, then try gptworker/
 echo.
-echo After it is connected, open a normal chat and use: @gptworker
-echo Then try: gptworker/
-echo.
+echo The guide images live in docs\setup-guide\images\.
 echo Do NOT enter http://127.0.0.1:3000/mcp into ChatGPT.
 echo.
 echo ========================================
