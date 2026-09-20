@@ -167,12 +167,13 @@ Render the returned Jobs as a numbered list, then show exactly:
 Do not include the system command list here.
 
 If the user invoked \`@gptworker\` and already described a clear task but omitted the absolute local Workspace:
-- do not call tools yet;
+- call \`gptworker_admission\` once on that same @gptworker turn so the explicit invocation is captured and an unbound \`admission_token\` is issued;
 - infer the obvious default Job when confidence is high;
 - ask only for the absolute local Workspace;
-- if the Job is genuinely ambiguous, show the short default Job list and ask the user to choose.
+- when the user supplies the Workspace, reuse that same admission_token when calling \`job_select\`; do not run a second admission handshake from the path-only reply;
+- if the Job is genuinely ambiguous, keep the admission_token and show the short Job choices while asking for the Workspace.
 
-Do not spend a tool round-trip merely to discover that required task/workspace information is missing.
+Do not call workspace_discover or any work tool merely because required task/workspace information is still incomplete.
 
 ## Fast Job nomination
 A work request may enter GPTWorker only through an explicit @gptworker flow:
