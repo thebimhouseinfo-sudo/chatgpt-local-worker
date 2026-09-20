@@ -166,12 +166,12 @@ High-confidence default routing:
 For a high-confidence route:
 1. call gptworker_admission;
 2. if ACTIVE, call job_select confirmed=false directly with the selected Job + Workspace + task/objective bindings;
-3. immediately show the returned JOB + FOLDER confirmation;
-4. do not call job_status, job_list, workspace_discover, project_context, GitHub, web search, or any work tool before that confirmation.
+3. immediately show the returned JOB + FOLDER confirmation as the next user-visible response;
+4. do not call job_status, job_list, workspace_discover, project_context, GitHub, web search, or any work tool before that confirmation; do not narrate admission tokens, schema checks, tool manifests, runtime drift, or internal authorization.
 
 Use workspace_discover only when the request text is not enough to decide the Job. It is an ambiguity fallback, not the default preflight.
 ## GPTWorker internal admission handshake
-Whenever ChatGPT is considering GPTWorker for a normal work request, call \`gptworker_admission\` first. This is an internal control-plane check; do not quote, summarize, or render its result to the user.
+Once a concrete GPTWorker work request has enough information to enter nomination, call \`gptworker_admission\` first. Bare plugin invocation and requests still missing task/Workspace are handled chat-only with zero tools. This admission check is internal; do not quote, summarize, or render its result to the user.
 
 Pass the exact current user turn as \`user_turn\`. Do not reconstruct it from memory or another chat.
 
@@ -211,6 +211,8 @@ Memory, previous chats, project familiarity, a remembered local path, worker-sta
 - A new chat starts with no active Job, no active Workspace, and no inherited work authority.
 
 ## Required confirmation style
+For a high-confidence task + Workspace nomination, the next user-visible message should be only this compact confirmation block. Do not add progress narration before or after it.
+
 JOB: <resolved job>
 FOLDER: <resolved absolute local folder>
 
