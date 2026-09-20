@@ -1,135 +1,175 @@
 @echo off
 setlocal
 cd /d "%~dp0"
-title GPTWorker Final Source Test
+title GPTWorker Setup Wizard Test
 
+cls
 echo.
-echo ========================================
-echo   GPTWorker - FINAL SOURCE TEST
-echo ========================================
+echo ============================================================
+echo   GPTWorker Setup Wizard - Terminal Test
+echo ============================================================
 echo.
-echo Tunnel/API onboarding below is simulated and does NOT modify .env.
-echo At runtime step, GPTWorker will use your EXISTING saved .env to:
-echo   - npm run build
-echo   - start the real tray host
-echo   - start/adopt the real Worker + Secure MCP Tunnel
-echo   - register per-user Windows auto-start
+echo This is a DRY-RUN of the real first-time setup experience.
 echo.
-echo This lets you test onboarding + tray + live ChatGPT connection in one pass.
+echo - Uses the same Tunnel and API instructions as setup.bat.
+echo - Opens the same OpenAI pages at the same steps.
+echo - Validates the values you enter.
+echo - Does NOT save the entered Tunnel ID or API key.
+echo - Does NOT replace your existing .env connection.
+echo.
+echo The existing .env, if already configured, will only be used later
+echo to launch the real tray/runtime for the final integration check.
 echo.
 pause
 
+cls
 echo.
-echo ========================================
-echo   [1/4] Secure MCP Tunnel onboarding
-echo ========================================
+echo ============================================================
+echo   Step 1 of 4 - Check this computer
+echo ============================================================
 echo.
-echo Opening OpenAI Tunnels...
-start "" "https://platform.openai.com/settings/organization/tunnels"
-echo.
-echo Simulate the first-install instruction here.
-echo You do NOT need to create a new tunnel for this test.
-echo Paste any fake/test value below; it will NOT be saved.
-echo.
-set /p "FAKE_TUNNEL=Paste Tunnel ID here (test only): "
-if "%FAKE_TUNNEL%"=="" set "FAKE_TUNNEL=tunnel_test"
-echo [TEST] Accepted. Nothing was saved.
-pause
+
+where node >nul 2>nul
+if errorlevel 1 (
+  echo [ERROR] Node.js is not installed or not in PATH.
+  echo Install Node.js 18+ and run setup-test.bat again.
+  goto :failed
+)
+for /f "tokens=*" %%V in ('node --version') do echo [OK] Node.js %%V
+
+where git >nul 2>nul
+if errorlevel 1 (
+  echo [ERROR] Git is not installed or not in PATH.
+  echo Install Git for Windows and run setup-test.bat again.
+  goto :failed
+)
+for /f "tokens=*" %%V in ('git --version') do echo [OK] %%V
 
 echo.
-echo ========================================
-echo   [2/4] Runtime API key onboarding
-echo ========================================
+echo This computer is ready for GPTWorker.
 echo.
-echo Opening OpenAI API Keys...
-start "" "https://platform.openai.com/settings/organization/api-keys"
-echo.
-echo Simulate the first-install instruction here.
-echo DO NOT paste a real secret into this test prompt.
-echo Type any fake value, for example: sk-test
-echo.
-set /p "FAKE_KEY=Paste fake API key here: "
-if "%FAKE_KEY%"=="" set "FAKE_KEY=sk-test"
-echo [TEST] API key input accepted. The value was NOT saved or used.
 pause
 
+cls
 echo.
-echo ========================================
-echo   [3/4] Build + real tray runtime
-echo ========================================
+echo ============================================================
+echo   Step 2 of 4 - Install, build and validate GPTWorker
+echo ============================================================
+echo.
+echo Installing dependencies...
+call npm install
+if errorlevel 1 goto :failed
+
+echo.
+echo Building source...
+call npm run build
+if errorlevel 1 goto :failed
+
+echo.
+echo Validating Job Packs...
+call npm run validate:jobs
+if errorlevel 1 goto :failed
+
+echo.
+echo Running tests...
+call npm test
+if errorlevel 1 goto :failed
+
+echo.
+echo [OK] GPTWorker source passed build and validation.
+echo.
+pause
+
+cls
+echo.
+echo ============================================================
+echo   Step 3 of 4 - Connect OpenAI Secure MCP Tunnel
+echo ============================================================
+echo.
+echo The next prompts are the SAME terminal instructions used by the
+echo real setup flow.
+echo.
+echo The Tunnel page will open first. After a valid Tunnel ID is entered,
+echo the API Keys page will open. Follow the instructions shown here.
+echo.
+echo This test validates the values but does not save them.
+echo.
+pause
+
+powershell -NoProfile -ExecutionPolicy Bypass -File "%~dp0openai-tunnel.ps1" -Init -WizardPreview
+if errorlevel 1 goto :failed
+
+echo.
+echo [OK] Connection wizard flow completed successfully.
+echo.
+pause
+
+cls
+echo.
+echo ============================================================
+echo   Step 4 of 4 - Start GPTWorker and finish in ChatGPT
+echo ============================================================
 echo.
 
 if not exist ".env" (
-  echo [ERROR] Existing .env not found.
-  echo Run real setup.bat once before using the combined final test.
-  pause
-  exit /b 1
+  echo Existing .env was not found.
+  echo.
+  echo The terminal wizard itself has been tested successfully, but this
+  echo dry-run intentionally did not save the Tunnel/API values you entered.
+  echo Run setup.bat for a real first-time installation.
+  echo.
+  goto :wizard_done
 )
 
-echo Registering GPTWorker source tray for Windows logon...
+echo Registering GPTWorker to start with this Windows user...
 powershell -NoProfile -ExecutionPolicy Bypass -File "%~dp0gptworker-tray.ps1" -InstallStartup
 if errorlevel 1 goto :failed
 
-echo Building and launching the real source tray runtime...
+echo.
+echo Starting the real tray/runtime using the EXISTING saved .env...
 call "%~dp0run.bat"
 if errorlevel 1 goto :failed
 
 echo.
-echo The GPTWorker tray icon should now be visible.
-echo RIGHT-CLICK the tray icon and choose:
-echo   Restart GPTWorker
+echo [OK] GPTWorker tray, Worker and Secure MCP Tunnel are ready.
 echo.
-echo This intentionally tests Restart and guarantees the running Worker
-echo reloads the build you just created.
-pause
-
-set "WORKER_PORT=3000"
-for /f "tokens=2 delims==" %%A in ('findstr /B /C:"PORT=" ".env"') do set "WORKER_PORT=%%A"
-set "TUNNEL_HEALTH_PORT=8080"
-for /f "tokens=2 delims==" %%A in ('findstr /B /C:"OPENAI_TUNNEL_HEALTH_PORT=" ".env"') do set "TUNNEL_HEALTH_PORT=%%A"
-
-echo Waiting for real Worker + Secure MCP Tunnel...
-powershell -NoProfile -Command "$ok=$false; foreach($i in 1..140){ try{$w=Invoke-RestMethod 'http://127.0.0.1:%WORKER_PORT%/health' -TimeoutSec 1; $t=Invoke-WebRequest 'http://127.0.0.1:%TUNNEL_HEALTH_PORT%/readyz' -UseBasicParsing -TimeoutSec 1; if($w.name -eq 'chatgpt-local-worker' -and $t.StatusCode -eq 200){$ok=$true;break}}catch{}; Start-Sleep -Milliseconds 500}; if(-not $ok){exit 1}"
-if errorlevel 1 (
-  echo [ERROR] Real tray runtime did not become ready.
-  echo Check tray status and logs under:
-  echo   %LOCALAPPDATA%\GPTWorker\logs
-  pause
-  exit /b 1
-)
-
-echo [OK] Real Worker + Secure MCP Tunnel are ready behind the tray app.
-echo [OK] Auto-start is registered for this Windows user.
-pause
-
-echo.
-echo ========================================
-echo   [4/4] Connect ChatGPT
-echo ========================================
-echo.
-echo Opening ChatGPT Settings and local visual guide...
+echo Opening ChatGPT Settings and the local setup guide...
 start "" "https://chatgpt.com/#settings/Plugins"
 start "" "%~dp0docs\setup-guide\index.html"
+
 echo.
-echo Now finish the real first-install test:
-echo   1. Follow images 1.png - 5.png in the guide.
-echo   2. Complete the GPTWorker plugin configuration.
-echo   3. Restart Windows to verify GPTWorker auto-starts with the user session.
-echo   4. After Windows starts again, open ChatGPT and type @gptworker.
-echo   5. Right-click the tray icon later if you want to test Restart / Exit manually.
+echo Finish the onboarding in the browser:
 echo.
-echo ========================================
-echo   Combined source test ready
-echo ========================================
+echo   1. Images 1 + 2: enable Developer mode.
+echo   2. Image 3: open Plugins and click +.
+echo   3. Image 4: create gptworker using Connection = Tunnel,
+echo      choose the Tunnel from Available tunnels, Authentication = No Auth.
+echo   4. Image 5: restart Windows.
+echo   5. After Windows starts again, open ChatGPT and type @gptworker.
+echo   6. Then type gptworker/help and read the usage guide before working.
 echo.
-echo Fake credentials were never saved.
-echo Tray/runtime is REAL and uses the existing .env.
+echo Restarting Windows is the final auto-start test.
+echo.
+
+:wizard_done
+echo.
+echo ============================================================
+echo   Setup Wizard Test complete
+echo ============================================================
+echo.
+echo The terminal onboarding flow has been exercised without replacing
+echo your saved Tunnel ID or API key.
 echo.
 pause
 exit /b 0
 
 :failed
 echo.
-echo [ERROR] Source test failed. See the output above.
+echo ============================================================
+echo   Setup Wizard Test failed
+echo ============================================================
+echo.
+echo Review the error above and fix that step before continuing.
+echo.
 pause
 exit /b 1
