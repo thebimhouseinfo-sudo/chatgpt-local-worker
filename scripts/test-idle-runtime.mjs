@@ -101,23 +101,25 @@ if (!tunnel.includes('$argumentLine = "run --profile-file $quotedProfile"')) {
 }
 
 for (const required of [
-  "Permissions: choose Restricted.",
-  "Tunnels permissions, enable BOTH:",
+  "Tai Permissions, chon Restricted.",
+  "Tim dong Tunnels, sau do bat CA HAI quyen:",
   "[x] Read",
   "[x] Use",
-  "Do NOT use Read Only.",
-  "You do NOT need to grant All permissions to the whole API key.",
-  "Attach/select the ChatGPT workspace that will use GPTWorker.",
+  "Khong chon Read Only",
+  "Khong can bat All cho toan bo API key.",
+  "Neu co muc chon ChatGPT workspace, chon dung workspace",
+  "API key nay giong nhu chia khoa",
 ]) {
   if (!tunnel.includes(required)) {
-    throw new Error(`setup wizard is missing required guidance: ${required}`);
+    throw new Error(`setup wizard is missing non-developer guidance: ${required}`);
   }
 }
 
 for (const required of [
-  "Type ANY non-empty text in either input field to continue.",
-  "Tunnels: enable Read + Use",
-  "do NOT grant All to the whole key just for GPTWorker",
+  "go bat ky chu nao de di tiep",
+  "Tunnels va bat CA HAI: Read + Use",
+  "KHONG can bat All cho toan bo API key",
+  "KHONG can biet lap trinh",
 ]) {
   if (!setupTest.includes(required)) {
     throw new Error(`setup-test UX contract missing: ${required}`);
