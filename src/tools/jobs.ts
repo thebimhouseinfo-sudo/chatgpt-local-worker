@@ -183,9 +183,9 @@ export function registerJobTools(
   async function bindRuntimeToWorkspace(
     bindings?: Record<string, string>,
     allowReplace = false
-  ): Promise<void> {
+  ): Promise<string | undefined> {
     const rawWorkspace = bindings?.workspace;
-    if (!rawWorkspace) return;
+    if (!rawWorkspace) return undefined;
 
     const workspace = await validateWorkspacePath(rawWorkspace);
     const status = await sessionRuntime.status();
@@ -196,14 +196,14 @@ export function registerJobTools(
 
     if (phase === "idle") {
       sessionRuntime = new JobRuntime(workspace);
-      return;
+      return workspace;
     }
 
-    if (currentWorkspace === workspace) return;
+    if (currentWorkspace === workspace) return workspace;
 
     if (allowReplace) {
       sessionRuntime = new JobRuntime(workspace);
-      return;
+      return workspace;
     }
 
     throw new Error(
@@ -605,7 +605,10 @@ export function registerJobTools(
     }) =>
       safe("job_select", async () => {
         admissionRuntime.activation(admission_token, bindings);
-        await bindRuntimeToWorkspace(bindings);
+        const validatedWorkspace = await bindRuntimeToWorkspace(bindings);
+        if (validatedWorkspace) {
+          admissionRuntime.bindWorkspace(admission_token, validatedWorkspace);
+        }
 
         if (!confirmed) {
           const current = await sessionRuntime.status();
@@ -738,7 +741,8 @@ export function registerJobTools(
     },
     async ({ job, bindings, execution_id, authority_token, admission_token }) =>
       safe("job_switch", async () => {
-        if (!execution_id && !authority_token) {
+        const isPreActiveSwitch = !execution_id && !authority_token;
+        if (isPreActiveSwitch) {
           admissionRuntime.activation(admission_token, bindings);
         }
         if (execution_id || authority_token) {
@@ -747,30 +751,48 @@ export function registerJobTools(
           }
           releaseWorkRegistration(execution_id, authority_token);
         }
-         const persistentState = await clearWorkerState();
-        await bindRuntimeToWorkspace(bindings, true);
+
+        const persistentState = await clearWorkerState();
+        const validatedWorkspace = await bindRuntimeToWorkspace(bindings, true);
+        if (isPreActiveSwitch && validatedWorkspace) {
+          admissionRuntime.bindWorkspace(admission_token, validatedWorkspace);
+        }
+
         lifecycle?.clear();
         const selected = await sessionRuntime.switch(job, bindings);
         rememberConfirmation(selected?.current);
         await validateResolvedWorkspace(selected?.current);
+
+        const current = await persistActiveSelection(
+          selected?.current,
+          sessionRuntime,
+          lifecycle
+        );
+
         if (
-          selected?.current?.state?.phase === "awaiting_confirmation" &&
-          selected?.current?.job?.id
+          current?.state?.phase === "awaiting_confirmation" &&
+          current?.job?.id
         ) {
           lifecycle?.nominate({
-            id: selected.current.job.id,
-            preload_families: selected.current.job.preload_families ?? [],
+            id: current.job.id,
+            preload_families: current.job.preload_families ?? [],
           });
         }
+
+        if (isPreActiveSwitch && (current as any)?.work_handle) {
+          admissionRuntime.consume(admission_token);
+        }
+
         return {
           ...selected,
+          current,
           worker_state: persistentState,
           tool_preload:
-            selected?.current?.state?.phase === "awaiting_confirmation"
+            current?.state?.phase === "awaiting_confirmation"
               ? {
                   status: "warming",
-                  job_id: selected.current.job.id,
-                  families: selected.current.job.preload_families ?? [],
+                  job_id: current.job.id,
+                  families: current.job.preload_families ?? [],
                 }
               : undefined,
         };
