@@ -86,12 +86,18 @@ echo   OpenAI Secure MCP Tunnel setup
 echo ========================================
 echo The local Worker is running, so tunnel doctor can validate the MCP target.
 echo.
-echo Before continuing, you need:
-echo   API key: https://platform.openai.com/settings/organization/api-keys
-echo   Tunnel:  https://platform.openai.com/settings/organization/tunnels
+echo Opening the setup guide and required OpenAI Platform pages...
+start "" "%~dp0README.md"
+start "" "https://platform.openai.com/settings/organization/api-keys"
+start "" "https://platform.openai.com/settings/organization/tunnels"
 echo.
-echo Create/copy the Runtime API key and tunnel_... ID, then follow the prompts.
-echo The ChatGPT connection should be named: gptworker
+echo In the browser:
+echo   1. Create/copy a Runtime API key for GPTWorker.
+echo   2. Create/copy a Secure MCP Tunnel ID ^(tunnel_...^).
+echo   3. Keep both in the same OpenAI organization/workspace.
+echo.
+echo Return to this window when both values are ready.
+pause
 
 echo.
 powershell -NoProfile -ExecutionPolicy Bypass -File "%~dp0openai-tunnel.ps1" -Init
