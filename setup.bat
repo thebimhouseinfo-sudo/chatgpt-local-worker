@@ -83,7 +83,8 @@ echo ========================================
 echo   Starting local GPTWorker
 echo ========================================
 
-start "" powershell -NoProfile -WindowStyle Hidden -ExecutionPolicy Bypass -File "%~dp0start.ps1" -Port %WORKER_PORT% -Force
+echo Starting Worker in background with logs...
+powershell -NoProfile -Command "$log=Join-Path $env:LOCALAPPDATA 'GPTWorker\logs'; New-Item -ItemType Directory -Force -Path $log ^| Out-Null; $script=[IO.Path]::GetFullPath('%~dp0start.ps1'); $args='-NoProfile -ExecutionPolicy Bypass -File ""'+$script+'"" -Port %WORKER_PORT% -Force'; Start-Process powershell.exe -ArgumentList $args -WindowStyle Hidden -RedirectStandardOutput (Join-Path $log 'worker.out.log') -RedirectStandardError (Join-Path $log 'worker.err.log') ^| Out-Null"
 
 echo Waiting for local Worker on port %WORKER_PORT%...
 powershell -NoProfile -Command "$ok=$false; foreach ($i in 1..30) { try { $r=Invoke-WebRequest 'http://127.0.0.1:%WORKER_PORT%/health' -UseBasicParsing -TimeoutSec 1; if ($r.StatusCode -eq 200) { $ok=$true; break } } catch {}; Start-Sleep -Milliseconds 500 }; if (-not $ok) { exit 1 }"
@@ -94,6 +95,7 @@ if errorlevel 1 (
 )
 
 echo [OK] Local Worker is ready.
+powershell -NoProfile -Command "$p=(netstat -ano ^| Select-String ':%WORKER_PORT%\s' ^| Select-String 'LISTENING' ^| Select-Object -First 1); if($p){$parts=($p -replace '\s+',' ').ToString().Trim().Split(' '); Write-Host ('Worker PID: '+$parts[-1])}"
 
 echo.
 echo ========================================
@@ -182,5 +184,18 @@ exit /b 0
 :failed
 echo.
 echo [ERROR] Setup failed. See the output above.
+echo.
+echo Attempting to restore GPTWorker background runtime from the saved .env...
+findstr /B /C:"OPENAI_TUNNEL_ID=tunnel_" ".env" >nul 2>nul
+if not errorlevel 1 (
+  findstr /B /C:"OPENAI_TUNNEL_API_KEY=sk-" ".env" >nul 2>nul
+  if not errorlevel 1 (
+    start "" powershell -NoProfile -STA -WindowStyle Hidden -ExecutionPolicy Bypass -File "%~dp0gptworker-tray.ps1"
+    echo Recovery tray launch requested.
+  )
+)
+echo.
+echo Worker log: %LOCALAPPDATA%\GPTWorker\logs\worker.err.log
+echo Tray log:   %LOCALAPPDATA%\GPTWorker\logs\tray.err.log
 pause
 exit /b 1
