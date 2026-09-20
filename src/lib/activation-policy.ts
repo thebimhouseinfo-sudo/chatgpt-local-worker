@@ -219,8 +219,12 @@ export class AdmissionRuntime {
       );
     }
 
-    if (expectedWorkspace && proof.workspace) {
-      if (normalizedPath(proof.workspace) !== normalizedPath(expectedWorkspace)) {
+    if (expectedWorkspace) {
+      if (!proof.workspace) {
+        proof.workspace = path.resolve(expectedWorkspace.trim());
+      } else if (
+        normalizedPath(proof.workspace) !== normalizedPath(expectedWorkspace)
+      ) {
         throw new Error(
           "ADMISSION_REQUIRED: Workspace does not match the Workspace admitted in this @gptworker flow."
         );
