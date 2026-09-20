@@ -704,21 +704,53 @@ export function registerJobTools(
 
         await lifecycle?.wait(proof.jobId);
 
-        const selected = await sessionRuntime.select({
-          job,
-          bindings,
-          confirmed: true,
-          confirmationToken: activationToken,
-        });
-        pendingConfirmations.delete(confirmation_token!);
-        await validateResolvedWorkspace(selected);
-        const active = await persistActiveSelection(
-          selected,
-          sessionRuntime,
-          lifecycle
+        const confirmedWorkspace = proof.bindings.workspace;
+        if (!confirmedWorkspace) {
+          throw new Error(
+            "Confirmed Job activation requires a Workspace binding."
+          );
+        }
+
+        // Reserve execution authority before mutating JobRuntime to active.
+        // If the Workspace is busy, the runtime remains awaiting_confirmation
+        // and the user's confirmation proof remains retryable.
+        const registration = await createWorkRegistration(
+          proof.jobId,
+          confirmedWorkspace,
+          () => {
+            sessionRuntime.stop();
+            lifecycle?.clear();
+          }
         );
+
+        let selected: any;
+        try {
+          selected = await sessionRuntime.select({
+            job,
+            bindings,
+            confirmed: true,
+            confirmationToken: activationToken,
+          });
+          await validateResolvedWorkspace(selected);
+        } catch (error) {
+          releaseWorkRegistration(
+            registration.executionId,
+            registration.authorityToken
+          );
+          throw error;
+        }
+
+        pendingConfirmations.delete(confirmation_token!);
         admissionRuntime.consume(admission_token);
-        return active;
+
+        return {
+          ...selected,
+          work_handle: getPublicWorkHandle(registration),
+          idle_timeout_ms: getWorkIdleTimeoutMs(),
+          next:
+            "Use work_handle.execution_id + work_handle.authority_token on every execution tool call. " +
+            "The work registration auto-stops after 10 minutes without valid work-handle activity.",
+        };
       })
   );
 
@@ -745,11 +777,35 @@ export function registerJobTools(
         if (isPreActiveSwitch) {
           admissionRuntime.activation(admission_token, bindings);
         }
+
+        let activeHandle:
+          | { executionId: string; authorityToken: string }
+          | undefined;
         if (execution_id || authority_token) {
           if (!execution_id || !authority_token) {
-            throw new Error("Both execution_id and authority_token are required to release the current work registration.");
+            throw new Error(
+              "Both execution_id and authority_token are required to release the current work registration."
+            );
           }
-          releaseWorkRegistration(execution_id, authority_token);
+
+          const current = validateWorkHandle(execution_id, authority_token);
+          activeHandle = {
+            executionId: current.executionId,
+            authorityToken: current.authorityToken,
+          };
+        }
+
+        // Preflight a replacement Workspace before releasing current work.
+        // A typo/nonexistent path must leave the existing work_handle intact.
+        if (bindings?.workspace) {
+          await validateWorkspacePath(bindings.workspace);
+        }
+
+        if (activeHandle) {
+          releaseWorkRegistration(
+            activeHandle.executionId,
+            activeHandle.authorityToken
+          );
         }
 
         const persistentState = await clearWorkerState();
