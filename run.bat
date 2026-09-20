@@ -31,15 +31,27 @@ if errorlevel 1 (
   exit /b 1
 )
 
-echo Restarting any existing GPTWorker tray host...
-powershell -NoProfile -Command "$target=[IO.Path]::GetFullPath('%~dp0gptworker-tray.ps1'); Get-CimInstance Win32_Process -ErrorAction SilentlyContinue ^| Where-Object { $_.ProcessId -ne $PID -and ($_.Name -ieq 'powershell.exe' -or $_.Name -ieq 'pwsh.exe') -and $_.CommandLine -and $_.CommandLine.IndexOf($target,[StringComparison]::OrdinalIgnoreCase) -ge 0 } ^| ForEach-Object { Stop-Process -Id $_.ProcessId -Force -ErrorAction SilentlyContinue }; Start-Sleep -Milliseconds 700"
+set "WORKER_PORT=3000"
+for /f "tokens=2 delims==" %%A in ('findstr /B /C:"PORT=" ".env"') do set "WORKER_PORT=%%A"
+set "TUNNEL_HEALTH_PORT=8080"
+for /f "tokens=2 delims==" %%A in ('findstr /B /C:"OPENAI_TUNNEL_HEALTH_PORT=" ".env"') do set "TUNNEL_HEALTH_PORT=%%A"
+
+echo Resetting previous GPTWorker tray / Worker / Tunnel...
+powershell -NoProfile -ExecutionPolicy Bypass -File "%~dp0reset-runtime.ps1" -WorkerPort %WORKER_PORT% -TunnelHealthPort %TUNNEL_HEALTH_PORT%
+if errorlevel 1 (
+  echo.
+  echo [ERROR] Could not reset previous GPTWorker runtime safely.
+  pause
+  exit /b 1
+)
+
 del /q "%LOCALAPPDATA%\GPTWorker\tray-ready.json" >nul 2>nul
 
 echo Starting GPTWorker tray host...
-start "" powershell -NoProfile -STA -WindowStyle Hidden -ExecutionPolicy Bypass -File "%~dp0gptworker-tray.ps1" -RestartRuntimeOnStart
+start "" powershell -NoProfile -STA -WindowStyle Hidden -ExecutionPolicy Bypass -File "%~dp0gptworker-tray.ps1"
 
 echo Waiting for tray host...
-powershell -NoProfile -Command "$p=Join-Path $env:LOCALAPPDATA 'GPTWorker\tray-ready.json'; $ok=$false; foreach($i in 1..40){ if(Test-Path $p){ try{$s=Get-Content $p -Raw ^| ConvertFrom-Json; if($s.ready -eq $true -and (Get-Process -Id ([int]$s.pid) -ErrorAction SilentlyContinue)){ $ok=$true; break }}catch{} }; Start-Sleep -Milliseconds 250 }; if(-not $ok){ exit 1 }"
+powershell -NoProfile -ExecutionPolicy Bypass -File "%~dp0wait-tray-ready.ps1" -TimeoutSeconds 10
 if errorlevel 1 (
   echo.
   echo [ERROR] GPTWorker tray host failed to start.
@@ -54,8 +66,7 @@ if errorlevel 1 (
 
 echo.
 echo [OK] GPTWorker tray host is running.
-echo Look for the Windows application icon in the system tray.
-echo Right-click it to see Status / Open setup guide / Restart / Exit.
-echo Worker + Secure MCP Tunnel are restarting behind the tray with this fresh build.
+echo Worker + Secure MCP Tunnel are starting behind the tray.
+echo Right-click the tray icon for Status / Open setup guide / Restart / Exit.
 echo.
 exit /b 0
