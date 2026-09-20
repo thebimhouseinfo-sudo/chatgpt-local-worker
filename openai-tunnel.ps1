@@ -141,11 +141,24 @@ function Test-TunnelHealthy([int]$TargetHealthPort) {
 function Stop-ExistingTunnel([int]$TargetHealthPort) {
     $ownerPid = Get-PortOwnerPid -TargetPort $TargetHealthPort
     if (-not $ownerPid) { return }
+
     $proc = Get-Process -Id $ownerPid -ErrorAction SilentlyContinue
     $name = if ($proc) { $proc.ProcessName } else { "unknown" }
+    if (-not $proc -or $proc.ProcessName -ne "tunnel-client") {
+        throw "Port $TargetHealthPort dang bi PID $ownerPid ($name) chiem. GPTWorker se khong tu tat process khong xac dinh."
+    }
+
     Write-Host "Dang tat tunnel cu (PID $ownerPid - $name)..." -ForegroundColor Yellow
     Stop-Process -Id $ownerPid -Force -ErrorAction SilentlyContinue
-    Start-Sleep -Seconds 1
+
+    $deadline = (Get-Date).AddSeconds(5)
+    do {
+        Start-Sleep -Milliseconds 200
+        $stillOwned = Get-PortOwnerPid -TargetPort $TargetHealthPort
+        if (-not $stillOwned) { return }
+    } while ((Get-Date) -lt $deadline)
+
+    throw "Tunnel cu da duoc yeu cau dung nhung port $TargetHealthPort van chua duoc giai phong."
 }
 
 function Ensure-Profile([string]$McpUrl, [string]$TunnelId, [int]$TargetHealthPort) {
@@ -313,6 +326,25 @@ function Invoke-TunnelInit {
     $env:CONTROL_PLANE_API_KEY = $resolvedApiKey
     $env:CONTROL_PLANE_TUNNEL_ID = $resolvedTunnelId
 
+    # setup/doctor needs the health listener free. A previous tunnel instance
+    # from run.bat/tray must be stopped before doctor can bind this port.
+    $healthOwner = Get-PortOwnerPid -TargetPort $resolvedHealth
+    if ($healthOwner) {
+        if ($Force) {
+            Stop-ExistingTunnel -TargetHealthPort $resolvedHealth
+        } else {
+            $proc = Get-Process -Id $healthOwner -ErrorAction SilentlyContinue
+            $name = if ($proc) { $proc.ProcessName } else { "unknown" }
+            throw "Port $resolvedHealth dang bi PID $healthOwner ($name) chiem. Chay Init voi -Force hoac tat tunnel cu truoc."
+        }
+    }
+
+    # Re-check immediately before doctor. It is not enough that setup saw the
+    # Worker healthy a few seconds earlier.
+    if (-not (Test-McpServer $resolvedPort)) {
+        throw "Local GPTWorker khong con reachable tai http://127.0.0.1:$resolvedPort/health ngay truoc tunnel doctor."
+    }
+
     Write-Host ""
     Write-Host "tunnel-client version: $(& $bin --version)" -ForegroundColor DarkGray
     Write-Host "Chay doctor..." -ForegroundColor Yellow
@@ -347,7 +379,7 @@ function Invoke-TunnelInit {
 
     Write-Host ""
     Write-Host "[OK] Tunnel va API key da duoc cau hinh." -ForegroundColor Green
-    Write-Host "Lan sau chi can chay run.bat." -ForegroundColor Green
+    Write-Host "Tunnel/API setup da hop le." -ForegroundColor Green
     Show-ConnectorGuide -TunnelId $resolvedTunnelId
 }
 
