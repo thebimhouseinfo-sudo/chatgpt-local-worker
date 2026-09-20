@@ -14,9 +14,6 @@ const expectedRootCommands = [
   "gptworker/job list",
   "gptworker/job create",
   "gptworker/job update",
-  "gptworker/job remove",
-  "gptworker/job export",
-  "gptworker/job import",
   "gptworker/job stop",
 ];
 
@@ -35,7 +32,7 @@ const listed = menuSlice
 assert.deepEqual(
   listed,
   expectedRootCommands,
-  "gptworker/ root menu must contain exactly the eight fixed commands"
+  "gptworker/ root menu must contain exactly the five fixed commands"
 );
 
 const instructions = buildServerInstructions(
@@ -77,8 +74,12 @@ assert.equal(
   "help response contract duplicated"
 );
 
-assert.ok(GPTWORKER_HELP.includes("gptworker/job remove"));
-assert.ok(GPTWORKER_HELP.includes("gptworker/job export"));
-assert.ok(GPTWORKER_HELP.includes("gptworker/job import"));
+assert.ok(GPTWORKER_HELP.includes("layla"));
+assert.ok(GPTWORKER_HELP.includes("gptworker/job list"));
+assert.ok(GPTWORKER_HELP.includes("gptworker/job create"));
+assert.ok(GPTWORKER_HELP.includes("gptworker/job update"));
+assert.ok(GPTWORKER_HELP.includes("gptworker/job stop"));
+assert.equal(GPTWORKER_HELP.includes("gptworker/job export"), false);
+assert.equal(GPTWORKER_HELP.includes("gptworker/job import"), false);
 
 console.log("test-quickstart: ok");
