@@ -1,7 +1,7 @@
 export const GPTWORKER_HELP = `
 # GPTWorker — Hướng dẫn nhanh
 
-GPTWorker cho phép ChatGPT làm việc trực tiếp trên máy của bạn thông qua các Job Pack.
+GPTWorker giúp ChatGPT làm việc trực tiếp với file, code và các ứng dụng trên máy tính của bạn, ví dụ Microsoft Word, Excel và PowerPoint, tùy theo Job và tool được cài.
 
 ## Cách dùng cơ bản
 1. Xem Job có sẵn bằng: gptworker/job list
