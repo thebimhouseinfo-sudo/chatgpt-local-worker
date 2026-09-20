@@ -22,21 +22,6 @@ FOLDER: D:\\Projects\\my-app
 
 Mỗi chat mới bắt đầu ở trạng thái **idle**. GPTWorker không tự kế thừa Job hoặc Workspace từ chat trước.
 
-## Kích hoạt GPTWorker
-
-Trong chat mới, GPTWorker chỉ được kích hoạt khi có một trong hai tín hiệu xuất hiện trong **chính chat session hiện tại**:
-
-- user gọi trực tiếp \`@gptworker\`; hoặc
-- user đưa một **yêu cầu công việc cụ thể có kèm đường dẫn Workspace local tuyệt đối** ngay trong chat session này.
-
-Ví dụ có thể tự kích hoạt GPTWorker:
-
-\`\`\`text
-Sửa app ở D:\\Projects\\my-app để thêm nút regenerate.
-\`\`\`
-
-Nếu cả hai điều kiện trên đều không xuất hiện trong chat session hiện tại, GPTWorker phải giữ trạng thái **idle**: không tự chọn Job, không tự nominate FOLDER, không lấy Workspace từ chat cũ/memory/Worker state và không tự đưa ra prompt xác nhận JOB + FOLDER.
-
 ## Layla
 
 \`layla\` là trợ lý đa năng dành cho những công việc không có workflow cố định.
@@ -51,6 +36,8 @@ Ví dụ:
 Tổng hợp các tài liệu trong D:\\Reports thành một báo cáo Word.
 
 Đọc các file Excel trong D:\\Sales và tạo bảng tổng hợp.
+
+Từ tài liệu trong D:\\Meeting tạo một presentation.
 
 Từ tài liệu trong D:\\Meeting tạo một presentation.
 \`\`\`
