@@ -13,6 +13,28 @@ $StartupKey = "HKCU:\Software\Microsoft\Windows\CurrentVersion\Run"
 $StartupName = "GPTWorker"
 $GuidePath = Join-Path $ScriptDir "docs\setup-guide\index.html"
 $LogDir = Join-Path $env:LOCALAPPDATA "GPTWorker\logs"
+$TrayLog = Join-Path $LogDir "tray.log"
+$TrayErrorLog = Join-Path $LogDir "tray.err.log"
+$TrayReadyPath = Join-Path (Split-Path -Parent $LogDir) "tray-ready.json"
+
+New-Item -ItemType Directory -Force -Path $LogDir | Out-Null
+
+function Write-TrayLog([string]$Message) {
+    $line = "[$((Get-Date).ToString('s'))] $Message"
+    Add-Content -Path $TrayLog -Value $line -Encoding UTF8
+}
+
+trap {
+    try {
+        $detail = ($_ | Out-String).Trim()
+        Add-Content -Path $TrayErrorLog -Value "[$((Get-Date).ToString('s'))] $detail" -Encoding UTF8
+        Remove-Item $TrayReadyPath -Force -ErrorAction SilentlyContinue
+    } catch {}
+    exit 1
+}
+
+Write-TrayLog "Tray host starting. PID=$PID"
+Remove-Item $TrayReadyPath -Force -ErrorAction SilentlyContinue
 
 function Get-StartupCommand {
     return 'powershell.exe -NoProfile -STA -WindowStyle Hidden -ExecutionPolicy Bypass -File "' + $PSCommandPath + '"'
@@ -50,10 +72,10 @@ Add-Type -AssemblyName System.Drawing
 $createdNew = $false
 $mutex = [System.Threading.Mutex]::new($true, "Local\GPTWorkerTray", [ref]$createdNew)
 if (-not $createdNew) {
+    Write-TrayLog "Another GPTWorker tray instance already owns the mutex; exiting duplicate."
     exit 0
 }
-
-New-Item -ItemType Directory -Force -Path $LogDir | Out-Null
+Write-TrayLog "Single-instance mutex acquired."
 
 function Get-DotEnvValue([string]$Name) {
     if (-not (Test-Path ".env")) { return $null }
@@ -266,40 +288,14 @@ function Restart-GptWorkerRuntime {
     Start-GptWorkerRuntime
 }
 
-function New-LetterIcon([System.Drawing.Color]$Color) {
-    $bitmap = [System.Drawing.Bitmap]::new(32, 32)
-    $graphics = [System.Drawing.Graphics]::FromImage($bitmap)
-    $graphics.SmoothingMode = [System.Drawing.Drawing2D.SmoothingMode]::AntiAlias
-    $graphics.Clear([System.Drawing.Color]::Transparent)
-
-    $circle = [System.Drawing.SolidBrush]::new($Color)
-    $textBrush = [System.Drawing.SolidBrush]::new([System.Drawing.Color]::White)
-    $font = [System.Drawing.Font]::new("Segoe UI", 17, [System.Drawing.FontStyle]::Bold, [System.Drawing.GraphicsUnit]::Pixel)
-
-    $graphics.FillEllipse($circle, 1, 1, 30, 30)
-    $graphics.DrawString("G", $font, $textBrush, 7, 5)
-
-    $handle = $bitmap.GetHicon()
-    $icon = ([System.Drawing.Icon]::FromHandle($handle)).Clone()
-
-    $font.Dispose()
-    $textBrush.Dispose()
-    $circle.Dispose()
-    $graphics.Dispose()
-    $bitmap.Dispose()
-
-    return $icon
-}
-
 $icons = @{
-    Starting  = $(New-LetterIcon ([System.Drawing.Color]::FromArgb(107, 114, 128)))
-    Connected = $(New-LetterIcon ([System.Drawing.Color]::FromArgb(22, 163, 74)))
-    Working   = $(New-LetterIcon ([System.Drawing.Color]::FromArgb(37, 99, 235)))
-    Degraded  = $(New-LetterIcon ([System.Drawing.Color]::FromArgb(217, 119, 6)))
+    Starting  = [System.Drawing.SystemIcons]::Application
+    Connected = [System.Drawing.SystemIcons]::Application
+    Working   = [System.Drawing.SystemIcons]::Application
+    Degraded  = [System.Drawing.SystemIcons]::Warning
 }
 
 $notify = New-Object System.Windows.Forms.NotifyIcon
-$notify.Visible = $true
 $notify.Text = "GPTWorker - Starting"
 $notify.Icon = $icons.Starting
 
@@ -325,6 +321,15 @@ $exitItem.Text = "Exit GPTWorker"
 [void]$menu.Items.Add($exitItem)
 
 $notify.ContextMenuStrip = $menu
+$notify.Visible = $true
+
+@{
+    pid = $PID
+    ready = $true
+    started_at = (Get-Date).ToString("o")
+    script = $PSCommandPath
+} | ConvertTo-Json | Set-Content -Path $TrayReadyPath -Encoding UTF8
+Write-TrayLog "NotifyIcon is visible and tray-ready marker was written."
 
 function Update-TrayStatus {
     if (-not $notify) { return }
@@ -354,8 +359,11 @@ $notify.Add_DoubleClick({ Show-Guide })
 
 $restartItem.Add_Click({
     try {
+        Write-TrayLog "Restart requested from tray."
         Restart-GptWorkerRuntime
+        Write-TrayLog "Restart completed with status $(Get-RuntimeStatus)."
     } catch {
+        Write-TrayLog "Restart failed: $($_.Exception.Message)"
         $script:RuntimeState = "Degraded"
         Update-TrayStatus
         [System.Windows.Forms.MessageBox]::Show(
@@ -390,7 +398,9 @@ $bootstrapTimer.Add_Tick({
     $bootstrapTimer.Stop()
     try {
         Start-GptWorkerRuntime
+        Write-TrayLog "Runtime bootstrap completed with status $(Get-RuntimeStatus)."
     } catch {
+        Write-TrayLog "Runtime bootstrap failed: $($_.Exception.Message)"
         $script:RuntimeState = "Degraded"
         Update-TrayStatus
     }
@@ -402,12 +412,11 @@ try {
 } finally {
     $statusTimer.Stop()
     $bootstrapTimer.Stop()
+    Remove-Item $TrayReadyPath -Force -ErrorAction SilentlyContinue
+    Write-TrayLog "Tray host exiting."
     $notify.Visible = $false
     $notify.Dispose()
     $menu.Dispose()
-    foreach ($icon in $icons.Values) {
-        try { $icon.Dispose() } catch {}
-    }
     try { $mutex.ReleaseMutex() } catch {}
     $mutex.Dispose()
 }
