@@ -7,6 +7,9 @@ const sessionManager = await fs.readFile("src/lib/mcp-session-manager.ts", "utf8
 const tray = await fs.readFile("gptworker-tray.ps1", "utf8");
 const start = await fs.readFile("start.ps1", "utf8");
 const tunnel = await fs.readFile("openai-tunnel.ps1", "utf8");
+if (/[^\x00-\x7F]/.test(tunnel)) {
+  throw new Error("openai-tunnel.ps1 must remain ASCII-safe for Windows PowerShell 5.1");
+}
 const setupTest = await fs.readFile("setup-test.bat", "utf8");
 
 const heavyModules = [
