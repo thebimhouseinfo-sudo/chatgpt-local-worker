@@ -54,7 +54,7 @@ export type JobPhase =
   | "awaiting_confirmation"
   | "active";
 
-type JobPackSource = "user" | "default" | "explicit";
+type JobPackSource = "custom" | "default" | "explicit";
 
 interface LoadedJobPack {
   dir: string;
@@ -177,10 +177,10 @@ export class JobRuntime {
 
     const roots = getJobPackRoots();
     const defaults = await this.packsFromRoot(roots.defaults, "default");
-    const user = await this.packsFromRoot(roots.user, "user");
+    const custom = await this.packsFromRoot(roots.custom, "custom");
 
     const defaultIds = new Set(defaults.map((pack) => pack.meta.id));
-    const collisions = user.filter((pack) => defaultIds.has(pack.meta.id));
+    const collisions = custom.filter((pack) => defaultIds.has(pack.meta.id));
     if (collisions.length > 0) {
       throw new Error(
         "Custom Job id collides with bundled default Job(s): " +
@@ -189,7 +189,7 @@ export class JobRuntime {
       );
     }
 
-    return [...defaults, ...user].sort((a, b) =>
+    return [...defaults, ...custom].sort((a, b) =>
       a.meta.id.localeCompare(b.meta.id)
     );
   }
