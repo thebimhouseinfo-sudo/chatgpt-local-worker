@@ -111,12 +111,12 @@ echo Opening ChatGPT Settings and local visual guide...
 start "" "https://chatgpt.com/#settings/Plugins"
 start "" "%~dp0docs\setup-guide\index.html"
 echo.
-echo Now test the real connection:
-echo   1. Follow images 1.png - 4.png in the guide.
-echo   2. Open a new chat and call @gptworker.
-echo   3. Try gptworker/
-echo   4. Right-click the tray icon and test Restart GPTWorker.
-echo   5. Use Exit GPTWorker only when you are ready to stop the local bridge.
+echo Now finish the real first-install test:
+echo   1. Follow images 1.png - 5.png in the guide.
+echo   2. Complete the GPTWorker plugin configuration.
+echo   3. Restart Windows to verify GPTWorker auto-starts with the user session.
+echo   4. After Windows starts again, open ChatGPT and type @gptworker.
+echo   5. Right-click the tray icon later if you want to test Restart / Exit manually.
 echo.
 echo ========================================
 echo   Combined source test ready
