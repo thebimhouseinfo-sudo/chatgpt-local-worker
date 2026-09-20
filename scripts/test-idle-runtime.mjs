@@ -101,14 +101,14 @@ if (!tunnel.includes('$argumentLine = "run --profile-file $quotedProfile"')) {
 }
 
 for (const required of [
-  "Tai Permissions, chon Restricted.",
-  "Tim dong Tunnels, sau do bat CA HAI quyen:",
+  "Ở Permissions, chọn Restricted.",
+  "Tìm dòng Tunnels, rồi bật CẢ HAI quyền:",
   "[x] Read",
   "[x] Use",
-  "Khong chon Read Only",
-  "Khong can bat All cho toan bo API key.",
-  "Neu co muc chon ChatGPT workspace, chon dung workspace",
-  "API key nay giong nhu chia khoa",
+  "KHÔNG chọn Read Only",
+  "KHÔNG cần bật All cho toàn bộ API key.",
+  "Nếu có mục chọn ChatGPT workspace, chọn đúng workspace",
+  "API key giống như chìa khóa",
 ]) {
   if (!tunnel.includes(required)) {
     throw new Error(`setup wizard is missing non-developer guidance: ${required}`);
@@ -116,10 +116,12 @@ for (const required of [
 }
 
 for (const required of [
-  "go bat ky chu nao de di tiep",
-  "Tunnels va bat CA HAI: Read + Use",
-  "KHONG can bat All cho toan bo API key",
-  "KHONG can biet lap trinh",
+  "không cần biết lập trình",
+  "Tunnels: Read + Use",
+  "KHÔNG chọn Read Only",
+  "KHÔNG cần cấp All cho toàn bộ API key",
+  "gõ bất kỳ chữ nào",
+  "Kết nối GPTWorker với ChatGPT",
 ]) {
   if (!setupTest.includes(required)) {
     throw new Error(`setup-test UX contract missing: ${required}`);
