@@ -175,6 +175,18 @@ Official references:
 - Secure MCP Tunnel: https://developers.openai.com/api/docs/guides/secure-mcp-tunnels
 - Developer Mode and custom MCP apps: https://help.openai.com/en/articles/12584461-developer-mode-and-mcp-apps-in-chatgpt
 
+## Test the setup flow without changing your installation
+
+During development, run:
+
+```text
+setup-test.bat
+```
+
+This simulates the complete first-time onboarding flow — Tunnel page, API key page, validation/startup messages, ChatGPT Settings, and the local HTML guide — without changing `.env`, restarting the Worker/Tunnel, or touching the current connection.
+
+Use fake input only in this test flow; do not paste a real API key.
+
 ## Daily use
 
 Run:
