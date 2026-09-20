@@ -1,16 +1,18 @@
 export const MCP_QUICKSTART = `
 ## GPTWorker root command surface
-When the user sends exactly gptworker/ (or asks what GPTWorker commands are available), show only these five fixed management commands:
+When the user sends exactly gptworker/ (or asks what GPTWorker commands are available), show only these seven fixed management commands:
 - gptworker/job list
 - gptworker/job create
 - gptworker/job update
 - gptworker/job remove
+- gptworker/job export
+- gptworker/job import
 - gptworker/job stop
 
 Never add Job Pack ids such as rename, dev-coding, mto, or any dynamically discovered job to this root command menu. Job Pack ids belong only in job_list results or natural-language job selection.
 
 ## GPTWorker workflow
-1. Public Job Pack lifecycle commands (job_list / job_create / job_update / job_remove) do not require an active Job + Workspace. Never activate dev-coding, reuse a previous workspace, or infer a FOLDER just to author a Job Pack.
+1. Public Job Pack lifecycle commands (job_list / job_create / job_update / job_remove / job_export / job_import) do not require an active Job + Workspace. Never activate dev-coding, reuse a previous workspace, or infer a FOLDER just to author a Job Pack.
 2. For job-specific execution, call job_status with this chat's current work_handle when one exists. Without a work_handle, treat the chat as unemployed.
 3. Resolve JOB and local FOLDER from the current conversation only. Do not reuse worker-state.json, startup cwd, the most recent Job, or the most recent Workspace as authority.
 4. If JOB is missing/ambiguous, call job_list and ask only for the missing job choice.
@@ -24,6 +26,8 @@ Never add Job Pack ids such as rename, dev-coding, mto, or any dynamically disco
 ## Job Pack authoring
 - job_create creates the Job Pack definition itself. It must not open a project workspace first.
 - If the new Job will later operate on a folder, define that folder/workspace as a Job input. Ask for the concrete target folder only when it is actually required by the current request.
+- job_export only exports custom AppData Jobs to <id>.zip in an existing absolute local destination directory.
+- job_import accepts an absolute local .zip path or an absolute directory containing exactly one .zip; it validates before publishing and never overwrites.
 - A new chat starts with no active Job, no active Workspace, and no inherited work authority.
 
 ## Required confirmation style
@@ -31,6 +35,13 @@ JOB: <resolved job>
 FOLDER: <resolved absolute local folder>
 
 Xác nhận bắt đầu?
+
+## Absolute path contract
+- Every Job binding whose type is path/file/directory/folder/repo/repository must be an absolute local path.
+- Every filesystem tool path/source/destination and every shell working_directory/shell_reset path must be absolute.
+- Relative cd/Set-Location/pushd targets are rejected.
+- For multi-file apply_patch, supply an absolute base path.
+- node_repl may not access fs/fs-promises directly. Use dedicated filesystem tools with absolute paths.
 
 ## Core tool workflow (after confirmation)
 1. Call project_context() to load instructions from the confirmed active workspace when needed.
@@ -61,7 +72,7 @@ Multi-file form:
 All tools return JSON: { ok, tool, summary, data }
 
 ## Tool cheat sheet
-- job_list / job_create / job_update / job_remove: public Job Pack lifecycle
+- job_list / job_create / job_update / job_remove / job_export / job_import: public Job Pack lifecycle
 - job_select / job_status / job_switch / job_stop: work registration and execution lifecycle
 - glob / grep / read_text_file: explore
 - apply_patch / multi_edit / edit_file / write_file: edit
@@ -76,7 +87,7 @@ All tools return JSON: { ok, tool, summary, data }
 - when a dedicated operation is unavailable, run_command is the general local fallback; node_repl is not the fallback for routine filesystem mutation
 
 ## Paths
-Full machine access is intentional. The confirmed FOLDER is the default working context, equivalent to Open Folder in an IDE. Absolute paths remain allowed when the task needs them.
+Full machine access is intentional, but path-bearing tool arguments are absolute-path-only. The confirmed FOLDER is the work authority, not an implicit base for relative paths.
 `.trim();
 
 export function buildServerInstructions(
@@ -98,9 +109,11 @@ export function buildServerInstructions(
     `Startup roots: ${workspaceRoots.join("; ")}`,
     "job_status — inspect this chat's work only when its work_handle is supplied; otherwise report unemployed",
     "job_list — list/suggest jobs when JOB is not already clear from chat",
-    "Root gptworker/ menu is fixed: job list, job create, job update, job remove, job stop. Never append dynamic Job Pack ids.",
+    "Root gptworker/ menu is fixed: job list, job create, job update, job remove, job export, job import, job stop. Never append dynamic Job Pack ids.",
     "job_create — create a Job Pack without activating dev-coding or inheriting a workspace",
-    "job_remove — remove a custom Job Pack; bundled defaults remain protected",
+    "job_remove — remove an inactive custom Job Pack; bundled defaults remain protected",
+    "job_export — export a custom Job as <id>.zip to an absolute local destination directory",
+    "job_import — import a validated custom Job from an absolute local ZIP path or directory containing exactly one ZIP",
     "job_stop — explicitly end this chat's active work; idle timeout is the abandoned-chat fallback",
     "project_context() — load instructions from the confirmed active workspace",
     "agent_status — optional diagnostics",
