@@ -4,7 +4,7 @@ import path from "path";
 export type ToolProfileName = "full" | "slim";
 
 export const LOCAL_TOOL_CATALOG = [
-  "job_list", "job_create", "job_update", "job_remove", "job_export", "job_import", "job_select", "job_status", "job_stop", "job_switch", "workspace_discover", "work_tool",
+  "gptworker_admission", "job_list", "job_create", "job_update", "job_remove", "job_export", "job_import", "job_select", "job_status", "job_stop", "job_switch", "workspace_discover", "work_tool",
   "read_text_file", "write_file", "edit_file", "multi_edit", "apply_patch", "glob", "grep", "list_directory", "move_file",
   "run_command", "shell_status", "shell_reset", "start_process", "process_output", "node_repl", "ponytail_turn",
   "git_status", "git_diff", "git_add", "git_commit", "git_restore", "agent_status", "project_context",
@@ -39,6 +39,7 @@ export function saveLocalToolOverrides(next: LocalToolOverrides): void {
 
 /** Core tools for ChatGPT web — smaller tools/list payload, fewer discovery errors. */
 export const SLIM_CHATGPT_TOOLS = new Set([
+  "gptworker_admission",
   "job_list",
   "job_create",
   "job_update",
