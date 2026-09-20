@@ -83,6 +83,12 @@ assert.ok(GPTWORKER_IDLE_PROMPT.includes("- coding"));
 assert.ok(GPTWORKER_IDLE_PROMPT.includes("- planning"));
 assert.ok(GPTWORKER_IDLE_PROMPT.includes("- layla"));
 assert.ok(GPTWORKER_IDLE_PROMPT.includes("- mto"));
+for (const command of expectedRootCommands) {
+  assert.ok(
+    GPTWORKER_IDLE_PROMPT.includes(command),
+    `idle GPTWorker greeting missing management command: ${command}`
+  );
+}
 assert.ok(GPTWORKER_IDLE_PROMPT.includes("thư mục local tuyệt đối"));
 assert.ok(MCP_QUICKSTART.includes("## Bare GPTWorker invocation — zero-tool response"));
 assert.ok(MCP_QUICKSTART.includes("DO NOT call any MCP tool at all"));
