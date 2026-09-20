@@ -2,33 +2,58 @@
 
 ## Active Backlog
 
-P0 hiện chỉ là logging. Các phần v2 khác giữ trong TASKS.md/TODO nhưng không được kéo vào implementation P0.
+- [ ] Implement deterministic WorkspaceKey: readable slug + stable hash of canonical absolute path.
+- [ ] Implement WorkRegistrationStore and readable ExecutionId.
+- [ ] Implement WorkspaceOwnershipRegistry with WORKSPACE_BUSY.
+- [ ] Return NO_ACTIVE_WORK for missing/stale registration; never fallback to previous/global context.
+- [ ] Bind confirmation to Job + Workspace + generation + pack revision.
+- [ ] Remove global cwd/project-context authority from execution paths.
+- [ ] Define core Tool Families and map current tools into them.
+- [ ] Implement on-demand ephemeral tool instances; no fixed pool/inventory.
+- [ ] Implement immutable ToolContext and ActiveToolLeaseRegistry.
+- [ ] Define lifecycle for stateful resources: shell process, REPL, upstream/external session.
+- [ ] Add multi-execution stress tests using same Tool Family across different workspaces.
+- [ ] Split Driver protocol gateway from Worker executor.
+- [ ] Implement quiescence-based Worker sleep; do not use inactivity timeout to end active registration.
+- [ ] Move mutable Job Packs to %LOCALAPPDATA%\GPTWorker\jobs.
+- [ ] Replace repo-relative harness imports with portable runner/API.
+- [ ] Implement immutable pack snapshots and publish transaction.
+- [ ] Implement Job Authoring workflow.
+- [ ] Add Windows logon supervision and clean-machine release acceptance.
+- [ ] Define retention for history/cache/checkpoints/transaction journals; this must not expire ACTIVE WorkRegistration.
 
-- [ ] Hoàn tất acceptance evidence cho TASK-V2-LOG-001 trên Windows runtime thật.
-- [ ] Chọn worker idle duration, session expiry, memory/CPU/wake budgets từ các phase roadmap sau P0.
-- [ ] Chốt retention cho staging/history/cache/checkpoints; luôn giữ revisions có active lease và transactions chưa recover.
-- [ ] Chốt naming/branding GPTWorker v2 và migration wording, giữ connector/alias compatibility cần thiết.
-- [ ] Chốt cơ chế export diagnostic bundle đã redaction cho support nội bộ; không thêm command người dùng nếu chưa cần.
+## Explicitly Rejected / Removed
+
+- [x] MCP transport session as chat/work identity.
+- [x] Auto-attach to most recent Job/workspace.
+- [x] Machine-global active Job/cwd as execution authority.
+- [x] Inactivity timeout as normal Job lifecycle.
+- [x] Fixed Tool Pool with N pre-created/free instances.
+- [x] Per-Job duplicate read/write/shell/git implementations.
+- [x] Family-level queue merely because two Jobs call the same capability.
+- [x] General file-level lock for independent Jobs in different workspaces.
+- [x] Duplicate on-disk Job registry in addition to job.yaml.
 
 ## Deferred
 
-- [ ] Windows Service; user-logon background process là hướng release đầu.
-- [ ] Full YAML parser; v2.0 đề xuất JSON-compatible YAML.
-- [ ] Resume active Job sau Driver restart hoặc reboot; yêu cầu hiện tại là session cũ mất authority.
-- [ ] Public rollback/remove/enable/disable command; transaction recovery backend vẫn bắt buộc ở release đầu.
-- [ ] Publish Job marketplace/package manager và auto-download dependency từ manifest.
+- [ ] Resume active WorkRegistration after Driver restart/reboot.
+- [ ] Concurrent independent executions against the same canonical workspace.
+- [ ] Windows Service; release-first host is user-logon background process.
+- [ ] Full YAML parser; initial v2 keeps JSON-compatible YAML.
+- [ ] Public rollback/remove/enable/disable commands.
+- [ ] Job marketplace/dependency auto-download.
+- [ ] OS-enforced sandbox for untrusted packs.
+- [ ] Multi-machine work session.
 
 ## Optional / Future
 
-- [ ] Immutable version directories làm canonical storage nếu Windows publish transaction ở layout hiện tại quá phức tạp; thay layout phải quay lại architecture review.
-- [ ] OS-enforced execution isolation cho untrusted Job Packs; hiện tại pack/harness là trusted local code.
-- [ ] Detach long-running managed processes khỏi Worker để tăng khả năng sleep; cần lifecycle owner mới rõ ràng.
-- [ ] Signed application releases và broader distribution hardening nếu phạm vi chuyển từ dùng cá nhân sang phân phối rộng.
+- [ ] Global CPU/RAM/process pressure controller if real workloads need throttling. It must not become a per-family arbitrary instance count.
+- [ ] Detach long-running managed processes into a dedicated lifecycle owner if needed for deeper Worker sleep.
+- [ ] Signed releases and distribution hardening if project scope expands beyond trusted personal/local use.
 
 ## Out of Scope
 
-- Thay HVAC/MTO rules, template/source authority hoặc write boundary nghiệp vụ.
-- Kernel driver, multi-agent hierarchy, multi-machine coordination.
-- Đọc trực tiếp database nội bộ ChatGPT để đoán conversation identity.
-- Chuyển conversation/job sang user khác hoặc tự restore task cũ bằng workspace gần nhất.
-- Sửa runtime code chỉ để hoàn tất lượt review plan này.
+- Changing HVAC/MTO business rules.
+- Reading ChatGPT internal databases to infer conversation identity.
+- Sharing one active workspace among unrelated executions in v2 release.
+- Treating human-readable execution IDs as credentials.
