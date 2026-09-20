@@ -15,7 +15,7 @@ $GuidePath = Join-Path $ScriptDir "docs\setup-guide\index.html"
 $LogDir = Join-Path $env:LOCALAPPDATA "GPTWorker\logs"
 
 function Get-StartupCommand {
-    return 'powershell.exe -NoProfile -WindowStyle Hidden -ExecutionPolicy Bypass -File "' + $PSCommandPath + '"'
+    return 'powershell.exe -NoProfile -STA -WindowStyle Hidden -ExecutionPolicy Bypass -File "' + $PSCommandPath + '"'
 }
 
 function Install-StartupRegistration {
@@ -45,6 +45,7 @@ if ($env:OS -ne "Windows_NT") {
 
 Add-Type -AssemblyName System.Windows.Forms
 Add-Type -AssemblyName System.Drawing
+[System.Windows.Forms.Application]::EnableVisualStyles()
 
 $createdNew = $false
 $mutex = [System.Threading.Mutex]::new($true, "Local\GPTWorkerTray", [ref]$createdNew)
@@ -261,20 +262,20 @@ function Restart-GptWorkerRuntime {
 }
 
 function New-LetterIcon([System.Drawing.Color]$Color) {
-    $bitmap = New-Object System.Drawing.Bitmap 32, 32
+    $bitmap = [System.Drawing.Bitmap]::new(32, 32)
     $graphics = [System.Drawing.Graphics]::FromImage($bitmap)
     $graphics.SmoothingMode = [System.Drawing.Drawing2D.SmoothingMode]::AntiAlias
     $graphics.Clear([System.Drawing.Color]::Transparent)
 
-    $circle = New-Object System.Drawing.SolidBrush($Color)
-    $textBrush = New-Object System.Drawing.SolidBrush([System.Drawing.Color]::White)
-    $font = New-Object System.Drawing.Font("Segoe UI", 17, [System.Drawing.FontStyle]::Bold, [System.Drawing.GraphicsUnit]::Pixel)
+    $circle = [System.Drawing.SolidBrush]::new($Color)
+    $textBrush = [System.Drawing.SolidBrush]::new([System.Drawing.Color]::White)
+    $font = [System.Drawing.Font]::new("Segoe UI", 17, [System.Drawing.FontStyle]::Bold, [System.Drawing.GraphicsUnit]::Pixel)
 
     $graphics.FillEllipse($circle, 1, 1, 30, 30)
     $graphics.DrawString("G", $font, $textBrush, 7, 5)
 
     $handle = $bitmap.GetHicon()
-    $icon = [System.Drawing.Icon]::FromHandle($handle).Clone()
+    $icon = ([System.Drawing.Icon]::FromHandle($handle)).Clone()
 
     $font.Dispose()
     $textBrush.Dispose()
@@ -286,10 +287,10 @@ function New-LetterIcon([System.Drawing.Color]$Color) {
 }
 
 $icons = @{
-    Starting  = New-LetterIcon ([System.Drawing.Color]::FromArgb(107, 114, 128))
-    Connected = New-LetterIcon ([System.Drawing.Color]::FromArgb(22, 163, 74))
-    Working   = New-LetterIcon ([System.Drawing.Color]::FromArgb(37, 99, 235))
-    Degraded  = New-LetterIcon ([System.Drawing.Color]::FromArgb(217, 119, 6))
+    Starting  = $(New-LetterIcon ([System.Drawing.Color]::FromArgb(107, 114, 128)))
+    Connected = $(New-LetterIcon ([System.Drawing.Color]::FromArgb(22, 163, 74)))
+    Working   = $(New-LetterIcon ([System.Drawing.Color]::FromArgb(37, 99, 235)))
+    Degraded  = $(New-LetterIcon ([System.Drawing.Color]::FromArgb(217, 119, 6)))
 }
 
 $notify = New-Object System.Windows.Forms.NotifyIcon
