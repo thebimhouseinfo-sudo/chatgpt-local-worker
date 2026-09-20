@@ -87,9 +87,11 @@ echo ========================================
 echo The local Worker is running, so tunnel doctor can validate the MCP target.
 echo.
 echo GPTWorker will guide the connection setup one step at a time.
+echo This setup run is treated as a fresh install test.
+echo Existing Tunnel ID / API key in .env will be ignored and replaced.
 echo Each OpenAI page will open automatically exactly when its value is needed.
 echo.
-powershell -NoProfile -ExecutionPolicy Bypass -File "%~dp0openai-tunnel.ps1" -Init
+powershell -NoProfile -ExecutionPolicy Bypass -File "%~dp0openai-tunnel.ps1" -Init -FreshSetup
 if errorlevel 1 goto :failed
 
 set "TUNNEL_HEALTH_PORT=8080"
@@ -97,7 +99,7 @@ for /f "tokens=2 delims==" %%A in ('findstr /B /C:"OPENAI_TUNNEL_HEALTH_PORT=" "
 
 echo.
 echo Starting Secure MCP Tunnel...
-start "GPTWorker Tunnel" /min powershell -NoProfile -ExecutionPolicy Bypass -NoExit -File "%~dp0openai-tunnel.ps1" -Port %WORKER_PORT%
+start "GPTWorker Tunnel" /min powershell -NoProfile -ExecutionPolicy Bypass -NoExit -File "%~dp0openai-tunnel.ps1" -Port %WORKER_PORT% -Force
 
 echo Waiting for tunnel readiness on port %TUNNEL_HEALTH_PORT%...
 powershell -NoProfile -Command "$ok=$false; foreach ($i in 1..120) { try { $r=Invoke-WebRequest 'http://127.0.0.1:%TUNNEL_HEALTH_PORT%/readyz' -UseBasicParsing -TimeoutSec 1; if ($r.StatusCode -eq 200) { $ok=$true; break } } catch {}; Start-Sleep -Milliseconds 500 }; if (-not $ok) { exit 1 }"
