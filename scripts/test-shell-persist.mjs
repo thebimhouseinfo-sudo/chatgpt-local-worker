@@ -35,8 +35,8 @@ try {
   await bootstrapShellSession(workspaceA);
   await bootstrapShellSession(workspaceB);
 
-  await execInShellSession("cd sub", workspaceA, 5000);
-  await execInShellSession("cd sub", workspaceB, 5000);
+  await execInShellSession(`cd "${subA}"`, workspaceA, 5000);
+  await execInShellSession(`cd "${subB}"`, workspaceB, 5000);
 
   const statusA = getShellStatus(workspaceA);
   const statusB = getShellStatus(workspaceB);
@@ -47,6 +47,15 @@ try {
     throw new Error(`workspace B cwd mismatch: ${statusB.cwd}`);
   }
   ok("two workspaces keep independent shell cwd");
+
+  let relativeCdBlocked = false;
+  try {
+    await execInShellSession("cd sub", workspaceA, 5000);
+  } catch (error) {
+    relativeCdBlocked = /absolute path/i.test(String(error?.message || error));
+  }
+  if (!relativeCdBlocked) throw new Error("relative cd target should be rejected");
+  ok("relative shell directory changes are rejected");
 
   resetAllShellSessionsForTests();
   await bootstrapShellSession(workspaceA);
