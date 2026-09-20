@@ -125,15 +125,9 @@ async function validateResolvedWorkspace(result: any): Promise<void> {
   await validateWorkspacePath(workspace);
 }
 
-export interface JobToolLifecycle {
-  onWorkActivated?: () => Promise<void> | void;
-  onWorkStopped?: () => Promise<void> | void;
-}
-
 async function persistActiveSelection(
   result: any,
-  runtime: JobRuntime,
-  lifecycle?: JobToolLifecycle
+  runtime: JobRuntime
 ) {
   await validateResolvedWorkspace(result);
   if (result?.state?.phase !== "active") return result;
@@ -146,21 +140,7 @@ async function persistActiveSelection(
 
   const registration = await createWorkRegistration(jobId, workspace, () => {
     runtime.stop();
-    void Promise.resolve(lifecycle?.onWorkStopped?.()).catch((error) => {
-      console.warn(
-        "[GPTWorker] Failed to unload execution runtime after idle timeout:",
-        error instanceof Error ? error.message : error
-      );
-    });
   });
-
-  try {
-    await lifecycle?.onWorkActivated?.();
-  } catch (error) {
-    releaseWorkRegistration(registration.executionId, registration.authorityToken);
-    runtime.stop();
-    throw error;
-  }
 
   return {
     ...result,
@@ -174,8 +154,7 @@ async function persistActiveSelection(
 
 export function registerJobTools(
   server: McpServer,
-  runtime: JobRuntime,
-  lifecycle?: JobToolLifecycle
+  runtime: JobRuntime
 ): void {
   let sessionRuntime = runtime;
 
@@ -440,8 +419,7 @@ export function registerJobTools(
 
           releaseWorkRegistration(execution_id, authority_token);
           sessionRuntime.stop();
-          await lifecycle?.onWorkStopped?.();
-          preflight = await inspectJobPackForRemoval(id);
+             preflight = await inspectJobPackForRemoval(id);
 
           if (preflight.active_work_count > 0) {
             throw new Error(
@@ -608,7 +586,7 @@ export function registerJobTools(
           });
           rememberConfirmation(selected);
           await validateResolvedWorkspace(selected);
-          return persistActiveSelection(selected, sessionRuntime, lifecycle);
+          return persistActiveSelection(selected, sessionRuntime);
         }
 
         const proof = getConfirmationProof(confirmation_token);
@@ -657,7 +635,7 @@ export function registerJobTools(
         });
         pendingConfirmations.delete(confirmation_token!);
         await validateResolvedWorkspace(selected);
-        return persistActiveSelection(selected, sessionRuntime, lifecycle);
+        return persistActiveSelection(selected, sessionRuntime);
       })
   );
 
@@ -683,8 +661,7 @@ export function registerJobTools(
           }
           releaseWorkRegistration(execution_id, authority_token);
         }
-        await lifecycle?.onWorkStopped?.();
-        const persistentState = await clearWorkerState();
+         const persistentState = await clearWorkerState();
         await bindRuntimeToWorkspace(bindings, true);
         const selected = await sessionRuntime.switch(job, bindings);
         rememberConfirmation(selected?.current);
@@ -715,8 +692,7 @@ export function registerJobTools(
         }
         const released = releaseWorkRegistration(execution_id, authority_token);
         const stopped = sessionRuntime.stop();
-        await lifecycle?.onWorkStopped?.();
-        return {
+         return {
           ...stopped,
           released_work: {
             execution_id: released.executionId,
