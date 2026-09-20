@@ -315,6 +315,22 @@ Acceptance: code + CI + live runtime evidence hoàn tất.
 
 ### P1 — Work Registration + Workspace Ownership
 
+#### P1A — Work Tool Lease Pilot first
+
+Trước khi refactor sâu, triển khai vertical slice nhỏ:
+
+- confirmed Job + Workspace tạo `work_handle`;
+- native execution tools nhận `execution_id + authority_token`;
+- mỗi call tạo ephemeral lease có ID gắn Job + Workspace;
+- log `work_registered / tool_lease_acquired / tool_lease_released / tool_lease_rejected`;
+- filesystem calls dùng call-local workspace context;
+- confirmation proof sống qua MCP transport reconnect;
+- live test 2 chats / 2 workspaces / interleaved filesystem calls.
+
+Acceptance chi tiết: [WORK_TOOL_LEASE_PILOT.md](WORK_TOOL_LEASE_PILOT.md).
+
+Nếu ChatGPT không carry đúng work handle qua repeated/interleaved calls, dừng P1 tại đây và sửa continuity contract trước khi refactor sâu hơn.
+
 Implement contract mới trước khi sửa tool internals:
 
 - WorkspaceKey canonicalization + deterministic hash; normalize drive-letter/case/separators/trailing slash và resolve real path/reparse target khi khả dụng.

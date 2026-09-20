@@ -2,6 +2,7 @@
 
 ## Active Backlog
 
+- [ ] Complete P1A live lease pilot in [WORK_TOOL_LEASE_PILOT.md](WORK_TOOL_LEASE_PILOT.md): 2 chats, 2 workspaces, interleaved filesystem calls, no handle swap, no token leak.
 - [ ] Implement deterministic WorkspaceKey: readable slug + stable hash of canonical absolute path.
 - [ ] Implement WorkRegistrationStore, persistent monotonic DriverEpoch, readable ExecutionId and opaque authorityToken.
 - [ ] Prove live ChatGPT handle continuity: one chat >=5 calls; two chats interleaved without handle swap.

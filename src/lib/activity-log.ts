@@ -20,6 +20,11 @@ export interface ActivityEntry {
   details?: Record<string, unknown>;
   pid?: number;
   request_id?: string | number;
+  work_id?: string;
+  lease_id?: string;
+  job_id?: string;
+  workspace_key?: string;
+  tool_family?: string;
   schema_version?: 1;
 }
 
@@ -86,7 +91,7 @@ export function summarizeToolArgs(tool: string, args: unknown): string {
   if (typeof a.action === "string") return `action: ${a.action}`;
 
   try {
-    return trimSummary(JSON.stringify(a));
+    return trimSummary(JSON.stringify(sanitizeActivityValue(a)));
   } catch {
     return "";
   }
@@ -164,6 +169,16 @@ function writeConsole(entry: ActivityEntry): void {
   }
 
   const status = entry.status ? ` [${entry.status}]` : "";
+
+  if (entry.kind === "tool" && entry.action?.startsWith("tool_lease_")) {
+    const lease = entry.lease_id || entry.details?.lease_id || entry.summary || "";
+    const work = entry.work_id || entry.details?.work_id || "";
+    console.log(
+      `[LEASE]${status} ${entry.action} ${entry.tool || "tool"}` +
+      `${lease ? ` — ${lease}` : ""}${work ? ` work=${String(work)}` : ""}${dur}`
+    );
+    return;
+  }
 
   if (entry.kind === "tool" && entry.tool) {
     const extra = entry.summary || entry.target || "";
