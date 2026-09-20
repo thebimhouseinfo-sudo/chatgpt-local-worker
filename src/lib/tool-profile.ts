@@ -17,18 +17,24 @@ interface LocalToolOverrides {
 }
 
 const overridesPath = () => path.resolve(process.cwd(), "profiles", "tool-overrides.json");
+let cachedOverrides: LocalToolOverrides | null = null;
 
 export function getLocalToolOverrides(): LocalToolOverrides {
+  if (cachedOverrides) return cachedOverrides;
   try {
-    return JSON.parse(fs.readFileSync(overridesPath(), "utf-8")) as LocalToolOverrides;
+    cachedOverrides = JSON.parse(
+      fs.readFileSync(overridesPath(), "utf-8")
+    ) as LocalToolOverrides;
   } catch {
-    return {};
+    cachedOverrides = {};
   }
+  return cachedOverrides;
 }
 
 export function saveLocalToolOverrides(next: LocalToolOverrides): void {
   fs.mkdirSync(path.dirname(overridesPath()), { recursive: true });
   fs.writeFileSync(overridesPath(), JSON.stringify(next, null, 2));
+  cachedOverrides = next;
 }
 
 /** Core tools for ChatGPT web — smaller tools/list payload, fewer discovery errors. */
