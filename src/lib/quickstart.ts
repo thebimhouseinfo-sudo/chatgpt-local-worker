@@ -1,80 +1,64 @@
-export const GPTWORKER_HELP = `
+export const GPTWORKER_HELP = \`
 # GPTWorker — Hướng dẫn nhanh
 
-**GPTWorker giúp ChatGPT làm việc trực tiếp với các file trên máy tính của bạn, đặc biệt là file code và tài liệu Microsoft Office như Word, Excel, PowerPoint.**
+**GPTWorker cho phép ChatGPT làm việc trực tiếp với file trên máy tính thông qua các Job.**
 
-Bạn chỉ cần nói bằng ngôn ngữ tự nhiên việc muốn làm và chỉ rõ thư mục cần làm việc.
+Chỉ cần nói việc muốn làm và chỉ rõ thư mục làm việc bằng đường dẫn tuyệt đối.
+
+## Cách dùng
 
 Ví dụ:
 
-> “Đổi hết tên file trong thư mục D:\\Photos thành chữ in hoa.”
+\`\`\`text
+Sửa lỗi app trong D:\\Projects\\MyApp
+Dùng Layla đọc các file trong D:\\BaoCao và tổng hợp thành PowerPoint
+Đổi tên hàng loạt file trong D:\\Photos theo mẫu tôi mô tả
+\`\`\`
 
-Hoặc một công việc lớn hơn:
+GPTWorker sẽ tự xác định Job phù hợp, kiểm tra FOLDER rồi báo lại trước khi làm:
 
-> “Đọc các tài liệu trong thư mục D:\\BaoCao, tạo một file PowerPoint khoảng 30 slide và sử dụng các hình minh họa trong thư mục con Images.”
+\`\`\`text
+JOB: layla
+FOLDER: D:\\BaoCao
 
-GPTWorker sẽ giúp ChatGPT thao tác trực tiếp với các file trên máy tính để thực hiện công việc đó.
+Xác nhận bắt đầu?
+\`\`\`
+
+**Chưa có JOB + FOLDER được xác nhận thì GPTWorker không được bắt đầu thực hiện công việc.**
 
 ## Job là gì?
 
-**Job là cách bạn dạy GPT phải làm việc theo một khuôn khổ nhất định, thay vì để GPT tự quyết định cách làm mỗi lần.**
+**Job là bộ quy tắc làm việc cho một nhóm công việc.** Khi một quy trình lặp lại đủ nhiều, bạn có thể tạo custom Job để GPT luôn làm theo cùng một cách.
 
-Ví dụ, bạn có thể tạo Job ppt và quy định trước font chữ phải dùng, kích thước tiêu đề, bố cục slide, transition, cách sử dụng hình ảnh và những bước cần kiểm tra trước khi hoàn thành.
+Các Job mặc định chính:
 
-Từ đó, mỗi khi sử dụng Job ppt, GPT sẽ làm PowerPoint theo đúng các quy tắc bạn đã đặt ra.
+- \`layla\` — trợ lý đa năng cho công việc tạm thời với TXT, tài liệu Office, Excel, PowerPoint, file/folder và các bộ file hỗn hợp;
+- \`dev-coding\` — code, sửa lỗi, refactor, test và build;
+- \`dev-planing\` — phân tích repo, kiến trúc và lập kế hoạch triển khai.
 
-Bạn cũng có thể tự tạo Job cho những công việc thường xuyên của mình.
+Dùng \`gptworker/job list\` để xem toàn bộ Job đang có, kể cả custom Job.
 
-## Thư mục làm việc
-
-**Mỗi khi bắt đầu một công việc, hãy cung cấp cho GPTWorker một thư mục làm việc cụ thể.**
-
-Có thể hiểu đơn giản là bạn đang nói với GPT:
-
-> **“Hãy làm việc trong thư mục này.”**
-
-Ví dụ:
-
-D:\\Projects\\MyPresentation
-
-GPTWorker sẽ dùng thư mục đó làm Workspace của công việc để GPT biết chính xác mình đang làm việc ở đâu và tránh sửa nhầm file ở nơi khác trên máy tính.
-
-Trước khi bắt đầu, GPTWorker sẽ báo lại:
-
-    JOB: ppt
-    FOLDER: D:\\Projects\\MyPresentation
-
-    Xác nhận bắt đầu?
-
-**Không có Job + Workspace được xác nhận thì GPTWorker không được bắt đầu làm việc.**
-
-## Các lệnh chính
+## Quản lý Job
 
 | Lệnh | Chức năng |
 |---|---|
-| gptworker/help | Xem hướng dẫn này |
-| gptworker/job list | Xem các Job hiện có |
-| gptworker/job create | Tạo custom Job mới |
-| gptworker/job update | Chỉnh sửa custom Job |
-| gptworker/job remove | Xóa custom Job sau khi kiểm tra và xác nhận |
-| gptworker/job export | Đóng gói custom Job thành file ZIP |
-| gptworker/job import | Cài custom Job từ file ZIP |
-| gptworker/job stop | Kết thúc Job đang làm việc |
-`.trim();
+| \`gptworker/help\` | Xem hướng dẫn này |
+| \`gptworker/job list\` | Xem các Job hiện có |
+| \`gptworker/job create\` | Tạo custom Job mới |
+| \`gptworker/job update\` | Chỉnh sửa custom Job |
+| \`gptworker/job stop\` | Kết thúc công việc hiện tại và đưa GPTWorker về idle |
+\`.trim();
 
 export const MCP_QUICKSTART = `
 ## GPTWorker root command surface
-When the user sends exactly gptworker/ (or asks what GPTWorker commands are available), show only these eight fixed root commands:
+When the user sends exactly gptworker/ (or asks what GPTWorker commands are available), show only these five fixed root commands:
 - gptworker/help
 - gptworker/job list
 - gptworker/job create
 - gptworker/job update
-- gptworker/job remove
-- gptworker/job export
-- gptworker/job import
 - gptworker/job stop
 
-Never add Job Pack ids such as rename, dev-coding, mto, or any dynamically discovered job to this root command menu. Job Pack ids belong only in job_list results or natural-language job selection.
+Never add Job Pack ids such as layla, dev-coding, mto, or any dynamically discovered job to this root command menu. Job Pack ids belong only in job_list results or natural-language job selection.
 
 ## gptworker/help
 When the user sends exactly gptworker/help, reply with the prewritten GPTWORKER_HELP guide above. This is chat-only help: do not call an MCP tool, do not create/select a Job, do not infer a Workspace, and do not change Worker state.
@@ -179,7 +163,7 @@ export function buildServerInstructions(
     "gptworker/help — reply with the prewritten newcomer guide only; do not call tools or change Worker state",
     "job_status — inspect this chat's work only when its work_handle is supplied; otherwise report unemployed",
     "job_list — list/suggest jobs when JOB is not already clear from chat",
-    "Root gptworker/ menu is fixed: help, job list, job create, job update, job remove, job export, job import, job stop. Never append dynamic Job Pack ids.",
+    "Root gptworker/ menu is fixed: help, job list, job create, job update, job stop. Never append dynamic Job Pack ids.",
     "job_create — create a Job Pack without activating dev-coding or inheriting a workspace",
     "job_remove — remove an inactive custom Job Pack only after explicit confirmation; bundled defaults remain protected",
     "job_export — export a custom Job as <id>.zip to an absolute local destination directory",
