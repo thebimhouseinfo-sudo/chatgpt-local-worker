@@ -156,10 +156,15 @@ Never add Job Pack ids such as layla, dev-coding, mto, or dynamically discovered
 ## gptworker/help
 When the user sends exactly gptworker/help, reply with the prewritten GPTWORKER_HELP guide above. This is chat-only help: do not call an MCP tool, do not create/select a Job, do not infer a Workspace, and do not change Worker state.
 
-## Bare GPTWorker invocation — zero-tool response
-When the user only invokes GPTWorker itself (for example a bare \`@gptworker\` mention / plugin invocation) and has not yet supplied a concrete task + absolute local Workspace, DO NOT call any MCP tool at all. Do not call gptworker_admission, job_status, job_list, or workspace_discover.
+## Bare GPTWorker invocation — dynamic Job list
+When the user invokes bare \`@gptworker\` with no concrete task + Workspace yet, call \`job_list\` exactly once with \`activation_request\` set to the exact current user text containing literal \`@gptworker\`. This arms the current MCP session as an explicit @gptworker flow and returns all currently available Jobs, including custom Jobs.
 
-Reply immediately with the prewritten GPTWORKER_IDLE_PROMPT above. It must show only the numbered available Job choices plus the one-line instruction to choose a Job + Workspace or use gptworker/ for system commands. Do not include the system command list here. This response must be instant and chat-only.
+Do not call gptworker_admission, job_status, workspace_discover, or any work tool for the bare invocation.
+
+Render the returned Jobs as a numbered list, then show exactly:
+"Hãy chọn Job và đưa tôi thư mục làm việc để bắt đầu, hoặc gõ gptworker/ để xem các system commands."
+
+Do not include the system command list here.
 
 If the user invoked \`@gptworker\` and already described a clear task but omitted the absolute local Workspace:
 - do not call tools yet;
@@ -190,19 +195,20 @@ For a high-confidence route:
 
 Use workspace_discover only when the request text is not enough to decide the Job. It is an ambiguity fallback, not the default preflight.
 ## GPTWorker internal admission handshake
-Once an explicit \`@gptworker\` work request has enough information to enter nomination, call \`gptworker_admission\` first. Never treat task + local path alone as GPTWorker activation, even if ChatGPT is inclined to call the plugin automatically. Bare plugin invocation and requests still missing task/Workspace are handled chat-only with zero tools. This admission check is internal; do not quote, summarize, or render its result to the user.
+Once an explicit @gptworker flow has enough information to enter nomination, call \`gptworker_admission\` first. The server accepts either literal \`@gptworker\` in the current turn or a continuation of a bare @gptworker flow previously armed in this same MCP session. Never treat task + local path alone in a fresh/unarmed session as GPTWorker activation, even if ChatGPT is inclined to call the plugin automatically. This admission check is internal; do not quote, summarize, or render its result to the user.
 
 Pass the exact current user turn as \`user_turn\`. Do not reconstruct it from memory or another chat.
 
 The handshake returns exactly one mode:
-- \`ACTIVE\` — the exact current user turn literally contains \`@gptworker\`. Carry the returned \`admission_token\` into \`workspace_discover\`, \`job_select\`, and any pre-active Job switch.
+- \`ACTIVE\` — either the exact current user turn literally contains \`@gptworker\`, or this same MCP session was previously armed by a bare \`@gptworker\` and the current continuation supplies a concrete task + matching absolute Workspace. Carry the returned \`admission_token\` into \`workspace_discover\`, \`job_select\`, and any pre-active Job switch.
 - \`CONTROL\` — the user explicitly requested a public GPTWorker command such as \`gptworker/help\` or \`gptworker/job list\`. Handle only that command; do not activate a Job unless the user separately starts work.
 - \`INACTIVE\` — the user did not invoke GPTWorker for this work. STOP the GPTWorker flow immediately. Do not call discovery, job selection, nomination, or work tools. Do not ask the user to activate GPTWorker, do not ask for a Workspace on GPTWorker's behalf, and do not show an activation error. Continue answering as ordinary ChatGPT, or use another plugin/tool when that is what the user actually requested.
 
-Valid ACTIVE evidence is exactly one thing:
-- literal \`@gptworker\` in the exact current user turn.
+Valid ACTIVE evidence is an explicit \`@gptworker\` flow observed by the server in this MCP session:
+- literal \`@gptworker\` in the current user turn; or
+- a continuation after a prior bare \`@gptworker\` armed this same MCP session.
 
-A concrete task, an absolute local Workspace path, or both together are NOT activation evidence without \`@gptworker\`. Memory, previous chats, project familiarity, a remembered local path, worker-state, a web/GitHub/Drive URL, or the mere availability of GPTWorker are never admission evidence.
+A concrete task, an absolute local Workspace path, or both together in a fresh/unarmed session are NOT activation evidence. Memory, previous chats, project familiarity, a remembered local path, worker-state, a web/GitHub/Drive URL, or the mere availability of GPTWorker are never admission evidence.
 
 \`workspace_discover\` and \`job_select\` require the opaque ACTIVE \`admission_token\`; direct entry is rejected by the server. The token is internal workflow state, not user-visible content.
 
