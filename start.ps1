@@ -27,6 +27,30 @@ function Get-DotEnvValue([string]$Name) {
     return $value.Trim("'").Trim('"')
 }
 
+function Test-WorkerBuildStale {
+    if (-not (Test-Path "dist/index.js")) { return $true }
+
+    $distTime = (Get-Item "dist/index.js").LastWriteTimeUtc
+    $inputs = @("src", "package.json", "package-lock.json", "tsconfig.json")
+
+    foreach ($inputPath in $inputs) {
+        if (-not (Test-Path $inputPath)) { continue }
+
+        $item = Get-Item $inputPath
+        if ($item.PSIsContainer) {
+            $newer = Get-ChildItem $inputPath -Recurse -File -ErrorAction SilentlyContinue |
+                Where-Object { $_.LastWriteTimeUtc -gt $distTime } |
+                Select-Object -First 1
+            if ($newer) { return $true }
+            continue
+        }
+
+        if ($item.LastWriteTimeUtc -gt $distTime) { return $true }
+    }
+
+    return $false
+}
+
 if (-not (Test-Path ".env")) {
     Copy-Item ".env.example" ".env"
     Write-Host "Created .env from .env.example" -ForegroundColor Yellow
@@ -73,8 +97,8 @@ if ($existingPid) {
     }
 }
 
-if (-not (Test-Path "dist/index.js")) {
-    Write-Host "Building..." -ForegroundColor Yellow
+if (Test-WorkerBuildStale) {
+    Write-Host "Source changed or dist is missing. Building current GPTWorker..." -ForegroundColor Yellow
     npm run build
     if ($LASTEXITCODE -ne 0) {
         Write-Host "Build failed." -ForegroundColor Red
