@@ -65,6 +65,12 @@ assert.equal(
 );
 assert.equal(stopped.structuredContent.data?.state?.phase, "idle");
 
+// Repeating the public stop command while this MCP session is already idle
+// should remain a harmless local no-op; it must not require another chat's handle.
+const stoppedAgain = await jobStop({});
+assert.equal(stoppedAgain.structuredContent.ok, true);
+assert.equal(stoppedAgain.structuredContent.data?.state?.phase, "idle");
+
 assert.throws(
   () => admission.validate(admitted.admission_token),
   /ADMISSION_REQUIRED/,
