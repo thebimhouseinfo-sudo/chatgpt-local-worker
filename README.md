@@ -104,24 +104,18 @@ After the tunnel is ready, `setup.bat` automatically opens **ChatGPT Settings �
 
 Use **ChatGPT on the web** for this one-time connection step. Keep the local guide open beside ChatGPT and follow screenshots `1.png` → `4.png`.
 
-1. Open `Settings → Plugins` and enable **Developer mode**.
-2. Open the Plugins page and press `+` to create a new plugin.
-3. Create the GPTWorker plugin.
-4. Name it:
-
-```text
-gptworker
-```
-
-5. Set **Connection** to:
-
-```text
-Tunnel
-```
-
-6. Select the `gptworker` tunnel, or paste the `tunnel_...` ID created above.
-7. Run **Scan Tools / Test connection**.
-8. Create/save the app.
+1. Follow screenshots `1.png` and `2.png`: open `Settings → Plugins` and enable **Developer mode**.
+2. Follow screenshot `3.png`: open the Plugins page and press `+` to create a new plugin.
+3. Follow screenshot `4.png` and configure:
+   - **Name:** `gptworker`
+   - **Description:** optional
+   - **Connection:** `Tunnel`
+   - **Available tunnels:** select the GPTWorker Tunnel from the list
+   - **Authentication:** `No Auth`
+4. Do **not** choose **Server URL**.
+5. Do **not** use **Use tunnel ID instead**.
+6. Tick the confirmation checkbox shown in the dialog and press **Connect/Create**.
+7. Open a new chat and invoke `@gptworker`, then try `gptworker/`.
 
 The visual guide uses the screenshots in:
 
@@ -368,7 +362,7 @@ The PowerShell helpers remain available for development/troubleshooting. Normal 
 | Tunnel does not connect | Confirm `tunnel-client --version` is 0.0.14 and rerun `openai-tunnel.ps1 -Doctor` |
 | Doctor reports `mcp_server_reachable` / `oauth_metadata` connection refused | The local Worker is not listening yet. Pull the latest repo and rerun `setup.bat`; setup now starts and health-checks the Worker before doctor. |
 | Doctor fails with 401/403 | Verify the tunnel and runtime key belong to the intended organization/workspace; the key principal needs Tunnels Read + Use. New tunnel/role changes can take time to propagate. |
-| ChatGPT asks for an MCP endpoint | Prefer **Connection: Tunnel** and select/paste the tunnel ID. Do not paste the localhost MCP URL. |
+| ChatGPT asks for an MCP endpoint | Use **Connection: Tunnel** and select the GPTWorker Tunnel from **Available tunnels**. Do not choose Server URL, do not use "Use tunnel ID instead", and do not paste the localhost MCP URL. |
 | Wrong project | Check the `FOLDER:` line before confirming and inspect `worker-state.json` |
 | Wrong job | Stop/switch the job and confirm the correct `JOB + FOLDER` again |
 | Git/shell seems to target the wrong place | `job_status` and `agent_status` show the persistent/current workspace state |
