@@ -29,6 +29,7 @@ try {
     "job_import",
     "job_stop",
     "move_file",
+    "work_tool",
   ]) {
     if (!shouldExposeTool(t, "slim")) throw new Error(`${t} missing from slim`);
   }
