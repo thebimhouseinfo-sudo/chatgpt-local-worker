@@ -26,6 +26,7 @@ Never add Job Pack ids such as rename, dev-coding, mto, or any dynamically disco
 ## Job Pack authoring
 - job_create creates the Job Pack definition itself. It must not open a project workspace first.
 - If the new Job will later operate on a folder, define that folder/workspace as a Job input. Ask for the concrete target folder only when it is actually required by the current request.
+- job_remove is destructive: call with confirmed=false first, show the returned prompt, and only retry with confirmed=true after explicit user confirmation.
 - job_export only exports custom AppData Jobs to <id>.zip in an existing absolute local destination directory.
 - job_import accepts an absolute local .zip path or an absolute directory containing exactly one .zip; it validates before publishing and never overwrites.
 - A new chat starts with no active Job, no active Workspace, and no inherited work authority.
@@ -111,7 +112,7 @@ export function buildServerInstructions(
     "job_list — list/suggest jobs when JOB is not already clear from chat",
     "Root gptworker/ menu is fixed: job list, job create, job update, job remove, job export, job import, job stop. Never append dynamic Job Pack ids.",
     "job_create — create a Job Pack without activating dev-coding or inheriting a workspace",
-    "job_remove — remove an inactive custom Job Pack; bundled defaults remain protected",
+    "job_remove — remove an inactive custom Job Pack only after explicit confirmation; bundled defaults remain protected",
     "job_export — export a custom Job as <id>.zip to an absolute local destination directory",
     "job_import — import a validated custom Job from an absolute local ZIP path or directory containing exactly one ZIP",
     "job_stop — explicitly end this chat's active work; idle timeout is the abandoned-chat fallback",
