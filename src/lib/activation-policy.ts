@@ -50,7 +50,6 @@ interface AdmissionProof {
 }
 
 const ADMISSION_TTL_MS = 30 * 60 * 1000;
-const admissions = new Map<string, AdmissionProof>();
 
 function normalizedPath(value: string): string {
   let normalized = path.resolve(value.trim());
@@ -75,125 +74,135 @@ function isPublicControlCommand(userTurn: string): boolean {
   );
 }
 
-function cleanupAdmissions(): void {
-  const now = Date.now();
-  for (const [token, proof] of admissions) {
-    if (now - proof.createdAt > ADMISSION_TTL_MS) admissions.delete(token);
-  }
-}
+export class AdmissionRuntime {
+  private readonly admissions = new Map<string, AdmissionProof>();
 
-export function checkAdmission(input: AdmissionCheckInput): AdmissionDecision {
-  cleanupAdmissions();
-
-  const userTurn = input.userTurn?.trim();
-  if (!userTurn) {
-    return {
-      mode: "INACTIVE",
-      claimed: false,
-      reason: "user_did_not_invoke_gptworker",
-      next: "stop_gptworker_continue_normal_chat_or_requested_plugin",
-    };
-  }
-
-  if (isPublicControlCommand(userTurn)) {
-    return {
-      mode: "CONTROL",
-      claimed: false,
-      reason: "public_command",
-      next: "run_control_command_only",
-    };
-  }
-
-  let trigger: ActivationTrigger | undefined;
-  let workspace: string | undefined;
-
-  if (/@gptworker\b/i.test(userTurn)) {
-    trigger = "explicit_gptworker";
-  } else {
-    const candidate = input.workspace?.trim();
-    const hasWorkspace =
-      Boolean(candidate) &&
-      path.isAbsolute(candidate!) &&
-      includesPath(userTurn, candidate!);
-
-    if (input.hasConcreteTask === true && hasWorkspace) {
-      trigger = "task_with_workspace";
-      workspace = path.resolve(candidate!);
+  private cleanup(): void {
+    const now = Date.now();
+    for (const [token, proof] of this.admissions) {
+      if (now - proof.createdAt > ADMISSION_TTL_MS) {
+        this.admissions.delete(token);
+      }
     }
   }
 
-  if (!trigger) {
+  check(input: AdmissionCheckInput): AdmissionDecision {
+    this.cleanup();
+
+    const userTurn = input.userTurn?.trim();
+    if (!userTurn) {
+      return {
+        mode: "INACTIVE",
+        claimed: false,
+        reason: "user_did_not_invoke_gptworker",
+        next: "stop_gptworker_continue_normal_chat_or_requested_plugin",
+      };
+    }
+
+    if (isPublicControlCommand(userTurn)) {
+      return {
+        mode: "CONTROL",
+        claimed: false,
+        reason: "public_command",
+        next: "run_control_command_only",
+      };
+    }
+
+    let trigger: ActivationTrigger | undefined;
+    let workspace: string | undefined;
+
+    if (/@gptworker\b/i.test(userTurn)) {
+      trigger = "explicit_gptworker";
+    } else {
+      const candidate = input.workspace?.trim();
+      const hasWorkspace =
+        Boolean(candidate) &&
+        path.isAbsolute(candidate!) &&
+        includesPath(userTurn, candidate!);
+
+      if (input.hasConcreteTask === true && hasWorkspace) {
+        trigger = "task_with_workspace";
+        workspace = path.resolve(candidate!);
+      }
+    }
+
+    if (!trigger) {
+      return {
+        mode: "INACTIVE",
+        claimed: false,
+        reason: "user_did_not_invoke_gptworker",
+        next: "stop_gptworker_continue_normal_chat_or_requested_plugin",
+      };
+    }
+
+    const token = randomUUID();
+    this.admissions.set(token, {
+      token,
+      mode: "ACTIVE",
+      trigger,
+      request: userTurn,
+      workspace,
+      createdAt: Date.now(),
+    });
+
     return {
-      mode: "INACTIVE",
-      claimed: false,
-      reason: "user_did_not_invoke_gptworker",
-      next: "stop_gptworker_continue_normal_chat_or_requested_plugin",
+      mode: "ACTIVE",
+      claimed: true,
+      reason: trigger,
+      trigger,
+      workspace,
+      admission_token: token,
+      next: "continue_gptworker",
     };
   }
 
-  const token = randomUUID();
-  admissions.set(token, {
-    token,
-    mode: "ACTIVE",
-    trigger,
-    request: userTurn,
-    workspace,
-    createdAt: Date.now(),
-  });
-
-  return {
-    mode: "ACTIVE",
-    claimed: true,
-    reason: trigger,
-    trigger,
-    workspace,
-    admission_token: token,
-    next: "continue_gptworker",
-  };
-}
-
-export function validateAdmissionToken(
-  token: string | undefined,
-  expectedWorkspace?: string
-): AdmissionProof {
-  cleanupAdmissions();
-  if (!token) {
-    throw new Error(
-      "ADMISSION_REQUIRED: call gptworker_admission first. GPTWorker work tools cannot be entered directly."
-    );
-  }
-
-  const proof = admissions.get(token);
-  if (!proof) {
-    throw new Error(
-      "ADMISSION_REQUIRED: admission token is missing, stale, or invalid. Re-run gptworker_admission against the current user request."
-    );
-  }
-
-  if (expectedWorkspace && proof.trigger === "task_with_workspace") {
-    if (normalizedPath(proof.workspace || "") !== normalizedPath(expectedWorkspace)) {
+  validate(
+    token: string | undefined,
+    expectedWorkspace?: string
+  ): AdmissionProof {
+    this.cleanup();
+    if (!token) {
       throw new Error(
-        "ADMISSION_REQUIRED: Workspace does not match the Workspace bound to this admission token."
+        "ADMISSION_REQUIRED: call gptworker_admission first. GPTWorker work tools cannot be entered directly."
       );
     }
+
+    const proof = this.admissions.get(token);
+    if (!proof) {
+      throw new Error(
+        "ADMISSION_REQUIRED: admission token is missing, stale, invalid, or belongs to another MCP session. Re-run gptworker_admission against the current user request."
+      );
+    }
+
+    if (expectedWorkspace && proof.trigger === "task_with_workspace") {
+      if (normalizedPath(proof.workspace || "") !== normalizedPath(expectedWorkspace)) {
+        throw new Error(
+          "ADMISSION_REQUIRED: Workspace does not match the Workspace bound to this admission token."
+        );
+      }
+    }
+
+    return proof;
   }
 
-  return proof;
-}
+  activation(
+    token: string | undefined,
+    bindings?: Record<string, string>
+  ): ActivationGateResult {
+    const expectedWorkspace = bindings?.workspace;
+    const proof = this.validate(token, expectedWorkspace);
 
-export function activationFromAdmission(
-  token: string | undefined,
-  bindings?: Record<string, string>
-): ActivationGateResult {
-  const expectedWorkspace = bindings?.workspace;
-  const proof = validateAdmissionToken(token, expectedWorkspace);
+    return validateActivationGate({
+      trigger: proof.trigger,
+      activationWorkspace: proof.workspace,
+      activationRequest: proof.request,
+      bindings,
+    });
+  }
 
-  return validateActivationGate({
-    trigger: proof.trigger,
-    activationWorkspace: proof.workspace,
-    activationRequest: proof.request,
-    bindings,
-  });
+  clear(): void {
+    this.admissions.clear();
+  }
 }
 
 export function validateActivationGate(input: ActivationGateInput): ActivationGateResult {
