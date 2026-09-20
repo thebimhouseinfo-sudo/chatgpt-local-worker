@@ -154,6 +154,14 @@ if errorlevel 1 (
 )
 echo [OK] GPTWorker tray host is visible.
 
+echo Waiting for tray-managed Worker + Secure MCP Tunnel...
+powershell -NoProfile -ExecutionPolicy Bypass -File "%~dp0wait-runtime-ready.ps1" -WorkerPort %WORKER_PORT% -TunnelHealthPort %TUNNEL_HEALTH_PORT% -TimeoutSeconds 75
+if errorlevel 1 (
+  echo [ERROR] Tray started but GPTWorker runtime did not become ready.
+  goto :failed
+)
+echo [OK] GPTWorker tray runtime is connected.
+
 echo.
 echo Opening ChatGPT Settings and the local visual setup guide...
 start "" "https://chatgpt.com/#settings/Plugins"
