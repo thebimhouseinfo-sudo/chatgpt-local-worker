@@ -28,9 +28,14 @@ Do đó:
 
 ## Current Finalization Mode
 
-During v2 finalization, keep the current monolithic GPTWorker process and repo-local mutable Job Packs. Driver/Executor split is optional hardening, not a release gate. Manual launch remains acceptable if it is reliable.
+During v2 finalization, keep the current monolithic GPTWorker process. Driver/Executor split is optional hardening, not a release gate. Manual launch remains acceptable if it is reliable.
 
-Current mutable Job root: `jobs/<job-id>/`. After repo-local behavior is finalized, run an AppData migration trial. Only after that trial passes should EXE packaging begin.
+Job Packs use two fixed roles:
+
+- `repo/jobs/<job-id>/` = bundled default Jobs shipped with GPTWorker; runtime treats them as read-only defaults.
+- `%LOCALAPPDATA%\GPTWorker\jobs\<job-id>\` = custom Jobs created by the user.
+
+`job list` merges both sources. Job ids are globally unique; `job create` rejects any id already present in either source. `job update/remove` operate only on AppData custom Jobs. To customize a bundled default, `job create` may clone it into a new unique custom id; the repo source is never modified.
 
 ## Optional Future Driver Architecture
 
@@ -51,7 +56,7 @@ ChatGPT
           ├─ ephemeral tool instances
           └─ upstream adapters
 
-Future data target after repo-local finalization: %LOCALAPPDATA%\GPTWorker\
+Mutable user data root: %LOCALAPPDATA%\GPTWorker\
 ~~~
 
 ### Driver owns
@@ -333,27 +338,27 @@ Only owned child resources are terminated. Do not kill user applications merely 
 
 ## Paths / Job Packs
 
-Current finalization root is repo-local `jobs/<job-id>/`. `job create/update` stage and validate outside `jobs/` before publish; `job remove` deletes the selected pack. `job.yaml` remains the only Job registry authority.
-
-Only after v2 behavior is finalized, trial the future mutable root:
-
 ~~~text
+repo\jobs\<job-id>\
+  → bundled default Jobs
+  → shipped with GPTWorker
+  → read-only through Job authoring tools
+
 %LOCALAPPDATA%\GPTWorker\
   jobs\<job-id>\
-  staging\<job-id>\<operation-id>\
-  history\<job-id>\<revision>\
-  cache\packs\<content-hash>\
-  state\transactions\
+    → user custom Jobs only
+  .job-authoring-staging\
+  .job-authoring-backup\
+  history\
+  cache\
   logs\
   checkpoints\
   config\
 ~~~
 
-jobs/<job-id>/job.yaml remains the only Job registration source. No duplicate registry JSON.
+Each pack's `job.yaml` is its registration source; there is no second registry file. Catalog is rebuilt in RAM by merging repo defaults with AppData custom Jobs.
 
-Catalog is rebuilt in RAM.
-
-Installer seeds missing packs only and never overwrites customized packs.
+Job ids are globally unique. `job create` checks both roots and rejects duplicates. It may also clone an existing Job into a new custom id. `job update/remove` target only custom AppData Jobs; bundled defaults are immutable. If someone manually places a colliding custom folder in AppData, runtime ignores that invalid custom pack and keeps the bundled default.
 
 ## Pack Revision
 
@@ -407,5 +412,4 @@ Credentials are never embedded in readable execution IDs, tool lease IDs or Job 
 - marketplace/package manager;
 - Driver/Executor split unless manual launch proves insufficient;
 - Windows Service;
-- AppData migration until repo-local behavior is finalized;
 - EXE packaging until AppData migration passes live tests.

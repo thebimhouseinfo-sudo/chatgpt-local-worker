@@ -186,11 +186,12 @@ export function registerJobTools(
     {
       title: "Job Create",
       description:
-        "Create and validate a new repo-local Job Pack under jobs/<id>. Writes through staging so incomplete packs are never published.",
+        "Create a new custom Job Pack under %LOCALAPPDATA%/GPTWorker/jobs/<id>. Create from scratch with name+description, or set clone_from to clone an existing default/custom Job into a new unique custom id. Bundled repo Job ids are reserved and cannot be reused.",
       inputSchema: {
         id: z.string().min(1),
-        name: z.string().min(1),
-        description: z.string().min(1),
+        clone_from: z.string().min(1).optional().describe("Optional existing Job id to clone into this new custom Job"),
+        name: z.string().min(1).optional(),
+        description: z.string().min(1).optional(),
         version: z.string().min(1).optional(),
         status: z.enum(["ready", "placeholder"]).optional(),
         aliases: z.array(z.string()).optional(),
@@ -212,6 +213,7 @@ export function registerJobTools(
       safe("job_create", () =>
         createJobPack({
           id: args.id,
+          clone_from: args.clone_from,
           name: args.name,
           description: args.description,
           version: args.version,
@@ -237,7 +239,7 @@ export function registerJobTools(
     {
       title: "Job Update",
       description:
-        "Update an existing repo-local Job Pack through staged copy + validation + replacement. Job id cannot be renamed in place.",
+        "Update an existing custom AppData Job Pack through staged copy + validation + replacement. Bundled repo defaults are read-only.",
       inputSchema: {
         id: z.string().min(1),
         name: z.string().min(1).optional(),
@@ -269,7 +271,7 @@ export function registerJobTools(
     {
       title: "Job Remove",
       description:
-        "Remove a repo-local Job Pack directory from jobs/. Use only when the user explicitly requests deleting that Job.",
+        "Remove a custom AppData Job Pack. Bundled repo default Jobs cannot be removed.",
       inputSchema: {
         id: z.string().min(1).describe("Exact Job id to remove"),
       },

@@ -13,9 +13,9 @@ This ledger supersedes the previous session-centric task mapping. The architectu
 | TASK-V2-006 | TODO | Multi-execution concurrency acceptance and remaining global-state refactor | TASK-V2-005 | many executions call same family concurrently on different workspaces without family-level queue | Stress read/write/shell/git/process |
 | TASK-V2-007 | DEFERRED | Optional Driver / IPC split | TASK-V2-003, TASK-V2-005 | Only implement if monolithic/manual launch becomes insufficient | Not a v2 finalization gate |
 | TASK-V2-008 | TODO | Stateful resource ownership + 10-minute full idle stop | TASK-V2-005 | no active call is killed mid-flight; after 10 idle minutes WorkRegistration, workspace ownership and owned resources are released | Does not require Driver split |
-| TASK-V2-009 | DEFERRED | AppData migration trial after repo-local v2 finalization | TASK-V2-003, TASK-V2-012 | same Job lifecycle works from AppData; customized packs preserved | Do only after live repo-local acceptance |
+| TASK-V2-009 | IN_PROGRESS | AppData custom Job routing + live trial | TASK-V2-012 | repo defaults + AppData custom Jobs merge; create enforces global unique id; default can clone to new custom id; update/remove custom-only; restart preserves custom Jobs | Routing implementation in current wave |
 | TASK-V2-010 | TODO | Manifest/API compatibility + immutable pack revision snapshots | TASK-V2-004, TASK-V2-009 | active execution pins revision; malformed/colliding resources rejected | Keep JSON-compatible YAML initially |
-| TASK-V2-011 | IN_PROGRESS | Repo-local staging/validate/publish primitives | TASK-V2-005 | invalid pack never live; update rollback safe; path scope validated | Implemented in current authoring wave |
+| TASK-V2-011 | IN_PROGRESS | AppData custom Job staging/validate/publish primitives | TASK-V2-005 | invalid pack never live; update rollback safe; path scope validated | Staging and backup live under GPTWorker data root |
 | TASK-V2-012 | IN_PROGRESS | Job Authoring workflow + public list/create/update/remove | TASK-V2-011 | create/list/update/remove works live through ChatGPT | stop remains internal only |
 | TASK-V2-013 | DEFERRED | Optional Windows background host | TASK-V2-008, TASK-V2-009 | implement only if manual launch is insufficient | Not a release gate |
 | TASK-V2-014 | DEFERRED | EXE packaging after AppData trial | TASK-V2-009, TASK-V2-012 | clean-machine packaging preserves customized Jobs | Last step only |
@@ -41,8 +41,9 @@ This ledger supersedes the previous session-centric task mapping. The architectu
 
 2026-09-20:
 - Public Job UX changed to list/create/update/remove; stop is internal only.
-- Mutable Job Packs remain repo-local until v2 behavior is finalized.
-- Driver and EXE work are deferred; AppData migration comes after repo-local live acceptance.
+- Repo Job Packs are bundled defaults and remain read-only through Job authoring.
+- User custom Job Packs route to AppData now.
+- Driver and EXE work remain deferred.
 - P0 logging implementation and hardening merged; CI passed.
 - Live runtime evidence collected.
 - Architecture changed from session-centric identity to explicit Job + Workspace Work Registration.

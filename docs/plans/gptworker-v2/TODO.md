@@ -2,7 +2,7 @@
 
 ## Active Backlog
 
-- [ ] Repo-local Job lifecycle is the current authority: `job list / create / update / remove`. Do not migrate to AppData or package EXE before this live test passes.
+- [ ] Live-test Job routing: repo defaults + AppData custom Jobs; create/update/remove custom without mutating defaults; clone a default into a new custom id.
 - [ ] Complete P1A live lease pilot in [WORK_TOOL_LEASE_PILOT.md](WORK_TOOL_LEASE_PILOT.md): 2 chats, 2 workspaces, interleaved filesystem calls, no handle swap, no token leak.
 - [ ] Implement deterministic WorkspaceKey: readable slug + stable hash of canonical absolute path.
 - [ ] Implement WorkRegistrationStore, persistent monotonic DriverEpoch, readable ExecutionId and opaque authorityToken.
@@ -20,11 +20,11 @@
 - [ ] Add multi-execution stress tests using same Tool Family across different workspaces.
 - [ ] OPTIONAL: split Driver protocol gateway from Worker executor only if monolithic/manual launch proves insufficient.
 - [ ] Complete 10-minute WorkRegistration auto-stop: no timeout during active foreground lease; stop releases workspace ownership and all owned stateful resources.
-- [ ] AFTER V2 FINALIZE: trial moving mutable Job Packs to %LOCALAPPDATA%\GPTWorker\jobs.
+- [ ] Verify custom Job Packs persist in %LOCALAPPDATA%\GPTWorker\jobs across restart and repo updates.
 - [ ] Replace repo-relative harness imports with portable runner/API.
 - [ ] Implement immutable pack snapshots and publish transaction.
-- [ ] Live-test repo-local Job authoring: create → list → update → remove through ChatGPT.
-- [ ] AFTER AppData trial: decide whether Windows logon supervision is useful; manual launch is acceptable.
+- [ ] Live-test AppData custom Job authoring: create → list → update → remove through ChatGPT.
+- [ ] AFTER AppData custom Job trial: decide whether Windows logon supervision is useful; manual launch is acceptable.
 - [ ] Define retention for history/cache/checkpoints/transaction journals; this must not expire ACTIVE WorkRegistration.
 
 ## Explicitly Rejected / Removed

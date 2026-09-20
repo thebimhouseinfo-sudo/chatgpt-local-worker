@@ -2,7 +2,7 @@ import fs from "fs/promises";
 import path from "path";
 import { randomUUID } from "crypto";
 import { z } from "zod";
-import { getJobsRoot } from "../lib/worker-home.js";
+import { getJobPackRoots } from "../lib/worker-home.js";
 
 const JobFieldSchema = z.object({
   key: z.string().min(1),
@@ -54,8 +54,11 @@ export type JobPhase =
   | "awaiting_confirmation"
   | "active";
 
+type JobPackSource = "custom" | "default" | "explicit";
+
 interface LoadedJobPack {
   dir: string;
+  source: JobPackSource;
   meta: JobMeta;
   job_md: string;
   skill_md: string;
@@ -95,10 +98,14 @@ function unique<T>(items: T[]): T[] {
 export class JobRuntime {
   private state: JobState = { phase: "idle", bindings: {} };
 
+  private readonly explicitJobsRoot?: string;
+
   constructor(
     private readonly workspaceRoot: string,
-    private readonly jobsRoot = getJobsRoot()
-  ) {}
+    jobsRoot?: string
+  ) {
+    this.explicitJobsRoot = jobsRoot ? path.resolve(jobsRoot) : undefined;
+  }
 
   private async readText(
     filePath: string,
@@ -108,7 +115,10 @@ export class JobRuntime {
     return buf.subarray(0, maxBytes).toString("utf-8");
   }
 
-  private async loadPackFromDir(dir: string): Promise<LoadedJobPack> {
+  private async loadPackFromDir(
+    dir: string,
+    source: JobPackSource
+  ): Promise<LoadedJobPack> {
     const metaPath = path.join(dir, "job.yaml");
     let raw: unknown;
 
@@ -129,13 +139,16 @@ export class JobRuntime {
       this.readText(path.join(dir, "SKILL.md")),
     ]);
 
-    return { dir, meta, job_md, skill_md };
+    return { dir, source, meta, job_md, skill_md };
   }
 
-  private async allPacks(): Promise<LoadedJobPack[]> {
+  private async packsFromRoot(
+    root: string,
+    source: JobPackSource
+  ): Promise<LoadedJobPack[]> {
     let entries;
     try {
-      entries = await fs.readdir(this.jobsRoot, { withFileTypes: true });
+      entries = await fs.readdir(root, { withFileTypes: true });
     } catch {
       return [];
     }
@@ -143,18 +156,41 @@ export class JobRuntime {
     const packs: LoadedJobPack[] = [];
     for (const entry of entries) {
       if (!entry.isDirectory()) continue;
-      const dir = path.join(this.jobsRoot, entry.name);
+      const dir = path.join(root, entry.name);
       try {
-        packs.push(await this.loadPackFromDir(dir));
+        packs.push(await this.loadPackFromDir(dir, source));
       } catch (error) {
         console.warn(
-          `[JobRuntime] Skipping invalid pack ${dir}:`,
+          `[JobRuntime] Skipping invalid ${source} pack ${dir}:`,
           error instanceof Error ? error.message : error
         );
       }
     }
+    return packs;
+  }
 
-    return packs.sort((a, b) => a.meta.id.localeCompare(b.meta.id));
+  private async allPacks(): Promise<LoadedJobPack[]> {
+    if (this.explicitJobsRoot) {
+      return (await this.packsFromRoot(this.explicitJobsRoot, "explicit"))
+        .sort((a, b) => a.meta.id.localeCompare(b.meta.id));
+    }
+
+    const roots = getJobPackRoots();
+    const defaults = await this.packsFromRoot(roots.defaults, "default");
+    const custom = await this.packsFromRoot(roots.custom, "custom");
+
+    const defaultIds = new Set(defaults.map((pack) => pack.meta.id));
+    const validCustom = custom.filter((pack) => {
+      if (!defaultIds.has(pack.meta.id)) return true;
+      console.warn(
+        `[JobRuntime] Ignoring custom Job '${pack.meta.id}' because the id is reserved by a bundled default Job.`
+      );
+      return false;
+    });
+
+    return [...defaults, ...validCustom].sort((a, b) =>
+      a.meta.id.localeCompare(b.meta.id)
+    );
   }
 
   private publicMeta(pack: LoadedJobPack) {
@@ -171,6 +207,7 @@ export class JobRuntime {
       permissions: pack.meta.permissions,
       confirmation_required: pack.meta.confirmation.required,
       skill_count: pack.meta.skills.length,
+      source: pack.source,
     };
   }
 
@@ -306,7 +343,9 @@ export class JobRuntime {
     );
 
     return {
-      jobs_root: this.jobsRoot,
+      job_roots: this.explicitJobsRoot
+        ? { explicit: this.explicitJobsRoot }
+        : getJobPackRoots(),
       jobs: sorted.map(({ pack, score }) => ({
         ...this.publicMeta(pack),
         suggestion_score: score,
@@ -320,7 +359,9 @@ export class JobRuntime {
           )
         : [],
       note:
-        "Keyword matching is suggestion-only. Placeholder jobs are informational and cannot be activated.",
+        this.explicitJobsRoot
+          ? "Using one explicit Job Pack root."
+          : "Repo jobs are bundled defaults; AppData jobs are user-created custom Jobs only. Job ids must be globally unique. Keyword matching is suggestion-only.",
     };
   }
 

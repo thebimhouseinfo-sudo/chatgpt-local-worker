@@ -407,20 +407,28 @@ Acceptance:
 - không cross-workspace access do runtime context drift;
 - explicit workspace path ngoài binding bị policy reject theo capability contract.
 
-### P5 — Repo-local Job Authoring — CURRENT
+### P5 — Default + Custom Job Routing — CURRENT
 
-- public Job lifecycle: `job list / create / update / remove`.
-- mutable packs remain in repo `jobs/<job-id>/` during finalization.
-- create/update use staging outside `jobs/`, validate, then publish.
-- invalid packs never become live.
+- repo `jobs/<job-id>/` contains bundled default Jobs only.
+- `%LOCALAPPDATA%\GPTWorker\jobs\<job-id>\` contains user custom Jobs only.
+- `job list` merges both sources.
+- Job ids are globally unique.
+- `job create` checks both roots and publishes only to AppData.
+- `job create clone_from=<existing-id>` may copy an existing default/custom Job to a new unique custom id.
+- `job update/remove` operate only on custom AppData Jobs; defaults are immutable.
+- default repo Jobs are never mutated by Job authoring.
+- invalid custom packs never become live.
 - `job stop` remains an internal cleanup primitive, not public UX.
 - no second Job registry.
 
 Acceptance:
-- create → list → update → remove works through ChatGPT;
-- invalid packs never appear in `job list`;
-- path traversal references are rejected;
-- repo-local Job authoring survives normal runtime use.
+- repo defaults remain visible with empty AppData;
+- create custom → list shows both default + custom;
+- duplicate id against default/custom is rejected at create;
+- clone default → new custom id works without mutating source;
+- update/remove custom works;
+- update/remove default is rejected;
+- malformed custom pack never shadows a default.
 
 ### P6 — Stateful Tool Isolation + Concurrency
 
@@ -437,18 +445,19 @@ Acceptance:
 - same Tool Family can overlap without family-level queue;
 - active foreground lease prevents timeout; after release the 10-minute idle clock restarts.
 
-### P7 — AppData Migration Trial — AFTER V2 FINALIZE
+### P7 — AppData Custom Job Live Trial
 
-- move mutable Job Packs to `%LOCALAPPDATA%\GPTWorker\jobs\<job-id>\`.
-- keep `job.yaml` as the only registry authority.
-- verify portable harness/skill paths.
-- preserve customized Jobs across updates.
-- Driver split is not required for this migration.
+- live-test custom Job creation directly in `%LOCALAPPDATA%\GPTWorker\jobs\`.
+- verify portable harness/skill paths from AppData.
+- verify repo defaults remain untouched and available.
+- verify custom Jobs survive git pull / repo update.
+- Driver split is not required.
 
 Acceptance:
-- same create/update/remove lifecycle works from AppData;
-- customized Jobs survive migration/update;
-- repo-local and AppData modes behave equivalently.
+- create/update/remove custom Job works live through ChatGPT;
+- default Jobs continue loading from repo;
+- restart preserves custom Jobs;
+- repo update cannot overwrite custom Jobs.
 
 ### P8 — Optional Driver / Background Host + Diagnostics
 
@@ -475,7 +484,7 @@ Không expose credential hoặc full hidden authority token.
 
 ### P9 — EXE Packaging — LAST
 
-- begin only after AppData migration trial passes.
+- begin only after AppData custom Job live trial passes.
 - manual launch remains acceptable if sufficient.
 - auto-start/Driver work is optional hardening, not a release gate.
 - clean-machine packaging and upgrade preservation.
