@@ -180,16 +180,15 @@ export class JobRuntime {
     const custom = await this.packsFromRoot(roots.custom, "custom");
 
     const defaultIds = new Set(defaults.map((pack) => pack.meta.id));
-    const collisions = custom.filter((pack) => defaultIds.has(pack.meta.id));
-    if (collisions.length > 0) {
-      throw new Error(
-        "Custom Job id collides with bundled default Job(s): " +
-          collisions.map((pack) => pack.meta.id).join(", ") +
-          ". Custom Jobs must use unique ids."
+    const validCustom = custom.filter((pack) => {
+      if (!defaultIds.has(pack.meta.id)) return true;
+      console.warn(
+        `[JobRuntime] Ignoring custom Job '${pack.meta.id}' because the id is reserved by a bundled default Job.`
       );
-    }
+      return false;
+    });
 
-    return [...defaults, ...custom].sort((a, b) =>
+    return [...defaults, ...validCustom].sort((a, b) =>
       a.meta.id.localeCompare(b.meta.id)
     );
   }
