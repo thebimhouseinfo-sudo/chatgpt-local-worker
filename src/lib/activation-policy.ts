@@ -159,7 +159,7 @@ export class AdmissionRuntime {
         path.isAbsolute(candidate!) &&
         includesPath(userTurn, candidate!);
 
-      if (input.hasConcreteTask === true && validWorkspace) {
+      if (validWorkspace) {
         invocationRequest = this.armedAtFlow.invocationRequest;
         workspace = path.resolve(candidate!);
       }
