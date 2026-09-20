@@ -5,7 +5,7 @@ export type ToolProfileName = "full" | "slim";
 
 export const LOCAL_TOOL_CATALOG = [
   "job_list", "job_create", "job_update", "job_remove", "job_select", "job_status", "job_stop", "job_switch",
-  "read_text_file", "write_file", "edit_file", "multi_edit", "apply_patch", "glob", "grep", "list_directory",
+  "read_text_file", "write_file", "edit_file", "multi_edit", "apply_patch", "glob", "grep", "list_directory", "move_file",
   "run_command", "shell_status", "shell_reset", "start_process", "process_output", "node_repl", "ponytail_turn",
   "git_status", "git_diff", "git_add", "git_commit", "git_restore", "agent_status", "project_context",
   "remember", "load_path_rules", "list_skills", "load_skill", "rewind", "mcp_servers", "mcp_tools", "mcp_call",
@@ -49,6 +49,7 @@ export const SLIM_CHATGPT_TOOLS = new Set([
   "glob",
   "grep",
   "list_directory",
+  "move_file",
   "run_command",
   "shell_status",
   "start_process",
