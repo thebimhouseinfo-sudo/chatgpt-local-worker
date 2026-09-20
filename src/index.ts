@@ -397,8 +397,9 @@ process.on("SIGINT", () => {
   sessionManager.stopCleanup();
   void upstreamManager.shutdown();
   adminServer.close();
+  const runtimeLogFlushed = flushRuntimeLog();
   server.close(() => {
-    void flushRuntimeLog().finally(() => process.exit(0));
+    void runtimeLogFlushed.finally(() => process.exit(0));
   });
 });
 
