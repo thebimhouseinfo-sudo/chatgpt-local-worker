@@ -4,7 +4,7 @@ import type { McpUpstreamManager } from "../lib/mcp-upstream-manager.js";
 import { getChatGptToolProfile, shouldExposeTool } from "../lib/tool-profile.js";
 import { toolAnnotations } from "../lib/tool-annotations.js";
 
-type ToolCallback = (args?: Record<string, unknown>, ...rest: unknown[]) => unknown;
+type ToolCallback = (args?: Record<string, unknown>, ...rest: unknown[]) => any;
 
 interface CapturedTool {
   name: string;
