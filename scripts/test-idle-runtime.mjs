@@ -82,11 +82,21 @@ if (!tray.includes('"start.ps1") -ExtraArgs @("-Port", "$WorkerPort", "-Detach")
 if (!tray.includes('"openai-tunnel.ps1") -ExtraArgs @("-Port", "$WorkerPort", "-Detach")')) {
   throw new Error("tray must launch tunnel in detached mode");
 }
-if (!start.includes("[switch]$Detach") || !start.includes('Start-Process -FilePath "node.exe"')) {
+if (
+  !start.includes("[switch]$Detach") ||
+  !start.includes("Get-Command node") ||
+  !start.includes("Start-Process -FilePath $nodeExe")
+) {
   throw new Error("start.ps1 detached node launch is missing");
 }
 if (!tunnel.includes("[switch]$Detach") || !tunnel.includes("Start-Process -FilePath $bin")) {
   throw new Error("openai-tunnel.ps1 detached tunnel launch is missing");
+}
+if (!tunnel.includes("Quote-ProcessArgument $ProfileFile")) {
+  throw new Error("detached tunnel profile path must be quoted for Windows paths with spaces");
+}
+if (!tunnel.includes('$argumentLine = "run --profile-file $quotedProfile"')) {
+  throw new Error("detached tunnel must pass a quoted profile path argument line");
 }
 
 console.log("test-idle-runtime: ok");
