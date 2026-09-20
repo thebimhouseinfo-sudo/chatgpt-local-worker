@@ -4,7 +4,10 @@ import path from "node:path";
 import { randomUUID } from "node:crypto";
 import { appendActivity } from "../lib/activity-log.js";
 import { getCustomJobsRoot, getDefaultJobsRoot, getWorkerDataRoot } from "../lib/worker-home.js";
-import { hasActiveWorkForJob } from "../lib/work-registration.js";
+import {
+  getActiveWorkCountForJob,
+  hasActiveWorkForJob,
+} from "../lib/work-registration.js";
 import { extractJobZip, writeJobZip } from "../lib/zip-archive.js";
 
 export type JobPackStatus = "ready" | "placeholder";
@@ -605,6 +608,36 @@ export async function updateJobPack(idInput: string, patch: JobPackPatch) {
   } finally {
     await fs.rm(stageRoot, { recursive: true, force: true }).catch(() => undefined);
   }
+}
+
+export async function inspectJobPackForRemoval(idInput: string) {
+  const id = assertJobId(idInput);
+  const customDir = path.join(getCustomJobsRoot(), id);
+  const defaultDir = path.join(getDefaultJobsRoot(), id);
+
+  if (!(await exists(customDir))) {
+    if (await exists(defaultDir)) {
+      throw new Error(
+        "Job '" + id + "' is a bundled default Job and cannot be removed."
+      );
+    }
+    throw new Error("Unknown custom Job '" + id + "'.");
+  }
+
+  const validation = await validateJobPack(customDir);
+  if (!validation.ok) {
+    throw new Error(
+      "Custom Job '" + id + "' is invalid: " + validation.errors.join("; ")
+    );
+  }
+
+  return {
+    job_id: id,
+    source: "custom" as const,
+    pack_dir: customDir,
+    active_work_count: getActiveWorkCountForJob(id),
+    validation,
+  };
 }
 
 export async function exportJobPack(
