@@ -13,6 +13,7 @@ import {
   importJobPack,
 } from "../jobs/job-authoring.js";
 import { clearWorkerState } from "../lib/worker-state.js";
+import { validateActivationGate } from "../lib/activation-policy.js";
 import { toolAnnotations } from "../lib/tool-annotations.js";
 import { toolError, toolResult } from "../lib/tool-result.js";
 import {
@@ -24,6 +25,7 @@ import {
 } from "../lib/work-registration.js";
 
 const BindingsSchema = z.record(z.string(), z.string());
+const ActivationTriggerSchema = z.enum(["explicit_gptworker", "task_with_workspace"]);
 
 const JobFieldDefinitionSchema = z.object({
   key: z.string().min(1),
@@ -516,7 +518,7 @@ export function registerJobTools(
     {
       title: "Job Select",
       description:
-        "Select/configure/activate one Job Pack. Resolve JOB + absolute local workspace folder first. Two-phase by default: show confirmation first; only activate after explicit user confirmation. ACTIVE response returns work_handle; carry it to every execution tool call.",
+        "Select/configure/activate one Job Pack only after the GPTWorker activation gate passes. Valid triggers: (1) the user explicitly invoked @gptworker in this chat, or (2) the activating user request itself included both a concrete task and an explicit absolute local workspace path. Never use memory, another chat, a recent workspace, project familiarity, or GPTWorker availability as activation evidence. Two-phase by default: show confirmation first; only activate after explicit user confirmation. ACTIVE response returns work_handle; carry it to every execution tool call.",
       inputSchema: {
         job: z
           .string()
@@ -530,6 +532,21 @@ export function registerJobTools(
           .optional()
           .default(false)
           .describe("Set true only after explicit user confirmation"),
+        activation_trigger: ActivationTriggerSchema.describe(
+          "Required activation evidence. Use explicit_gptworker only when the user explicitly invoked @gptworker in this chat. Use task_with_workspace only when the activating user request itself contains both the concrete task and an explicit absolute local workspace path."
+        ),
+        activation_workspace: z
+          .string()
+          .optional()
+          .describe(
+            "For task_with_workspace only: the exact absolute local workspace supplied by the user in the activating request. Must match bindings.workspace."
+          ),
+        activation_request: z
+          .string()
+          .optional()
+          .describe(
+            "For task_with_workspace only: the concrete work request from the activating user message. Do not synthesize this from memory or a previous chat."
+          ),
         confirmation_token: z
           .string()
           .optional()
@@ -539,8 +556,22 @@ export function registerJobTools(
       },
       annotations: toolAnnotations("edit"),
     },
-    async ({ job, bindings, confirmed, confirmation_token }) =>
+    async ({
+      job,
+      bindings,
+      confirmed,
+      activation_trigger,
+      activation_workspace,
+      activation_request,
+      confirmation_token,
+    }) =>
       safe("job_select", async () => {
+        validateActivationGate({
+          trigger: activation_trigger,
+          activationWorkspace: activation_workspace,
+          activationRequest: activation_request,
+          bindings,
+        });
         await bindRuntimeToWorkspace(bindings);
 
         if (!confirmed) {
