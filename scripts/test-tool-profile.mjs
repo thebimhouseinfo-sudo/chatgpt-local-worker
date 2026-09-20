@@ -17,12 +17,20 @@ try {
   if (SLIM_CHATGPT_TOOLS.size < 18) throw new Error(`slim set too small: ${SLIM_CHATGPT_TOOLS.size}`);
   ok(`slim profile has ${SLIM_CHATGPT_TOOLS.size} tools`);
 
-  for (const t of ["apply_patch", "glob", "remember", "load_path_rules", "job_create", "job_update", "job_remove"]) {
+  for (const t of [
+    "apply_patch",
+    "glob",
+    "remember",
+    "load_path_rules",
+    "job_create",
+    "job_update",
+    "job_remove",
+    "job_stop",
+  ]) {
     if (!shouldExposeTool(t, "slim")) throw new Error(`${t} missing from slim`);
   }
-  ok("core tools exposed in slim");
+  ok("core and public job lifecycle tools exposed in slim");
 
-  if (shouldExposeTool("job_stop", "slim")) throw new Error("job_stop should be hidden from slim public UX");
   if (shouldExposeTool("mcp_call", "slim")) throw new Error("mcp_call should be hidden in slim");
   if (shouldExposeTool("delete_directory", "slim")) throw new Error("delete_directory hidden");
   ok("heavy tools hidden in slim");
