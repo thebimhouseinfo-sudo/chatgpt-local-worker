@@ -3,7 +3,7 @@ import fs from "node:fs/promises";
 import path from "node:path";
 import { randomUUID } from "node:crypto";
 import { appendActivity } from "../lib/activity-log.js";
-import { getCustomJobsRoot, getDefaultJobsRoot, getWorkerHome } from "../lib/worker-home.js";
+import { getCustomJobsRoot, getDefaultJobsRoot, getWorkerDataRoot } from "../lib/worker-home.js";
 
 export type JobPackStatus = "ready" | "placeholder";
 
@@ -258,7 +258,7 @@ export async function validateJobPack(packDir: string): Promise<JobPackValidatio
 }
 
 function stagingPackDir(jobId: string): string {
-  return path.join(getWorkerHome(), ".job-authoring-staging", randomUUID(), jobId);
+  return path.join(getWorkerDataRoot(), ".job-authoring-staging", randomUUID(), jobId);
 }
 
 async function publishNew(stageDir: string, liveDir: string): Promise<void> {
@@ -268,7 +268,7 @@ async function publishNew(stageDir: string, liveDir: string): Promise<void> {
 }
 
 async function publishReplacement(stageDir: string, liveDir: string): Promise<void> {
-  const backupRoot = path.join(getWorkerHome(), ".job-authoring-backup", randomUUID());
+  const backupRoot = path.join(getWorkerDataRoot(), ".job-authoring-backup", randomUUID());
   const backupDir = path.join(backupRoot, path.basename(liveDir));
   await fs.mkdir(backupRoot, { recursive: true });
 
