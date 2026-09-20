@@ -17,7 +17,7 @@ setup.bat
 
 EVERYDAY
 run.bat
-→ @gptworker in ChatGPT
+→ either call @gptworker, or send a concrete work request that includes an absolute local Workspace
 → resolve JOB + local FOLDER
 → explicit confirmation
 → work
@@ -38,9 +38,48 @@ After confirmation, root `worker-state.json` is the persistent source of the cur
 
 `worker-state.json` is local runtime state and is git-ignored.
 
+## Activation gate
+
+A new chat starts **idle and unclaimed**. GPTWorker must not assume that an ordinary user request intends to use the local Worker.
+
+GPTWorker may enter the Job-selection flow only when at least one activation condition is present:
+
+1. the user explicitly invokes `@gptworker` in the current chat; or
+2. the activating user request contains both:
+   - a concrete work request; and
+   - an explicit absolute local Workspace path.
+
+Examples that qualify without an `@gptworker` mention:
+
+```text
+Sửa app ở D:\Projects\MyApp để thêm nút regenerate.
+Tổng hợp các file trong D:\Reports thành presentation.
+```
+
+The following do **not** qualify as activation evidence:
+
+- a Workspace remembered from another chat, Memory, or project history;
+- `worker-state.json` or the most recently active Workspace;
+- a repo/project path that GPT happens to know;
+- a GitHub/Drive/web URL without an explicit local Workspace path;
+- a generic task request with no `@gptworker` and no absolute local Workspace;
+- the mere fact that the GPTWorker connector is installed or available.
+
+If the activation gate is not satisfied:
+
+- do not call `job_select`;
+- do not call `job_list` merely to infer a Job for the ordinary request;
+- do not ask for JOB/FOLDER solely to activate GPTWorker;
+- do not show a JOB/FOLDER confirmation prompt;
+- continue as an ordinary ChatGPT conversation unless the user later supplies a valid activation trigger.
+
+Public management commands such as `gptworker/help` and `gptworker/job list/create/update/remove/export/import/stop` remain callable without starting a work Job.
+
+The `job_select` tool must receive explicit activation metadata. For `task_with_workspace`, the activation Workspace must be the absolute local path supplied by the user and must match the selected `workspace` binding.
+
 ## Mandatory preflight
 
-Before job-specific execution, GPT must resolve two anchors:
+After the activation gate has passed, GPT must resolve two anchors:
 
 - **JOB** — the Job Pack that matches the requested work;
 - **FOLDER** — the local project/workspace folder.
@@ -58,7 +97,7 @@ Do **not** ask the user to repeat information already clearly present in the cha
 
 If JOB is missing, ask only for JOB. If FOLDER is missing, ask only for FOLDER. If both are missing, ask for both. Job-specific required inputs such as task/objective/equipment should likewise be resolved from the chat first and only missing values should be requested.
 
-Natural-language intent may be mapped to a ready Job Pack. Keyword matching is not permission to execute; **explicit confirmation is the execution gate**.
+Natural-language intent may be mapped to a ready Job Pack only after the activation gate passes. Keyword matching, memory, or a known project path are not activation evidence; **explicit confirmation remains the execution gate after activation**.
 
 ## Confirmation gate
 
@@ -265,6 +304,8 @@ Do not:
 - require a GUI for normal GPTWorker setup or operation;
 - require `WORKSPACE_PATH` for the project being worked on;
 - ask again for JOB/FOLDER already clear from the current chat;
+- auto-activate GPTWorker from an ordinary request that lacks both `@gptworker` and an explicit absolute local Workspace;
+- infer an activation Workspace from memory, previous chats, recent Worker state, or project familiarity;
 - execute before explicit JOB/FOLDER confirmation;
 - infer missing domain policy;
 - build a swarm/multi-agent hierarchy merely around Job Packs.
