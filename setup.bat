@@ -62,11 +62,26 @@ if errorlevel 1 goto :failed
 
 echo.
 echo ========================================
-echo   Starting local GPTWorker
+echo   Resetting previous GPTWorker runtime
 echo ========================================
 
 set "WORKER_PORT=3000"
 for /f "tokens=2 delims==" %%A in ('findstr /B /C:"PORT=" ".env"') do set "WORKER_PORT=%%A"
+set "TUNNEL_HEALTH_PORT=8080"
+for /f "tokens=2 delims==" %%A in ('findstr /B /C:"OPENAI_TUNNEL_HEALTH_PORT=" ".env"') do set "TUNNEL_HEALTH_PORT=%%A"
+
+echo Stopping an existing GPTWorker tray host if present...
+powershell -NoProfile -Command "$target=[IO.Path]::GetFullPath('%~dp0gptworker-tray.ps1'); Get-CimInstance Win32_Process -ErrorAction SilentlyContinue ^| Where-Object { $_.ProcessId -ne $PID -and ($_.Name -ieq 'powershell.exe' -or $_.Name -ieq 'pwsh.exe') -and $_.CommandLine -and $_.CommandLine.IndexOf($target,[StringComparison]::OrdinalIgnoreCase) -ge 0 } ^| ForEach-Object { Stop-Process -Id $_.ProcessId -Force -ErrorAction SilentlyContinue }; Start-Sleep -Milliseconds 700"
+del /q "%LOCALAPPDATA%\GPTWorker\tray-ready.json" >nul 2>nul
+
+echo Releasing old Worker/Tunnel ports safely...
+powershell -NoProfile -Command "$ErrorActionPreference='Stop'; function Owner([int]$p){$l=netstat -ano ^| Select-String (':'+$p+'\s') ^| Select-String 'LISTENING' ^| Select-Object -First 1; if($l){[int](($l -replace '\s+',' ').ToString().Trim().Split(' ')[-1])}}; $wp=%WORKER_PORT%; $tp=%TUNNEL_HEALTH_PORT%; $tpid=Owner $tp; if($tpid){$p=Get-Process -Id $tpid -ErrorAction SilentlyContinue; if(-not $p -or $p.ProcessName -ne 'tunnel-client'){Write-Host ('[ERROR] Port '+$tp+' is owned by PID '+$tpid+' ('+$(if($p){$p.ProcessName}else{'unknown'})+'), not tunnel-client.'); exit 41}; Stop-Process -Id $tpid -Force -ErrorAction SilentlyContinue}; $wHealthy=$false; try{$w=Invoke-RestMethod ('http://127.0.0.1:'+$wp+'/health') -TimeoutSec 2; $wHealthy=($w.name -eq 'chatgpt-local-worker')}catch{}; $wpid=Owner $wp; if($wpid){if(-not $wHealthy){$p=Get-Process -Id $wpid -ErrorAction SilentlyContinue; Write-Host ('[ERROR] Port '+$wp+' is occupied by PID '+$wpid+' ('+$(if($p){$p.ProcessName}else{'unknown'})+'), but it is not a healthy GPTWorker.'); exit 42}; Stop-Process -Id $wpid -Force -ErrorAction SilentlyContinue}; Start-Sleep -Milliseconds 800"
+if errorlevel 1 goto :failed
+
+echo.
+echo ========================================
+echo   Starting local GPTWorker
+echo ========================================
 
 start "" powershell -NoProfile -WindowStyle Hidden -ExecutionPolicy Bypass -File "%~dp0start.ps1" -Port %WORKER_PORT% -Force
 
@@ -74,7 +89,7 @@ echo Waiting for local Worker on port %WORKER_PORT%...
 powershell -NoProfile -Command "$ok=$false; foreach ($i in 1..30) { try { $r=Invoke-WebRequest 'http://127.0.0.1:%WORKER_PORT%/health' -UseBasicParsing -TimeoutSec 1; if ($r.StatusCode -eq 200) { $ok=$true; break } } catch {}; Start-Sleep -Milliseconds 500 }; if (-not $ok) { exit 1 }"
 if errorlevel 1 (
   echo [ERROR] Local Worker did not become ready before tunnel doctor.
-  echo Check the GPTWorker Server window.
+  echo Check whether port %WORKER_PORT% is occupied and rerun setup.bat.
   goto :failed
 )
 
@@ -89,15 +104,20 @@ echo.
 echo GPTWorker will guide the connection setup one step at a time.
 echo Each OpenAI page will open automatically exactly when its value is needed.
 echo.
-powershell -NoProfile -ExecutionPolicy Bypass -File "%~dp0openai-tunnel.ps1" -Init
+powershell -NoProfile -ExecutionPolicy Bypass -File "%~dp0openai-tunnel.ps1" -Init -Force -Port %WORKER_PORT% -HealthPort %TUNNEL_HEALTH_PORT%
 if errorlevel 1 goto :failed
 
-set "TUNNEL_HEALTH_PORT=8080"
-for /f "tokens=2 delims==" %%A in ('findstr /B /C:"OPENAI_TUNNEL_HEALTH_PORT=" ".env"') do set "TUNNEL_HEALTH_PORT=%%A"
-
 echo.
+echo Verifying local Worker again before starting the tunnel...
+powershell -NoProfile -Command "try{$w=Invoke-RestMethod 'http://127.0.0.1:%WORKER_PORT%/health' -TimeoutSec 2; if($w.name -ne 'chatgpt-local-worker'){exit 1}}catch{exit 1}"
+if errorlevel 1 (
+  echo [ERROR] Local Worker stopped after tunnel doctor.
+  echo Check: %LOCALAPPDATA%\GPTWorker\logs\worker.err.log
+  goto :failed
+)
+
 echo Starting Secure MCP Tunnel...
-start "" powershell -NoProfile -WindowStyle Hidden -ExecutionPolicy Bypass -File "%~dp0openai-tunnel.ps1" -Port %WORKER_PORT%
+start "" powershell -NoProfile -WindowStyle Hidden -ExecutionPolicy Bypass -File "%~dp0openai-tunnel.ps1" -Port %WORKER_PORT% -HealthPort %TUNNEL_HEALTH_PORT% -Force
 
 echo Waiting for tunnel readiness on port %TUNNEL_HEALTH_PORT%...
 powershell -NoProfile -Command "$ok=$false; foreach ($i in 1..120) { try { $r=Invoke-WebRequest 'http://127.0.0.1:%TUNNEL_HEALTH_PORT%/readyz' -UseBasicParsing -TimeoutSec 1; if ($r.StatusCode -eq 200) { $ok=$true; break } } catch {}; Start-Sleep -Milliseconds 500 }; if (-not $ok) { exit 1 }"
