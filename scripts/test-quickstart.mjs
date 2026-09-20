@@ -79,8 +79,12 @@ assert.equal(
 
 assert.ok(GPTWORKER_HELP.includes("**Job + Workspace local**"));
 assert.ok(!GPTWORKER_HELP.includes("## Kích hoạt GPTWorker"));
-assert.ok(MCP_QUICKSTART.includes("## GPTWorker activation gate"));
-assert.ok(MCP_QUICKSTART.includes("task_with_workspace"));
+assert.ok(MCP_QUICKSTART.includes("## GPTWorker internal admission handshake"));
+assert.ok(MCP_QUICKSTART.includes("gptworker_admission"));
+assert.ok(MCP_QUICKSTART.includes("INACTIVE"));
+assert.ok(MCP_QUICKSTART.includes("Continue answering as ordinary ChatGPT"));
+assert.ok(MCP_QUICKSTART.includes("another plugin/tool"));
+assert.ok(MCP_QUICKSTART.includes("admission_token"));
 assert.ok(MCP_QUICKSTART.includes("workspace_discover"));
 assert.ok(MCP_QUICKSTART.includes("work_tool"));
 assert.ok(MCP_QUICKSTART.includes("runtime.preload_families"));
