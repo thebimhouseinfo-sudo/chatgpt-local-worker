@@ -159,14 +159,16 @@ When calling \`job_select\`, always pass the valid \`activation_trigger\` plus t
 ## GPTWorker workflow
 1. Public Job Pack lifecycle commands (job_list / job_create / job_update / job_remove / job_export / job_import) do not require an active Job + Workspace. Never activate dev-coding, reuse a previous workspace, or infer a FOLDER just to author a Job Pack.
 2. For job-specific execution, first require the activation gate above. Then call job_status with this chat's current work_handle when one exists. Without a work_handle, treat the chat as unemployed.
-3. Resolve JOB and local FOLDER from the current conversation only. Do not reuse worker-state.json, startup cwd, the most recent Job, or the most recent Workspace as authority.
-4. If JOB is missing/ambiguous, call job_list and ask only for the missing job choice.
-5. If FOLDER is missing/ambiguous, ask only for the absolute local folder path.
+3. Resolve the absolute local FOLDER from the current conversation only. Do not reuse worker-state.json, startup cwd, the most recent Job, or the most recent Workspace as authority.
+4. When the user has supplied a concrete task + absolute local Workspace and JOB is not already explicit/certain, use workspace_discover for only the minimum read-only inspection needed to identify the right Job. Allowed discovery is list/search/read inside that Workspace only; it grants no execution authority and must not write or run shell commands.
+5. Use job_list after discovery when Job matching is still needed. If FOLDER is missing/ambiguous, ask only for the absolute local folder path.
 6. Resolve any other required Job Pack bindings from the user's request.
-7. Call job_select with confirmed=false plus valid activation evidence.
-8. Present a short preflight confirmation centered on JOB + FOLDER. Do not execute yet.
-9. Only after explicit user confirmation, call job_select again with confirmed=true + confirmation_token and the same valid activation mode.
-10. After confirmation, keep the runtime lightweight until actual work is needed. Execute each work operation through work_tool; work_tool lazy-loads only the requested operation family on its first real call. Do not preload filesystem/shell/git/context/REPL/rewind/upstream modules merely because a Job was selected or confirmed. Validate, then report. Use job_stop when the work is finished. Use job_switch only when the user intentionally changes Job/Workspace. Idle work auto-stops after the configured inactivity timeout.
+7. Call job_select with confirmed=false plus valid activation evidence. This is the Job nomination step.
+8. Immediately after nomination, GPTWorker begins warming that Job's declared runtime.preload_families in the background while the user reads the JOB + FOLDER confirmation. Preloading is preparation only: do not execute workspace mutations or shell commands before confirmation.
+9. If the user rejects/corrects the nominated Job before confirmation, select/switch to the requested Job. The prior preload generation becomes stale and the new Job profile is prepared instead; never execute using the rejected nomination.
+10. Present the short preflight confirmation centered on JOB + FOLDER.
+11. Only after explicit user confirmation, call job_select again with confirmed=true + confirmation_token and the same valid activation mode. Confirmation waits for the current Job preload if it is still finishing, so work can start immediately afterward.
+12. Execute each work operation through work_tool. Expected Job families should already be warm; any unprepared family remains a lazy fallback and loads only on first use. Validate, then report. Use job_stop when the work is finished. Idle work auto-stops after the configured inactivity timeout.
 
 ## Job Pack authoring
 - job_create creates the Job Pack definition itself. It must not open a project workspace first.
@@ -189,8 +191,10 @@ Xác nhận bắt đầu?
 - For multi-file apply_patch, supply an absolute base path.
 - node_repl may not access fs/fs-promises directly. Use dedicated filesystem tools with absolute paths.
 
-## Core tool workflow (after confirmation)
-All actual workspace execution goes through work_tool. Selecting or confirming a Job must not preload any execution family.
+## Core tool workflow
+Before nomination, workspace_discover is the only pre-confirmation Workspace reader and is restricted to minimal read-only Job discovery.
+After nomination, the Job's declared runtime.preload_families may warm in the background while waiting for confirmation, but no actual work may execute.
+After confirmation, all actual workspace execution goes through work_tool.
 1. When project context is actually needed, call work_tool with tool=project_context.
 2. Explore through work_tool using glob (file names), grep (content), then read_text_file.
 3. For file rename/move operations, dispatch move_file through work_tool. Do not fall back to node_repl for routine filesystem mutations.
@@ -198,8 +202,9 @@ All actual workspace execution goes through work_tool. Selecting or confirming a
 5. Run builds/tests through work_tool with run_command for short work or start_process + process_output for long-running work.
 6. Dispatch git operations through work_tool without path arguments so they operate on the confirmed active workspace.
 7. Dispatch rewind through work_tool when needed. Shell-created changes are not automatically checkpointed.
-8. Each execution family is imported only on its first real work_tool call and then cached; unrelated families remain unloaded.
-9. End the work with job_stop when the user is done; the 10-minute idle timeout is only the safety fallback for abandoned chats.
+8. Families declared by the nominated Job may already be cached from confirmation-wait preload. Any other family is imported only on its first real work_tool call.
+9. If nomination changes before confirmation, treat the old prepared profile as stale and prepare the replacement Job profile.
+10. End the work with job_stop when the user is done; the 10-minute idle timeout is only the safety fallback for abandoned chats.
 
 ## apply_patch
 Single-file hunk:
@@ -221,8 +226,9 @@ All tools return JSON: { ok, tool, summary, data }
 
 ## Tool cheat sheet
 - job_list / job_create / job_update / job_remove / job_export / job_import: lightweight public Job Pack lifecycle
-- job_select / job_status / job_switch / job_stop: lightweight work registration lifecycle
-- work_tool: the single execution gateway; it receives tool=<operation> + arguments={...} and lazy-loads only that operation family on first use
+- job_select / job_status / job_switch / job_stop: work registration and nomination lifecycle
+- workspace_discover: minimal read-only pre-confirmation discovery inside the user-supplied Workspace; use only to identify the Job
+- work_tool: the confirmed-work execution gateway; nominated Job families may be preloaded while waiting for confirmation, with lazy loading as fallback
 - work_tool operations glob / grep / read_text_file: explore
 - work_tool operations apply_patch / multi_edit / edit_file / write_file: edit
 - work_tool operation move_file: preferred rename/move operation inside the active workspace
@@ -266,8 +272,11 @@ export function buildServerInstructions(
     "job_export — export a custom Job as <id>.zip to an absolute local destination directory",
     "job_import — import a validated custom Job from an absolute local ZIP path or directory containing exactly one ZIP",
     "job_stop — explicitly end this chat's active work; idle timeout is the abandoned-chat fallback",
-    "work_tool — only execution gateway; do not preload execution modules on Job selection/confirmation; lazy-load the requested family on the first actual work call",
-    "project_context / agent_status and all other workspace operations are dispatched through work_tool",
+    "workspace_discover — only after task + absolute Workspace are supplied; minimal read-only inspection to identify the correct Job before nomination",
+    "job_select confirmed=false — nominate the Job and begin background preload of its declared runtime.preload_families while waiting for confirmation",
+    "if the nomination changes, invalidate the prior preload generation and prepare the replacement Job profile",
+    "work_tool — confirmed-work execution gateway; use the warmed Job profile and lazy-load only unexpected families",
+    "project_context / agent_status and all other confirmed workspace operations are dispatched through work_tool",
   ].join("\n");
 
   const body = contextBlock?.trim();
