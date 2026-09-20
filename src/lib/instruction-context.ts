@@ -31,6 +31,7 @@ export interface InstructionContext {
   workerPolicy: WorkerPolicyBundle;
   projectMemory: ProjectMemoryBundle;
   git: GitSnapshot;
+  contextText: string;
   instructionsText: string;
   instructionBytes: number;
 }
@@ -67,18 +68,19 @@ export async function buildInstructionContext(
     formatWorkerPolicyForInstructions(workerPolicy),
   ].filter(Boolean);
 
-  const projectMemoryBlock = blocks.join("\n\n");
+  const contextText = blocks.join("\n\n");
   const instructionsText = buildServerInstructions(
     opts.workspaceRoot,
     opts.workspaceRoots,
     true,
-    projectMemoryBlock
+    contextText
   );
 
   return {
     workerPolicy,
     projectMemory,
     git,
+    contextText,
     instructionsText,
     instructionBytes: Buffer.byteLength(instructionsText, "utf-8"),
   };

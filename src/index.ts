@@ -92,7 +92,7 @@ const sessionManager = createSessionManager({
   shellTimeout: SHELL_TIMEOUT,
   workspaceRoots,
   port: PORT,
-  projectMemoryInstructions: instructionContext.instructionsText,
+  projectMemoryInstructions: instructionContext.contextText,
 });
 
 const app = express();
