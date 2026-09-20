@@ -275,13 +275,28 @@ export function registerJobTools(
     {
       title: "Job Remove",
       description:
-        "Remove a custom AppData Job Pack. Bundled repo default Jobs cannot be removed.",
+        "Remove a custom AppData Job Pack. Bundled repo defaults cannot be removed. Destructive removal requires explicit user confirmation; call first with confirmed=false, then retry with confirmed=true only after the user confirms.",
       inputSchema: {
-        id: z.string().min(1).describe("Exact Job id to remove"),
+        id: z.string().min(1).describe("Exact custom Job id to remove"),
+        confirmed: z.boolean().optional().default(false).describe(
+          "Set true only after explicit user confirmation of this exact Job id"
+        ),
       },
       annotations: toolAnnotations("edit"),
     },
-    async ({ id }) => safe("job_remove", () => removeJobPack(id))
+    async ({ id, confirmed }) =>
+      safe("job_remove", async () => {
+        if (!confirmed) {
+          return {
+            job_id: id,
+            removal_pending: true,
+            confirmation_required: true,
+            confirmation_prompt:
+              "Xóa custom Job '" + id + "'? Thao tác này xóa Job Pack khỏi AppData và không ảnh hưởng bundled Jobs trong repo.",
+          };
+        }
+        return removeJobPack(id);
+      })
   );
 
   server.registerTool(
