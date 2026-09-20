@@ -13,7 +13,7 @@ export function registerAdmissionTool(
     {
       title: "GPTWorker Admission",
       description:
-        "Internal non-user-facing admission handshake for a concrete GPTWorker work request that is ready for nomination. Do NOT call this for a bare @gptworker/plugin invocation or when task/Workspace information is still missing; answer those cases directly in chat. Pass the exact current user turn. ACTIVE only when that turn literally contains @gptworker, or when ChatGPT identifies a concrete work request and the exact absolute local Workspace appears in that same turn. CONTROL is for explicit gptworker/ commands. INACTIVE means GPTWorker must stop immediately; do not ask the user to activate GPTWorker, do not nominate a Job, and continue as normal ChatGPT or use the plugin/tool the user actually requested.",
+        "Internal non-user-facing admission handshake for GPTWorker work. GPTWorker work activation is @-only: ACTIVE only when the exact current user turn literally contains @gptworker. A task plus an absolute local path without @gptworker is always INACTIVE. CONTROL is for explicit gptworker/ commands. INACTIVE means GPTWorker must stop immediately; do not nominate a Job, do not inspect the workspace, and continue as normal ChatGPT or use the plugin/tool the user actually requested.",
       inputSchema: {
         user_turn: z
           .string()
@@ -24,13 +24,13 @@ export function registerAdmissionTool(
           .optional()
           .default(false)
           .describe(
-            "Semantic check by ChatGPT: true only when the current user turn contains a concrete work request"
+            "Compatibility field only. A concrete task does not activate GPTWorker without literal @gptworker."
           ),
         workspace: z
           .string()
           .optional()
           .describe(
-            "Exact absolute local Workspace path from the current user turn, when one is present"
+            "Compatibility/context field only. A Workspace path does not activate GPTWorker without literal @gptworker."
           ),
       },
       annotations: toolAnnotations("read"),
