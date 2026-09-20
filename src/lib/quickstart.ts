@@ -122,7 +122,17 @@ Job có sẵn:
 - layla — tài liệu, file, Word/Excel/PowerPoint/PDF và công việc tổng hợp.
 - mto — HVAC quantity takeoff / bóc khối lượng.
 
-Hãy chọn Job và gửi thư mục local tuyệt đối cần làm việc, ví dụ D:\\Projects\\my-app.
+Quản lý GPTWorker:
+- gptworker/help
+- gptworker/job list
+- gptworker/job create
+- gptworker/job update
+- gptworker/job remove
+- gptworker/job export
+- gptworker/job import
+- gptworker/job stop
+
+Để bắt đầu công việc, hãy chọn Job và gửi thư mục local tuyệt đối cần làm việc, ví dụ D:\\Projects\\my-app.
 `.trim();
 export const MCP_QUICKSTART = `
 ## GPTWorker root command surface
@@ -144,7 +154,7 @@ When the user sends exactly gptworker/help, reply with the prewritten GPTWORKER_
 ## Bare GPTWorker invocation — zero-tool response
 When the user only invokes GPTWorker itself (for example a bare \`@gptworker\` mention / plugin invocation) and has not yet supplied a concrete task + absolute local Workspace, DO NOT call any MCP tool at all. Do not call gptworker_admission, job_status, job_list, or workspace_discover.
 
-Reply immediately with the prewritten GPTWORKER_IDLE_PROMPT above. This response must be instant and chat-only.
+Reply immediately with the prewritten GPTWORKER_IDLE_PROMPT above. It must include both the default Job list and the fixed GPTWorker management commands. This response must be instant and chat-only.
 
 If the user invoked \`@gptworker\` and already described a clear task but omitted the absolute local Workspace:
 - do not call tools yet;
