@@ -44,26 +44,6 @@ const JobFilesSchema = z
   .describe("Additional pack files keyed by relative path, e.g. skills/foo.md or harness/validate.mjs");
 
 const CONFIRMATION_PROOF_TTL_MS = 30 * 60 * 1000;
-const pendingConfirmations = new Map<
-  string,
-  { jobId: string; bindings: Record<string, string>; createdAt: number }
->();
-
-const pendingRemovalConfirmations = new Map<
-  string,
-  { jobId: string; mode: "remove" | "interrupt_remove"; createdAt: number }
->();
-
-function getRemovalProof(token: string | undefined) {
-  const now = Date.now();
-  for (const [key, proof] of pendingRemovalConfirmations) {
-    if (now - proof.createdAt > CONFIRMATION_PROOF_TTL_MS) {
-      pendingRemovalConfirmations.delete(key);
-    }
-  }
-  if (!token) return undefined;
-  return pendingRemovalConfirmations.get(token);
-}
 
 function stableBindings(bindings: Record<string, string> | undefined): string {
   return JSON.stringify(
@@ -71,21 +51,29 @@ function stableBindings(bindings: Record<string, string> | undefined): string {
   );
 }
 
-function rememberConfirmation(result: any): void {
-  const token = result?.confirmation_token;
-  const jobId = result?.job?.id;
-  const bindings = result?.state?.bindings;
-  if (!token || !jobId || !bindings) return;
-  pendingConfirmations.set(token, { jobId, bindings: { ...bindings }, createdAt: Date.now() });
+function normalizedConfirmationValue(key: string, value: string): string {
+  const trimmed = value.trim();
+  if (key !== "workspace" || !path.isAbsolute(trimmed)) return trimmed;
+  const resolved = path.resolve(trimmed);
+  return process.platform === "win32" ? resolved.toLowerCase() : resolved;
 }
 
-function getConfirmationProof(token: string | undefined) {
-  const now = Date.now();
-  for (const [key, proof] of pendingConfirmations) {
-    if (now - proof.createdAt > CONFIRMATION_PROOF_TTL_MS) pendingConfirmations.delete(key);
+function confirmationBindingsCompatible(
+  supplied: Record<string, string> | undefined,
+  confirmed: Record<string, string>
+): boolean {
+  if (!supplied) return true;
+  for (const [key, value] of Object.entries(supplied)) {
+    const confirmedValue = confirmed[key];
+    if (typeof confirmedValue !== "string") return false;
+    if (
+      normalizedConfirmationValue(key, value) !==
+      normalizedConfirmationValue(key, confirmedValue)
+    ) {
+      return false;
+    }
   }
-  if (!token) return undefined;
-  return pendingConfirmations.get(token);
+  return true;
 }
 
 
@@ -167,12 +155,62 @@ export function registerJobTools(
 ): void {
   let sessionRuntime = runtime;
 
+  // Confirmation authority is scoped to this MCP server/session.
+  // Never share user-confirmation proofs between ChatGPT sessions.
+  const pendingConfirmations = new Map<
+    string,
+    { jobId: string; bindings: Record<string, string>; createdAt: number }
+  >();
+  const pendingRemovalConfirmations = new Map<
+    string,
+    { jobId: string; mode: "remove" | "interrupt_remove"; createdAt: number }
+  >();
+
+  function getRemovalProof(token: string | undefined) {
+    const now = Date.now();
+    for (const [key, proof] of pendingRemovalConfirmations) {
+      if (now - proof.createdAt > CONFIRMATION_PROOF_TTL_MS) {
+        pendingRemovalConfirmations.delete(key);
+      }
+    }
+    if (!token) return undefined;
+    return pendingRemovalConfirmations.get(token);
+  }
+
+  function rememberConfirmation(result: any): void {
+    // One MCP session has only one current nomination state.
+    // Any successful re-selection supersedes every prior confirmation proof,
+    // even when the new state still has missing bindings and emits no token yet.
+    pendingConfirmations.clear();
+
+    const token = result?.confirmation_token;
+    const jobId = result?.job?.id;
+    const bindings = result?.state?.bindings;
+    if (!token || !jobId || !bindings) return;
+    pendingConfirmations.set(token, {
+      jobId,
+      bindings: { ...bindings },
+      createdAt: Date.now(),
+    });
+  }
+
+  function getConfirmationProof(token: string | undefined) {
+    const now = Date.now();
+    for (const [key, proof] of pendingConfirmations) {
+      if (now - proof.createdAt > CONFIRMATION_PROOF_TTL_MS) {
+        pendingConfirmations.delete(key);
+      }
+    }
+    if (!token) return undefined;
+    return pendingConfirmations.get(token);
+  }
+
   async function bindRuntimeToWorkspace(
     bindings?: Record<string, string>,
     allowReplace = false
-  ): Promise<void> {
+  ): Promise<string | undefined> {
     const rawWorkspace = bindings?.workspace;
-    if (!rawWorkspace) return;
+    if (!rawWorkspace) return undefined;
 
     const workspace = await validateWorkspacePath(rawWorkspace);
     const status = await sessionRuntime.status();
@@ -183,14 +221,14 @@ export function registerJobTools(
 
     if (phase === "idle") {
       sessionRuntime = new JobRuntime(workspace);
-      return;
+      return workspace;
     }
 
-    if (currentWorkspace === workspace) return;
+    if (currentWorkspace === workspace) return workspace;
 
     if (allowReplace) {
       sessionRuntime = new JobRuntime(workspace);
-      return;
+      return workspace;
     }
 
     throw new Error(
@@ -215,7 +253,7 @@ export function registerJobTools(
           .string()
           .optional()
           .describe(
-            "Bare @gptworker only: exact current user text containing literal @gptworker. Arms this MCP session for the following Job+Workspace continuation."
+            "Bare @gptworker only: exact current user text that starts with @gptworker. Arms this MCP session for the following Job+Workspace continuation."
           ),
       },
       annotations: toolAnnotations("read"),
@@ -226,7 +264,7 @@ export function registerJobTools(
           const armed = admissionRuntime.armExplicitAt(activation_request);
           if (!armed) {
             throw new Error(
-              "ACTIVATION_REQUIRED: activation_request for bare Job listing must contain literal @gptworker."
+              "ACTIVATION_REQUIRED: activation_request for bare Job listing must start with @gptworker."
             );
           }
         }
@@ -592,7 +630,10 @@ export function registerJobTools(
     }) =>
       safe("job_select", async () => {
         admissionRuntime.activation(admission_token, bindings);
-        await bindRuntimeToWorkspace(bindings);
+        const validatedWorkspace = await bindRuntimeToWorkspace(bindings);
+        if (validatedWorkspace) {
+          admissionRuntime.bindWorkspace(admission_token, validatedWorkspace);
+        }
 
         if (!confirmed) {
           const current = await sessionRuntime.status();
@@ -637,7 +678,15 @@ export function registerJobTools(
             };
           }
 
-          return persistActiveSelection(selected, sessionRuntime, lifecycle);
+          const prepared = await persistActiveSelection(
+            selected,
+            sessionRuntime,
+            lifecycle
+          );
+          if ((prepared as any)?.work_handle) {
+            admissionRuntime.consume(admission_token);
+          }
+          return prepared;
         }
 
         const proof = getConfirmationProof(confirmation_token);
@@ -647,6 +696,14 @@ export function registerJobTools(
           );
         }
 
+        if (!confirmationBindingsCompatible(bindings, proof.bindings)) {
+          throw new Error(
+            "Confirmation token is bound to different Job/Workspace bindings. Request a new confirmation before activation."
+          );
+        }
+
+        const confirmedJob = proof.jobId;
+        const confirmedBindings = proof.bindings;
         const status = await sessionRuntime.status();
         let activationToken = confirmation_token;
         const samePendingState =
@@ -655,8 +712,8 @@ export function registerJobTools(
 
         if (!samePendingState) {
           const primed = await sessionRuntime.select({
-            job,
-            bindings,
+            job: confirmedJob,
+            bindings: confirmedBindings,
             confirmed: false,
           });
           if (
@@ -680,15 +737,54 @@ export function registerJobTools(
 
         await lifecycle?.wait(proof.jobId);
 
-        const selected = await sessionRuntime.select({
-          job,
-          bindings,
-          confirmed: true,
-          confirmationToken: activationToken,
-        });
+        const confirmedWorkspace = proof.bindings.workspace;
+        if (!confirmedWorkspace) {
+          throw new Error(
+            "Confirmed Job activation requires a Workspace binding."
+          );
+        }
+
+        // Reserve execution authority before mutating JobRuntime to active.
+        // If the Workspace is busy, the runtime remains awaiting_confirmation
+        // and the user's confirmation proof remains retryable.
+        const activationRuntime = sessionRuntime;
+        const registration = await createWorkRegistration(
+          proof.jobId,
+          confirmedWorkspace,
+          () => {
+            activationRuntime.stop();
+            lifecycle?.clear();
+          }
+        );
+
+        let selected: any;
+        try {
+          selected = await activationRuntime.select({
+            job: confirmedJob,
+            bindings: confirmedBindings,
+            confirmed: true,
+            confirmationToken: activationToken,
+          });
+          await validateResolvedWorkspace(selected);
+        } catch (error) {
+          releaseWorkRegistration(
+            registration.executionId,
+            registration.authorityToken
+          );
+          throw error;
+        }
+
         pendingConfirmations.delete(confirmation_token!);
-        await validateResolvedWorkspace(selected);
-        return persistActiveSelection(selected, sessionRuntime, lifecycle);
+        admissionRuntime.consume(admission_token);
+
+        return {
+          ...selected,
+          work_handle: getPublicWorkHandle(registration),
+          idle_timeout_ms: getWorkIdleTimeoutMs(),
+          next:
+            "Use work_handle.execution_id + work_handle.authority_token on every execution tool call. " +
+            "The work registration auto-stops after 10 minutes without valid work-handle activity.",
+        };
       })
   );
 
@@ -697,7 +793,7 @@ export function registerJobTools(
     {
       title: "Job Switch",
       description:
-        "Clear current session/persistent job state, then select a different Job Pack or FOLDER. The replacement must still be explicitly confirmed before activation.",
+        "Clear current session/persistent job state, then select a different Job Pack or FOLDER. Jobs that require confirmation still wait for explicit confirmation; no-confirm Jobs may activate immediately and must return a fresh work_handle.",
       inputSchema: {
         job: z.string().min(1),
         bindings: BindingsSchema.optional(),
@@ -711,39 +807,82 @@ export function registerJobTools(
     },
     async ({ job, bindings, execution_id, authority_token, admission_token }) =>
       safe("job_switch", async () => {
-        if (!execution_id && !authority_token) {
+        const isPreActiveSwitch = !execution_id && !authority_token;
+        if (isPreActiveSwitch) {
           admissionRuntime.activation(admission_token, bindings);
         }
+
+        let activeHandle:
+          | { executionId: string; authorityToken: string }
+          | undefined;
         if (execution_id || authority_token) {
           if (!execution_id || !authority_token) {
-            throw new Error("Both execution_id and authority_token are required to release the current work registration.");
+            throw new Error(
+              "Both execution_id and authority_token are required to release the current work registration."
+            );
           }
-          releaseWorkRegistration(execution_id, authority_token);
+
+          const current = validateWorkHandle(execution_id, authority_token);
+          activeHandle = {
+            executionId: current.executionId,
+            authorityToken: current.authorityToken,
+          };
         }
-         const persistentState = await clearWorkerState();
-        await bindRuntimeToWorkspace(bindings, true);
+
+        // Preflight a replacement Workspace before releasing current work.
+        // A typo/nonexistent path must leave the existing work_handle intact.
+        if (bindings?.workspace) {
+          await validateWorkspacePath(bindings.workspace);
+        }
+
+        if (activeHandle) {
+          releaseWorkRegistration(
+            activeHandle.executionId,
+            activeHandle.authorityToken
+          );
+        }
+
+        const persistentState = await clearWorkerState();
+        const validatedWorkspace = await bindRuntimeToWorkspace(bindings, true);
+        if (isPreActiveSwitch && validatedWorkspace) {
+          admissionRuntime.bindWorkspace(admission_token, validatedWorkspace);
+        }
+
         lifecycle?.clear();
         const selected = await sessionRuntime.switch(job, bindings);
         rememberConfirmation(selected?.current);
         await validateResolvedWorkspace(selected?.current);
+
+        const current = await persistActiveSelection(
+          selected?.current,
+          sessionRuntime,
+          lifecycle
+        );
+
         if (
-          selected?.current?.state?.phase === "awaiting_confirmation" &&
-          selected?.current?.job?.id
+          current?.state?.phase === "awaiting_confirmation" &&
+          current?.job?.id
         ) {
           lifecycle?.nominate({
-            id: selected.current.job.id,
-            preload_families: selected.current.job.preload_families ?? [],
+            id: current.job.id,
+            preload_families: current.job.preload_families ?? [],
           });
         }
+
+        if (isPreActiveSwitch && (current as any)?.work_handle) {
+          admissionRuntime.consume(admission_token);
+        }
+
         return {
           ...selected,
+          current,
           worker_state: persistentState,
           tool_preload:
-            selected?.current?.state?.phase === "awaiting_confirmation"
+            current?.state?.phase === "awaiting_confirmation"
               ? {
                   status: "warming",
-                  job_id: selected.current.job.id,
-                  families: selected.current.job.preload_families ?? [],
+                  job_id: current.job.id,
+                  families: current.job.preload_families ?? [],
                 }
               : undefined,
         };
@@ -755,7 +894,7 @@ export function registerJobTools(
     {
       title: "Job Stop",
       description:
-        "Stop this chat's active work. Always pass the current work_handle. Never infer or stop the most recent Job/Workspace from another chat. Orphaned work auto-stops after 10 minutes idle.",
+        "Stop this MCP session and return it to idle. Pending/selected state can be cancelled without a work_handle. Active work requires this chat's current work_handle; never infer or stop another chat's Job/Workspace. Orphaned active work auto-stops after 10 minutes idle.",
       inputSchema: {
         execution_id: z.string().optional().describe("Current work_handle.execution_id"),
         authority_token: z.string().optional().describe("Current work_handle.authority_token"),
@@ -764,24 +903,60 @@ export function registerJobTools(
     },
     async ({ execution_id, authority_token }) =>
       safe("job_stop", async () => {
-        if (!execution_id || !authority_token) {
+        const hasAnyHandlePart = Boolean(execution_id || authority_token);
+
+        if (hasAnyHandlePart) {
+          if (!execution_id || !authority_token) {
+            throw new Error(
+              "Both execution_id and authority_token are required to stop active work."
+            );
+          }
+
+          const released = releaseWorkRegistration(
+            execution_id,
+            authority_token
+          );
+          const stopped = sessionRuntime.stop();
+          lifecycle?.clear();
+          admissionRuntime.clear();
+          pendingConfirmations.clear();
+          pendingRemovalConfirmations.clear();
+
+          return {
+            ...stopped,
+            released_work: {
+              execution_id: released.executionId,
+              job_id: released.jobId,
+              workspace_key: released.workspaceKey,
+            },
+            worker_state: await clearWorkerState(),
+          };
+        }
+
+        const status = await sessionRuntime.status();
+        if (status?.state?.phase === "active") {
           throw new Error(
-            "NO_ACTIVE_WORK: job_stop requires this chat's execution_id + authority_token. " +
+            "NO_ACTIVE_WORK: active work can be stopped only with this chat's execution_id + authority_token. " +
             "A new chat cannot stop another chat's work; orphaned work auto-stops after 10 minutes idle."
           );
         }
-        const released = releaseWorkRegistration(execution_id, authority_token);
+
+        // Pending/selected/idle state is local to this MCP session and has no
+        // work registration to authorize. Cancel it without touching global
+        // persistent worker state that may belong to another chat.
         const stopped = sessionRuntime.stop();
         lifecycle?.clear();
         admissionRuntime.clear();
+        pendingConfirmations.clear();
+        pendingRemovalConfirmations.clear();
+
         return {
           ...stopped,
-          released_work: {
-            execution_id: released.executionId,
-            job_id: released.jobId,
-            workspace_key: released.workspaceKey,
+          released_work: null,
+          worker_state: {
+            unchanged: true,
+            reason: "No active work registration was released.",
           },
-          worker_state: await clearWorkerState(),
         };
       })
   );

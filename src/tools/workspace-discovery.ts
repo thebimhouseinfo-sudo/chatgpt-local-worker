@@ -88,7 +88,7 @@ export function registerWorkspaceDiscoveryTool(
       admission_token,
     }) => {
       const root = await canonicalWorkspace(workspace);
-      admissionRuntime.validate(admission_token, workspace);
+      admissionRuntime.bindWorkspace(admission_token, workspace);
 
       if (operation === "list_directory") {
         const dir = await pathInsideWorkspace(

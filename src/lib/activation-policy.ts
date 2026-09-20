@@ -70,6 +70,10 @@ function includesPath(request: string, workspace: string): boolean {
   return requestComparable.includes(workspaceComparable);
 }
 
+function isExplicitGptworkerInvocation(userTurn: string): boolean {
+  return /^\s*@gptworker\b/i.test(userTurn);
+}
+
 function isPublicControlCommand(userTurn: string): boolean {
   const value = userTurn.trim();
   return (
@@ -101,7 +105,7 @@ export class AdmissionRuntime {
   armExplicitAt(userTurn: string): boolean {
     this.cleanup();
     const request = userTurn?.trim();
-    if (!request || !/@gptworker\b/i.test(request)) return false;
+    if (!request || !isExplicitGptworkerInvocation(request)) return false;
     this.armedAtFlow = {
       invocationRequest: request,
       createdAt: Date.now(),
@@ -139,7 +143,7 @@ export class AdmissionRuntime {
     let invocationRequest: string | undefined;
     let workspace: string | undefined;
 
-    if (/@gptworker\b/i.test(userTurn)) {
+    if (isExplicitGptworkerInvocation(userTurn)) {
       this.armExplicitAt(userTurn);
       invocationRequest = userTurn;
       const candidate = input.workspace?.trim();
@@ -185,6 +189,11 @@ export class AdmissionRuntime {
       createdAt: Date.now(),
     });
 
+    // The explicit @ flow is one-shot for admitting a new Job/Workspace request.
+    // Once a token is minted, the token carries the current flow through
+    // nomination + confirmation; future direct requests must invoke @gptworker again.
+    this.armedAtFlow = undefined;
+
     return {
       mode: "ACTIVE",
       claimed: true,
@@ -214,8 +223,18 @@ export class AdmissionRuntime {
       );
     }
 
-    if (expectedWorkspace && proof.workspace) {
-      if (normalizedPath(proof.workspace) !== normalizedPath(expectedWorkspace)) {
+    if (expectedWorkspace) {
+      const workspace = expectedWorkspace.trim();
+      if (!path.isAbsolute(workspace)) {
+        throw new Error(
+          "ADMISSION_REQUIRED: Workspace must be an absolute local Workspace path."
+        );
+      }
+
+      if (
+        proof.workspace &&
+        normalizedPath(proof.workspace) !== normalizedPath(workspace)
+      ) {
         throw new Error(
           "ADMISSION_REQUIRED: Workspace does not match the Workspace admitted in this @gptworker flow."
         );
@@ -223,6 +242,29 @@ export class AdmissionRuntime {
     }
 
     return proof;
+  }
+
+  bindWorkspace(token: string | undefined, workspace: string): string {
+    const proof = this.validate(token);
+    const trimmed = workspace.trim();
+    if (!path.isAbsolute(trimmed)) {
+      throw new Error(
+        "ADMISSION_REQUIRED: Workspace must be an absolute local Workspace path."
+      );
+    }
+
+    const resolved = path.resolve(trimmed);
+    if (
+      proof.workspace &&
+      normalizedPath(proof.workspace) !== normalizedPath(resolved)
+    ) {
+      throw new Error(
+        "ADMISSION_REQUIRED: Workspace does not match the Workspace admitted in this @gptworker flow."
+      );
+    }
+
+    if (!proof.workspace) proof.workspace = resolved;
+    return proof.workspace;
   }
 
   activation(
@@ -237,6 +279,12 @@ export class AdmissionRuntime {
       activationRequest: proof.invocationRequest,
       bindings,
     });
+  }
+
+  consume(token: string | undefined): void {
+    this.cleanup();
+    if (!token) return;
+    this.admissions.delete(token);
   }
 
   clear(): void {
@@ -259,13 +307,19 @@ export function validateActivationGate(input: ActivationGateInput): ActivationGa
     );
   }
 
-  if (!/@gptworker\b/i.test(request)) {
+  if (!isExplicitGptworkerInvocation(request)) {
     throw new Error(
-      "ACTIVATION_REQUIRED: explicit_gptworker requires literal @gptworker."
+      "ACTIVATION_REQUIRED: explicit_gptworker requires the current user turn to start with @gptworker."
     );
   }
 
   const workspace = input.bindings?.workspace?.trim();
+  if (workspace && !path.isAbsolute(workspace)) {
+    throw new Error(
+      "ACTIVATION_REQUIRED: Workspace must be an absolute local Workspace path."
+    );
+  }
+
   return {
     trigger: "explicit_gptworker",
     workspace: workspace ? path.resolve(workspace) : undefined,
