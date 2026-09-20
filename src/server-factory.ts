@@ -66,9 +66,13 @@ function configureToolRegistration(server: McpServer): void {
             typeof args.execution_id === "string" ? args.execution_id : undefined;
           const authorityToken =
             typeof args.authority_token === "string" ? args.authority_token : undefined;
+          const effectiveTool =
+            toolName === "work_tool" && typeof args.tool === "string"
+              ? args.tool
+              : toolName;
           const lease = acquireToolLease(
-            toolName,
-            toolFamily(toolName),
+            effectiveTool,
+            toolFamily(effectiveTool),
             executionId,
             authorityToken
           );
