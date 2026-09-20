@@ -2,6 +2,7 @@ import fs from "node:fs/promises";
 import os from "node:os";
 import path from "node:path";
 import { registerWorkspaceDiscoveryTool } from "../dist/tools/workspace-discovery.js";
+import { checkAdmission } from "../dist/lib/activation-policy.js";
 
 const tmpDir = await fs.mkdtemp(path.join(os.tmpdir(), "gptworker-discovery-"));
 const outsideDir = await fs.mkdtemp(path.join(os.tmpdir(), "gptworker-outside-"));
@@ -30,14 +31,21 @@ try {
   if (!discovery) throw new Error("workspace_discover was not registered");
 
   const activationRequest = `Inspect files in ${tmpDir} and choose the right Job.`;
+  const admission = checkAdmission({
+    userTurn: activationRequest,
+    hasConcreteTask: true,
+    workspace: tmpDir,
+  });
+  if (admission.mode !== "active" || !admission.admissionToken) {
+    throw new Error("test admission did not become ACTIVE");
+  }
 
   const listResult = await discovery.callback({
     workspace: tmpDir,
     task: "inspect project",
     operation: "list_directory",
     arguments: {},
-    activation_trigger: "task_with_workspace",
-    activation_request: activationRequest,
+    admission_token: admission.admissionToken,
   });
   if (!JSON.stringify(listResult).includes("README.md")) {
     throw new Error("discovery list did not return workspace file");
@@ -48,8 +56,7 @@ try {
     task: "inspect project",
     operation: "read_text_file",
     arguments: { path: file },
-    activation_trigger: "task_with_workspace",
-    activation_request: activationRequest,
+    admission_token: admission.admissionToken,
   });
   if (!JSON.stringify(readResult).includes("hello discovery")) {
     throw new Error("discovery read did not return file content");
