@@ -94,6 +94,42 @@ await assert.rejects(
   /bundled default Job/
 );
 
+// Default Jobs are immutable, but may be cloned into a new custom Job id.
+const defaultManifestBefore = await fs.readFile(
+  path.join(defaultJobsRoot, "dev-coding", "job.yaml"),
+  "utf8"
+);
+const cloned = await createJobPack({
+  id: "my-dev-coding",
+  clone_from: "dev-coding",
+  name: "My Dev Coding",
+});
+assert.equal(cloned.job_id, "my-dev-coding");
+assert.equal(cloned.cloned_from, "dev-coding");
+const clonedManifest = JSON.parse(
+  await fs.readFile(path.join(customJobsRoot, "my-dev-coding", "job.yaml"), "utf8")
+);
+assert.equal(clonedManifest.id, "my-dev-coding");
+assert.equal(clonedManifest.name, "My Dev Coding");
+assert.deepEqual(clonedManifest.aliases, []);
+assert.equal(clonedManifest.cloned_from.job_id, "dev-coding");
+assert.equal(clonedManifest.cloned_from.source, "default");
+assert.equal(
+  await fs.readFile(path.join(defaultJobsRoot, "dev-coding", "job.yaml"), "utf8"),
+  defaultManifestBefore
+);
+
+const cloneListing = await runtime.list();
+assert.equal(
+  cloneListing.jobs.find((job) => job.id === "my-dev-coding")?.source,
+  "custom"
+);
+
+await updateJobPack("my-dev-coding", {
+  description: "Customized clone without touching the bundled default.",
+});
+await removeJobPack("my-dev-coding");
+
 const updated = await updateJobPack("test-job", {
   version: "0.2.0",
   description: "Updated temporary custom Job Pack.",
