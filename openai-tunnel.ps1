@@ -192,16 +192,18 @@ function Test-McpServer([int]$TargetPort) {
 
 function Show-ConnectorGuide([string]$TunnelId, [int]$UiPort = 8080) {
     Write-Host ""
-    Write-Host "=== ChatGPT App / Connector (chi lam 1 lan) ===" -ForegroundColor Cyan
-    Write-Host "1. Giu tunnel-client dang chay."
-    Write-Host "2. Mo ChatGPT Settings -> Apps. Neu can, bat Developer Mode."
-    Write-Host "3. Tao app/connector moi va chon Connection: Tunnel."
-    Write-Host "4. Chon tunnel trong danh sach, hoac paste Tunnel ID:"
-    Write-Host "   $TunnelId" -ForegroundColor Cyan
-    Write-Host "5. Scan Tools / Test connection, sau do dat ten app: gptworker."
+    Write-Host "=== ChatGPT Plugin (chi lam 1 lan) ===" -ForegroundColor Cyan
+    Write-Host "1. Mo ChatGPT Settings -> Plugins va bat Developer mode."
+    Write-Host "2. Mo Plugins, nhan + de tao plugin moi."
+    Write-Host "3. Name: gptworker."
+    Write-Host "4. Connection: Tunnel (KHONG chon Server URL)."
+    Write-Host "5. Available tunnels: CHON tunnel cua GPTWorker TRONG DANH SACH."
+    Write-Host "6. Authentication: No Auth."
+    Write-Host "7. KHONG dung 'Use tunnel ID instead'."
+    Write-Host "8. Tick xac nhan, sau do Connect/Create."
     Write-Host ""
     Write-Host "KHONG nhap http://127.0.0.1:3000/mcp vao ChatGPT." -ForegroundColor Yellow
-    Write-Host "Secure MCP Tunnel dung Tunnel ID de noi ChatGPT voi MCP local." -ForegroundColor DarkGray
+    Write-Host "Tunnel ID chi dung noi bo de GPTWorker khoi dong Secure MCP Tunnel; UI ChatGPT chon tunnel tu list." -ForegroundColor DarkGray
     Write-Host ""
     Write-Host "Tunnel UI: http://127.0.0.1:$UiPort/ui" -ForegroundColor Green
     Write-Host "Ready:     http://127.0.0.1:$UiPort/readyz" -ForegroundColor Green
