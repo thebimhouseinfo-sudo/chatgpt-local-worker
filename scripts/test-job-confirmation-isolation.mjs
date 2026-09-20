@@ -113,6 +113,30 @@ assert.equal(firstNomination.structuredContent.ok, true);
 const firstConfirmation = data(firstNomination)?.confirmation_token;
 assert.equal(typeof firstConfirmation, "string");
 
+// A confirmation token authorizes exactly the Job + bindings that were shown.
+// Changing a non-workspace binding at confirmed=true must not be accepted.
+const mutatedAtConfirm = await sessionC.jobSelect({
+  job: "dev-planing",
+  bindings: {
+    workspace: repoRoot,
+    objective: "Silently changed after user confirmation",
+  },
+  confirmed: true,
+  admission_token: admissionC.admission_token,
+  confirmation_token: firstConfirmation,
+});
+assert.equal(
+  mutatedAtConfirm.structuredContent.ok,
+  false,
+  "confirmed=true must not alter the bindings covered by the confirmation token"
+);
+assert.match(
+  String(data(mutatedAtConfirm)?.error || ""),
+  /bound to different Job\/Workspace bindings/,
+  "mutated confirmation bindings must be rejected"
+);
+
+
 const revisedBindings = {
   workspace: repoRoot,
   objective: "Plan version B",
