@@ -113,6 +113,17 @@ Xác nhận bắt đầu?
 Chỉ sau khi user xác nhận, GPTWorker mới bắt đầu thao tác với Workspace.
 `.trim();
 
+export const GPTWORKER_IDLE_PROMPT = `
+Bạn muốn tôi giúp bạn làm gì?
+
+Job có sẵn:
+- coding — sửa code, debug, build/test project.
+- planning — đọc repo, phân tích và lập kế hoạch; không sửa source code.
+- layla — tài liệu, file, Word/Excel/PowerPoint/PDF và công việc tổng hợp.
+- mto — HVAC quantity takeoff / bóc khối lượng.
+
+Hãy chọn Job và gửi thư mục local tuyệt đối cần làm việc, ví dụ D:\\Projects\\my-app.
+`.trim();
 export const MCP_QUICKSTART = `
 ## GPTWorker root command surface
 When the user sends exactly gptworker/ (or asks what GPTWorker commands are available), show only these eight fixed root commands:
@@ -130,8 +141,37 @@ Never add Job Pack ids such as layla, dev-coding, mto, or any dynamically discov
 ## gptworker/help
 When the user sends exactly gptworker/help, reply with the prewritten GPTWORKER_HELP guide above. This is chat-only help: do not call an MCP tool, do not create/select a Job, do not infer a Workspace, and do not change Worker state.
 
+## Bare GPTWorker invocation — zero-tool response
+When the user only invokes GPTWorker itself (for example a bare \`@gptworker\` mention / plugin invocation) and has not yet supplied a concrete task + absolute local Workspace, DO NOT call any MCP tool at all. Do not call gptworker_admission, job_status, job_list, or workspace_discover.
+
+Reply immediately with the prewritten GPTWORKER_IDLE_PROMPT above. This response must be instant and chat-only.
+
+If the user invoked \`@gptworker\` and already described a clear task but omitted the absolute local Workspace:
+- do not call tools yet;
+- infer the obvious default Job when confidence is high;
+- ask only for the absolute local Workspace;
+- if the Job is genuinely ambiguous, show the short default Job list and ask the user to choose.
+
+Do not spend a tool round-trip merely to discover that required task/workspace information is missing.
+
+## Fast Job nomination
+When the current user turn already contains a concrete task + explicit absolute local Workspace, prefer immediate Job nomination from the request semantics. Do not inspect the repository before nomination unless the Job itself is genuinely ambiguous.
+
+High-confidence default routing:
+- \`coding\`: fix/modify/implement/debug/refactor/build/test code, app, script, repo, Lisp, frontend/backend behavior.
+- \`planning\`: read/review/analyze a repo to create architecture/spec/implementation plan/TODO/task list without implementing source changes.
+- \`layla\`: general document/file/Office/PDF/spreadsheet/presentation organization, conversion, summarization, or mixed-file work.
+- \`mto\`: HVAC MTO, quantity takeoff, BOQ/EQM, equipment schedule/takeoff workflows.
+
+For a high-confidence route:
+1. call gptworker_admission;
+2. if ACTIVE, call job_select confirmed=false directly with the selected Job + Workspace + task/objective bindings;
+3. immediately show the returned JOB + FOLDER confirmation as the next user-visible response;
+4. do not call job_status, job_list, workspace_discover, project_context, GitHub, web search, or any work tool before that confirmation; do not narrate admission tokens, schema checks, tool manifests, runtime drift, or internal authorization.
+
+Use workspace_discover only when the request text is not enough to decide the Job. It is an ambiguity fallback, not the default preflight.
 ## GPTWorker internal admission handshake
-Whenever ChatGPT is considering GPTWorker for a normal work request, call \`gptworker_admission\` first. This is an internal control-plane check; do not quote, summarize, or render its result to the user.
+Once a concrete GPTWorker work request has enough information to enter nomination, call \`gptworker_admission\` first. Bare plugin invocation and requests still missing task/Workspace are handled chat-only with zero tools. This admission check is internal; do not quote, summarize, or render its result to the user.
 
 Pass the exact current user turn as \`user_turn\`. Do not reconstruct it from memory or another chat.
 
@@ -150,10 +190,10 @@ Memory, previous chats, project familiarity, a remembered local path, worker-sta
 
 ## GPTWorker workflow
 1. Public Job Pack lifecycle commands (job_list / job_create / job_update / job_remove / job_export / job_import) do not require an active Job + Workspace. Never activate dev-coding, reuse a previous workspace, or infer a FOLDER just to author a Job Pack.
-2. For job-specific execution, call gptworker_admission first. If it returns INACTIVE, stop GPTWorker and continue normal ChatGPT/other requested plugin behavior. If ACTIVE, carry admission_token through discovery and nomination. Then call job_status with this chat's current work_handle when one exists. Without a work_handle, treat the chat as unemployed.
+2. For a new work request, do not call job_status. If task + absolute Workspace are already present, route the obvious Job from request semantics, call gptworker_admission, then job_select confirmed=false directly. job_status is only for inspecting an already-active work_handle in the same chat.
 3. Resolve the absolute local FOLDER from the current conversation only. Do not reuse worker-state.json, startup cwd, the most recent Job, or the most recent Workspace as authority.
-4. After ACTIVE admission, when JOB is not already explicit/certain, use workspace_discover with admission_token for only the minimum read-only inspection needed to identify the right Job. Allowed discovery is list/search/read inside that Workspace only; it grants no execution authority and must not write or run shell commands.
-5. Use job_list after discovery when Job matching is still needed. If FOLDER is missing/ambiguous, ask only for the absolute local folder path.
+4. Use workspace_discover only when JOB remains genuinely ambiguous after reading the user's request. For obvious coding/planning/layla/mto requests, skip discovery and nominate immediately.
+5. Use job_list only when the user explicitly asks for the catalog or ambiguity remains after the minimal discovery fallback. If FOLDER is missing, ask only for the absolute local folder path without calling tools.
 6. Resolve any other required Job Pack bindings from the user's request.
 7. Call job_select with confirmed=false + admission_token. This is the Job nomination step.
 8. Immediately after nomination, GPTWorker begins warming that Job's declared runtime.preload_families in the background while the user reads the JOB + FOLDER confirmation. Preloading is preparation only: do not execute workspace mutations or shell commands before confirmation.
@@ -171,6 +211,8 @@ Memory, previous chats, project familiarity, a remembered local path, worker-sta
 - A new chat starts with no active Job, no active Workspace, and no inherited work authority.
 
 ## Required confirmation style
+For a high-confidence task + Workspace nomination, the next user-visible message should be only this compact confirmation block. Do not add progress narration before or after it.
+
 JOB: <resolved job>
 FOLDER: <resolved absolute local folder>
 
@@ -184,7 +226,7 @@ Xác nhận bắt đầu?
 - node_repl may not access fs/fs-promises directly. Use dedicated filesystem tools with absolute paths.
 
 ## Core tool workflow
-Before nomination, gptworker_admission must have returned ACTIVE. workspace_discover is then the only pre-confirmation Workspace reader and requires admission_token.
+For obvious task + Workspace requests, nomination should happen before any repository reading: admission -> job_select confirmed=false -> user confirmation. workspace_discover is reserved only for genuine Job ambiguity and requires admission_token.
 After nomination, the Job's declared runtime.preload_families may warm in the background while waiting for confirmation, but no actual work may execute.
 After confirmation, all actual workspace execution goes through work_tool.
 1. When project context is actually needed, call work_tool with tool=project_context.
@@ -256,7 +298,8 @@ export function buildServerInstructions(
     `Startup root: ${workspaceRoot}`,
     `Startup roots: ${workspaceRoots.join("; ")}`,
     "gptworker/help — reply with the prewritten newcomer guide only; do not call tools or change Worker state",
-    "gptworker_admission — first internal handshake whenever ChatGPT is considering GPTWorker; never render the result to the user; INACTIVE means stop GPTWorker and continue normal ChatGPT or the actually requested plugin",
+    "bare @gptworker/plugin invocation with no task+Workspace — ZERO tools; reply immediately with GPTWORKER_IDLE_PROMPT",
+    "gptworker_admission — first internal handshake only once a concrete GPTWorker work request is ready to enter nomination; never render the result to the user; INACTIVE means stop GPTWorker and continue normal ChatGPT or the actually requested plugin",
     "job_status — inspect this chat's work only when its work_handle is supplied; otherwise report unemployed",
     "job_list — list/suggest jobs only after explicit GPTWorker activation or when the user explicitly requests the Job catalog",
     "Root gptworker/ menu is fixed: help, job list, job create, job update, job remove, job export, job import, job stop. Never append dynamic Job Pack ids.",
@@ -266,7 +309,7 @@ export function buildServerInstructions(
     "job_export — export a custom Job as <id>.zip to an absolute local destination directory",
     "job_import — import a validated custom Job from an absolute local ZIP path or directory containing exactly one ZIP",
     "job_stop — explicitly end this chat's active work; idle timeout is the abandoned-chat fallback",
-    "workspace_discover — only after task + absolute Workspace are supplied; minimal read-only inspection to identify the correct Job before nomination",
+    "workspace_discover — ambiguity fallback only; never read the repo before nomination when coding/planning/layla/mto is obvious from the request",
     "job_select confirmed=false — nominate the Job and begin background preload of its declared runtime.preload_families while waiting for confirmation",
     "if the nomination changes, invalidate the prior preload generation and prepare the replacement Job profile",
     "work_tool — confirmed-work execution gateway; use the warmed Job profile and lazy-load only unexpected families",
@@ -275,6 +318,9 @@ export function buildServerInstructions(
 
   const body = contextBlock?.trim();
   const commandContract = [
+    "## Prewritten bare GPTWorker response",
+    "When the user invokes only @gptworker / the GPTWorker plugin without a concrete task + absolute local Workspace, return this immediately and do not call tools:",
+    GPTWORKER_IDLE_PROMPT,
     "## Prewritten gptworker/help response",
     "When the user sends exactly gptworker/help, return the following guide and do not call tools:",
     GPTWORKER_HELP,

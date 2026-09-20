@@ -51,8 +51,8 @@
     {
       "key": "planning_dir",
       "type": "path",
-      "required": true,
-      "description": "Directory for the planning bundle. The job writes ARCHITECTURE.md, IMPLEMENTATION_PLAN.md, TODO.md, TASKS.md and optional task-plans/ files only inside this directory."
+      "required": false,
+      "description": "Optional planning bundle directory. If omitted, Dev Planing resolves the repository's existing planning convention after confirmation; if none exists, it uses a suitable docs/plans location inside the confirmed workspace."
     }
   ],
   "permissions": {

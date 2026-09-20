@@ -123,7 +123,6 @@ const planSelected = await runtime.select({
   bindings: {
     workspace: repoRoot,
     objective: "Plan a safe runtime change",
-    planning_dir: path.join(repoRoot, "DEV_PLAN.test"),
   },
 });
 assert.equal(planSelected.state.phase, "awaiting_confirmation");
@@ -135,7 +134,6 @@ const planActive = await runtime.select({
   bindings: {
     workspace: repoRoot,
     objective: "Plan a safe runtime change",
-    planning_dir: path.join(repoRoot, "DEV_PLAN.test"),
   },
   confirmed: true,
   confirmationToken: planSelected.confirmation_token,

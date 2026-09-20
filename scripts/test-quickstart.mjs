@@ -5,6 +5,7 @@
 import assert from "node:assert/strict";
 import {
   GPTWORKER_HELP,
+  GPTWORKER_IDLE_PROMPT,
   MCP_QUICKSTART,
   buildServerInstructions,
 } from "../dist/lib/quickstart.js";
@@ -76,6 +77,24 @@ assert.equal(
   1,
   "help response contract duplicated"
 );
+
+assert.ok(GPTWORKER_IDLE_PROMPT.includes("Bạn muốn tôi giúp bạn làm gì?"));
+assert.ok(GPTWORKER_IDLE_PROMPT.includes("- coding"));
+assert.ok(GPTWORKER_IDLE_PROMPT.includes("- planning"));
+assert.ok(GPTWORKER_IDLE_PROMPT.includes("- layla"));
+assert.ok(GPTWORKER_IDLE_PROMPT.includes("- mto"));
+assert.ok(GPTWORKER_IDLE_PROMPT.includes("thư mục local tuyệt đối"));
+assert.ok(MCP_QUICKSTART.includes("## Bare GPTWorker invocation — zero-tool response"));
+assert.ok(MCP_QUICKSTART.includes("DO NOT call any MCP tool at all"));
+assert.ok(MCP_QUICKSTART.includes("## Fast Job nomination"));
+assert.ok(MCP_QUICKSTART.includes("skip discovery and nominate immediately"));
+assert.ok(MCP_QUICKSTART.includes("do not call job_status"));
+assert.ok(MCP_QUICKSTART.includes("ambiguity fallback"));
+assert.ok(MCP_QUICKSTART.includes("the next user-visible message should be only this compact confirmation block"));
+assert.ok(MCP_QUICKSTART.includes("do not narrate admission tokens"));
+assert.ok(MCP_QUICKSTART.includes("Bare plugin invocation and requests still missing task/Workspace are handled chat-only with zero tools"));
+assert.ok(instructions.includes("## Prewritten bare GPTWorker response"));
+assert.ok(instructions.includes(GPTWORKER_IDLE_PROMPT));
 
 assert.ok(GPTWORKER_HELP.includes("**Job + Workspace local**"));
 assert.ok(!GPTWORKER_HELP.includes("## Kích hoạt GPTWorker"));
