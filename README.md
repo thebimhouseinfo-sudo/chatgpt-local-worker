@@ -43,86 +43,93 @@ Clone this repository and run:
 setup.bat
 ```
 
-You do **not** need to manually find the OpenAI setup pages. GPTWorker opens them for you.
+GPTWorker installs, builds, tests, and starts the local Worker first. When connection information is needed, setup guides you **one step at a time** in the same window.
 
-During first-time setup, `setup.bat` automatically opens:
+You do not need to open the OpenAI setup pages yourself.
 
-- this README;
-- OpenAI Platform → API Keys;
-- OpenAI Platform → Tunnels.
+### 2. Create the Secure MCP Tunnel
 
-The direct links are kept here only for reference:
+When GPTWorker needs a Tunnel ID, setup automatically opens:
 
-- API Keys: https://platform.openai.com/settings/organization/api-keys
-- Tunnels: https://platform.openai.com/settings/organization/tunnels
+https://platform.openai.com/settings/organization/tunnels
 
-### 2. Create the API key and Tunnel
-
-In the pages opened by `setup.bat`:
-
-1. Create a **Runtime API key** for GPTWorker.
-2. Create a Secure MCP Tunnel, for example with the name `gptworker`.
-3. Copy the Tunnel ID, which looks like:
+The setup window explains what to do:
 
 ```text
-tunnel_xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx
+[1/2] CREATE SECURE MCP TUNNEL
+
+The OpenAI Tunnels page has been opened.
+Create a new tunnel (suggested name: gptworker).
+Copy the Tunnel ID in the form tunnel_...
+
+Paste Tunnel ID here:
+>
 ```
 
-4. Return to the `setup.bat` window.
+Paste the copied `tunnel_...` value directly into the setup window. GPTWorker validates it before continuing.
 
-The API key and Tunnel must belong to the intended OpenAI Platform organization/workspace. Keep the API key private.
+### 3. Create the Runtime API key
 
-The runtime identity used by the key needs **Tunnels: Read + Use**. Creating or editing a tunnel requires **Tunnels: Read + Manage** access for the Platform user/admin.
+Only after the Tunnel step is complete, setup automatically opens:
 
-When prompted, paste:
+https://platform.openai.com/settings/organization/api-keys
+
+The setup window then explains the next step:
 
 ```text
-OPENAI_TUNNEL_ID      = tunnel_...
-OPENAI_TUNNEL_API_KEY = sk-...
+[2/2] CREATE RUNTIME API KEY
+
+The OpenAI API Keys page has been opened.
+Create a Runtime API key for GPTWorker.
+The key needs Tunnels: Read + Use.
+Copy the key in the form sk-...
+
+Paste Runtime API key here:
+>
 ```
 
-`setup.bat` has already installed, built, tested, and started the local Worker before this prompt. After you paste the Tunnel ID and API key, it configures `tunnel-client`, runs tunnel `doctor`, starts the Secure MCP Tunnel, waits for readiness, and then opens ChatGPT for the final connection step.
+Paste the key into the setup window. GPTWorker validates it and saves the Tunnel ID and API key to the local `.env`.
 
-Do not share the API key and do not commit `.env` to Git.
+The API key and Tunnel must belong to the intended OpenAI Platform organization/workspace. Keep the API key private and never commit `.env` to Git.
 
-### 3. Create the GPTWorker Plugin/App in ChatGPT
+After both values are available, GPTWorker automatically configures `tunnel-client`, runs tunnel `doctor`, starts the Secure MCP Tunnel, and waits for readiness.
+
+### 4. Create the GPTWorker Plugin/App in ChatGPT
 
 After the tunnel is ready, `setup.bat` automatically opens ChatGPT.
 
-Use **ChatGPT on the web** for the one-time connection setup. Current OpenAI UI may show **Plugins** or **Apps** depending on account/workspace rollout.
+Use **ChatGPT on the web** for this one-time connection step. Depending on the current UI, the entry point may appear under **Plugins** or **Apps**.
 
-1. Enable **Developer Mode** if it is not already enabled:
+1. Enable **Developer Mode** if needed:
    `Settings → Apps → Advanced Settings → Developer Mode`
-2. Open **Plugins** and press `+`, or go to:
+2. Open **Plugins** and press `+`, or use:
    `Settings → Apps → Create`
 3. Create a new custom app/plugin.
-4. Set the name to:
+4. Name it:
 
 ```text
 gptworker
 ```
 
-5. For **Connection**, choose:
+5. Set **Connection** to:
 
 ```text
 Tunnel
 ```
 
-6. Select the `gptworker` tunnel from the list, or paste the `tunnel_...` ID created above.
+6. Select the `gptworker` tunnel, or paste the `tunnel_...` ID created above.
 7. Run **Scan Tools / Test connection**.
 8. Create/save the app.
 
-When tool scanning succeeds, GPTWorker is connected to ChatGPT.
-
-Do **not** paste this local URL into ChatGPT:
+Do **not** paste the local MCP URL into ChatGPT:
 
 ```text
 http://127.0.0.1:3000/mcp
 ```
 
-That endpoint is private to your PC. ChatGPT reaches it through the **OpenAI Secure MCP Tunnel** using the Tunnel ID.
+That endpoint stays local to your PC. ChatGPT connects through the OpenAI Secure MCP Tunnel.
 
-### 4. Test the connection
+### 5. Test the connection
 
 Open a normal ChatGPT chat and invoke:
 
@@ -136,7 +143,17 @@ Then try:
 gptworker/
 ```
 
-You should see the GPTWorker root commands. After this one-time setup, normal use only requires `run.bat`.
+You should see the GPTWorker root commands. After this one-time setup, normal use only requires:
+
+```text
+run.bat
+```
+
+### Setup core and future Wizard
+
+The connection flow is intentionally separated from the current console UI.
+
+The same setup core owns Tunnel/API-key validation, `.env` persistence, tunnel profile creation, `doctor`, and tunnel startup. The current `setup.bat` uses interactive prompts; a future Setup Wizard can provide the values through the same core without redesigning the connection flow.
 
 Official references:
 
