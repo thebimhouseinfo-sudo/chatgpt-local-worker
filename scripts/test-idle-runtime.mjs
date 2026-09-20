@@ -1,12 +1,14 @@
 import fs from "node:fs/promises";
 
 const serverFactory = await fs.readFile("src/server-factory.ts", "utf8");
+const workGateway = await fs.readFile("src/tools/work-gateway.ts", "utf8");
+const jobs = await fs.readFile("src/tools/jobs.ts", "utf8");
 const sessionManager = await fs.readFile("src/lib/mcp-session-manager.ts", "utf8");
 const tray = await fs.readFile("gptworker-tray.ps1", "utf8");
 const start = await fs.readFile("start.ps1", "utf8");
 const tunnel = await fs.readFile("openai-tunnel.ps1", "utf8");
 
-const heavyStaticImports = [
+const heavyModules = [
   "./tools/filesystem.js",
   "./tools/shell.js",
   "./tools/git.js",
@@ -17,25 +19,31 @@ const heavyStaticImports = [
   "./tools/mcp-bridge.js",
 ];
 
-for (const modulePath of heavyStaticImports) {
-  const staticImport = new RegExp(
-    `^import\\s+[^\\n]+from\\s+["']${modulePath.replaceAll(".", "\\.")}["'];?`,
-    "m"
-  );
-  if (staticImport.test(serverFactory)) {
-    throw new Error(`execution module must stay lazy: ${modulePath}`);
-  }
-  if (!serverFactory.includes(`import("${modulePath}")`)) {
-    throw new Error(`lazy execution import missing: ${modulePath}`);
+for (const modulePath of heavyModules) {
+  if (serverFactory.includes(`import("${modulePath}")`)) {
+    throw new Error(`server factory must not preload execution module: ${modulePath}`);
   }
 }
 
-if (!serverFactory.includes("onWorkActivated: () => executionRuntime.activate()")) {
-  throw new Error("execution runtime is not tied to confirmed work activation");
+if (!serverFactory.includes("registerWorkGateway(")) {
+  throw new Error("lightweight work gateway is not registered");
 }
-if (!serverFactory.includes("onWorkStopped: () => executionRuntime.deactivate()")) {
-  throw new Error("execution runtime is not unloaded on work stop");
+if (serverFactory.includes("onWorkActivated") || jobs.includes("onWorkActivated")) {
+  throw new Error("Job confirmation must not activate execution modules");
 }
+if (!workGateway.includes('import("./filesystem.js")')) {
+  throw new Error("filesystem family is not lazy imported by work gateway");
+}
+if (!workGateway.includes('import("./shell.js")')) {
+  throw new Error("shell family is not lazy imported by work gateway");
+}
+if (!workGateway.includes('import("./git.js")')) {
+  throw new Error("git family is not lazy imported by work gateway");
+}
+if (!workGateway.includes("async resolve(tool: string)")) {
+  throw new Error("work gateway does not resolve operations on demand");
+}
+
 if (sessionManager.includes("await runCodexSessionStartHooks")) {
   throw new Error("SessionStart hooks must not block MCP initialize");
 }
