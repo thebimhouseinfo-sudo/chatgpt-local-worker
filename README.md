@@ -45,6 +45,8 @@ setup.bat
 
 GPTWorker installs, builds, tests, and starts the local Worker first. When connection information is needed, setup guides you **one step at a time** in the same window.
 
+For the current final source-test phase, running `setup.bat` is intentionally treated as a **fresh connection setup**: any existing Tunnel ID and Runtime API key in `.env` are ignored, the user is required to create/paste them again, and the new values replace the old ones. `run.bat` does not do this; it continues to reuse the saved configuration.
+
 You do not need to open the OpenAI setup pages yourself.
 
 ### 2. Create the Secure MCP Tunnel
