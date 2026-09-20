@@ -289,12 +289,21 @@ function Resolve-TunnelIdForSetup {
     }
 
     Show-SetupWizardStep -Step "1/2" -Title "Create Secure MCP Tunnel" -Subtitle "OpenAI Tunnels will open in your browser."
-    Write-Host "Create a tunnel for GPTWorker, then copy its Tunnel ID." -ForegroundColor White
+    Write-Host "In OpenAI Platform:" -ForegroundColor White
+    Write-Host "  1. Open Organization -> Tunnels." -ForegroundColor White
+    Write-Host "  2. Make sure your role has Tunnels: Read + Use." -ForegroundColor White
+    Write-Host "     If you create/edit the tunnel yourself, your role also needs Manage." -ForegroundColor DarkGray
+    Write-Host "  3. Create a tunnel named gptworker (recommended)." -ForegroundColor White
+    Write-Host "  4. Attach/select the ChatGPT workspace that will use GPTWorker." -ForegroundColor White
+    Write-Host "  5. Create the tunnel, then copy the Tunnel ID." -ForegroundColor White
+    Write-Host "     Real value format: tunnel_ + 32 lowercase hex characters." -ForegroundColor DarkGray
+    Write-Host ""
+    Write-Host "Why this matters:" -ForegroundColor Cyan
+    Write-Host "  - Use is required to run/attach to the tunnel." -ForegroundColor DarkGray
+    Write-Host "  - The correct workspace attachment makes the tunnel appear later in ChatGPT." -ForegroundColor DarkGray
+    Write-Host ""
     if ($WizardPreview) {
         Show-PreviewHint -Label "demo-tunnel"
-    } else {
-        Write-Host "Expected format: tunnel_ + 32 hex characters." -ForegroundColor DarkGray
-        Write-Host ""
     }
 
     Start-Process $TunnelsUrl
@@ -346,13 +355,22 @@ function Resolve-ApiKeyForSetup {
     }
 
     Show-SetupWizardStep -Step "2/2" -Title "Create Runtime API Key" -Subtitle "OpenAI API Keys will open in your browser."
-    Write-Host "Create a Runtime API key for GPTWorker." -ForegroundColor White
-    Write-Host "Required permission in real setup: Tunnels Read + Use." -ForegroundColor DarkGray
+    Write-Host "Create the runtime key used by tunnel-client:" -ForegroundColor White
+    Write-Host "  1. Click Create new secret key." -ForegroundColor White
+    Write-Host "  2. Name it gptworker-runtime (recommended)." -ForegroundColor White
+    Write-Host "  3. Permissions: choose Restricted." -ForegroundColor Yellow
+    Write-Host "  4. In Tunnels permissions, enable BOTH:" -ForegroundColor Yellow
+    Write-Host "       [x] Read" -ForegroundColor Green
+    Write-Host "       [x] Use" -ForegroundColor Green
+    Write-Host "  5. Do NOT use Read Only." -ForegroundColor White
+    Write-Host "  6. You do NOT need to grant All permissions to the whole API key." -ForegroundColor DarkGray
+    Write-Host "  7. Create the key and copy the secret immediately." -ForegroundColor White
+    Write-Host "     Real value should begin with sk-." -ForegroundColor DarkGray
+    Write-Host ""
+    Write-Host "Important: Tunnels Use is mandatory for tunnel-client run/poll." -ForegroundColor Cyan
+    Write-Host ""
     if ($WizardPreview) {
         Show-PreviewHint -Label "demo-api-key"
-    } else {
-        Write-Host "Expected format: key begins with sk-." -ForegroundColor DarkGray
-        Write-Host ""
     }
 
     Start-Process $ApiKeysUrl
@@ -461,7 +479,7 @@ function Invoke-TunnelInit {
         Write-Host "  - kiem tra http://127.0.0.1:$resolvedPort/health."
         Write-Host "Neu fail tunnel_id/control_plane_api_key:" -ForegroundColor Yellow
         Write-Host "  - Tunnel ID va runtime key phai cung organization/workspace."
-        Write-Host "  - Runtime API key can Tunnels Read + Use."
+        Write-Host "  - Runtime API key: Restricted -> Tunnels Read + Use."
         Write-Host "  - Neu vua tao tunnel/doi role, cho propagation roi thu lai."
         Write-Host ""
         Write-Host "Dang thu doc metadata tunnel bang CHINH runtime key de tach loi auth khoi loi local..." -ForegroundColor Yellow
