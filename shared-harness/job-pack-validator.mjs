@@ -30,6 +30,26 @@ async function exists(target) {
   }
 }
 
+function resolveInsidePack(packDir, rel) {
+  if (typeof rel !== "string" || !rel.trim()) {
+    throw new Error("empty relative path");
+  }
+  const normalized = rel.replaceAll("\\", "/").replace(/^\.\/+/, "");
+  if (
+    normalized.startsWith("/") ||
+    /^[A-Za-z]:/.test(normalized) ||
+    normalized.split("/").some((part) => part === ".." || part === "")
+  ) {
+    throw new Error("path escapes Job Pack");
+  }
+  const absolute = path.resolve(packDir, ...normalized.split("/"));
+  const root = path.resolve(packDir) + path.sep;
+  if (absolute !== path.resolve(packDir) && !absolute.startsWith(root)) {
+    throw new Error("path escapes Job Pack");
+  }
+  return absolute;
+}
+
 export async function validateJobPack(packDir) {
   const errors = [];
   const absolute = path.resolve(packDir);
@@ -70,22 +90,41 @@ export async function validateJobPack(packDir) {
       errors.push(`job.yaml status must be one of: ${[...allowedStatuses].join(", ")}`);
     }
 
+    const workspaceInput = Array.isArray(meta.inputs)
+      ? meta.inputs.find((item) => item?.key === "workspace")
+      : null;
+    if (!workspaceInput || workspaceInput.required === false) {
+      errors.push("job.yaml must define required input 'workspace'");
+    }
+
     for (const rel of meta.skills ?? []) {
-      if (!(await exists(path.resolve(absolute, rel)))) {
-        errors.push(`missing skill '${rel}'`);
+      try {
+        if (!(await exists(resolveInsidePack(absolute, rel)))) {
+          errors.push(`missing skill '${rel}'`);
+        }
+      } catch {
+        errors.push(`invalid skill path '${rel}'`);
       }
     }
 
     const entrypoints = meta.harness?.entrypoints ?? [];
     for (const rel of entrypoints) {
-      if (!(await exists(path.resolve(absolute, rel)))) {
-        errors.push(`missing harness entrypoint '${rel}'`);
+      try {
+        if (!(await exists(resolveInsidePack(absolute, rel)))) {
+          errors.push(`missing harness entrypoint '${rel}'`);
+        }
+      } catch {
+        errors.push(`invalid harness entrypoint path '${rel}'`);
       }
     }
 
     for (const rel of meta.validators ?? []) {
-      if (!(await exists(path.resolve(absolute, rel)))) {
-        errors.push(`missing validator '${rel}'`);
+      try {
+        if (!(await exists(resolveInsidePack(absolute, rel)))) {
+          errors.push(`missing validator '${rel}'`);
+        }
+      } catch {
+        errors.push(`invalid validator path '${rel}'`);
       }
     }
   }
