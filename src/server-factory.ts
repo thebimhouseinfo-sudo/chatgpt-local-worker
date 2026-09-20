@@ -3,6 +3,7 @@ import type { RegisteredTool } from "@modelcontextprotocol/sdk/server/mcp.js";
 import { z } from "zod";
 import { registerJobTools } from "./tools/jobs.js";
 import { registerWorkGateway } from "./tools/work-gateway.js";
+import { registerWorkspaceDiscoveryTool } from "./tools/workspace-discovery.js";
 import { buildServerInstructions } from "./lib/quickstart.js";
 import type { McpUpstreamManager } from "./lib/mcp-upstream-manager.js";
 import { getChatGptToolProfile, shouldExposeTool } from "./lib/tool-profile.js";
@@ -112,7 +113,7 @@ export function createMcpServer(
   const server = new McpServer(
     {
       name: "local-worker-mcp-server",
-      version: "2.3.0",
+      version: "2.4.0",
     },
     {
       capabilities: {
@@ -131,11 +132,38 @@ export function createMcpServer(
   configureToolRegistration(server);
 
   const jobRuntime = new JobRuntime(workspaceRoot);
-  // Commands and Job selection remain control-plane only. The work_tool
-  // gateway is lightweight and imports an execution family only when an
-  // actual work operation is called.
-  registerJobTools(server, jobRuntime);
-  registerWorkGateway(server, workspaceRoot, shellTimeout, upstreamManager);
+  const workResolver = registerWorkGateway(
+    server,
+    workspaceRoot,
+    shellTimeout,
+    upstreamManager
+  );
+
+  // workspace_discover is the minimal read-only pre-confirmation probe used
+  // only after the user supplied a task + absolute local Workspace.
+  registerWorkspaceDiscoveryTool(server);
+
+  // Once a Job is nominated, warm its declared tool families in the
+  // background while the user reads the confirmation prompt. Confirmation
+  // waits for the current nomination's preload if it is still in flight.
+  registerJobTools(server, jobRuntime, {
+    nominate(job) {
+      void workResolver
+        .prepareJob(job.id, job.preload_families ?? [])
+        .catch((error) => {
+          console.warn(
+            `[GPTWorker] Tool preload failed for ${job.id}:`,
+            error instanceof Error ? error.message : error
+          );
+        });
+    },
+    wait(jobId) {
+      return workResolver.waitForPreparedJob(jobId);
+    },
+    clear() {
+      workResolver.clearPreparedJob();
+    },
+  });
 
   return server;
 }

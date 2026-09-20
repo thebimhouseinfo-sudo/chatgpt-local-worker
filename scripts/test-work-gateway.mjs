@@ -19,10 +19,37 @@ try {
     throw new Error("resolver must start with zero execution families loaded");
   }
 
+  const preparedA = await resolver.prepareJob("job-a", ["filesystem"]);
+  status = resolver.status();
+  if (
+    preparedA.stale ||
+    status.prepared_job !== "job-a" ||
+    !status.prepared_families.includes("filesystem")
+  ) {
+    throw new Error("nominated Job filesystem profile was not prepared");
+  }
+
+  const preparedB = await resolver.prepareJob("job-b", ["git"]);
+  status = resolver.status();
+  if (
+    preparedB.stale ||
+    status.prepared_job !== "job-b" ||
+    status.prepared_families.includes("filesystem") ||
+    !status.prepared_families.includes("git")
+  ) {
+    throw new Error("replacement nomination did not reset/reload prepared profile");
+  }
+
+  resolver.clearPreparedJob();
+  status = resolver.status();
+  if (status.prepared_job !== null || status.prepared_families.length !== 0) {
+    throw new Error("prepared Job profile was not cleared");
+  }
+
   const readTool = await resolver.resolve("read_text_file");
   status = resolver.status();
-  if (status.loaded_families.join(",") !== "filesystem") {
-    throw new Error(`expected only filesystem family, got ${status.loaded_families}`);
+  if (!status.loaded_families.includes("filesystem")) {
+    throw new Error(`expected filesystem family to be loaded, got ${status.loaded_families}`);
   }
 
   const readResult = await readTool.callback({ path: file });
@@ -32,14 +59,14 @@ try {
 
   await resolver.resolve("glob");
   status = resolver.status();
-  if (status.loaded_families.length !== 1) {
+  if (!status.loaded_families.includes("filesystem")) {
     throw new Error("same-family operation must reuse the loaded filesystem family");
   }
 
   await resolver.resolve("git_status");
   status = resolver.status();
-  if (!status.loaded_families.includes("git") || status.loaded_families.length !== 2) {
-    throw new Error(`git must load independently on first use: ${status.loaded_families}`);
+  if (!status.loaded_families.includes("git")) {
+    throw new Error(`git must be available after preload/use: ${status.loaded_families}`);
   }
 
   const registered = new Map();

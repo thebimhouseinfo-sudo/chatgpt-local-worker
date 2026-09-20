@@ -17,7 +17,7 @@ interface FamilyCache {
   tools: Map<string, CapturedTool>;
 }
 
-const FAMILY_TOOLS = {
+export const FAMILY_TOOLS = {
   filesystem: [
     "read_text_file", "read_file_base64", "write_file", "write_file_base64",
     "edit_file", "multi_edit", "replace_regex", "apply_patch", "list_directory",
@@ -41,8 +41,8 @@ const FAMILY_TOOLS = {
   mcp: ["mcp_servers", "mcp_tools", "mcp_call"],
 } as const;
 
-type ToolFamily = keyof typeof FAMILY_TOOLS;
-
+export type ToolFamily = keyof typeof FAMILY_TOOLS;
+export const TOOL_FAMILIES = Object.keys(FAMILY_TOOLS) as ToolFamily[];
 export const WORK_TOOL_OPERATIONS = Object.values(FAMILY_TOOLS).flat();
 
 const PROCESS_LOADED_FAMILIES = new Set<ToolFamily>();
@@ -82,9 +82,22 @@ function createCaptureServer(): FamilyCache {
 
 export interface WorkToolResolver {
   resolve(tool: string): Promise<CapturedTool>;
+  prepareJob(jobId: string, families: readonly string[]): Promise<{
+    job_id: string;
+    generation: number;
+    requested_families: ToolFamily[];
+    prepared_families: ToolFamily[];
+    stale: boolean;
+  }>;
+  waitForPreparedJob(jobId: string): Promise<void>;
+  clearPreparedJob(): void;
   status(): {
-    loaded_families: string[];
+    loaded_families: ToolFamily[];
     loaded_tool_count: number;
+    prepared_job: string | null;
+    prepared_families: ToolFamily[];
+    preload_pending: boolean;
+    preload_generation: number;
   };
 }
 
@@ -95,6 +108,10 @@ export function createWorkToolResolver(
 ): WorkToolResolver {
   const loaded = new Map<ToolFamily, FamilyCache>();
   const pending = new Map<ToolFamily, Promise<FamilyCache>>();
+  let preparedJob: string | null = null;
+  let preparedFamilies = new Set<ToolFamily>();
+  let preloadGeneration = 0;
+  let preloadPromise: Promise<unknown> | null = null;
 
   async function loadFamily(family: ToolFamily): Promise<FamilyCache> {
     const existing = loaded.get(family);
@@ -148,6 +165,15 @@ export function createWorkToolResolver(
     }
   }
 
+  function normalizeFamilies(families: readonly string[]): ToolFamily[] {
+    const known = new Set<ToolFamily>(TOOL_FAMILIES);
+    return [...new Set(
+      families.filter((family): family is ToolFamily =>
+        known.has(family as ToolFamily)
+      )
+    )];
+  }
+
   return {
     async resolve(tool: string): Promise<CapturedTool> {
       const family = TOOL_FAMILY.get(tool);
@@ -164,6 +190,54 @@ export function createWorkToolResolver(
       return captured;
     },
 
+    async prepareJob(jobId: string, families: readonly string[]) {
+      const generation = ++preloadGeneration;
+      const requested = normalizeFamilies(families);
+      preparedJob = jobId;
+      preparedFamilies = new Set();
+
+      const promise = (async () => {
+        await Promise.all(
+          requested.map(async (family) => {
+            await loadFamily(family);
+            if (generation === preloadGeneration && preparedJob === jobId) {
+              preparedFamilies.add(family);
+            }
+          })
+        );
+
+        return {
+          job_id: jobId,
+          generation,
+          requested_families: requested,
+          prepared_families:
+            generation === preloadGeneration && preparedJob === jobId
+              ? [...preparedFamilies]
+              : [],
+          stale: generation !== preloadGeneration || preparedJob !== jobId,
+        };
+      })();
+
+      preloadPromise = promise;
+      try {
+        return await promise;
+      } finally {
+        if (preloadPromise === promise) preloadPromise = null;
+      }
+    },
+
+    async waitForPreparedJob(jobId: string): Promise<void> {
+      if (preparedJob !== jobId) return;
+      if (preloadPromise) await preloadPromise;
+    },
+
+    clearPreparedJob(): void {
+      preloadGeneration += 1;
+      preparedJob = null;
+      preparedFamilies = new Set();
+      preloadPromise = null;
+    },
+
     status() {
       return {
         loaded_families: [...loaded.keys()],
@@ -171,6 +245,10 @@ export function createWorkToolResolver(
           (count, item) => count + item.tools.size,
           0
         ),
+        prepared_job: preparedJob,
+        prepared_families: [...preparedFamilies],
+        preload_pending: Boolean(preloadPromise),
+        preload_generation: preloadGeneration,
       };
     },
   };
@@ -208,10 +286,10 @@ export function registerWorkGateway(
     {
       title: "GPTWorker Work Tool",
       description:
-        "Execute one confirmed-work operation on demand. This is the only execution gateway: selecting or confirming a Job does not load filesystem/shell/git/etc. The requested operation family is imported only when this tool is actually called, then cached for later calls. Common operations: read_text_file, glob, grep, apply_patch, write_file, move_file, run_command, start_process, process_output, git_status, git_diff, git_commit, project_context, list_skills, load_skill, rewind, node_repl.",
+        "Execute one confirmed-work operation. The nominated Job's expected tool families are preloaded while waiting for user confirmation; any family not already prepared is still lazy-loaded on first use.",
       inputSchema: {
         tool: z.enum(exposed as [string, ...string[]]).describe(
-          "Exact work operation to execute. Only the selected operation family is lazy-loaded."
+          "Exact work operation to execute."
         ),
         arguments: z
           .record(z.string(), z.any())

@@ -4,17 +4,67 @@
   "version": "1.2.0",
   "status": "ready",
   "description": "Local, user-triggered HVAC quantity-takeoff job. Supports stable and draft rules, selection-driven and drawing-export-driven schedules, controlled live-schedule updates, audit history, and human-readable change reports.",
-  "aliases": ["mto", "takeoff", "quantity-takeoff", "boc-khoi-luong", "bốc khối lượng", "eqm", "eqm-takeoff"],
-  "keywords": ["mto", "takeoff", "quantity", "bóc khối lượng", "boq", "hvac", "eqm", "equipment schedule", "grille", "fan", "ac"],
+  "aliases": [
+    "mto",
+    "takeoff",
+    "quantity-takeoff",
+    "boc-khoi-luong",
+    "bốc khối lượng",
+    "eqm",
+    "eqm-takeoff"
+  ],
+  "keywords": [
+    "mto",
+    "takeoff",
+    "quantity",
+    "bóc khối lượng",
+    "boq",
+    "hvac",
+    "eqm",
+    "equipment schedule",
+    "grille",
+    "fan",
+    "ac"
+  ],
   "inputs": [
-    {"key":"workspace","type":"directory","required":true,"description":"Local project root containing 00 Input, 01 WIP and 02 Output. This becomes the active workspace after confirmation."},
-    {"key":"task","type":"string","required":true,"description":"Concrete takeoff/update instruction from the user"},
-    {"key":"equipment","type":"string","required":true,"description":"Explicit equipment/schedule scope. Stable and draft registry rules are both runnable; MTO must not invent additional scope."},
-    {"key":"input_revision","type":"string","required":false,"description":"Selection-driven: explicit YYYY MM DD or 'latest' (omitted defaults to latest). Drawing-export: optional only when supplemental 00 Input data should be considered."},
-    {"key":"source_file","type":"string","required":false,"description":"Optional current WIP export path for one drawing-export schedule while legacy Lisp filenames are still in use. Not needed after canonical grille/door grille/flex conn naming is deployed."}
+    {
+      "key": "workspace",
+      "type": "directory",
+      "required": true,
+      "description": "Local project root containing 00 Input, 01 WIP and 02 Output. This becomes the active workspace after confirmation."
+    },
+    {
+      "key": "task",
+      "type": "string",
+      "required": true,
+      "description": "Concrete takeoff/update instruction from the user"
+    },
+    {
+      "key": "equipment",
+      "type": "string",
+      "required": true,
+      "description": "Explicit equipment/schedule scope. Stable and draft registry rules are both runnable; MTO must not invent additional scope."
+    },
+    {
+      "key": "input_revision",
+      "type": "string",
+      "required": false,
+      "description": "Selection-driven: explicit YYYY MM DD or 'latest' (omitted defaults to latest). Drawing-export: optional only when supplemental 00 Input data should be considered."
+    },
+    {
+      "key": "source_file",
+      "type": "string",
+      "required": false,
+      "description": "Optional current WIP export path for one drawing-export schedule while legacy Lisp filenames are still in use. Not needed after canonical grille/door grille/flex conn naming is deployed."
+    }
   ],
   "outputs": [
-    {"key":"delivery","type":"string","required":false,"description":"Optional delivery/report expectation. Live schedule, report and audit paths are resolved from project structure, not supplied by the user."}
+    {
+      "key": "delivery",
+      "type": "string",
+      "required": false,
+      "description": "Optional delivery/report expectation. Live schedule, report and audit paths are resolved from project structure, not supplied by the user."
+    }
   ],
   "permissions": {
     "filesystem": "read-project-write-only-01-WIP-SCHEDULE-eqm-after-confirm",
@@ -36,5 +86,14 @@
       "harness/validate.mjs"
     ]
   },
-  "validators": ["harness/validate.mjs"]
+  "validators": [
+    "harness/validate.mjs"
+  ],
+  "runtime": {
+    "preload_families": [
+      "filesystem",
+      "shell",
+      "context"
+    ]
+  }
 }

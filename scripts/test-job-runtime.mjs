@@ -12,10 +12,18 @@ assert.deepEqual(listing.jobs.map((job) => job.id).sort(), ["dev-coding", "dev-p
 assert.equal(listing.suggested_job_ids.includes("dev-coding"), true);
 assert.equal(listing.jobs.find((job) => job.id === "dev-coding")?.status, "ready");
 assert.equal(listing.jobs.find((job) => job.id === "dev-coding")?.skill_count, 13);
+assert.deepEqual(
+  listing.jobs.find((job) => job.id === "dev-coding")?.preload_families,
+  ["filesystem", "shell", "git", "context", "rewind", "repl", "mcp"]
+);
 assert.equal(listing.jobs.find((job) => job.id === "dev-planing")?.status, "ready");
 assert.equal(listing.jobs.find((job) => job.id === "dev-planing")?.skill_count, 6);
 assert.equal(listing.jobs.find((job) => job.id === "layla")?.status, "ready");
 assert.equal(listing.jobs.find((job) => job.id === "layla")?.skill_count, 0);
+assert.deepEqual(
+  listing.jobs.find((job) => job.id === "layla")?.preload_families,
+  ["filesystem", "shell", "git", "context", "mcp"]
+);
 assert.equal(listing.jobs.find((job) => job.id === "mto")?.status, "ready");
 assert.equal(listing.jobs.find((job) => job.id === "mto")?.skill_count, 0);
 

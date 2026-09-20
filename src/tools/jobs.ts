@@ -125,9 +125,16 @@ async function validateResolvedWorkspace(result: any): Promise<void> {
   await validateWorkspacePath(workspace);
 }
 
+export interface JobPreparationLifecycle {
+  nominate(job: { id: string; preload_families?: string[] }): void;
+  wait(jobId: string): Promise<void>;
+  clear(): void;
+}
+
 async function persistActiveSelection(
   result: any,
-  runtime: JobRuntime
+  runtime: JobRuntime,
+  lifecycle?: JobPreparationLifecycle
 ) {
   await validateResolvedWorkspace(result);
   if (result?.state?.phase !== "active") return result;
@@ -140,6 +147,7 @@ async function persistActiveSelection(
 
   const registration = await createWorkRegistration(jobId, workspace, () => {
     runtime.stop();
+    lifecycle?.clear();
   });
 
   return {
@@ -154,7 +162,8 @@ async function persistActiveSelection(
 
 export function registerJobTools(
   server: McpServer,
-  runtime: JobRuntime
+  runtime: JobRuntime,
+  lifecycle?: JobPreparationLifecycle
 ): void {
   let sessionRuntime = runtime;
 
@@ -579,14 +588,49 @@ export function registerJobTools(
         await bindRuntimeToWorkspace(bindings);
 
         if (!confirmed) {
-          const selected = await sessionRuntime.select({
-            job,
-            bindings,
-            confirmed: false,
-          });
+          const current = await sessionRuntime.status();
+          let selected: any;
+
+          if (
+            current?.state?.phase === "awaiting_confirmation" &&
+            current?.job?.id &&
+            current.job.id !== job
+          ) {
+            lifecycle?.clear();
+            const switched = await sessionRuntime.switch(job, bindings);
+            selected = switched.current;
+          } else {
+            selected = await sessionRuntime.select({
+              job,
+              bindings,
+              confirmed: false,
+            });
+          }
+
           rememberConfirmation(selected);
           await validateResolvedWorkspace(selected);
-          return persistActiveSelection(selected, sessionRuntime);
+
+          if (
+            selected?.state?.phase === "awaiting_confirmation" &&
+            selected?.job?.id
+          ) {
+            lifecycle?.nominate({
+              id: selected.job.id,
+              preload_families: selected.job.preload_families ?? [],
+            });
+            return {
+              ...(await persistActiveSelection(selected, sessionRuntime, lifecycle)),
+              tool_preload: {
+                status: "warming",
+                job_id: selected.job.id,
+                families: selected.job.preload_families ?? [],
+                note:
+                  "Tool profile is preloading in the background while waiting for user confirmation.",
+              },
+            };
+          }
+
+          return persistActiveSelection(selected, sessionRuntime, lifecycle);
         }
 
         const proof = getConfirmationProof(confirmation_token);
@@ -627,6 +671,8 @@ export function registerJobTools(
           );
         }
 
+        await lifecycle?.wait(proof.jobId);
+
         const selected = await sessionRuntime.select({
           job,
           bindings,
@@ -635,7 +681,7 @@ export function registerJobTools(
         });
         pendingConfirmations.delete(confirmation_token!);
         await validateResolvedWorkspace(selected);
-        return persistActiveSelection(selected, sessionRuntime);
+        return persistActiveSelection(selected, sessionRuntime, lifecycle);
       })
   );
 
@@ -663,10 +709,31 @@ export function registerJobTools(
         }
          const persistentState = await clearWorkerState();
         await bindRuntimeToWorkspace(bindings, true);
+        lifecycle?.clear();
         const selected = await sessionRuntime.switch(job, bindings);
         rememberConfirmation(selected?.current);
         await validateResolvedWorkspace(selected?.current);
-        return { ...selected, worker_state: persistentState };
+        if (
+          selected?.current?.state?.phase === "awaiting_confirmation" &&
+          selected?.current?.job?.id
+        ) {
+          lifecycle?.nominate({
+            id: selected.current.job.id,
+            preload_families: selected.current.job.preload_families ?? [],
+          });
+        }
+        return {
+          ...selected,
+          worker_state: persistentState,
+          tool_preload:
+            selected?.current?.state?.phase === "awaiting_confirmation"
+              ? {
+                  status: "warming",
+                  job_id: selected.current.job.id,
+                  families: selected.current.job.preload_families ?? [],
+                }
+              : undefined,
+        };
       })
   );
 
@@ -692,7 +759,8 @@ export function registerJobTools(
         }
         const released = releaseWorkRegistration(execution_id, authority_token);
         const stopped = sessionRuntime.stop();
-         return {
+        lifecycle?.clear();
+        return {
           ...stopped,
           released_work: {
             execution_id: released.executionId,

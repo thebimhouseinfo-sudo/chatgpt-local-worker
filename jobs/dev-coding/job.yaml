@@ -4,18 +4,84 @@
   "version": "1.4.0",
   "status": "ready",
   "description": "Professional code-execution job that reads the active planning bundle first, selects/updates executable tasks, plans execution, then performs targeted code changes using the Local Coder filesystem, shell, git, checkpoint, project-context, project-skill, and MCP bridge core.",
-  "aliases": ["coding", "code", "dev-code", "dev", "software-development", "repo", "lisp", "debug", "refactor"],
-  "keywords": ["repo", "code", "coding", "dev coding", "lisp", "typescript", "javascript", "python", "git", "bug", "fix", "debug", "refactor", "test", "build", "frontend", "backend", "migration", "security", "performance"],
+  "aliases": [
+    "coding",
+    "code",
+    "dev-code",
+    "dev",
+    "software-development",
+    "repo",
+    "lisp",
+    "debug",
+    "refactor"
+  ],
+  "keywords": [
+    "repo",
+    "code",
+    "coding",
+    "dev coding",
+    "lisp",
+    "typescript",
+    "javascript",
+    "python",
+    "git",
+    "bug",
+    "fix",
+    "debug",
+    "refactor",
+    "test",
+    "build",
+    "frontend",
+    "backend",
+    "migration",
+    "security",
+    "performance"
+  ],
   "inputs": [
-    {"key":"workspace","type":"repo","required":true,"description":"Target local repository/source folder. This becomes the active workspace after confirmation."},
-    {"key":"task","type":"string","required":true,"description":"Concrete engineering task or acceptance objective to execute"},
-    {"key":"planning_dir","type":"path","required":false,"description":"Optional planning bundle directory containing ARCHITECTURE.md, IMPLEMENTATION_PLAN.md, TODO.md and TASKS.md"},
-    {"key":"task_id","type":"string","required":false,"description":"Optional TASK-* identifier in TASKS.md to execute/update"},
-    {"key":"plan","type":"file","required":false,"description":"Optional explicit implementation-plan path when not using the standard planning bundle"},
-    {"key":"architecture","type":"file","required":false,"description":"Optional explicit architecture/design path when not using the standard planning bundle"}
+    {
+      "key": "workspace",
+      "type": "repo",
+      "required": true,
+      "description": "Target local repository/source folder. This becomes the active workspace after confirmation."
+    },
+    {
+      "key": "task",
+      "type": "string",
+      "required": true,
+      "description": "Concrete engineering task or acceptance objective to execute"
+    },
+    {
+      "key": "planning_dir",
+      "type": "path",
+      "required": false,
+      "description": "Optional planning bundle directory containing ARCHITECTURE.md, IMPLEMENTATION_PLAN.md, TODO.md and TASKS.md"
+    },
+    {
+      "key": "task_id",
+      "type": "string",
+      "required": false,
+      "description": "Optional TASK-* identifier in TASKS.md to execute/update"
+    },
+    {
+      "key": "plan",
+      "type": "file",
+      "required": false,
+      "description": "Optional explicit implementation-plan path when not using the standard planning bundle"
+    },
+    {
+      "key": "architecture",
+      "type": "file",
+      "required": false,
+      "description": "Optional explicit architecture/design path when not using the standard planning bundle"
+    }
   ],
   "outputs": [
-    {"key":"delivery","type":"string","required":false,"description":"Optional delivery expectation such as working tree changes, patch, branch, commit, or PR"}
+    {
+      "key": "delivery",
+      "type": "string",
+      "required": false,
+      "description": "Optional delivery expectation such as working tree changes, patch, branch, commit, or PR"
+    }
   ],
   "permissions": {
     "filesystem": "read-write-after-confirm",
@@ -56,5 +122,19 @@
       "harness/validate.mjs"
     ]
   },
-  "validators": ["harness/validate.mjs", "harness/completion-gate.mjs"]
+  "validators": [
+    "harness/validate.mjs",
+    "harness/completion-gate.mjs"
+  ],
+  "runtime": {
+    "preload_families": [
+      "filesystem",
+      "shell",
+      "git",
+      "context",
+      "rewind",
+      "repl",
+      "mcp"
+    ]
+  }
 }

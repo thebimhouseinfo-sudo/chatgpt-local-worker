@@ -102,5 +102,14 @@
     "reconfirm_on_material_scope_change": true,
     "default_write_scope": "confirmed-workspace-only",
     "require_workspace_preflight": true
+  },
+  "runtime": {
+    "preload_families": [
+      "filesystem",
+      "shell",
+      "git",
+      "context",
+      "mcp"
+    ]
   }
 }

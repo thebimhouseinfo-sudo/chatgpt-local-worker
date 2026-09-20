@@ -44,6 +44,15 @@ const JobMetaSchema = z
       .optional()
       .default({ entrypoints: [] }),
     validators: z.array(z.string()).optional().default([]),
+    runtime: z
+      .object({
+        preload_families: z
+          .array(z.enum(["filesystem", "shell", "git", "context", "rewind", "repl", "ponytail", "mcp"]))
+          .optional()
+          .default([]),
+      })
+      .optional()
+      .default({ preload_families: [] }),
   })
   .passthrough();
 
@@ -207,6 +216,7 @@ export class JobRuntime {
       permissions: pack.meta.permissions,
       confirmation_required: pack.meta.confirmation.required,
       skill_count: pack.meta.skills.length,
+      preload_families: pack.meta.runtime.preload_families,
       source: pack.source,
     };
   }
