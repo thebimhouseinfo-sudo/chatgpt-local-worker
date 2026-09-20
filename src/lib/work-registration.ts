@@ -470,6 +470,10 @@ export function getWorkRegistrationCount(): number {
   return registrations.size;
 }
 
+export function hasActiveWorkForJob(jobId: string): boolean {
+  return [...registrations.values()].some((registration) => registration.jobId === jobId);
+}
+
 export function resetWorkRegistrationStateForTests(): void {
   registrations.clear();
   workspaceOwners.clear();
