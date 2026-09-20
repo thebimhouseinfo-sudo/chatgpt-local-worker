@@ -22,7 +22,7 @@ This ledger supersedes the previous session-centric task mapping. The architectu
 
 ## Execution Rules
 
-- Status: TODO, READY, IN_PROGRESS, BLOCKED, DONE.
+- Status: TODO, READY, IN_PROGRESS, BLOCKED, DEFERRED, DONE.
 - Do not use MCP transport session as execution authority.
 - Do not introduce a global active Job or global cwd fallback.
 - Do not add a fixed number of tool instances per family.
