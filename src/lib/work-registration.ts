@@ -478,6 +478,26 @@ export function getActiveWorkCountForJob(jobId: string): number {
   return count;
 }
 
+export function getActiveToolLeasesForJob(jobId: string): Array<{
+  lease_id: string;
+  work_id: string;
+  tool: string;
+  family: string;
+  workspace: string;
+  acquired_at: string;
+}> {
+  return [...activeLeases.values()]
+    .filter((lease) => lease.jobId === jobId)
+    .map((lease) => ({
+      lease_id: lease.leaseId,
+      work_id: lease.workId,
+      tool: lease.tool,
+      family: lease.family,
+      workspace: lease.workspace,
+      acquired_at: lease.acquiredAt,
+    }));
+}
+
 export function hasActiveWorkForJob(jobId: string): boolean {
   return getActiveWorkCountForJob(jobId) > 0;
 }
