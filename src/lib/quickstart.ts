@@ -22,6 +22,21 @@ FOLDER: D:\\Projects\\my-app
 
 Mỗi chat mới bắt đầu ở trạng thái **idle**. GPTWorker không tự kế thừa Job hoặc Workspace từ chat trước.
 
+## Kích hoạt GPTWorker
+
+Trong chat mới, GPTWorker chỉ được kích hoạt khi có một trong hai tín hiệu:
+
+- user gọi rõ \`@gptworker\`; hoặc
+- user đưa một **yêu cầu công việc cụ thể kèm Workspace local xác định** bằng đường dẫn tuyệt đối.
+
+Ví dụ có thể tự kích hoạt GPTWorker:
+
+\`\`\`text
+Sửa app ở D:\\Projects\\my-app để thêm nút regenerate.
+\`\`\`
+
+Nếu user chỉ đưa yêu cầu công việc nhưng **không gọi \`@gptworker\` và không chỉ định Workspace local**, GPTWorker không được tự kích hoạt, không được lấy Workspace từ chat cũ/memory, và không được tự hỏi xác nhận JOB + FOLDER.
+
 ## Layla
 
 \`layla\` là trợ lý đa năng dành cho những công việc không có workflow cố định.
@@ -128,16 +143,42 @@ Never add Job Pack ids such as layla, dev-coding, mto, or any dynamically discov
 ## gptworker/help
 When the user sends exactly gptworker/help, reply with the prewritten GPTWORKER_HELP guide above. This is chat-only help: do not call an MCP tool, do not create/select a Job, do not infer a Workspace, and do not change Worker state.
 
+## GPTWorker activation gate
+Before job selection or any JOB + FOLDER confirmation, verify that the current chat is explicitly eligible to activate GPTWorker.
+
+Valid activation triggers are exactly:
+1. \`explicit_gptworker\` — the user explicitly invoked \`@gptworker\` in this chat; or
+2. \`task_with_workspace\` — the activating user request itself contains both a concrete work request and an explicit absolute local Workspace path.
+
+Not valid activation evidence:
+- a Workspace remembered from another chat or user memory;
+- a recent/previous Worker workspace;
+- project familiarity or a known repository path;
+- a GitHub/Drive/web URL without an explicit local Workspace path;
+- the fact that GPTWorker is connected/available;
+- a generic request such as "fix this app" with no explicit \`@gptworker\` and no absolute local Workspace.
+
+If neither valid trigger exists:
+- do not call \`job_select\` to start work;
+- do not call \`job_list\` merely to infer a Job for the ordinary request;
+- do not ask the user for JOB/FOLDER solely to activate GPTWorker;
+- do not present "Xác nhận bắt đầu?";
+- continue as a normal ChatGPT conversation using non-GPTWorker capabilities as appropriate.
+
+The public commands \`gptworker/help\` and \`gptworker/job ...\` are command operations and do not themselves activate a work Job unless the user separately starts one.
+
+When calling \`job_select\`, always pass the valid \`activation_trigger\`. For \`task_with_workspace\`, also pass \`activation_workspace\` exactly as supplied by the user and \`activation_request\` from the activating request. Never fabricate activation evidence.
+
 ## GPTWorker workflow
 1. Public Job Pack lifecycle commands (job_list / job_create / job_update / job_remove / job_export / job_import) do not require an active Job + Workspace. Never activate dev-coding, reuse a previous workspace, or infer a FOLDER just to author a Job Pack.
-2. For job-specific execution, call job_status with this chat's current work_handle when one exists. Without a work_handle, treat the chat as unemployed.
+2. For job-specific execution, first require the activation gate above. Then call job_status with this chat's current work_handle when one exists. Without a work_handle, treat the chat as unemployed.
 3. Resolve JOB and local FOLDER from the current conversation only. Do not reuse worker-state.json, startup cwd, the most recent Job, or the most recent Workspace as authority.
 4. If JOB is missing/ambiguous, call job_list and ask only for the missing job choice.
 5. If FOLDER is missing/ambiguous, ask only for the absolute local folder path.
 6. Resolve any other required Job Pack bindings from the user's request.
-7. Call job_select with confirmed=false.
+7. Call job_select with confirmed=false plus valid activation evidence.
 8. Present a short preflight confirmation centered on JOB + FOLDER. Do not execute yet.
-9. Only after explicit user confirmation, call job_select again with confirmed=true + confirmation_token.
+9. Only after explicit user confirmation, call job_select again with confirmed=true + confirmation_token and the same valid activation mode.
 10. Execute, validate, then report. Use job_stop when the work is finished. Use job_switch only when the user intentionally changes Job/Workspace. Idle work auto-stops after the configured inactivity timeout.
 
 ## Job Pack authoring
@@ -227,8 +268,9 @@ export function buildServerInstructions(
     `Startup roots: ${workspaceRoots.join("; ")}`,
     "gptworker/help — reply with the prewritten newcomer guide only; do not call tools or change Worker state",
     "job_status — inspect this chat's work only when its work_handle is supplied; otherwise report unemployed",
-    "job_list — list/suggest jobs when JOB is not already clear from chat",
+    "job_list — list/suggest jobs only after explicit GPTWorker activation or when the user explicitly requests the Job catalog",
     "Root gptworker/ menu is fixed: help, job list, job create, job update, job remove, job export, job import, job stop. Never append dynamic Job Pack ids.",
+    "job_select — never call for ordinary chat requests unless @gptworker was explicitly invoked or the activating request itself supplied a concrete task + absolute local Workspace",
     "job_create — create a Job Pack without activating dev-coding or inheriting a workspace",
     "job_remove — remove an inactive custom Job Pack only after explicit confirmation; bundled defaults remain protected",
     "job_export — export a custom Job as <id>.zip to an absolute local destination directory",
