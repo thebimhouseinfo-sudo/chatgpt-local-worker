@@ -114,7 +114,34 @@ Write-Host ""
 if ($Detach) {
     $logDir = Join-Path $env:LOCALAPPDATA "GPTWorker\logs"
     New-Item -ItemType Directory -Force -Path $logDir | Out-Null
-    $process = Start-Process -FilePath "node.exe" -ArgumentList @("dist/index.js") -WorkingDirectory $ScriptDir -WindowStyle Hidden -RedirectStandardOutput (Join-Path $logDir "worker.out.log") -RedirectStandardError (Join-Path $logDir "worker.err.log") -PassThru
+    $stdoutLog = Join-Path $logDir "worker.out.log"
+    $stderrLog = Join-Path $logDir "worker.err.log"
+
+    $nodeCommand = Get-Command node -ErrorAction SilentlyContinue
+    if (-not $nodeCommand) {
+        Write-Error "Node.js executable was not found in PATH."
+        exit 1
+    }
+
+    $nodeExe = $nodeCommand.Source
+    try {
+        $process = Start-Process -FilePath $nodeExe -ArgumentList @("dist/index.js") -WorkingDirectory $ScriptDir -WindowStyle Hidden -RedirectStandardOutput $stdoutLog -RedirectStandardError $stderrLog -PassThru
+    } catch {
+        Write-Error "Failed to start GPTWorker Node process: $($_.Exception.Message)"
+        exit 1
+    }
+
+    Start-Sleep -Milliseconds 500
+    $process.Refresh()
+    if ($process.HasExited) {
+        Write-Error "GPTWorker Node process exited immediately with code $($process.ExitCode)."
+        if (Test-Path $stderrLog) {
+            Write-Host "--- worker.err.log ---"
+            Get-Content $stderrLog -Tail 40
+        }
+        exit 1
+    }
+
     Write-Host "Worker PID: $($process.Id)"
     exit 0
 }
