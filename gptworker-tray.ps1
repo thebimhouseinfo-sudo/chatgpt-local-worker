@@ -289,11 +289,51 @@ function Restart-GptWorkerRuntime {
     Start-GptWorkerRuntime
 }
 
+function New-TrayIconFromPng([string]$Path) {
+    if (-not (Test-Path $Path)) {
+        Write-TrayLog "Tray icon asset not found: $Path. Using Windows fallback icon."
+        return $null
+    }
+
+    try {
+        $source = [System.Drawing.Image]::FromFile($Path)
+        $bitmap = [System.Drawing.Bitmap]::new(32, 32, [System.Drawing.Imaging.PixelFormat]::Format32bppArgb)
+        $graphics = [System.Drawing.Graphics]::FromImage($bitmap)
+
+        $graphics.Clear([System.Drawing.Color]::Transparent)
+        $graphics.InterpolationMode = [System.Drawing.Drawing2D.InterpolationMode]::HighQualityBicubic
+        $graphics.SmoothingMode = [System.Drawing.Drawing2D.SmoothingMode]::HighQuality
+        $graphics.PixelOffsetMode = [System.Drawing.Drawing2D.PixelOffsetMode]::HighQuality
+        $graphics.DrawImage($source, 0, 0, 32, 32)
+
+        $handle = $bitmap.GetHicon()
+        $icon = ([System.Drawing.Icon]::FromHandle($handle)).Clone()
+
+        $graphics.Dispose()
+        $bitmap.Dispose()
+        $source.Dispose()
+
+        Write-TrayLog "Loaded custom tray icon: $Path"
+        return $icon
+    } catch {
+        Write-TrayLog "Failed to load custom tray icon: $($_.Exception.Message). Using Windows fallback icon."
+        return $null
+    }
+}
+
+$TrayIconPath = Join-Path $ScriptDir "gptworker icon.png"
+$script:CustomTrayIcon = New-TrayIconFromPng -Path $TrayIconPath
+$brandIcon = if ($script:CustomTrayIcon) {
+    $script:CustomTrayIcon
+} else {
+    [System.Drawing.SystemIcons]::Application
+}
+
 $icons = @{
-    Starting  = [System.Drawing.SystemIcons]::Application
-    Connected = [System.Drawing.SystemIcons]::Application
-    Working   = [System.Drawing.SystemIcons]::Application
-    Degraded  = [System.Drawing.SystemIcons]::Warning
+    Starting  = $brandIcon
+    Connected = $brandIcon
+    Working   = $brandIcon
+    Degraded  = $brandIcon
 }
 
 $notify = New-Object System.Windows.Forms.NotifyIcon
@@ -422,6 +462,9 @@ try {
     $notify.Visible = $false
     $notify.Dispose()
     $menu.Dispose()
+    if ($script:CustomTrayIcon) {
+        try { $script:CustomTrayIcon.Dispose() } catch {}
+    }
     try { $mutex.ReleaseMutex() } catch {}
     $mutex.Dispose()
 }
