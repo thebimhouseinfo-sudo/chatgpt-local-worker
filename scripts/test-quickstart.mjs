@@ -57,7 +57,7 @@ assert.ok(
   "final MCP instructions missing MCP_QUICKSTART"
 );
 assert.ok(
-  instructions.includes("GPTWorker giúp ChatGPT làm việc trực tiếp"),
+  instructions.includes("# GPTWorker Help"),
   "final MCP instructions missing prewritten gptworker/help content"
 );
 assert.ok(
@@ -77,8 +77,24 @@ assert.equal(
   "help response contract duplicated"
 );
 
+assert.ok(GPTWORKER_HELP.includes("**Job + Workspace local**"));
+assert.ok(GPTWORKER_HELP.includes("## Kích hoạt GPTWorker"));
+assert.ok(GPTWORKER_HELP.includes("@gptworker"));
+assert.ok(GPTWORKER_HELP.includes("Workspace local"));
+assert.ok(MCP_QUICKSTART.includes("## GPTWorker activation gate"));
+assert.ok(MCP_QUICKSTART.includes("task_with_workspace"));
+assert.ok(MCP_QUICKSTART.includes("do not nominate a Job or FOLDER") || MCP_QUICKSTART.includes("do not ask the user for JOB/FOLDER"));
+assert.ok(GPTWORKER_HELP.includes("## Layla"));
+assert.ok(GPTWORKER_HELP.includes("TXT, Markdown, Word, Excel, PowerPoint, PDF"));
+assert.ok(GPTWORKER_HELP.includes("## Tạo Job mới"));
+assert.ok(GPTWORKER_HELP.includes("## Quản lý Job"));
+assert.ok(GPTWORKER_HELP.includes("## Cách dùng"));
+assert.ok(GPTWORKER_HELP.includes("gptworker/job list"));
+assert.ok(GPTWORKER_HELP.includes("gptworker/job create"));
+assert.ok(GPTWORKER_HELP.includes("gptworker/job update"));
 assert.ok(GPTWORKER_HELP.includes("gptworker/job remove"));
 assert.ok(GPTWORKER_HELP.includes("gptworker/job export"));
-assert.ok(GPTWORKER_HELP.includes("gptworker/job import"));
+assert.ok(GPTWORKER_HELP.includes("import"));
+assert.ok(GPTWORKER_HELP.includes("gptworker/job stop"));
 
 console.log("test-quickstart: ok");

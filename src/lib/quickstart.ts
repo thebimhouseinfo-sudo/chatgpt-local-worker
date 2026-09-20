@@ -1,65 +1,129 @@
 export const GPTWORKER_HELP = `
-# GPTWorker — Hướng dẫn nhanh
+# GPTWorker Help
 
-**GPTWorker giúp ChatGPT làm việc trực tiếp với các file trên máy tính của bạn, đặc biệt là file code và tài liệu Microsoft Office như Word, Excel, PowerPoint.**
+GPTWorker làm việc theo **Job + Workspace local**.
 
-Bạn chỉ cần nói bằng ngôn ngữ tự nhiên việc muốn làm và chỉ rõ thư mục cần làm việc.
-
-Ví dụ:
-
-> “Đổi hết tên file trong thư mục D:\\Photos thành chữ in hoa.”
-
-Hoặc một công việc lớn hơn:
-
-> “Đọc các tài liệu trong thư mục D:\\BaoCao, tạo một file PowerPoint khoảng 30 slide và sử dụng các hình minh họa trong thư mục con Images.”
-
-GPTWorker sẽ giúp ChatGPT thao tác trực tiếp với các file trên máy tính để thực hiện công việc đó.
-
-## Job là gì?
-
-**Job là cách bạn dạy GPT phải làm việc theo một khuôn khổ nhất định, thay vì để GPT tự quyết định cách làm mỗi lần.**
-
-Ví dụ, bạn có thể tạo Job ppt và quy định trước font chữ phải dùng, kích thước tiêu đề, bố cục slide, transition, cách sử dụng hình ảnh và những bước cần kiểm tra trước khi hoàn thành.
-
-Từ đó, mỗi khi sử dụng Job ppt, GPT sẽ làm PowerPoint theo đúng các quy tắc bạn đã đặt ra.
-
-Bạn cũng có thể tự tạo Job cho những công việc thường xuyên của mình.
-
-## Thư mục làm việc
-
-**Mỗi khi bắt đầu một công việc, hãy cung cấp cho GPTWorker một thư mục làm việc cụ thể.**
-
-Có thể hiểu đơn giản là bạn đang nói với GPT:
-
-> **“Hãy làm việc trong thư mục này.”**
+**Job** là một bộ hướng dẫn và năng lực được chuẩn bị sẵn cho một loại công việc. Job quy định GPTWorker có thể làm gì, cần đầu vào nào và được phép sử dụng những công cụ nào.
 
 Ví dụ:
 
-D:\\Projects\\MyPresentation
+- \`coding\` — sửa code, debug, build/test project.
+- \`planning\` — đọc repo, phân tích kiến trúc và lập kế hoạch.
+- \`layla\` — trợ lý đa năng cho tài liệu, file và các công việc do user yêu cầu.
 
-GPTWorker sẽ dùng thư mục đó làm Workspace của công việc để GPT biết chính xác mình đang làm việc ở đâu và tránh sửa nhầm file ở nơi khác trên máy tính.
+**Workspace** là thư mục local mà Job sẽ làm việc trên đó.
 
-Trước khi bắt đầu, GPTWorker sẽ báo lại:
+Ví dụ:
 
-    JOB: ppt
-    FOLDER: D:\\Projects\\MyPresentation
+\`\`\`text
+JOB: coding
+FOLDER: D:\\Projects\\my-app
+\`\`\`
 
-    Xác nhận bắt đầu?
+Mỗi chat mới bắt đầu ở trạng thái **idle**. GPTWorker không tự kế thừa Job hoặc Workspace từ chat trước.
 
-**Không có Job + Workspace được xác nhận thì GPTWorker không được bắt đầu làm việc.**
+## Kích hoạt GPTWorker
 
-## Các lệnh chính
+Trong chat mới, GPTWorker chỉ được kích hoạt khi có một trong hai tín hiệu xuất hiện trong **chính chat session hiện tại**:
 
-| Lệnh | Chức năng |
-|---|---|
-| gptworker/help | Xem hướng dẫn này |
-| gptworker/job list | Xem các Job hiện có |
-| gptworker/job create | Tạo custom Job mới |
-| gptworker/job update | Chỉnh sửa custom Job |
-| gptworker/job remove | Xóa custom Job sau khi kiểm tra và xác nhận |
-| gptworker/job export | Đóng gói custom Job thành file ZIP |
-| gptworker/job import | Cài custom Job từ file ZIP |
-| gptworker/job stop | Kết thúc Job đang làm việc |
+- user gọi trực tiếp \`@gptworker\`; hoặc
+- user đưa một **yêu cầu công việc cụ thể có kèm đường dẫn Workspace local tuyệt đối** ngay trong chat session này.
+
+Ví dụ có thể tự kích hoạt GPTWorker:
+
+\`\`\`text
+Sửa app ở D:\\Projects\\my-app để thêm nút regenerate.
+\`\`\`
+
+Nếu cả hai điều kiện trên đều không xuất hiện trong chat session hiện tại, GPTWorker phải giữ trạng thái **idle**: không tự chọn Job, không tự nominate FOLDER, không lấy Workspace từ chat cũ/memory/Worker state và không tự đưa ra prompt xác nhận JOB + FOLDER.
+
+## Layla
+
+\`layla\` là trợ lý đa năng dành cho những công việc không có workflow cố định.
+
+Layla có thể làm việc với nhiều loại file như TXT, Markdown, Word, Excel, PowerPoint, PDF và các tài liệu khác.
+
+User chỉ cần mô tả **việc muốn làm + file hoặc thư mục cần xử lý**. Layla sẽ tự xác định cách thực hiện phù hợp với nhiệm vụ.
+
+Ví dụ:
+
+\`\`\`text
+Tổng hợp các tài liệu trong D:\\Reports thành một báo cáo Word.
+
+Đọc các file Excel trong D:\\Sales và tạo bảng tổng hợp.
+
+Từ tài liệu trong D:\\Meeting tạo một presentation.
+\`\`\`
+
+Công việc cụ thể của Layla không cần được định nghĩa trước trong Job. User có thể nghĩ ra nhiệm vụ mới khi sử dụng và GPTWorker sẽ ứng biến để thực hiện.
+
+## Tạo Job mới
+
+Khi có một loại công việc chuyên biệt muốn sử dụng nhiều lần, có thể tạo Job riêng:
+
+\`\`\`text
+gptworker/job create
+\`\`\`
+
+Sau đó mô tả Job muốn tạo, mục đích sử dụng và workflow mong muốn.
+
+Ví dụ:
+
+\`\`\`text
+Tạo Job chuyên kiểm tra và xử lý bản vẽ AutoCAD.
+
+Job cần:
+- đọc các file liên quan;
+- kiểm tra layer;
+- chạy script;
+- kiểm tra kết quả;
+- báo cáo các lỗi còn lại.
+\`\`\`
+
+Sau khi tạo, Job có thể được sử dụng lại ở các chat sau.
+
+## Quản lý Job
+
+- \`gptworker/job list\` — xem các Job hiện có.
+- \`gptworker/job create\` — tạo Job mới.
+- \`gptworker/job update\` — sửa Job.
+- \`gptworker/job remove\` — xóa Job.
+- \`gptworker/job export\` / \`import\` — xuất hoặc nhập Job \`.zip\`.
+- \`gptworker/job stop\` — dừng công việc hiện tại và về \`idle\`.
+
+## Cách dùng
+
+Thông thường không cần chọn Job thủ công. Chỉ cần nói **việc cần làm + thư mục local**, ví dụ:
+
+\`\`\`text
+Sửa app ở D:\\Projects\\my-app để thêm nút regenerate.
+\`\`\`
+
+GPTWorker sẽ tự xác định:
+
+\`\`\`text
+JOB: coding
+FOLDER: D:\\Projects\\my-app
+
+Xác nhận bắt đầu?
+\`\`\`
+
+Hoặc với công việc tài liệu:
+
+\`\`\`text
+Tổng hợp các file trong D:\\Reports thành presentation.
+\`\`\`
+
+GPTWorker có thể xác định:
+
+\`\`\`text
+JOB: layla
+FOLDER: D:\\Reports
+
+Xác nhận bắt đầu?
+\`\`\`
+
+Chỉ sau khi user xác nhận, GPTWorker mới bắt đầu thao tác với Workspace.
 `.trim();
 
 export const MCP_QUICKSTART = `
@@ -74,21 +138,47 @@ When the user sends exactly gptworker/ (or asks what GPTWorker commands are avai
 - gptworker/job import
 - gptworker/job stop
 
-Never add Job Pack ids such as rename, dev-coding, mto, or any dynamically discovered job to this root command menu. Job Pack ids belong only in job_list results or natural-language job selection.
+Never add Job Pack ids such as layla, dev-coding, mto, or any dynamically discovered job to this root command menu. Job Pack ids belong only in job_list results or natural-language job selection.
 
 ## gptworker/help
 When the user sends exactly gptworker/help, reply with the prewritten GPTWORKER_HELP guide above. This is chat-only help: do not call an MCP tool, do not create/select a Job, do not infer a Workspace, and do not change Worker state.
 
+## GPTWorker activation gate
+Before job selection or any JOB + FOLDER confirmation, verify that the current chat session itself contains valid activation evidence. Never carry activation authority across chats.
+
+Valid activation triggers are exactly:
+1. \`explicit_gptworker\` — current-session user text literally invokes \`@gptworker\`; or
+2. \`task_with_workspace\` — a current-session user work request itself contains both the concrete task and the explicit absolute local Workspace path that will become \`bindings.workspace\`.
+
+Not valid activation evidence:
+- any activation signal, Job, or Workspace remembered from another chat or user memory;
+- a recent/previous Worker workspace;
+- project familiarity or a known repository path;
+- a GitHub/Drive/web URL without an explicit local Workspace path;
+- the fact that GPTWorker is connected/available;
+- a generic request such as "fix this app" with no explicit \`@gptworker\` and no absolute local Workspace.
+
+If neither valid trigger exists:
+- do not call \`job_select\` to start work;
+- do not call \`job_list\` merely to infer a Job for the ordinary request;
+- do not ask the user for JOB/FOLDER solely to activate GPTWorker;
+- do not present "Xác nhận bắt đầu?";
+- continue as a normal ChatGPT conversation using non-GPTWorker capabilities as appropriate.
+
+The public commands \`gptworker/help\` and \`gptworker/job ...\` are command operations and do not themselves activate a work Job unless the user separately starts one.
+
+When calling \`job_select\`, always pass the valid \`activation_trigger\` plus the exact current-session \`activation_request\` that proves it. For \`explicit_gptworker\`, that text must literally contain \`@gptworker\`. For \`task_with_workspace\`, the text must contain the same explicit absolute local path passed as \`activation_workspace\` and \`bindings.workspace\`. Never fabricate activation evidence.
+
 ## GPTWorker workflow
 1. Public Job Pack lifecycle commands (job_list / job_create / job_update / job_remove / job_export / job_import) do not require an active Job + Workspace. Never activate dev-coding, reuse a previous workspace, or infer a FOLDER just to author a Job Pack.
-2. For job-specific execution, call job_status with this chat's current work_handle when one exists. Without a work_handle, treat the chat as unemployed.
+2. For job-specific execution, first require the activation gate above. Then call job_status with this chat's current work_handle when one exists. Without a work_handle, treat the chat as unemployed.
 3. Resolve JOB and local FOLDER from the current conversation only. Do not reuse worker-state.json, startup cwd, the most recent Job, or the most recent Workspace as authority.
 4. If JOB is missing/ambiguous, call job_list and ask only for the missing job choice.
 5. If FOLDER is missing/ambiguous, ask only for the absolute local folder path.
 6. Resolve any other required Job Pack bindings from the user's request.
-7. Call job_select with confirmed=false.
+7. Call job_select with confirmed=false plus valid activation evidence.
 8. Present a short preflight confirmation centered on JOB + FOLDER. Do not execute yet.
-9. Only after explicit user confirmation, call job_select again with confirmed=true + confirmation_token.
+9. Only after explicit user confirmation, call job_select again with confirmed=true + confirmation_token and the same valid activation mode.
 10. Execute, validate, then report. Use job_stop when the work is finished. Use job_switch only when the user intentionally changes Job/Workspace. Idle work auto-stops after the configured inactivity timeout.
 
 ## Job Pack authoring
@@ -178,8 +268,9 @@ export function buildServerInstructions(
     `Startup roots: ${workspaceRoots.join("; ")}`,
     "gptworker/help — reply with the prewritten newcomer guide only; do not call tools or change Worker state",
     "job_status — inspect this chat's work only when its work_handle is supplied; otherwise report unemployed",
-    "job_list — list/suggest jobs when JOB is not already clear from chat",
+    "job_list — list/suggest jobs only after explicit GPTWorker activation or when the user explicitly requests the Job catalog",
     "Root gptworker/ menu is fixed: help, job list, job create, job update, job remove, job export, job import, job stop. Never append dynamic Job Pack ids.",
+    "job_select — never call for ordinary chat requests unless @gptworker was explicitly invoked or the activating request itself supplied a concrete task + absolute local Workspace",
     "job_create — create a Job Pack without activating dev-coding or inheriting a workspace",
     "job_remove — remove an inactive custom Job Pack only after explicit confirmation; bundled defaults remain protected",
     "job_export — export a custom Job as <id>.zip to an absolute local destination directory",
