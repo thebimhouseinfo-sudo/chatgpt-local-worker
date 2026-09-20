@@ -1,105 +1,515 @@
-# GPTWorker v2 — Implementation Plan sửa
+# GPTWorker v2 — Implementation Plan
 
 ## Objective
 
-Sau setup, Windows logon tự khởi động nền; ChatGPT có thể gọi Worker, chọn đúng Job/context và tiếp tục qua sleep/wake khi identity hợp lệ. Hai phiên không làm lẫn workspace/resource; authoring publish pack đã validate vào AppData; cập nhật ứng dụng bảo toàn pack người dùng.
+GPTWorker v2 phải cho phép nhiều ChatGPT work session chạy song song trên nhiều workspace mà không lẫn việc, trong khi Driver + Secure MCP Tunnel luôn nhẹ và Worker executor chỉ tồn tại khi thực sự có việc cần thực thi.
 
-Đây là plan đề xuất, chưa triển khai toàn bộ v2. P0 hiện chỉ triển khai logging; các phase kiến trúc khác giữ ở mức roadmap và chưa được thực hiện. Không đặt version package thành v2 hoặc sửa root runtime policy chỉ vì tài liệu này tồn tại.
+Mô hình authority mới:
 
-## Inputs / Governing Architecture
+~~~text
+1 work session
+  → 1 active Job
+  → 1 active Workspace
+  → 1 Work Registration / Execution
+~~~
 
-- [ARCHITECTURE.md](ARCHITECTURE.md) là kiến trúc đề xuất của bundle này.
-- [REVIEW.md](REVIEW.md) ghi lỗi/giả định và bằng chứng baseline.
-- Root `WORKER.md`, pack contracts và MTO invariants tiếp tục áp dụng cho code hiện tại đến phase thay đổi tương ứng.
-- [TASKS.md](TASKS.md) là execution ledger; [TODO.md](TODO.md) là backlog.
+Không có Job + Workspace registration hợp lệ thì execution tool không có quyền làm việc.
 
-## Constraints
+P0 logging đã hoàn tất và live log ngày 2026-09-20 đã cho thấy MCP transport session không ổn định theo conversation: gần như mỗi tool call có một session ID riêng và session recovery được dựng lại liên tục. Vì vậy v2 không dùng Mcp-Session-Id làm work identity và không cố suy conversation identity từ transport.
 
-- Windows user context; AppData jobs tồn tại độc lập application release.
-- Một execution core; không thêm multi-agent hierarchy hay tool framework riêng cho pack.
-- Giữ canonical IDs `dev-coding`, `dev-planing`, `mto`; thêm `job-authoring` theo yêu cầu v2.
-- Giữ lifecycle DISCOVER → SELECT → RESOLVE → CONFIRM → EXECUTE → VALIDATE → COMPLETE và confirmation boundary.
-- Review này chỉnh tài liệu. Implementation rộng chỉ bắt đầu sau khi người dùng thống nhất hướng sửa.
+## Governing Principles
 
-## Non-Goals
+1. Job + Workspace là work identity. Runtime không tự gắn vào Job gần nhất, workspace gần nhất, cwd global hay transport session gần nhất.
+2. Một active execution sở hữu một workspace. Hai active executions không đồng thời sở hữu cùng canonical workspace.
+3. Tool Family là capability dùng chung. Job consume family; Job không đăng ký hoặc clone core tool riêng.
+4. Tool instance sinh theo nhu cầu. Không có pool cố định, free-list hay số lượng instance định trước cho filesystem/shell/git.
+5. Tool instance bind bất biến khi sinh. Nó mang Job + Workspace + Execution + Generation + Call identity và không được rebind trong suốt lifetime.
+6. Concurrency không bị chặn bởi tên tool. Hai jobs khác workspace có thể cùng dùng filesystem/read/write/shell/git song song. Giới hạn chỉ đến từ tài nguyên hệ thống hoặc external resource thật.
+7. Không inactivity timeout cho active work registration. Worker sleep dựa trên quiescence/resource leases, không dựa trên thời gian chat không hoạt động.
+8. Nếu registration mất hiệu lực thì phải đăng ký lại. Driver restart, explicit stop hoặc một expiry/host signal đã được xác minh làm execution cũ invalid; tool call sau đó nhận NO_ACTIVE_WORK.
+9. Transport lifecycle, execution lifecycle và worker-process lifecycle là ba lớp độc lập.
 
-Kernel driver, Windows service trong release đầu, GUI bắt buộc, public Job marketplace, multi-machine Job resume, OS sandbox toàn diện cho shell và tự thay đổi business rules MTO.
+## Naming Convention
 
-## Implementation Strategy
+ID phải human-readable, gắn với Job và Workspace, không dùng UUID ngẫu nhiên làm identity chính.
 
-P0 thực hiện một lát cắt quan sát độc lập, không đụng vào logic điều phối. Tận dụng `activity-log`/`audit` hiện có, đưa persistence vào một sink JSONL bất đồng bộ và gọi event ở các boundary đã có. Sau khi P0 đạt, các phase identity/isolation/wake/authoring mới được xem xét như roadmap riêng.
+Canonical workspace key:
 
-Không dùng passing unit tests làm bằng chứng conversation isolation. Mỗi contract có failure case riêng và test thực trên Windows/connector khi liên quan transport hoặc startup.
+~~~text
+<workspace-slug>#<stable-path-hash>
+~~~
 
-## Phases
+Ví dụ:
 
-1. **P0 — Automatic runtime logging.** Persist mọi `ActivityEntry` thành JSONL qua queue bất đồng bộ; bổ sung startup/shutdown, HTTP request, MCP/session lifecycle, transport error/recovery và tool activity ở boundary hiện có. Redact credential-like values, bound payload/detail, rotate file khi vượt ngưỡng, giữ Admin history đọc được từ activity file. Acceptance: request/tool result không đổi khi log path lỗi; event có schema ổn định; secret không xuất hiện; rotation hoạt động; build/jobs/full tests pass.
-2. **P1 — Baseline và feasibility sau P0.** Ghi baseline tests và dùng log để quan sát initialize, repeated calls, reconnect, DELETE, timeout và discovery probe. Chỉ sau khi có evidence mới chốt identity contract OQ-01/OQ-02.
-3. **P2 — Session-scoped execution và activation.** Introduce ExecutionContext và resource ownership; bỏ global mutable project context trong đường thực thi. Gate mọi tool cần execution; bind confirmation token với snapshot; stop/switch drain resources đúng scope.
-4. **P3 — Driver transport + Worker prototype.** Tách public SDK transport và SessionStore ra nền; dùng IPC versioned cho executor. Single-flight wake, queue bounds, drain/wake race, active resource leases, graceful shutdown, startup failure và crash unknown-result.
-5. **P4 — Paths, portable packs và catalog.** Tách install/data/config paths; migrate artifacts và seed packs không overwrite. Shared manifest schema + legacy adapter + worker API compatibility. Portable harness runner thay repo-relative import; metadata scan có diagnostics và immutable revision snapshots.
-6. **P5 — Publish transaction + Job Authoring.** Core staging/publish/history primitives có per-job lock, expected revision, content hash, journal recovery. Tạo job-authoring SOP/harness; create/update dùng staging; pin revision cho session cũ.
-7. **P6 — Chat control và diagnostics.** Map bốn cú pháp chat sang structured MCP calls; routing bằng metadata và confirmation, không giả định đọc được toàn chat.
-8. **P7 — Windows host integration.** Scheduled Task user logon, single-instance ownership, tunnel/Worker supervisor, backoff, machine sleep/resume, drive readiness, child-tree cleanup, credential migration.
-9. **P8 — Packaging và release acceptance.** Đóng gói prototype và kiểm tra clean-machine upgrade/uninstall; chỉ gắn nhãn v2 complete khi flow đầy đủ có evidence.
+~~~text
+audio-library-for-english#8f31c2
+ke-math-grade1#41bd77
+~~~
 
-## Migration / Compatibility
+Hash là deterministic từ canonical absolute path sau normalization; slug lấy từ workspace basename. Hash ngắn chỉ dùng chống collision, không thay canonical path authority.
 
-- V1 default env paths còn được nhận trong dev mode qua adapter có precedence được ghi rõ; production dùng installRoot/dataRoot riêng.
-- Copy pack hiện có vào staging, validate và publish lần đầu; collision/id tồn tại không overwrite. Không silently activate Job từ v1 `worker-state.json`.
-- Giữ legacy pack manifest qua adapter; manifest v2 parse JSON-compatible. Không tự rename `dev-planing` hoặc inherited `codex-*` surfaces.
-- Tách bootstrap core validator khỏi pack-relative imports trước migration AppData.
-- Giữ checkpoint/audit/history là dữ liệu tra cứu có scope; không dùng chúng cấp quyền phiên mới. Migration có dry-run, copy/verify và recovery; giữ original khi chưa kiểm chứng.
-- Default setup seed pack mới thiếu; shipped pack upgrade là một publish/update có validation, không phải installer copy đè.
-- Application rollback phải biết manifest/API support; báo incompatible pack, không sửa ngược Job người dùng một cách tự động.
+Execution ID:
 
-## Validation Strategy
+~~~text
+exec:<job-id>@<workspace-key>:g<generation>
+~~~
 
-| Contract | Kiểm tra chấp nhận |
+Ví dụ:
+
+~~~text
+exec:dev-coding@audio-library-for-english#8f31c2:g1
+exec:dev-coding@ke-math-grade1#41bd77:g1
+~~~
+
+Ephemeral tool lease / instance identity:
+
+~~~text
+tool:<family>@<job-id>@<workspace-key>:g<generation>:c<call-sequence>
+~~~
+
+Ví dụ:
+
+~~~text
+tool:filesystem@dev-coding@ke-math-grade1#41bd77:g1:c27
+~~~
+
+Một instance tạm được tạo khi call bắt đầu và bị destroy/release khi call/resource kết thúc. Không có trạng thái FREE để tái sử dụng như một inventory cố định.
+
+## Target Runtime
+
+~~~text
+ChatGPT
+  → Secure MCP Tunnel
+  → Driver / Public MCP Gateway                 [always-on, light]
+      ├─ MCP protocol/compatibility handling
+      ├─ WorkRegistrationStore
+      ├─ WorkspaceOwnershipRegistry
+      ├─ ActiveToolLeaseRegistry
+      ├─ generation / call sequence
+      ├─ WakeCoordinator
+      └─ IPC
+           ↓
+        Worker Executor                         [on-demand]
+          ├─ Tool Family Registry
+          │   ├─ filesystem
+          │   ├─ shell
+          │   ├─ git
+          │   ├─ process
+          │   ├─ context
+          │   └─ upstream adapters
+          ├─ ephemeral tool instances
+          └─ Job Pack runtime / validation
+
+Mutable data:
+%LOCALAPPDATA%\GPTWorker\
+~~~
+
+Driver giữ authority và bookkeeping. Worker executor không giữ machine-global active Job/cwd.
+
+## Core State
+
+### WorkRegistration
+
+~~~text
+WorkRegistration
+  executionId
+  generation
+  phase: AWAITING_CONFIRMATION | ACTIVE | CLOSING
+  jobId
+  workspaceCanonicalPath
+  workspaceKey
+  packRevision
+  bindings
+  confirmedContext
+  confirmation
+  activeCalls
+  activeResourceLeases
+~~~
+
+Không cần conversationId để runtime đúng. ChatGPT giữ executionId trong work session và gửi lại khi gọi execution tools.
+
+### WorkspaceOwnership
+
+~~~text
+WorkspaceOwnership
+  canonicalWorkspacePath
+  workspaceKey
+  executionId
+  generation
+~~~
+
+Nếu workspace đã thuộc một active execution khác:
+
+~~~text
+WORKSPACE_BUSY
+~~~
+
+Không auto-attach vào owner hiện tại.
+
+### Tool Family Registry
+
+Family chỉ mô tả capability/factory/schema/lifecycle mode, không chứa số lượng instance:
+
+~~~text
+filesystem
+  operations: read/write/edit/list/search/patch
+
+shell
+  operations: run/start/stop/status
+
+git
+  operations: status/diff/commit/...
+
+...
+~~~
+
+Job Pack chỉ khai báo family/capability được phép dùng. Không tạo coding_read_file, mto_read_file hoặc duplicate implementation chỉ vì nhiều Job cùng dùng filesystem.
+
+## Tool Call Lifecycle
+
+~~~text
+incoming execution tool call
+  ↓
+require execution_id
+  ↓
+resolve active WorkRegistration
+  ↓
+verify generation
+  ↓
+verify Job + Workspace binding
+  ↓
+verify WorkspaceOwnership
+  ↓
+verify confirmation / pack revision / capability
+  ↓
+create ephemeral tool instance from family
+  ↓
+bind immutable ToolContext
+  ↓
+register active lease
+  ↓
+execute
+  ↓
+release/destroy instance
+  ↓
+remove active lease
+~~~
+
+ToolContext tối thiểu:
+
+~~~text
+ToolContext
+  family
+  executionId
+  generation
+  jobId
+  workspaceCanonicalPath
+  workspaceKey
+  callSequence
+  packRevision
+~~~
+
+Tool instance không đọc machine-global cwd và không được đổi workspace giữa chừng.
+
+### Stateless vs stateful resources
+
+Stateless/short-lived operations như read/list/grep/write/edit sinh instance theo call và hủy ngay sau completion.
+
+Stateful resources như long-running shell process, REPL state hoặc external adapter session giữ lease cho tới khi resource kết thúc/reset/stop. Lease vẫn thuộc đúng execution/generation ban đầu và không được rebind.
+
+## Worker Sleep Policy
+
+Không dùng inactivity timeout để quyết định Job chết hoặc Worker ngủ.
+
+Worker executor có thể chuyển sang sleep khi:
+
+~~~text
+activeCalls == 0
+AND activeResourceLeases == 0
+AND queuedDispatch == 0
+AND publishTransactions == 0
+~~~
+
+WorkRegistration vẫn nằm trong Driver và có thể ACTIVE trong khi Worker ngủ.
+
+Call tiếp theo:
+
+~~~text
+execution_id hợp lệ
+  → Driver wake Worker
+  → tạo tool instance mới
+  → tiếp tục đúng Job + Workspace
+~~~
+
+Driver + tunnel luôn sống nhẹ. Nếu implementation cần debounce vài trăm ms để tránh spawn/kill liên tục thì đó chỉ là process optimization, không phải Job/session timeout và không làm mất registration.
+
+## Registration / Stop Contract
+
+### Register
+
+Flow hiện tại DISCOVER → SELECT → RESOLVE → CONFIRM được giữ, nhưng output cuối là một WorkRegistration rõ ràng.
+
+~~~text
+select Job
+  + resolve Workspace
+  + confirm
+  → acquire WorkspaceOwnership
+  → generation++
+  → issue executionId
+  → ACTIVE
+~~~
+
+Một work session chỉ dùng một active Job + Workspace. Khi cần đổi việc, phải stop/switch bằng execution hiện tại rồi register binding mới.
+
+### No active work
+
+Bất kỳ execution tool nào thiếu/không tìm thấy/không còn hợp lệ execution_id:
+
+~~~text
+NO_ACTIVE_WORK
+registration_required = true
+~~~
+
+Không fallback.
+
+### Stop
+
+~~~text
+job_stop(execution_id)
+  → CLOSING
+  → block new calls
+  → drain/cancel owned calls
+  → cleanup owned stateful resources
+  → release WorkspaceOwnership
+  → invalidate generation
+  → remove WorkRegistration
+~~~
+
+Stop không tắt Driver hoặc tunnel.
+
+## Implementation Phases
+
+### P0 — Runtime Evidence — DONE
+
+- Structured JSONL activity logging.
+- Redaction, rotation, fail-open behavior.
+- MCP HTTP/session/tool events.
+- Live Windows + ChatGPT + tunnel evidence.
+- Evidence kết luận: MCP transport session không phải stable work identity; multiple real chats can interleave tool calls.
+
+Acceptance: code + CI + live runtime evidence hoàn tất.
+
+### P1 — Work Registration + Workspace Ownership
+
+Implement contract mới trước khi sửa tool internals:
+
+- WorkspaceKey canonicalization + deterministic hash.
+- WorkRegistrationStore.
+- WorkspaceOwnershipRegistry.
+- human-readable executionId + generation.
+- registration/confirmation creates ACTIVE execution.
+- explicit NO_ACTIVE_WORK.
+- duplicate workspace activation → WORKSPACE_BUSY.
+- Driver restart invalidates old registration.
+
+Acceptance:
+- hai work sessions register hai workspace khác nhau;
+- mỗi execution chỉ có một Job + Workspace;
+- cùng workspace không tạo hai active owners;
+- missing/stale execution ID không chạy execution tool;
+- không có fallback global state.
+
+### P2 — ExecutionContext + Tool Gate
+
+Loại bỏ authority từ global mutable state:
+
+- cwd/context/project instructions theo execution.
+- confirmation token bind Job + Workspace + generation + pack revision.
+- every native/upstream execution path receives ExecutionContext.
+- preflight/control tools được allowlist rõ ràng.
+- direct execution trước ACTIVE bị blocked.
+
+Acceptance:
+- changed workspace/binding/generation reject token cũ;
+- Chat A/B xen kẽ không đổi context nhau;
+- stop A không đổi Job/cwd/context B.
+
+### P3 — Shared Tool Families + Ephemeral Instances
+
+Refactor core tools theo family:
+
+- family registry cho filesystem/shell/git/process/context/upstream.
+- Job Packs consume capabilities, không register duplicate tools.
+- on-demand instance factory.
+- immutable ToolContext.
+- ActiveToolLeaseRegistry.
+- call sequence + readable lease ID.
+- không fixed inventory, không free-list, không queue do trùng family.
+- stateful resources giữ lease theo lifetime thật.
+
+Acceptance:
+- 20 independent executions có thể đồng thời gọi cùng filesystem family trên 20 workspace mà không chờ một global singleton;
+- instance A không thể rebind sang workspace B;
+- completion xóa lease;
+- stateful lease chỉ biến mất khi resource kết thúc/reset/stop;
+- concurrency chỉ bị giới hạn bởi system/external resource policy thực.
+
+### P4 — Remove Global Runtime State + Concurrency Acceptance
+
+Refactor các module hiện đang global:
+
+- path-security default cwd.
+- persistent shell cwd/history.
+- process registry.
+- REPL/resource handles.
+- checkpoint/context ownership.
+- project instruction resolution.
+- upstream adapters có mutable context.
+
+Acceptance:
+- stress test nhiều executions xen kẽ read/write/shell/git;
+- mỗi tool log đúng execution/job/workspace;
+- không cross-workspace access do runtime context drift;
+- explicit workspace path ngoài binding bị policy reject theo capability contract.
+
+### P5 — Driver / Executor Split + Event-Driven Sleep
+
+- public MCP protocol stays in Driver.
+- Worker executor on demand qua versioned IPC.
+- protocol/discovery/health/probes không cần tool implementation.
+- WakeCoordinator single-flight.
+- Worker sleep dựa trên quiescence, không inactivity timeout.
+- active stateful resources giữ Worker awake.
+- crash không replay ambiguous mutation.
+- Driver restart invalidates authority.
+
+Acceptance:
+- multiple simultaneous calls chỉ tạo một executor startup;
+- active registrations survive >=3 Worker sleep/wake cycles;
+- sleep không xóa Job/Workspace registration;
+- no execution work khi Worker wake mà registration không hợp lệ.
+
+### P6 — AppData Paths + Portable Job Packs
+
+- split installRoot/dataRoot.
+- %LOCALAPPDATA%\GPTWorker\jobs\<job-id>\.
+- job.yaml là registration source duy nhất.
+- no duplicate registry.
+- portable harness runner.
+- immutable pack revision snapshots.
+- seed missing packs only; never overwrite customized packs.
+
+Acceptance:
+- packs chạy ngoài source checkout;
+- update application không overwrite user packs;
+- malformed/colliding/outside-pack resources fail deterministically.
+
+### P7 — Job Authoring + Publish Transaction
+
+- staging/validate/publish/history.
+- per-job publish lock.
+- expected base revision + content hash.
+- journal recovery.
+- active execution pins pack revision.
+- create/update qua job-authoring workflow.
+
+Acceptance:
+- invalid pack không live;
+- concurrent update conflict rõ;
+- crash recovery giữ một live revision hợp lệ;
+- execution cũ giữ revision cũ, registration mới nhận revision mới.
+
+### P8 — Chat UX + Diagnostics
+
+Public UX giữ tối giản:
+
+~~~text
+gptworker/job list
+gptworker/job create
+gptworker/job update
+gptworker/job stop
+~~~
+
+Selection/register/status/switch có thể là internal MCP tools để ChatGPT orchestration dùng, không cần biến thành command người dùng.
+
+Diagnostics hiển thị:
+- execution ID;
+- Job;
+- workspace key;
+- generation;
+- active tool leases;
+- worker awake/sleep reason.
+
+Không expose credential hoặc full hidden authority token.
+
+### P9 — Windows Background + Packaging
+
+- Driver + tunnel auto-start ở Windows logon.
+- Worker executor on-demand.
+- single instance.
+- restart/backoff.
+- sleep/resume/network reconnect.
+- drive readiness.
+- clean-machine packaging.
+- upgrade giữ AppData Jobs.
+
+Acceptance release:
+- install → logon → ChatGPT → register Job+Workspace → tools;
+- 2+ work sessions chạy song song khác workspace;
+- worker sleep/wake không lẫn việc;
+- stale execution không có quyền làm việc;
+- upgrade giữ user Job Packs.
+
+## Validation Matrix
+
+| Contract | Required evidence |
 |---|---|
-| Confirmation | Token scope/session/revision/expiry/replay; không nhận binding mới với token cũ; retry đúng request không gây activation hai lần |
-| Execution isolation | A/B khác workspace và cùng workspace; async interleaving; shell, process, Git, context, REPL, checkpoint, upstream; stop/switch một phiên không phá phiên khác |
-| Gate | Direct tool call trước confirm và sau stop; tất cả native/proxy/hook execution channels có policy rõ |
-| Identity | Client thật qua tunnel, nhiều calls/chats, reconnect/refresh/close; nếu thiếu identity thì refuse auto-attach |
-| Sleep/wake | Cold start concurrency, queue overflow, deadline, health probe, SSE/cancel, drain race, active process/REPL lease, Worker/Driver crash |
-| Pack publish | Invalid manifest/paths/API, duplicate aliases, base revision conflict, active revision pinning, locked file, fault injection từng publish step |
-| Migration | AppData có dấu/khoảng trắng, checkout không tồn tại, modified built-in pack, disk/full/permission failures, recovery không mất pack |
-| Deployment | Windows user logon, no global Node contract, tunnel reconnect, no duplicate child, clean install/upgrade/uninstall preserving data |
+| Work registration | Job + Workspace required; stale/missing execution rejected |
+| Workspace ownership | one active owner per canonical workspace |
+| Naming | deterministic workspace key; readable execution/tool lease IDs; collision test |
+| Confirmation | token bound to execution/generation/workspace/pack revision |
+| Tool family | one shared implementation/factory family; no per-Job duplicated core tools |
+| Ephemeral instances | on-demand spawn, immutable binding, release after lifetime |
+| Concurrency | many executions same family, different workspaces, no family-level queue |
+| Isolation | no global cwd/process/REPL/context drift |
+| Stop | releases workspace + owned resources only |
+| Sleep/wake | quiescence-based; registration survives Worker sleep |
+| Driver restart | old executions invalid, must register again |
+| Packs | AppData portable, immutable active revision |
+| Publish | validated transactional update |
+| Deployment | Windows logon, tunnel/Driver light, executor on-demand |
 
-Mỗi change chạy targeted tests trước, rồi `npm run build`, `npm run validate:jobs`, `npm test`, `git diff --check`. Bổ sung MCP integration suite phù hợp cho P1/P2/P5; `npm test` hiện không thay thế integration/live client checks. Chạy pack harness riêng khi sửa pack.
+Every code phase chạy targeted tests, sau đó:
 
-Baseline review: build/validate/jobs/full npm test PASS; full test cần quyền spawn process ngoài sandbox. Không sửa test để bỏ qua EPERM; ghi `result.error` giúp chẩn đoán đúng.
+~~~text
+npm run build
+npm run validate:jobs
+npm test
+git diff --check
+~~~
 
-## Risks
+Live acceptance dùng ít nhất hai ChatGPT work sessions và hai workspace thật.
 
-- Identity không đủ: OQ-01 có thể buộc đổi resume UX; đây là release gate, không fallback global active Job.
-- Driver giữ transport tốn memory hơn proxy HTTP nhỏ: benchmark, tránh import tool implementation vào Driver bundle.
-- Resource không serialize khiến Worker chưa thể ngủ: expose idle-block reason, giải phóng bằng lifecycle; không tự kill để đạt metric.
-- Unrestricted shell có side effect ngoài declared context: full-machine trust contract giữ nguyên, không tuyên bố OS sandbox từ path guard.
-- Upstream/desktop applications có state dùng chung: adapter lease/ownership, chưa chứng minh thì không cho concurrent conflicting use.
-- Mutable jobs và generated validators: cần shared schema/core gate, pack behavior fixtures và publish evidence.
-- Windows file locks/process trees/drive mapping: fault injection và acceptance trên user session thật.
+## Explicitly Removed from Old Plan
 
-## Open Questions
+Các ý sau không còn là architecture authority:
 
-Theo OQ-01 đến OQ-04 trong architecture. Các thông số timeout/retention/memory budget là lựa chọn dựa trên đo đạc, chưa được coi là đã chốt. Các task không phụ thuộc identity spike có thể chuẩn bị độc lập; acceptance conversation-level giữ BLOCKED khi thiếu evidence.
+- dùng MCP transport session làm logical session identity;
+- cố map transport session → conversation để execution hoạt động;
+- inactivity timeout để kết thúc active Job;
+- session TTL làm authority cleanup;
+- machine-global active Job/cwd;
+- fixed Tool Pool / số instance định trước;
+- per-Job duplicate read/write/shell/git tools;
+- queue chỉ vì hai Jobs gọi cùng Tool Family;
+- file-level mutation lock cho các Jobs ở workspace khác nhau;
+- auto-attach vào most-recent Job/workspace.
 
-## Task Mapping
+## Deferred
 
-| Phase | Tasks |
-|---|---|
-| P0 | TASK-V2-LOG-001 |
-| P1 | TASK-V2-001, TASK-V2-002 |
-| P2 | TASK-V2-003, TASK-V2-004, TASK-V2-005 |
-| P3 | TASK-V2-006, TASK-V2-007 |
-| P4 | TASK-V2-008, TASK-V2-009 |
-| P5 | TASK-V2-010, TASK-V2-011 |
-| P6 | TASK-V2-012 |
-| P7 | TASK-V2-013 |
-| P8 | TASK-V2-014 |
-
-## Handoff Notes
-
-Đọc architecture → plan → TODO → TASKS trước source expansion. Sửa những module thuộc task; không triển khai toàn v2 trong một commit. Root WORKER/README/AGENTS và pack docs chỉ cập nhật cùng behavior tương ứng. Không biến proposal chưa được chốt thành runtime authority.
-
-Một phase đạt local tests nhưng thiếu live acceptance phải ghi rõ partial evidence, không đánh dấu DONE. Có thể tạo task-plans cho bounded work; quyết định mới về identity/ownership/distribution phải quay lại architecture. Không merge PR nếu người dùng chưa đồng ý merge.
+- Resume active registration sau Driver reboot.
+- Cross-machine work session.
+- OS sandbox cho untrusted packs.
+- Public rollback/remove/enable/disable.
+- Marketplace/dependency manager.
+- Sharing one workspace concurrently across independent executions.
