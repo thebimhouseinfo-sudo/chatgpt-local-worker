@@ -201,6 +201,11 @@ function Stop-GptWorkerRuntime {
     Stop-TrackedLauncher $script:WorkerLauncher
     $script:TunnelLauncher = $null
     $script:WorkerLauncher = $null
+
+    # Give validated GPTWorker processes a moment to release their listening ports
+    # before a tray Restart starts fresh instances.
+    [void](Wait-ForCondition { -not (Get-PortOwnerPid -TargetPort $TunnelHealthPort) } 5)
+    [void](Wait-ForCondition { -not (Get-PortOwnerPid -TargetPort $WorkerPort) } 5)
 }
 
 function Start-GptWorkerRuntime {
