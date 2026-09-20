@@ -41,12 +41,13 @@ export async function validatePath(inputPath: string): Promise<string> {
   const trimmed = inputPath.trim();
   if (!trimmed) throw new Error("Path is empty");
 
-  if (path.isAbsolute(trimmed)) {
-    return path.resolve(trimmed);
+  if (!path.isAbsolute(trimmed)) {
+    throw new Error(
+      "Absolute path required. Relative paths are not allowed for GPTWorker filesystem operations: " + trimmed
+    );
   }
 
-  // Relative paths resolve from default cwd (WORKSPACE_PATH), not a sandbox boundary.
-  return path.resolve(getDefaultCwd(), trimmed);
+  return path.resolve(trimmed);
 }
 
 export function getMachineRoots(): string[] {
