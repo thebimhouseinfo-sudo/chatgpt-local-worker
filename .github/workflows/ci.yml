@@ -42,6 +42,18 @@ jobs:
           [scriptblock]::Create((Get-Content -Raw './wait-tray-ready.ps1')) | Out-Null
           [scriptblock]::Create((Get-Content -Raw './wait-runtime-ready.ps1')) | Out-Null
 
+      - name: Setup preview accepts arbitrary credential text
+        shell: pwsh
+        run: |
+          if (Test-Path ".env") { Remove-Item ".env" -Force }
+          & ./openai-tunnel.ps1 -Init -WizardPreview -TunnelId "not-a-real-tunnel" -ApiKey "not-a-real-key" -NoBrowser
+          if ($LASTEXITCODE -ne 0) {
+            throw "WizardPreview rejected arbitrary UX-test input."
+          }
+          if (Test-Path ".env") {
+            throw "WizardPreview must not create or modify .env."
+          }
+
       - name: Full test suite
         run: npm test
 
