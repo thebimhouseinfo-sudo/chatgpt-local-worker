@@ -183,6 +183,11 @@ mcp:
     Set-Content -Path $ProfileFile -Value $yaml -Encoding UTF8
 }
 
+function Quote-ProcessArgument([string]$Value) {
+    if ($null -eq $Value) { return '""' }
+    return '"' + ($Value -replace '"', '\"') + '"'
+}
+
 function Test-McpServer([int]$TargetPort) {
     try {
         $resp = Invoke-WebRequest -Uri "http://127.0.0.1:$TargetPort/health" -UseBasicParsing -TimeoutSec 3
@@ -499,7 +504,29 @@ Write-Host ""
 if ($Detach) {
     $logDir = Join-Path $env:LOCALAPPDATA "GPTWorker\logs"
     New-Item -ItemType Directory -Force -Path $logDir | Out-Null
-    $process = Start-Process -FilePath $bin -ArgumentList @("run", "--profile-file", $ProfileFile) -WorkingDirectory $ScriptDir -WindowStyle Hidden -RedirectStandardOutput (Join-Path $logDir "tunnel.out.log") -RedirectStandardError (Join-Path $logDir "tunnel.err.log") -PassThru
+    $stdoutLog = Join-Path $logDir "tunnel.out.log"
+    $stderrLog = Join-Path $logDir "tunnel.err.log"
+    $quotedProfile = Quote-ProcessArgument $ProfileFile
+    $argumentLine = "run --profile-file $quotedProfile"
+
+    try {
+        $process = Start-Process -FilePath $bin -ArgumentList $argumentLine -WorkingDirectory $ScriptDir -WindowStyle Hidden -RedirectStandardOutput $stdoutLog -RedirectStandardError $stderrLog -PassThru
+    } catch {
+        Write-Error "Failed to start Secure MCP Tunnel: $($_.Exception.Message)"
+        exit 1
+    }
+
+    Start-Sleep -Milliseconds 500
+    $process.Refresh()
+    if ($process.HasExited) {
+        Write-Error "Secure MCP Tunnel exited immediately with code $($process.ExitCode)."
+        if (Test-Path $stderrLog) {
+            Write-Host "--- tunnel.err.log ---"
+            Get-Content $stderrLog -Tail 40
+        }
+        exit 1
+    }
+
     Write-Host "Tunnel PID: $($process.Id)"
     exit 0
 }
