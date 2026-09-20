@@ -234,7 +234,7 @@ function Show-SetupWizardStep(
 ) {
     Write-Host ""
     Write-Host "================================================================" -ForegroundColor DarkCyan
-    Write-Host ("  STEP {0}  {1}" -f $Step, $Title) -ForegroundColor Cyan
+    Write-Host ("  BƯỚC {0}  {1}" -f $Step, $Title) -ForegroundColor Cyan
     if ($Subtitle) {
         Write-Host ("  {0}" -f $Subtitle) -ForegroundColor DarkGray
     }
@@ -243,10 +243,10 @@ function Show-SetupWizardStep(
 }
 
 function Show-PreviewHint([string]$Label) {
-    Write-Host "  PREVIEW MODE" -ForegroundColor Magenta
-    Write-Host "  This field is UX-only in setup-test.bat." -ForegroundColor DarkGray
-    Write-Host "  Enter ANY text to continue; it will not be validated or saved." -ForegroundColor DarkGray
-    Write-Host ("  Example: {0}" -f $Label) -ForegroundColor DarkGray
+    Write-Host "  CHẾ ĐỘ XEM THỬ" -ForegroundColor Magenta
+    Write-Host "  Ô này chỉ dùng để kiểm tra giao diện setup-test.bat." -ForegroundColor DarkGray
+    Write-Host "  Gõ bất kỳ chữ nào để đi tiếp; dữ liệu sẽ không được kiểm tra hoặc lưu." -ForegroundColor DarkGray
+    Write-Host ("  Ví dụ: {0}" -f $Label) -ForegroundColor DarkGray
     Write-Host ""
 }
 
@@ -264,9 +264,9 @@ function Save-TunnelCredentials([string]$ResolvedTunnelId, [string]$ResolvedApiK
 
 function Resolve-TunnelIdForSetup {
     if ($WizardPreview -and $TunnelId) {
-        Show-SetupWizardStep -Step "1/2" -Title "Secure MCP Tunnel" -Subtitle "Preview input supplied by setup-test."
-        Show-PreviewHint -Label "anything"
-        Write-Host "[PREVIEW] Tunnel input accepted." -ForegroundColor Green
+        Show-SetupWizardStep -Step "1/2" -Title "Tunnel an toàn cho GPTWorker" -Subtitle "Đây là dữ liệu thử từ setup-test."
+        Show-PreviewHint -Label "demo"
+        Write-Host "[OK] Đã nhận dữ liệu Tunnel thử." -ForegroundColor Green
         return $TunnelId
     }
 
@@ -288,25 +288,25 @@ function Resolve-TunnelIdForSetup {
         throw "Chua co Tunnel ID. Setup UI phai cung cap -TunnelId."
     }
 
-    Show-SetupWizardStep -Step "1/2" -Title "Tao Secure MCP Tunnel" -Subtitle "Trang OpenAI Tunnels se mo tren trinh duyet."
-    Write-Host "Lam lan luot nhu sau:" -ForegroundColor White
+    Show-SetupWizardStep -Step "1/2" -Title "Tạo Tunnel cho GPTWorker" -Subtitle "Trang OpenAI Tunnels sẽ tự mở trên trình duyệt."
+    Write-Host "Làm lần lượt như sau:" -ForegroundColor White
     Write-Host ""
-    Write-Host "  1. Tren trang OpenAI, vao Organization -> Tunnels." -ForegroundColor White
-    Write-Host "  2. Neu trang hoi quyen, tai muc Tunnels hay bat:" -ForegroundColor White
-    Write-Host "       [x] Read" -ForegroundColor Green
-    Write-Host "       [x] Use" -ForegroundColor Green
-    Write-Host "     Neu ban la nguoi tao/sua Tunnel, bat them Manage." -ForegroundColor DarkGray
-    Write-Host "  3. Bam tao Tunnel moi." -ForegroundColor White
-    Write-Host "  4. Dat ten de de nhan ra, vi du: gptworker." -ForegroundColor White
-    Write-Host "  5. Neu co muc chon ChatGPT workspace, chon dung workspace" -ForegroundColor White
-    Write-Host "     ma ban se dung GPTWorker." -ForegroundColor White
-    Write-Host "  6. Bam Create/Save." -ForegroundColor White
-    Write-Host "  7. Sau khi tao xong, copy Tunnel ID." -ForegroundColor White
-    Write-Host "     Tunnel ID that thuong bat dau bang: tunnel_..." -ForegroundColor DarkGray
+    Write-Host "  1. Trên trang OpenAI, vào Organization -> Tunnels." -ForegroundColor White
+    Write-Host "  2. Ở phần quyền Tunnels, cần có:" -ForegroundColor White
+    Write-Host "       [x] Read   - cho phép GPTWorker nhìn thấy Tunnel" -ForegroundColor Green
+    Write-Host "       [x] Use    - cho phép GPTWorker sử dụng Tunnel" -ForegroundColor Green
+    Write-Host "     Nếu bạn là người trực tiếp tạo hoặc sửa Tunnel, cần thêm Manage." -ForegroundColor DarkGray
+    Write-Host "  3. Bấm tạo Tunnel mới." -ForegroundColor White
+    Write-Host "  4. Đặt tên dễ nhận ra, ví dụ: gptworker." -ForegroundColor White
+    Write-Host "  5. Nếu có mục chọn ChatGPT workspace, chọn đúng workspace" -ForegroundColor White
+    Write-Host "     mà bạn sẽ dùng GPTWorker." -ForegroundColor White
+    Write-Host "  6. Bấm Create hoặc Save." -ForegroundColor White
+    Write-Host "  7. Sau khi tạo xong, copy Tunnel ID." -ForegroundColor White
+    Write-Host "     Tunnel ID thật thường bắt đầu bằng: tunnel_..." -ForegroundColor DarkGray
     Write-Host ""
-    Write-Host "Giai thich ngan:" -ForegroundColor Cyan
-    Write-Host "  Tunnel la duong noi an toan giua ChatGPT va GPTWorker tren may ban." -ForegroundColor DarkGray
-    Write-Host "  Quyen Use la quyen cho phep GPTWorker su dung duong noi nay." -ForegroundColor DarkGray
+    Write-Host "Hiểu đơn giản:" -ForegroundColor Cyan
+    Write-Host "  Tunnel là đường nối an toàn giữa ChatGPT và GPTWorker trên máy bạn." -ForegroundColor DarkGray
+    Write-Host "  Quyền Use là quyền cho phép GPTWorker thực sự dùng đường nối này." -ForegroundColor DarkGray
     Write-Host ""
     if ($WizardPreview) {
         Show-PreviewHint -Label "demo"
@@ -315,15 +315,15 @@ function Resolve-TunnelIdForSetup {
     Start-Process $TunnelsUrl
 
     while ($true) {
-        $prompt = if ($WizardPreview) { "Preview Tunnel ID (any text)" } else { "Paste Tunnel ID (tunnel_...)" }
+        $prompt = if ($WizardPreview) { "Nhập Tunnel ID thử - gõ gì cũng được" } else { "Dán Tunnel ID thật vào đây (tunnel_...)" }
         $value = Read-Host $prompt
 
         if ($WizardPreview) {
             if ([string]::IsNullOrWhiteSpace($value)) {
-                Write-Host "Please type something so the input step can be previewed." -ForegroundColor Yellow
+                Write-Host "Hãy gõ ít nhất một ký tự để tiếp tục xem thử." -ForegroundColor Yellow
                 continue
             }
-            Write-Host "[PREVIEW] Accepted. No validation and no save will occur." -ForegroundColor Green
+            Write-Host "[OK] Đã nhận dữ liệu thử. Không kiểm tra và không lưu." -ForegroundColor Green
             return $value
         }
 
@@ -337,9 +337,9 @@ function Resolve-TunnelIdForSetup {
 
 function Resolve-ApiKeyForSetup {
     if ($WizardPreview -and $ApiKey) {
-        Show-SetupWizardStep -Step "2/2" -Title "Runtime API Key" -Subtitle "Preview input supplied by setup-test."
-        Show-PreviewHint -Label "anything"
-        Write-Host "[PREVIEW] API key input accepted." -ForegroundColor Green
+        Show-SetupWizardStep -Step "2/2" -Title "API key cho GPTWorker" -Subtitle "Đây là dữ liệu thử từ setup-test."
+        Show-PreviewHint -Label "demo"
+        Write-Host "[OK] Đã nhận API key thử." -ForegroundColor Green
         return $ApiKey
     }
 
@@ -360,24 +360,25 @@ function Resolve-ApiKeyForSetup {
         throw "Chua co Runtime API key. Setup UI phai cung cap -ApiKey."
     }
 
-    Show-SetupWizardStep -Step "2/2" -Title "Tao API key cho GPTWorker" -Subtitle "Trang OpenAI API Keys se mo tren trinh duyet."
+    Show-SetupWizardStep -Step "2/2" -Title "Tạo API key cho GPTWorker" -Subtitle "Trang OpenAI API Keys sẽ tự mở trên trình duyệt."
     Write-Host "Lam lan luot nhu sau:" -ForegroundColor White
     Write-Host ""
-    Write-Host "  1. Bam Create new secret key." -ForegroundColor White
-    Write-Host "  2. Dat ten de de nhan ra, vi du: gptworker-runtime." -ForegroundColor White
-    Write-Host "  3. Tai Permissions, chon Restricted." -ForegroundColor Yellow
-    Write-Host "  4. Tim dong Tunnels, sau do bat CA HAI quyen:" -ForegroundColor Yellow
-    Write-Host "       [x] Read" -ForegroundColor Green
-    Write-Host "       [x] Use" -ForegroundColor Green
-    Write-Host "  5. Khong chon Read Only, vi Read Only se thieu quyen Use." -ForegroundColor White
-    Write-Host "  6. Khong can bat All cho toan bo API key." -ForegroundColor DarkGray
-    Write-Host "     Chi can Tunnels: Read + Use la du cho GPTWorker." -ForegroundColor DarkGray
-    Write-Host "  7. Bam Create secret key." -ForegroundColor White
-    Write-Host "  8. Copy key ngay khi OpenAI hien ra; key that thuong bat dau bang sk-." -ForegroundColor White
+    Write-Host "  1. Bấm Create new secret key." -ForegroundColor White
+    Write-Host "  2. Đặt tên dễ nhận ra, ví dụ: gptworker-runtime." -ForegroundColor White
+    Write-Host "  3. Ở Permissions, chọn Restricted." -ForegroundColor Yellow
+    Write-Host "     Restricted nghĩa là chỉ cấp đúng những quyền GPTWorker cần." -ForegroundColor DarkGray
+    Write-Host "  4. Tìm dòng Tunnels, rồi bật CẢ HAI quyền:" -ForegroundColor Yellow
+    Write-Host "       [x] Read   - cho phép đọc thông tin Tunnel" -ForegroundColor Green
+    Write-Host "       [x] Use    - cho phép sử dụng Tunnel" -ForegroundColor Green
+    Write-Host "  5. KHÔNG chọn Read Only, vì Read Only thiếu quyền Use." -ForegroundColor White
+    Write-Host "  6. KHÔNG cần bật All cho toàn bộ API key." -ForegroundColor DarkGray
+    Write-Host "     Chỉ cần mục Tunnels có Read + Use." -ForegroundColor DarkGray
+    Write-Host "  7. Bấm Create secret key." -ForegroundColor White
+    Write-Host "  8. Copy key ngay khi OpenAI hiện ra; key thật thường bắt đầu bằng sk-." -ForegroundColor White
     Write-Host ""
-    Write-Host "Giai thich ngan:" -ForegroundColor Cyan
-    Write-Host "  API key nay giong nhu chia khoa de GPTWorker duoc phep dung Tunnel." -ForegroundColor DarkGray
-    Write-Host "  Quyen Use la bat buoc; chi co Read thi GPTWorker se khong ket noi duoc." -ForegroundColor DarkGray
+    Write-Host "Hiểu đơn giản:" -ForegroundColor Cyan
+    Write-Host "  API key giống như chìa khóa cho phép GPTWorker sử dụng Tunnel." -ForegroundColor DarkGray
+    Write-Host "  Có Read mà không có Use thì GPTWorker vẫn không kết nối được." -ForegroundColor DarkGray
     Write-Host ""
     if ($WizardPreview) {
         Show-PreviewHint -Label "demo"
@@ -386,7 +387,7 @@ function Resolve-ApiKeyForSetup {
     Start-Process $ApiKeysUrl
 
     while ($true) {
-        $prompt = if ($WizardPreview) { "Preview API key (any text)" } else { "Paste Runtime API key (sk-...)" }
+        $prompt = if ($WizardPreview) { "Nhập API key thử - gõ gì cũng được" } else { "Dán API key thật vào đây (sk-...)" }
         $value = Read-Host $prompt
 
         if ($WizardPreview) {
@@ -410,11 +411,11 @@ function Invoke-TunnelInit {
     Write-Host ""
     Write-Host "================================================================" -ForegroundColor DarkCyan
     if ($WizardPreview) {
-        Write-Host "  GPTWorker Connection Wizard - UX Preview" -ForegroundColor Cyan
-        Write-Host "  Safe dry-run: arbitrary input accepted, nothing saved." -ForegroundColor Magenta
+        Write-Host "  GPTWorker - XEM THỬ PHẦN KẾT NỐI" -ForegroundColor Cyan
+        Write-Host "  Có thể nhập dữ liệu giả; không có gì được lưu." -ForegroundColor Magenta
     } else {
-        Write-Host "  GPTWorker - Connect OpenAI Secure MCP Tunnel" -ForegroundColor Cyan
-        Write-Host "  Real setup: credentials are validated before saving." -ForegroundColor DarkGray
+        Write-Host "  GPTWorker - KẾT NỐI OPENAI SECURE MCP TUNNEL" -ForegroundColor Cyan
+        Write-Host "  Cài đặt thật: Tunnel ID và API key sẽ được kiểm tra trước khi lưu." -ForegroundColor DarkGray
     }
     Write-Host "================================================================" -ForegroundColor DarkCyan
     Write-Host ""
@@ -428,15 +429,15 @@ function Invoke-TunnelInit {
     if ($WizardPreview) {
         Write-Host ""
         Write-Host "================================================================" -ForegroundColor DarkCyan
-        Write-Host "  PREVIEW COMPLETE" -ForegroundColor Green
+        Write-Host "  ĐÃ XEM THỬ XONG" -ForegroundColor Green
         Write-Host "================================================================" -ForegroundColor DarkCyan
-        Write-Host "  [OK] Tunnel input screen" -ForegroundColor Green
-        Write-Host "  [OK] API key input screen" -ForegroundColor Green
-        Write-Host "  [SKIP] Credential format validation" -ForegroundColor Yellow
-        Write-Host "  [SKIP] Saving .env" -ForegroundColor Yellow
-        Write-Host "  [SKIP] Tunnel doctor / connection changes" -ForegroundColor Yellow
+        Write-Host "  [OK] Đã xem màn hình nhập Tunnel ID" -ForegroundColor Green
+        Write-Host "  [OK] Đã xem màn hình nhập API key" -ForegroundColor Green
+        Write-Host "  [BỎ QUA] Kiểm tra định dạng dữ liệu thật" -ForegroundColor Yellow
+        Write-Host "  [BỎ QUA] Lưu vào .env" -ForegroundColor Yellow
+        Write-Host "  [BỎ QUA] Kết nối Tunnel thật" -ForegroundColor Yellow
         Write-Host ""
-        Write-Host "Nothing from this preview was saved." -ForegroundColor DarkGray
+        Write-Host "Không có dữ liệu thử nào được lưu." -ForegroundColor DarkGray
         return
     }
 
