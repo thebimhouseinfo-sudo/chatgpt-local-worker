@@ -2,13 +2,12 @@ import fs from "node:fs/promises";
 import path from "node:path";
 import { z } from "zod";
 import type { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
-import { validateActivationGate } from "../lib/activation-policy.js";
+import type { AdmissionRuntime } from "../lib/activation-policy.js";
 import { globFiles } from "../lib/glob-search.js";
 import { grepSearch } from "../lib/grep-search.js";
 import { toolAnnotations } from "../lib/tool-annotations.js";
 import { toolResult } from "../lib/tool-result.js";
 
-const ActivationTriggerSchema = z.enum(["explicit_gptworker", "task_with_workspace"]);
 const DiscoveryOperationSchema = z.enum([
   "list_directory",
   "glob",
@@ -53,13 +52,16 @@ async function pathInsideWorkspace(workspace: string, raw?: string): Promise<str
   return real;
 }
 
-export function registerWorkspaceDiscoveryTool(server: McpServer): void {
+export function registerWorkspaceDiscoveryTool(
+  server: McpServer,
+  admissionRuntime: AdmissionRuntime
+): void {
   server.registerTool(
     "workspace_discover",
     {
       title: "Workspace Discovery",
       description:
-        "Read-only pre-confirmation discovery for choosing the correct Job after the user supplied a concrete task + absolute local Workspace (or explicitly invoked @gptworker and then supplied a Workspace). Use only enough listing/search/reading to nominate the Job. It never grants execution authority and cannot write, run shell commands, or leave the supplied Workspace.",
+        "Read-only pre-confirmation discovery for choosing the correct Job. Requires an ACTIVE admission token from gptworker_admission. Use only enough listing/search/reading to nominate the Job. It never grants execution authority and cannot write, run shell commands, or leave the supplied Workspace.",
       inputSchema: {
         workspace: z
           .string()
@@ -71,11 +73,10 @@ export function registerWorkspaceDiscoveryTool(server: McpServer): void {
           .describe("Concrete task the user wants performed"),
         operation: DiscoveryOperationSchema,
         arguments: z.record(z.string(), z.any()).optional().default({}),
-        activation_trigger: ActivationTriggerSchema,
-        activation_request: z
+        admission_token: z
           .string()
           .min(1)
-          .describe("Exact current-session user text proving GPTWorker activation"),
+          .describe("Opaque ACTIVE token returned by gptworker_admission"),
       },
       annotations: toolAnnotations("read"),
     },
@@ -84,17 +85,10 @@ export function registerWorkspaceDiscoveryTool(server: McpServer): void {
       task,
       operation,
       arguments: args,
-      activation_trigger,
-      activation_request,
+      admission_token,
     }) => {
       const root = await canonicalWorkspace(workspace);
-      validateActivationGate({
-        trigger: activation_trigger,
-        activationWorkspace:
-          activation_trigger === "task_with_workspace" ? workspace : undefined,
-        activationRequest: activation_request,
-        bindings: { workspace },
-      });
+      admissionRuntime.validate(admission_token, workspace);
 
       if (operation === "list_directory") {
         const dir = await pathInsideWorkspace(

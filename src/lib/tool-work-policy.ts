@@ -1,4 +1,5 @@
 const CONTROL_TOOLS = new Set([
+  "gptworker_admission",
   "job_list",
   "job_create",
   "job_update",

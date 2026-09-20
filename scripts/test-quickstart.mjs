@@ -79,14 +79,19 @@ assert.equal(
 
 assert.ok(GPTWORKER_HELP.includes("**Job + Workspace local**"));
 assert.ok(!GPTWORKER_HELP.includes("## Kích hoạt GPTWorker"));
-assert.ok(MCP_QUICKSTART.includes("## GPTWorker activation gate"));
-assert.ok(MCP_QUICKSTART.includes("task_with_workspace"));
+assert.ok(MCP_QUICKSTART.includes("## GPTWorker internal admission handshake"));
+assert.ok(MCP_QUICKSTART.includes("gptworker_admission"));
+assert.ok(MCP_QUICKSTART.includes("INACTIVE"));
+assert.ok(MCP_QUICKSTART.includes("Continue answering as ordinary ChatGPT"));
+assert.ok(MCP_QUICKSTART.includes("another plugin/tool"));
+assert.ok(MCP_QUICKSTART.includes("admission_token"));
 assert.ok(MCP_QUICKSTART.includes("workspace_discover"));
 assert.ok(MCP_QUICKSTART.includes("work_tool"));
 assert.ok(MCP_QUICKSTART.includes("runtime.preload_families"));
 assert.ok(MCP_QUICKSTART.includes("in the background while the user reads"));
 assert.ok(MCP_QUICKSTART.includes("prior preload generation becomes stale"));
-assert.ok(MCP_QUICKSTART.includes("do not nominate a Job or FOLDER") || MCP_QUICKSTART.includes("do not ask the user for JOB/FOLDER"));
+assert.ok(MCP_QUICKSTART.includes("Do not ask the user to activate GPTWorker"));
+assert.ok(MCP_QUICKSTART.includes("do not ask for a Workspace on GPTWorker's behalf"));
 assert.ok(GPTWORKER_HELP.includes("## Layla"));
 assert.ok(GPTWORKER_HELP.includes("TXT, Markdown, Word, Excel, PowerPoint, PDF"));
 assert.ok(GPTWORKER_HELP.includes("## Tạo Job mới"));

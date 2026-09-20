@@ -28,6 +28,12 @@ for (const modulePath of heavyModules) {
 if (!serverFactory.includes("registerWorkGateway(")) {
   throw new Error("lightweight work gateway is not registered");
 }
+if (!serverFactory.includes("registerAdmissionTool(server, admissionRuntime)")) {
+  throw new Error("session-scoped GPTWorker admission handshake is not registered");
+}
+if (!serverFactory.includes("new AdmissionRuntime()")) {
+  throw new Error("admission authority must be scoped to each MCP server/session");
+}
 if (!serverFactory.includes("registerWorkspaceDiscoveryTool(")) {
   throw new Error("minimal pre-confirmation workspace discovery is not registered");
 }

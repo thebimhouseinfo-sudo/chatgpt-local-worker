@@ -29,6 +29,7 @@ try {
     "job_import",
     "job_stop",
     "move_file",
+    "gptworker_admission",
     "workspace_discover",
     "work_tool",
   ]) {
