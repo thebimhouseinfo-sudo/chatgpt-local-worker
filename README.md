@@ -96,15 +96,13 @@ After both values are available, GPTWorker automatically configures `tunnel-clie
 
 ### 4. Create the GPTWorker Plugin/App in ChatGPT
 
-After the tunnel is ready, `setup.bat` automatically opens **ChatGPT Settings** and the local visual guide at `docs/setup-guide/index.html`.
+After the tunnel is ready, `setup.bat` automatically opens **ChatGPT Settings → Plugins** and the local visual guide at `docs/setup-guide/index.html`.
 
-Use **ChatGPT on the web** for this one-time connection step. Keep the local guide open beside ChatGPT and follow its screenshots. Depending on the current UI, the entry point may appear under **Plugins** or **Apps**.
+Use **ChatGPT on the web** for this one-time connection step. Keep the local guide open beside ChatGPT and follow screenshots `1.png` → `4.png`.
 
-1. Enable **Developer Mode** if needed:
-   `Settings → Apps → Advanced Settings → Developer Mode`
-2. Open **Plugins** and press `+`, or use:
-   `Settings → Apps → Create`
-3. Create a new custom app/plugin.
+1. Open `Settings → Plugins` and enable **Developer mode**.
+2. Open the Plugins page and press `+` to create a new plugin.
+3. Create the GPTWorker plugin.
 4. Name it:
 
 ```text
@@ -121,22 +119,22 @@ Tunnel
 7. Run **Scan Tools / Test connection**.
 8. Create/save the app.
 
-The visual guide expects optional screenshots in:
+The visual guide uses the screenshots in:
 
 ```text
 docs/setup-guide/images/
 ```
 
-Use these filenames:
+in this order:
 
 ```text
-01-developer-mode.png
-02-create-plugin.png
-03-select-tunnel.png
-04-first-use.png
+1.png
+2.png
+3.png
+4.png
 ```
 
-If an image is not present yet, the guide shows a placeholder instead. Adding the image later does not require changing the HTML or setup flow.
+Keep these filenames stable when replacing screenshots so the HTML does not need to change.
 
 Do **not** paste the local MCP URL into ChatGPT:
 
