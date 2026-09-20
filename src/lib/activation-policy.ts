@@ -244,6 +244,12 @@ export class AdmissionRuntime {
     });
   }
 
+  consume(token: string | undefined): void {
+    this.cleanup();
+    if (!token) return;
+    this.admissions.delete(token);
+  }
+
   clear(): void {
     this.admissions.clear();
     this.armedAtFlow = undefined;
