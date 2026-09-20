@@ -46,6 +46,7 @@ const registrations = new Map<string, WorkRegistration>();
 const workspaceOwners = new Map<string, string>();
 const workspaceGenerations = new Map<string, number>();
 const activeLeases = new Map<string, ToolLease>();
+const idleTimeoutHandlers = new Map<string, () => void>();
 let epochPromise: Promise<number> | null = null;
 
 function positiveEnvMs(name: string, fallback: number): number {
@@ -113,7 +114,8 @@ function tokensEqual(actual: string, expected: string): boolean {
 
 export async function createWorkRegistration(
   jobId: string,
-  workspaceInput: string
+  workspaceInput: string,
+  onIdleTimeout?: () => void
 ): Promise<WorkRegistration> {
   const workspace = await canonicalWorkspace(workspaceInput);
   const key = `${workspaceSlug(workspace)}#${shortHash(workspace)}`;
@@ -147,6 +149,7 @@ export async function createWorkRegistration(
 
   registrations.set(executionId, registration);
   workspaceOwners.set(workspace, executionId);
+  if (onIdleTimeout) idleTimeoutHandlers.set(executionId, onIdleTimeout);
 
   appendActivity({
     kind: "system",
@@ -217,6 +220,8 @@ function releaseRegistration(
   reason: "explicit_stop" | "idle_timeout"
 ): WorkRegistration {
   const executionId = registration.executionId;
+  const idleTimeoutHandler = idleTimeoutHandlers.get(executionId);
+  idleTimeoutHandlers.delete(executionId);
 
   for (const lease of activeLeases.values()) {
     if (lease.workId === executionId) {
@@ -251,6 +256,21 @@ function releaseRegistration(
   }
 
   if (reason === "idle_timeout") {
+    try {
+      idleTimeoutHandler?.();
+    } catch (error) {
+      appendActivity({
+        kind: "system",
+        action: "work_auto_stop_cleanup_failed",
+        status: "error",
+        target: registration.workspaceKey,
+        summary: error instanceof Error ? error.message : String(error),
+        work_id: executionId,
+        job_id: registration.jobId,
+        workspace_key: registration.workspaceKey,
+      });
+    }
+
     appendActivity({
       kind: "system",
       action: "work_auto_stopped",
@@ -455,6 +475,7 @@ export function resetWorkRegistrationStateForTests(): void {
   workspaceOwners.clear();
   workspaceGenerations.clear();
   activeLeases.clear();
+  idleTimeoutHandlers.clear();
 }
 
 startWorkRegistrationSweeper();
