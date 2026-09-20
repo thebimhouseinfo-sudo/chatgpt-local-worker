@@ -232,8 +232,21 @@ assert.throws(
   /absolute local Workspace/,
   "relative Workspace must be rejected before an unbound token is mutated"
 );
-lateWorkspaceRuntime.validate(
+const preBindProof = lateWorkspaceRuntime.validate(
   lateWorkspaceAdmission.admission_token,
+  firstWorkspace
+);
+assert.equal(
+  preBindProof.workspace,
+  undefined,
+  "validation alone must not mutate an unbound admission token"
+);
+lateWorkspaceRuntime.bindWorkspace(
+  lateWorkspaceAdmission.admission_token,
+  firstWorkspace
+);
+assert.equal(
+  lateWorkspaceRuntime.validate(lateWorkspaceAdmission.admission_token).workspace,
   firstWorkspace
 );
 assert.throws(
@@ -243,7 +256,7 @@ assert.throws(
       secondWorkspace
     ),
   /Workspace does not match/,
-  "an admission token must bind to the first Workspace it authorizes"
+  "an admission token must bind to the first validated Workspace it authorizes"
 );
 
 console.log("test-activation-policy: ok");
