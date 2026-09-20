@@ -19,7 +19,7 @@
 - [ ] Define lifecycle for stateful resources: shell process, REPL, upstream/external session.
 - [ ] Add multi-execution stress tests using same Tool Family across different workspaces.
 - [ ] OPTIONAL: split Driver protocol gateway from Worker executor only if monolithic/manual launch proves insufficient.
-- [ ] Implement quiescence-based Worker sleep; do not use inactivity timeout to end active registration.
+- [ ] Complete 10-minute WorkRegistration auto-stop: no timeout during active foreground lease; stop releases workspace ownership and all owned stateful resources.
 - [ ] AFTER V2 FINALIZE: trial moving mutable Job Packs to %LOCALAPPDATA%\GPTWorker\jobs.
 - [ ] Replace repo-relative harness imports with portable runner/API.
 - [ ] Implement immutable pack snapshots and publish transaction.
@@ -32,7 +32,6 @@
 - [x] MCP transport session as chat/work identity.
 - [x] Auto-attach to most recent Job/workspace.
 - [x] Machine-global active Job/cwd as execution authority.
-- [x] Inactivity timeout as normal Job lifecycle.
 - [x] Fixed Tool Pool with N pre-created/free instances.
 - [x] Per-Job duplicate read/write/shell/git implementations.
 - [x] Family-level queue merely because two Jobs call the same capability.

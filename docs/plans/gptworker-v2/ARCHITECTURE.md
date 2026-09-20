@@ -139,7 +139,7 @@ Rules:
 4. no fallback to global cwd/state;
 5. Driver restart increments driverEpoch and invalidates every prior authorityToken;
 6. generation is monotonic for a workspace within one Driver epoch;
-7. no inactivity timeout by default.
+7. active WorkRegistration auto-stops after 10 minutes without valid work-handle activity; an in-flight tool lease prevents timeout until the call finishes.
 
 ## Workspace Ownership
 
@@ -294,7 +294,7 @@ MCP initialize/session/GET/DELETE/recovery. Disposable. Not authority.
 
 ### 2. Work Registration
 
-Job + Workspace execution authority. Lives until explicit stop/switch, Driver restart, or another verified invalidation event. No inactivity timeout by default.
+Job + Workspace execution authority. Lives until explicit stop/switch, Driver restart, or 10 minutes of inactivity. The idle clock applies only when no tool lease is active; releasing the final foreground lease restarts the idle clock.
 
 ### 3. Worker Process
 

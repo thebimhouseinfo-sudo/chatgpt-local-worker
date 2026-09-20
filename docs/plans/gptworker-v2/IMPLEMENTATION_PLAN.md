@@ -25,7 +25,7 @@ P0 logging đã hoàn tất và live log ngày 2026-09-20 đã cho thấy MCP tr
 4. Tool instance sinh theo nhu cầu. Không có pool cố định, free-list hay số lượng instance định trước cho filesystem/shell/git.
 5. Tool instance bind bất biến khi sinh. Nó mang Job + Workspace + Execution + Generation + Call identity và không được rebind trong suốt lifetime.
 6. Concurrency không bị chặn bởi tên tool. Hai jobs khác workspace có thể cùng dùng filesystem/read/write/shell/git song song. Giới hạn chỉ đến từ tài nguyên hệ thống hoặc external resource thật.
-7. Không inactivity timeout cho active work registration. Worker sleep dựa trên quiescence/resource leases, không dựa trên thời gian chat không hoạt động.
+7. WorkRegistration auto-stop sau 10 phút không có valid work-handle activity. Foreground tool call đang có lease không bị kill giữa chừng; timer bắt đầu lại khi lease cuối cùng release.
 8. Nếu registration mất hiệu lực thì phải đăng ký lại. Driver restart, explicit stop hoặc một expiry/host signal đã được xác minh làm execution cũ invalid; tool call sau đó nhận NO_ACTIVE_WORK.
 9. Transport lifecycle, execution lifecycle và worker-process lifecycle là ba lớp độc lập.
 
@@ -228,7 +228,7 @@ Stateful resources như long-running shell process, REPL state hoặc external a
 
 ## Worker Sleep Policy
 
-Không dùng inactivity timeout để quyết định Job chết hoặc Worker ngủ.
+WorkRegistration dùng inactivity timeout 10 phút như một full job stop để tránh orphaned Job khi user đóng chat mà không gọi stop.
 
 Worker executor có thể chuyển sang sleep khi:
 
@@ -250,7 +250,7 @@ execution_id hợp lệ
   → tiếp tục đúng Job + Workspace
 ~~~
 
-Driver + tunnel luôn sống nhẹ. Nếu implementation cần debounce vài trăm ms để tránh spawn/kill liên tục thì đó chỉ là process optimization, không phải Job/session timeout và không làm mất registration.
+Driver + tunnel luôn sống nhẹ. Worker process sleep vẫn là lifecycle riêng; 10-minute WorkRegistration timeout là authority cleanup, không phải transport/session timeout.
 
 ## Registration / Stop Contract
 
@@ -427,7 +427,7 @@ Acceptance:
 - shell cwd/history keyed by WorkRegistration, not machine-global state.
 - process registry owned by `work_id`.
 - stateful resource leases follow actual resource lifetime.
-- idle resource release target: 5 minutes.
+- WorkRegistration idle timeout: 10 minutes, equivalent to full job stop.
 - cleanup affects only the owning work.
 - stress concurrent filesystem/git/shell/process across workspaces.
 
@@ -435,7 +435,7 @@ Acceptance:
 - A/B shell cwd cannot cross;
 - process created by A cannot be controlled by B;
 - same Tool Family can overlap without family-level queue;
-- idle cleanup does not expire WorkRegistration.
+- active foreground lease prevents timeout; after release the 10-minute idle clock restarts.
 
 ### P7 — AppData Migration Trial — AFTER V2 FINALIZE
 
@@ -524,7 +524,6 @@ Các ý sau không còn là architecture authority:
 
 - dùng MCP transport session làm logical session identity;
 - cố map transport session → conversation để execution hoạt động;
-- inactivity timeout để kết thúc active Job;
 - session TTL làm authority cleanup;
 - machine-global active Job/cwd;
 - fixed Tool Pool / số instance định trước;

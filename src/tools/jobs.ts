@@ -6,17 +6,15 @@ import { JobRuntime } from "../jobs/job-runtime.js";
 import { createJobPack, updateJobPack, removeJobPack } from "../jobs/job-authoring.js";
 import { setDefaultCwd } from "../lib/path-security.js";
 import { resetShellSession } from "../lib/persistent-shell.js";
-import {
-  clearWorkerState,
-  readWorkerState,
-  writeWorkerState,
-} from "../lib/worker-state.js";
+import { clearWorkerState } from "../lib/worker-state.js";
 import { toolAnnotations } from "../lib/tool-annotations.js";
 import { toolError, toolResult } from "../lib/tool-result.js";
 import {
   createWorkRegistration,
   getPublicWorkHandle,
+  getWorkIdleTimeoutMs,
   releaseWorkRegistration,
+  validateWorkHandle,
 } from "../lib/work-registration.js";
 
 const BindingsSchema = z.record(z.string(), z.string());
@@ -116,14 +114,13 @@ async function persistActiveSelection(result: any) {
   const registration = await createWorkRegistration(jobId, workspace);
   setDefaultCwd(workspace);
   resetShellSession(workspace);
-  const persistentState = await writeWorkerState(jobId, workspace);
   return {
     ...result,
-    worker_state: persistentState,
     work_handle: getPublicWorkHandle(registration),
+    idle_timeout_ms: getWorkIdleTimeoutMs(),
     next:
       "Use work_handle.execution_id + work_handle.authority_token on every execution tool call. " +
-      "Do not re-select the Job unless this work handle becomes invalid.",
+      "The work registration auto-stops after 10 minutes without valid work-handle activity.",
   };
 }
 
@@ -286,15 +283,45 @@ export function registerJobTools(
     {
       title: "Job Status",
       description:
-        "Show current session job state plus the last confirmed persistent worker-state.json context. Persistent state is context only; a new task still requires JOB/FOLDER confirmation.",
-      inputSchema: {},
+        "Show active work only when the caller supplies its current work_handle. Without a work_handle, report idle/unemployed and never reuse the last Job or Workspace from another chat.",
+      inputSchema: {
+        execution_id: z.string().optional().describe("Current work_handle.execution_id, if this chat has active work"),
+        authority_token: z.string().optional().describe("Current work_handle.authority_token"),
+      },
       annotations: toolAnnotations("read"),
     },
-    async () =>
-      safe("job_status", async () => ({
-        ...(await sessionRuntime.status()),
-        worker_state: await readWorkerState(),
-      }))
+    async ({ execution_id, authority_token }) =>
+      safe("job_status", async () => {
+        if (!execution_id && !authority_token) {
+          return {
+            state: { phase: "idle", bindings: {} },
+            active_job: null,
+            active_work: null,
+            idle_timeout_ms: getWorkIdleTimeoutMs(),
+            note:
+              "No work_handle supplied. This chat is unemployed until Job + Workspace are explicitly registered.",
+          };
+        }
+        if (!execution_id || !authority_token) {
+          throw new Error(
+            "NO_ACTIVE_WORK: both execution_id and authority_token are required to inspect active work."
+          );
+        }
+        const work = validateWorkHandle(execution_id, authority_token);
+        return {
+          ...(await sessionRuntime.status()),
+          active_work: {
+            execution_id: work.executionId,
+            job_id: work.jobId,
+            workspace: work.workspace,
+            workspace_key: work.workspaceKey,
+            driver_epoch: work.driverEpoch,
+            generation: work.generation,
+            last_activity_at: work.lastActivityAt,
+          },
+          idle_timeout_ms: getWorkIdleTimeoutMs(),
+        };
+      })
   );
 
   server.registerTool(
@@ -415,6 +442,7 @@ export function registerJobTools(
         const persistentState = await clearWorkerState();
         await bindRuntimeToWorkspace(bindings, true);
         const selected = await sessionRuntime.switch(job, bindings);
+        rememberConfirmation(selected?.current);
         await validateResolvedWorkspace(selected?.current);
         return { ...selected, worker_state: persistentState };
       })
@@ -425,15 +453,21 @@ export function registerJobTools(
     {
       title: "Job Stop",
       description:
-        "Stop the current job, release its Job + Workspace work registration, and clear worker-state.json.",
+        "Stop this chat's active work. Always pass the current work_handle. Never infer or stop the most recent Job/Workspace from another chat. Orphaned work auto-stops after 10 minutes idle.",
       inputSchema: {
-        execution_id: z.string().min(1).describe("Current work_handle.execution_id"),
-        authority_token: z.string().min(1).describe("Current work_handle.authority_token"),
+        execution_id: z.string().optional().describe("Current work_handle.execution_id"),
+        authority_token: z.string().optional().describe("Current work_handle.authority_token"),
       },
       annotations: toolAnnotations("edit"),
     },
     async ({ execution_id, authority_token }) =>
       safe("job_stop", async () => {
+        if (!execution_id || !authority_token) {
+          throw new Error(
+            "NO_ACTIVE_WORK: job_stop requires this chat's execution_id + authority_token. " +
+            "A new chat cannot stop another chat's work; orphaned work auto-stops after 10 minutes idle."
+          );
+        }
         const released = releaseWorkRegistration(execution_id, authority_token);
         return {
           ...sessionRuntime.stop(),
