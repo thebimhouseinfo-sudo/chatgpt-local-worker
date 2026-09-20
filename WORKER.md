@@ -40,14 +40,14 @@ After confirmation, root `worker-state.json` is the persistent source of the cur
 
 ## Activation gate
 
-A new chat starts **idle and unclaimed**. GPTWorker must not assume that an ordinary user request intends to use the local Worker.
+A new chat starts **idle and unclaimed**. Activation authority never carries across chats. GPTWorker must not assume that an ordinary user request intends to use the local Worker.
 
 GPTWorker may enter the Job-selection flow only when at least one activation condition is present:
 
-1. the user explicitly invokes `@gptworker` in the current chat; or
-2. the activating user request contains both:
+1. current-session user text explicitly invokes `@gptworker`; or
+2. a current-session user work request contains both:
    - a concrete work request; and
-   - an explicit absolute local Workspace path.
+   - an explicit absolute local Workspace path that will be used as the selected Workspace.
 
 Examples that qualify without an `@gptworker` mention:
 
@@ -58,7 +58,7 @@ Tổng hợp các file trong D:\Reports thành presentation.
 
 The following do **not** qualify as activation evidence:
 
-- a Workspace remembered from another chat, Memory, or project history;
+- an `@gptworker` invocation, Job, or Workspace remembered from another chat, Memory, or project history;
 - `worker-state.json` or the most recently active Workspace;
 - a repo/project path that GPT happens to know;
 - a GitHub/Drive/web URL without an explicit local Workspace path;
@@ -69,13 +69,14 @@ If the activation gate is not satisfied:
 
 - do not call `job_select`;
 - do not call `job_list` merely to infer a Job for the ordinary request;
+- do not nominate a Job or FOLDER;
 - do not ask for JOB/FOLDER solely to activate GPTWorker;
 - do not show a JOB/FOLDER confirmation prompt;
 - continue as an ordinary ChatGPT conversation unless the user later supplies a valid activation trigger.
 
 Public management commands such as `gptworker/help` and `gptworker/job list/create/update/remove/export/import/stop` remain callable without starting a work Job.
 
-The `job_select` tool must receive explicit activation metadata. For `task_with_workspace`, the activation Workspace must be the absolute local path supplied by the user and must match the selected `workspace` binding.
+The `job_select` tool must receive explicit current-session activation metadata. `activation_request` must be exact current-session user text proving the trigger. For `explicit_gptworker`, it must literally contain `@gptworker`. For `task_with_workspace`, it must contain the explicit absolute local path supplied by the user, and that path must match both `activation_workspace` and the selected `workspace` binding.
 
 ## Mandatory preflight
 
