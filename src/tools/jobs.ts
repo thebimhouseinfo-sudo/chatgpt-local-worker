@@ -3,7 +3,13 @@ import path from "path";
 import { z } from "zod";
 import type { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import { JobRuntime } from "../jobs/job-runtime.js";
-import { createJobPack, updateJobPack, removeJobPack } from "../jobs/job-authoring.js";
+import {
+  createJobPack,
+  updateJobPack,
+  removeJobPack,
+  exportJobPack,
+  importJobPack,
+} from "../jobs/job-authoring.js";
 import { clearWorkerState } from "../lib/worker-state.js";
 import { toolAnnotations } from "../lib/tool-annotations.js";
 import { toolError, toolResult } from "../lib/tool-result.js";
@@ -276,6 +282,42 @@ export function registerJobTools(
       annotations: toolAnnotations("edit"),
     },
     async ({ id }) => safe("job_remove", () => removeJobPack(id))
+  );
+
+  server.registerTool(
+    "job_export",
+    {
+      title: "Job Export",
+      description:
+        "Export one custom AppData Job Pack as <id>.zip into an existing absolute local destination directory. Bundled repo Jobs cannot be exported.",
+      inputSchema: {
+        id: z.string().min(1).describe("Exact custom Job id to export"),
+        destination: z
+          .string()
+          .min(1)
+          .describe("Absolute local destination directory for <id>.zip"),
+      },
+      annotations: toolAnnotations("edit"),
+    },
+    async ({ id, destination }) =>
+      safe("job_export", () => exportJobPack(id, destination))
+  );
+
+  server.registerTool(
+    "job_import",
+    {
+      title: "Job Import",
+      description:
+        "Import one custom Job Pack ZIP into AppData. Source must be an absolute local .zip path or an absolute directory containing exactly one .zip. Import validates first and never overwrites existing/default Jobs.",
+      inputSchema: {
+        source: z
+          .string()
+          .min(1)
+          .describe("Absolute local .zip path or absolute directory containing exactly one Job ZIP"),
+      },
+      annotations: toolAnnotations("edit"),
+    },
+    async ({ source }) => safe("job_import", () => importJobPack(source))
   );
 
   server.registerTool(
