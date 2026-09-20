@@ -115,7 +115,7 @@ export function createMcpServer(
   const server = new McpServer(
     {
       name: "local-worker-mcp-server",
-      version: "2.5.0",
+      version: "2.5.1",
     },
     {
       capabilities: {
