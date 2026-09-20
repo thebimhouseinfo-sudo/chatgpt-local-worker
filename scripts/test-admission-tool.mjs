@@ -24,7 +24,7 @@ const inactive = await admission.callback({
   has_concrete_task: true,
 });
 const inactiveJson = JSON.stringify(inactive);
-if (!inactiveJson.includes('"mode":"inactive"')) {
+if (!inactiveJson.includes('"mode":"INACTIVE"')) {
   throw new Error("ordinary ChatGPT request must be INACTIVE");
 }
 if (!inactiveJson.includes('"render_to_user":false')) {
@@ -39,7 +39,7 @@ const explicit = await admission.callback({
   has_concrete_task: true,
 });
 const explicitJson = JSON.stringify(explicit);
-if (!explicitJson.includes('"mode":"active"') || !explicitJson.includes("admissionToken")) {
+if (!explicitJson.includes('"mode":"ACTIVE"') || !explicitJson.includes("admission_token")) {
   throw new Error("@gptworker must produce ACTIVE admission token");
 }
 
@@ -50,14 +50,14 @@ const natural = await admission.callback({
   workspace,
 });
 const naturalJson = JSON.stringify(natural);
-if (!naturalJson.includes('"mode":"active"') || !naturalJson.includes("task_with_workspace")) {
+if (!naturalJson.includes('"mode":"ACTIVE"') || !naturalJson.includes("task_with_workspace")) {
   throw new Error("task + absolute local path must be ACTIVE");
 }
 
 const control = await admission.callback({
   user_turn: "gptworker/job list",
 });
-if (!JSON.stringify(control).includes('"mode":"control"')) {
+if (!JSON.stringify(control).includes('"mode":"CONTROL"')) {
   throw new Error("explicit GPTWorker public command must be CONTROL");
 }
 
