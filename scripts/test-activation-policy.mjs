@@ -101,6 +101,19 @@ const fromAdmission = continuationRuntime.activation(
 assert.equal(fromAdmission.trigger, "explicit_gptworker");
 assert.equal(fromAdmission.workspace, workspace);
 
+// Admission tokens are temporary pre-confirmation authority. Once consumed
+// after active work registration, they must become invalid.
+continuationRuntime.consume(continuationAdmission.admission_token);
+assert.throws(
+  () =>
+    continuationRuntime.validate(
+      continuationAdmission.admission_token,
+      workspace
+    ),
+  /ADMISSION_REQUIRED/,
+  "consumed admission token must not authorize later job_select/job_switch calls"
+);
+
 assert.throws(
   () => continuationRuntime.activation(undefined, { workspace }),
   /ADMISSION_REQUIRED/
