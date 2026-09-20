@@ -4,7 +4,7 @@
 
 Sau setup, Windows logon tự khởi động nền; ChatGPT có thể gọi Worker, chọn đúng Job/context và tiếp tục qua sleep/wake khi identity hợp lệ. Hai phiên không làm lẫn workspace/resource; authoring publish pack đã validate vào AppData; cập nhật ứng dụng bảo toàn pack người dùng.
 
-Đây là plan đề xuất, chưa triển khai. Không đặt version package thành v2 hoặc sửa root runtime policy chỉ vì tài liệu này tồn tại.
+Đây là plan đề xuất, chưa triển khai toàn bộ v2. P0 hiện chỉ triển khai logging; các phase kiến trúc khác giữ ở mức roadmap và chưa được thực hiện. Không đặt version package thành v2 hoặc sửa root runtime policy chỉ vì tài liệu này tồn tại.
 
 ## Inputs / Governing Architecture
 
@@ -27,20 +27,21 @@ Kernel driver, Windows service trong release đầu, GUI bắt buộc, public Jo
 
 ## Implementation Strategy
 
-Thực hiện theo lát cắt có acceptance chạy được. Đưa protocol/identity spike lên trước vì đây là rủi ro lớn nhất của thiết kế. Sửa isolation và activation trước khi đưa arbitrary mutable packs cùng background lifecycle vào production. Làm wake prototype trước authoring đầy đủ; packaging cuối cùng.
+P0 thực hiện một lát cắt quan sát độc lập, không đụng vào logic điều phối. Tận dụng `activity-log`/`audit` hiện có, đưa persistence vào một sink JSONL bất đồng bộ và gọi event ở các boundary đã có. Sau khi P0 đạt, các phase identity/isolation/wake/authoring mới được xem xét như roadmap riêng.
 
 Không dùng passing unit tests làm bằng chứng conversation isolation. Mỗi contract có failure case riêng và test thực trên Windows/connector khi liên quan transport hoặc startup.
 
 ## Phases
 
-1. **P0 — Baseline và feasibility.** Ghi baseline build/tests; thêm regression cases cho token, global context, stop. Dùng endpoint quan sát tối giản để test hai chat qua tunnel thật: initialize, repeated calls, refresh, reconnect, close, DELETE, timeout và discovery probe. Đo memory/process count lúc idle và cold-start envelope. Output: identity contract có evidence, disposition OQ-01/OQ-02; chưa đóng gói production. Nếu không xác nhận mapping thì tiếp tục foundation độc lập, giữ multi-conversation auto-resume BLOCKED.
-2. **P1 — Session-scoped execution và activation.** Introduce ExecutionContext và resource ownership; bỏ global mutable project context trong đường thực thi. Gate mọi tool cần execution; bind confirmation token với snapshot; stop/switch drain resources đúng scope. Refresh instructions theo confirmed context; guard checkpoint/process truy cập chéo; lease xung đột cùng workspace. Acceptance: hai logical sessions với hai workspace, xen kẽ async reads/writes/shell không lẫn; stop A không thay B; changed token scope bị reject; mọi execution channel bị chặn trước confirm.
-3. **P2 — Driver transport + Worker prototype.** Tách public SDK transport và SessionStore ra nền; dùng IPC versioned cho executor. Single-flight wake, queue bounds, drain/wake race, active resource leases, graceful shutdown, startup failure và crash unknown-result. Acceptance: cùng logical Job qua ít nhất ba sleep/wake; ba request đồng thời chỉ một child; long task/REPL/process giữ awake; Worker crash không replay mutation; Driver restart invalidates old authority. Chứng minh đường ChatGPT/Tunnel thật trước khi coi phase đạt đầy đủ.
-4. **P3 — Paths, portable packs và catalog.** Tách install/data/config paths; migrate artifacts và seed packs không overwrite. Shared manifest schema + legacy adapter + worker API compatibility. Portable harness runner thay repo-relative import; metadata scan có diagnostics và immutable revision snapshots. Acceptance: scan/validate/run cả ba pack từ AppData fixture ngoài repo; malformed/colliding/outside-pack resources bị reject; package update giữ nguyên modified pack; unknown API có lỗi rõ.
-5. **P4 — Publish transaction + Job Authoring.** Core staging/publish/history primitives có per-job lock, expected revision, content hash, journal recovery. Tạo job-authoring SOP/harness; create/update dùng staging; pin revision cho session cũ. Acceptance: invalid pack không live; hai update cùng base gây conflict xác định; crash giữa từng bước vẫn recover một revision hợp lệ; session cũ giữ rules cũ; session mới nhận rules mới.
-6. **P5 — Chat control và diagnostics.** Map bốn cú pháp chat sang structured MCP calls; routing bằng metadata và confirmation, không giả định đọc được toàn chat. Giữ status/doctor/logs phục vụ nội bộ. Acceptance: create/update không hỏi workspace không cần thiết; thiếu yêu cầu chỉ hỏi phần thiếu; stop chỉ tác động current execution session; catalog mới dùng được qua ChatGPT mà không rebuild binary.
-7. **P6 — Windows host integration.** Scheduled Task user logon, single-instance ownership, tunnel/Worker supervisor, backoff, machine sleep/resume, drive readiness, child-tree cleanup, credential migration. Acceptance: logoff/logon, crash child, network down/up, duplicate start, port conflict đều có trạng thái xác định và không nhân bản processes. Không ghi secrets vào log/job/state.
-8. **P7 — Packaging và release acceptance.** Đóng gói prototype đạt dynamic imports/harness runtime; setup/upgrade/uninstall giữ user data mặc định; update docs nhỏ nhất theo authority. Acceptance trên máy Windows sạch: cài → logon → ChatGPT call → confirm → Job chạy → Worker ngủ → resume; hai chat độc lập; upgrade giữ customized jobs. Chỉ gắn nhãn v2 complete khi flow này có evidence.
+1. **P0 — Automatic runtime logging.** Persist mọi `ActivityEntry` thành JSONL qua queue bất đồng bộ; bổ sung startup/shutdown, HTTP request, MCP/session lifecycle, transport error/recovery và tool activity ở boundary hiện có. Redact credential-like values, bound payload/detail, rotate file khi vượt ngưỡng, giữ Admin history đọc được từ activity file. Acceptance: request/tool result không đổi khi log path lỗi; event có schema ổn định; secret không xuất hiện; rotation hoạt động; build/jobs/full tests pass.
+2. **P1 — Baseline và feasibility sau P0.** Ghi baseline tests và dùng log để quan sát initialize, repeated calls, reconnect, DELETE, timeout và discovery probe. Chỉ sau khi có evidence mới chốt identity contract OQ-01/OQ-02.
+3. **P2 — Session-scoped execution và activation.** Introduce ExecutionContext và resource ownership; bỏ global mutable project context trong đường thực thi. Gate mọi tool cần execution; bind confirmation token với snapshot; stop/switch drain resources đúng scope.
+4. **P3 — Driver transport + Worker prototype.** Tách public SDK transport và SessionStore ra nền; dùng IPC versioned cho executor. Single-flight wake, queue bounds, drain/wake race, active resource leases, graceful shutdown, startup failure và crash unknown-result.
+5. **P4 — Paths, portable packs và catalog.** Tách install/data/config paths; migrate artifacts và seed packs không overwrite. Shared manifest schema + legacy adapter + worker API compatibility. Portable harness runner thay repo-relative import; metadata scan có diagnostics và immutable revision snapshots.
+6. **P5 — Publish transaction + Job Authoring.** Core staging/publish/history primitives có per-job lock, expected revision, content hash, journal recovery. Tạo job-authoring SOP/harness; create/update dùng staging; pin revision cho session cũ.
+7. **P6 — Chat control và diagnostics.** Map bốn cú pháp chat sang structured MCP calls; routing bằng metadata và confirmation, không giả định đọc được toàn chat.
+8. **P7 — Windows host integration.** Scheduled Task user logon, single-instance ownership, tunnel/Worker supervisor, backoff, machine sleep/resume, drive readiness, child-tree cleanup, credential migration.
+9. **P8 — Packaging và release acceptance.** Đóng gói prototype và kiểm tra clean-machine upgrade/uninstall; chỉ gắn nhãn v2 complete khi flow đầy đủ có evidence.
 
 ## Migration / Compatibility
 
@@ -87,14 +88,15 @@ Theo OQ-01 đến OQ-04 trong architecture. Các thông số timeout/retention/m
 
 | Phase | Tasks |
 |---|---|
-| P0 | TASK-V2-001, TASK-V2-002 |
-| P1 | TASK-V2-003, TASK-V2-004, TASK-V2-005 |
-| P2 | TASK-V2-006, TASK-V2-007 |
-| P3 | TASK-V2-008, TASK-V2-009 |
-| P4 | TASK-V2-010, TASK-V2-011 |
-| P5 | TASK-V2-012 |
-| P6 | TASK-V2-013 |
-| P7 | TASK-V2-014 |
+| P0 | TASK-V2-LOG-001 |
+| P1 | TASK-V2-001, TASK-V2-002 |
+| P2 | TASK-V2-003, TASK-V2-004, TASK-V2-005 |
+| P3 | TASK-V2-006, TASK-V2-007 |
+| P4 | TASK-V2-008, TASK-V2-009 |
+| P5 | TASK-V2-010, TASK-V2-011 |
+| P6 | TASK-V2-012 |
+| P7 | TASK-V2-013 |
+| P8 | TASK-V2-014 |
 
 ## Handoff Notes
 

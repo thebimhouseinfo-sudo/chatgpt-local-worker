@@ -16,7 +16,7 @@ import { getLocalPluginsConfig, saveLocalPluginsConfig } from "../lib/plugin-con
 import { getCodexHooks, saveCodexHooks } from "../lib/codex-hooks.js";
 import {
   getRecentActivity,
-  loadAuditHistory,
+  loadActivityHistory,
   subscribeActivity,
   type ActivityEntry,
 } from "../lib/activity-log.js";
@@ -380,8 +380,8 @@ export function createAdminRouter(manager: McpUpstreamManager, options: {
   router.get("/api/activity/history", async (req, res) => {
     try {
       const limit = Math.min(parseInt(String(req.query.limit || "80"), 10) || 80, 500);
-      const entries = await loadAuditHistory(limit);
-      res.json({ ok: true, entries, source: "audit_file" });
+      const entries = await loadActivityHistory(limit);
+      res.json({ ok: true, entries, source: "activity_file" });
     } catch (err) {
       res.status(500).json({ ok: false, error: err instanceof Error ? err.message : String(err) });
     }

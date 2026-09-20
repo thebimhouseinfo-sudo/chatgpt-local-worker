@@ -11,6 +11,7 @@ import { createMcpServer } from "../server-factory.js";
 import { getUpstreamManager } from "./mcp-upstream-manager.js";
 import { refreshProxiedTools } from "./mcp-tool-proxy.js";
 import { runCodexSessionStartHooks } from "./codex-hooks.js";
+import { logSystemEvent } from "./activity-log.js";
 
 
 const DEFAULT_PROTOCOL_VERSION = "2025-03-26";
@@ -179,6 +180,7 @@ export function createSessionManager(config: SessionManagerConfig): SessionManag
 
   function scheduleDeleteGrace(sessionId: string): void {
     cancelDeleteGrace(sessionId);
+    logSystemEvent("session_delete_requested", { sessionId, summary: "grace period started" });
     console.log(
       `[MCP] Session DELETE — giữ ${SESSION_DELETE_GRACE_MS / 1000}s để tool call đang chạy: ${sessionId}`
     );
@@ -197,6 +199,11 @@ export function createSessionManager(config: SessionManagerConfig): SessionManag
     delete sessions[sessionId];
     delete lastTransportErrors[sessionId];
     sessionOpChains.delete(sessionId);
+    logSystemEvent("session_removed", {
+      sessionId,
+      summary: reason,
+      details: { reason },
+    });
     console.log(`[MCP] Session removed (${reason}): ${sessionId}`);
   }
 
@@ -232,6 +239,10 @@ export function createSessionManager(config: SessionManagerConfig): SessionManag
           createdAt: existing?.createdAt ?? Date.now(),
         };
         clearPendingRecovery(sid);
+        logSystemEvent("session_initialized", {
+          sessionId: sid,
+          details: { recovered: Boolean(existing) },
+        });
         console.log(`[MCP] Session initialized: ${sid}`);
       },
       onsessionclosed: (sid) => {
@@ -243,12 +254,18 @@ export function createSessionManager(config: SessionManagerConfig): SessionManag
       const sid = transport.sessionId;
       const message = error.message || String(error);
       if (sid) lastTransportErrors[sid] = message;
+      logSystemEvent("transport_error", {
+        status: "error",
+        sessionId: sid,
+        summary: message,
+      });
     };
 
     // Keep session alive across transient SSE disconnects; explicit DELETE cleans up.
     transport.onclose = () => {
       const sid = transport.sessionId;
       if (!sid || !sessions[sid]) return;
+      logSystemEvent("transport_closed", { sessionId: sid, summary: "session retained for recovery" });
       console.log(`[MCP] Transport closed for ${sid} (session kept for recovery)`);
     };
 
@@ -405,6 +422,7 @@ export function createSessionManager(config: SessionManagerConfig): SessionManag
         return false;
       }
 
+      logSystemEvent("session_recovery_started", { sessionId: staleSessionId });
       console.log(`[MCP] Attempting session recovery for stale ID: ${staleSessionId}`);
 
       const protocolVersion = negotiateProtocolVersion(
@@ -417,6 +435,11 @@ export function createSessionManager(config: SessionManagerConfig): SessionManag
 
       const warmed = await warmUpRecoveredSession(staleSessionId, mcpPath, protocolVersion);
       if (!warmed) {
+        logSystemEvent("session_recovery_failed", {
+          status: "error",
+          sessionId: staleSessionId,
+          summary: "warm-up failed",
+        });
         clearPendingRecovery(staleSessionId);
         removeSession(staleSessionId, "recovery failed");
         return false;
@@ -429,6 +452,7 @@ export function createSessionManager(config: SessionManagerConfig): SessionManag
       }
 
       touch(staleSessionId);
+      logSystemEvent("session_recovered", { sessionId: staleSessionId });
       console.log(`[MCP] Session recovered: ${staleSessionId}`);
 
       const patchedReq = withSessionIdHeader(req, staleSessionId, protocolVersion);
@@ -444,6 +468,11 @@ export function createSessionManager(config: SessionManagerConfig): SessionManag
         const now = Date.now();
         for (const [sid, session] of Object.entries(sessions)) {
           if (now - session.lastAccessedAt > SESSION_TTL_MS) {
+            logSystemEvent("session_expired", {
+              sessionId: sid,
+              summary: "TTL expired",
+              details: { ttl_ms: SESSION_TTL_MS },
+            });
             void session.transport.close().catch(() => undefined);
             removeSession(sid, "TTL expired");
           }

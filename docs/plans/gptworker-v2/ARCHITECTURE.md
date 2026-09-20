@@ -6,6 +6,12 @@ Tài liệu sửa plan người dùng ngày 2026-09-20, dựa trên baseline `99
 
 Mục tiêu: đăng nhập Windows là có thể dùng Worker qua ChatGPT; giữ nền mỏng; thực thi theo nhu cầu; nhiều phiên độc lập; tạo/cập nhật Job trong AppData mà không rebuild ứng dụng.
 
+### Phạm vi P0 đã chốt
+
+Theo quyết định hiện tại của người dùng, P0 chỉ triển khai lớp logging tự động. P0 không thay đổi Job lifecycle, session ownership, path behavior, permission behavior, tunnel routing, sleep/wake hay Job storage. Logging phải fail-open: lỗi ghi file không được làm fail tool/MCP request.
+
+P0 log structured JSONL tại một file runtime riêng, có timestamp, process id, event kind/action, status, request/session/tool metadata, duration, target/summary, error và bounded details. Secret/token/password/authorization/cookie và giá trị giống credential phải được redacted; record và file có giới hạn kích thước; ghi file bất đồng bộ; log rotation là best effort. File log là evidence vận hành, không phải authority cho Job/session state.
+
 ## Current Architecture
 
 `setup.bat`/`run.bat` khởi động Node MCP server và Secure MCP Tunnel. `src/index.ts` đồng thời quản lý HTTP endpoint, session recovery, project instructions, upstream manager và Admin server. Mỗi MCP server có JobRuntime riêng nhưng cwd/shell/process registry và persistent worker-state dùng chung.

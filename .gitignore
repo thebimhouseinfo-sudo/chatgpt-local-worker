@@ -1,6 +1,8 @@
 node_modules/
 dist/
 .mcp-audit.log
+.mcp-activity.jsonl
+.mcp-activity.jsonl.1
 .mcp-checkpoints/
 .tool-test-tmp/
 bin/

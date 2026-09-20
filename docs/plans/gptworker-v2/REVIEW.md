@@ -4,6 +4,8 @@ Ngày review: 2026-09-20. Baseline: `9997d4c` trên `main`.
 
 Phạm vi: review code liên quan đến v2 và sửa plan người dùng cung cấp. Đây là đề xuất kiến trúc để review, chưa phải thay đổi runtime hay thay thế `WORKER.md` hiện hành. Không phải audit toàn bộ codebase.
 
+Quyết định scope mới nhất: P0 chỉ thêm lớp logging tự động, không thay đổi logic hoạt động hiện tại. Các đề xuất isolation/session/sleep/wake/AppData bên dưới là roadmap sau P0.
+
 ## Kết luận
 
 Giữ mục tiêu tự chạy khi đăng nhập Windows, ChatGPT làm giao diện chính, Worker thực thi theo nhu cầu, Job Pack trong AppData, manifest làm nguồn đăng ký duy nhất và `job-authoring` làm workflow tạo/cập nhật Job.

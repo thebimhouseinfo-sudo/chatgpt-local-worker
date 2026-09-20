@@ -1,6 +1,7 @@
 import { randomUUID } from "node:crypto";
 import fs from "fs/promises";
 import { getAuditPath } from "./audit.js";
+import { enqueueRuntimeLog, loadRuntimeLog } from "./runtime-log.js";
 
 export type ActivityKind = "tool" | "mcp" | "session" | "system";
 
@@ -17,6 +18,9 @@ export interface ActivityEntry {
   client?: string;
   summary?: string;
   details?: Record<string, unknown>;
+  pid?: number;
+  request_id?: string | number;
+  schema_version?: 1;
 }
 
 const MAX_ENTRIES = parseInt(process.env.ACTIVITY_LOG_MAX || "500", 10);
@@ -26,6 +30,34 @@ const listeners = new Set<(entry: ActivityEntry) => void>();
 function trimSummary(text: string, max = 160): string {
   const oneLine = text.replace(/\s+/g, " ").trim();
   return oneLine.length <= max ? oneLine : oneLine.slice(0, max - 1) + "…";
+}
+
+const SENSITIVE_KEY = /(token|secret|password|passwd|api[_-]?key|authorization|cookie|credential|private[_-]?key)/i;
+const SENSITIVE_STRING = /(sk-[A-Za-z0-9_-]{16,}|Bearer\s+[A-Za-z0-9._~+/=-]+)/gi;
+const SENSITIVE_ASSIGNMENT = /((?:OPENAI|MCP|CONTROL_PLANE)[A-Z0-9_]*(?:KEY|TOKEN)\s*[=:]\s*)[^\s,;]+/gi;
+const MAX_VALUE_DEPTH = 5;
+
+function redactString(value: string): string {
+  return value
+    .replace(SENSITIVE_STRING, "[REDACTED]")
+    .replace(SENSITIVE_ASSIGNMENT, "$1[REDACTED]")
+    .slice(0, 4000);
+}
+
+export function sanitizeActivityValue(value: unknown, key = "", depth = 0): unknown {
+  if (SENSITIVE_KEY.test(key)) return "[REDACTED]";
+  if (typeof value === "string") return redactString(value);
+  if (value === null || typeof value === "number" || typeof value === "boolean") return value;
+  if (depth >= MAX_VALUE_DEPTH) return "[TRUNCATED]";
+  if (Array.isArray(value)) return value.slice(0, 100).map((item) => sanitizeActivityValue(item, key, depth + 1));
+  if (typeof value === "object") {
+    return Object.fromEntries(
+      Object.entries(value as Record<string, unknown>)
+        .slice(0, 200)
+        .map(([childKey, childValue]) => [childKey, sanitizeActivityValue(childValue, childKey, depth + 1)])
+    );
+  }
+  return String(value);
 }
 
 export function summarizeToolArgs(tool: string, args: unknown): string {
@@ -52,19 +84,41 @@ export function appendActivity(partial: Omit<ActivityEntry, "id" | "time"> & { t
   const entry: ActivityEntry = {
     id: randomUUID(),
     time: partial.time ?? new Date().toISOString(),
+    schema_version: 1,
+    pid: process.pid,
     ...partial,
+    summary: partial.summary ? redactString(partial.summary) : partial.summary,
+    target: partial.target ? redactString(partial.target) : partial.target,
+    details: partial.details
+      ? sanitizeActivityValue(partial.details) as Record<string, unknown>
+      : partial.details,
   };
 
   entries.push(entry);
   while (entries.length > MAX_ENTRIES) entries.shift();
 
   writeConsole(entry);
+  enqueueRuntimeLog(entry as unknown as Record<string, unknown>);
   for (const listener of listeners) {
     try {
       listener(entry);
     } catch {}
   }
   return entry;
+}
+
+export function logSystemEvent(
+  action: string,
+  options: { status?: string; sessionId?: string; summary?: string; details?: Record<string, unknown> } = {}
+): ActivityEntry {
+  return appendActivity({
+    kind: options.sessionId ? "session" : "system",
+    action,
+    status: options.status ?? "ok",
+    session_id: options.sessionId,
+    summary: options.summary,
+    details: options.details,
+  });
 }
 
 export function subscribeActivity(listener: (entry: ActivityEntry) => void): () => void {
@@ -156,6 +210,14 @@ export async function loadAuditHistory(limit = 80): Promise<ActivityEntry[]> {
   }
 }
 
+export async function loadActivityHistory(limit = 200): Promise<ActivityEntry[]> {
+  const records = await loadRuntimeLog(limit);
+  return records.flatMap((record) => {
+    if (typeof record.id !== "string" || typeof record.time !== "string") return [];
+    return [record as unknown as ActivityEntry];
+  });
+}
+
 export function logMcpHttpEvent(opts: {
   method: string;
   path: string;
@@ -209,7 +271,11 @@ export function logMcpRequest(
     }
     return;
   }
-  const rpc = body as { method?: string; params?: { name?: string; arguments?: unknown; protocolVersion?: string } };
+  const rpc = body as {
+    id?: string | number;
+    method?: string;
+    params?: { name?: string; arguments?: unknown; protocolVersion?: string };
+  };
   const isError = httpStatus >= 400;
   const argSummary =
     rpc.method === "tools/call" && rpc.params?.name
@@ -224,12 +290,14 @@ export function logMcpRequest(
       tool,
       action: "tools/call",
       session_id: sessionId,
+      request_id: rpc.id,
       client: "chatgpt",
       status: isError ? "error" : "ok",
       duration_ms: durationMs,
       summary,
       details: {
         http_status: httpStatus,
+        request_id: rpc.id,
         arguments: rpc.params.arguments,
         ...(errorMessage ? { error: errorMessage } : {}),
       },
@@ -242,11 +310,12 @@ export function logMcpRequest(
       kind: "session",
       action: "initialize",
       session_id: sessionId,
+      request_id: rpc.id,
       client: "chatgpt",
       status: isError ? "error" : "ok",
       duration_ms: durationMs,
       summary: errorMessage,
-      details: { http_status: httpStatus },
+      details: { http_status: httpStatus, request_id: rpc.id },
     });
     return;
   }
@@ -256,11 +325,12 @@ export function logMcpRequest(
       kind: "mcp",
       action: "tools/list",
       session_id: sessionId,
+      request_id: rpc.id,
       client: "chatgpt",
       status: isError ? "error" : "ok",
       duration_ms: durationMs,
       summary: errorMessage || (isError ? `HTTP ${httpStatus}` : "discovery"),
-      details: { http_status: httpStatus, phase: "connector_discovery" },
+      details: { http_status: httpStatus, request_id: rpc.id, phase: "connector_discovery" },
     });
     return;
   }
@@ -270,11 +340,12 @@ export function logMcpRequest(
       kind: "mcp",
       action: rpc.method,
       session_id: sessionId,
+      request_id: rpc.id,
       client: "chatgpt",
       status: isError ? "error" : "ok",
       duration_ms: durationMs,
       summary: errorMessage,
-      details: { http_status: httpStatus },
+      details: { http_status: httpStatus, request_id: rpc.id },
     });
   }
 }

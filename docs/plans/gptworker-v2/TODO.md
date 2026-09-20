@@ -2,9 +2,10 @@
 
 ## Active Backlog
 
-Các phần bắt buộc đã có task trong TASKS.md. Những chi tiết dưới đây cần kết quả spike để định nghĩa acceptance chính xác, không tự tạo additional scope:
+P0 hiện chỉ là logging. Các phần v2 khác giữ trong TASKS.md/TODO nhưng không được kéo vào implementation P0.
 
-- [ ] Chọn worker idle duration, session expiry, memory/CPU/wake budgets từ TASK-V2-002/007.
+- [ ] Hoàn tất acceptance evidence cho TASK-V2-LOG-001 trên Windows runtime thật.
+- [ ] Chọn worker idle duration, session expiry, memory/CPU/wake budgets từ các phase roadmap sau P0.
 - [ ] Chốt retention cho staging/history/cache/checkpoints; luôn giữ revisions có active lease và transactions chưa recover.
 - [ ] Chốt naming/branding GPTWorker v2 và migration wording, giữ connector/alias compatibility cần thiết.
 - [ ] Chốt cơ chế export diagnostic bundle đã redaction cho support nội bộ; không thêm command người dùng nếu chưa cần.

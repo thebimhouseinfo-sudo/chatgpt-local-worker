@@ -151,6 +151,21 @@ This prevents job/workspace context from drifting during long chats or reconnect
 
 `.env` is for static runtime/connection settings only. Project workspace and current job do not belong in `.env`.
 
+## Automatic activity logging
+
+The Worker automatically records structured runtime activity in `.mcp-activity.jsonl`. It includes MCP requests, tool activity, session lifecycle, HTTP/admin requests, startup/shutdown and transport errors. Records are written asynchronously, secrets and credential-like values are redacted, and the file rotates when it reaches the configured size limit. Logging failures do not fail the original Worker request.
+
+Optional settings:
+
+```text
+ACTIVITY_LOG_PATH              # custom JSONL path
+ACTIVITY_LOG_ROTATE_BYTES      # default 20 MB
+ACTIVITY_LOG_MAX_RECORD_BYTES  # default 32 KB
+ACTIVITY_LOG_DISABLED=true     # disable the activity sink when explicitly needed
+```
+
+The Admin API exposes recent persisted events at `/api/activity/history`. The activity file is operational evidence only; it is not a source of Job or workspace authority.
+
 ## Job Packs
 
 Job Packs live under `jobs/`.

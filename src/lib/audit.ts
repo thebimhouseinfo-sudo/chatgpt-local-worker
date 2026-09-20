@@ -1,6 +1,6 @@
 import fs from "fs/promises";
 import path from "path";
-import { appendActivity } from "./activity-log.js";
+import { appendActivity, sanitizeActivityValue } from "./activity-log.js";
 
 export type AuditStatus = "ok" | "error" | "blocked" | "dry-run";
 
@@ -15,11 +15,11 @@ export interface AuditEvent {
 const auditPath = process.env.AUDIT_LOG_PATH || path.resolve(process.cwd(), ".mcp-audit.log");
 
 export async function audit(event: AuditEvent): Promise<void> {
-  const record = {
+  const record = sanitizeActivityValue({
     time: new Date().toISOString(),
     pid: process.pid,
     ...event,
-  };
+  }) as Record<string, unknown>;
 
   try {
     await fs.mkdir(path.dirname(auditPath), { recursive: true });

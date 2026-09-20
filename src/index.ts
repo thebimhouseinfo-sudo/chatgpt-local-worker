@@ -19,7 +19,7 @@ import {
 } from "./lib/mcp-session-manager.js";
 import { initUpstreamManager } from "./lib/mcp-upstream-manager.js";
 import { startAdminServer } from "./admin/server.js";
-import { logMcpHttpEvent, logMcpRequest } from "./lib/activity-log.js";
+import { logMcpHttpEvent, logMcpRequest, logSystemEvent } from "./lib/activity-log.js";
 import {
   buildInstructionContext,
   summarizeInstructionContext,
@@ -94,6 +94,17 @@ const sessionManager = createSessionManager({
   projectMemoryInstructions: instructionContext.instructionsText,
 });
 
+logSystemEvent("worker_start", {
+  details: {
+    pid: process.pid,
+    host: HOST,
+    port: PORT,
+    admin_port: ADMIN_PORT,
+    workspace: workspaceRoot,
+    tool_profile: getChatGptToolProfile(),
+  },
+});
+
 const app = express();
 app.use(cors());
 app.use(express.json({ limit: "50mb" }));
@@ -140,6 +151,16 @@ app.use((req, res, next) => {
 
     if (!isMcpRoute) {
       console.log(`[HTTP] ${req.method} ${req.path} ${res.statusCode} ${duration}ms${sessionInfo}`);
+      logSystemEvent("http_request", {
+        status: res.statusCode >= 400 ? "error" : "ok",
+        sessionId,
+        details: {
+          method: req.method,
+          path: req.path,
+          http_status: res.statusCode,
+          duration_ms: duration,
+        },
+      });
     }
   });
   next();
@@ -233,6 +254,12 @@ async function handleMcpPost(req: express.Request, res: express.Response): Promi
     );
   } catch (error) {
     console.log("[MCP] Error:", error);
+    logSystemEvent("mcp_handler_error", {
+      status: "error",
+      sessionId: req.headers["mcp-session-id"] as string | undefined,
+      summary: error instanceof Error ? error.message : String(error),
+      details: { request_id: extractRequestId(req.body) },
+    });
     if (!res.headersSent) {
       res.status(500).json({
         jsonrpc: "2.0",
@@ -345,6 +372,7 @@ server.on("error", (err: NodeJS.ErrnoException) => {
 
 process.on("SIGINT", () => {
   console.log("\n[DUNG] Server dang tat...");
+  logSystemEvent("worker_stop", { summary: "SIGINT" });
   sessionManager.stopCleanup();
   void upstreamManager.shutdown();
   adminServer.close();
