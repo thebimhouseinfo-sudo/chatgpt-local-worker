@@ -1,34 +1,44 @@
-# GPTWorker v2 — Execution ledger
+# GPTWorker v2 — Execution Ledger
 
-Tất cả task triển khai dưới đây chưa thực hiện. READY nghĩa là scope đã đủ để bắt đầu sau khi thống nhất plan, không phải user đã cấp phép sửa code trong lượt review. Evidence review hiện có nằm trong REVIEW.md.
+This ledger supersedes the previous session-centric task mapping. The architecture is now Work Registration + Workspace Ownership + shared Tool Families with on-demand ephemeral instances.
 
-| ID | Status | Task / Output | Depends On | Acceptance | Subplan | Progress / Notes |
-|---|---|---|---|---|---|---|
-| TASK-V2-LOG-001 | IN_PROGRESS | Automatic structured runtime logging, redaction, rotation và Admin history | None | MCP/tool/session/HTTP/system events tự ghi JSONL; logging fail-open; secret được redact; record/file bounded; build + validate + test pass | None | Implementation + hardening đã code; chờ CI và live Windows/ChatGPT logging evidence trước khi DONE |
-| TASK-V2-001 | READY | Baseline/regression specification và test diagnostics | None | Ghi build/jobs/test baseline; meaningful regressions cho R01–R05; spawn failure hiển thị error code | None | Baseline PASS, probes R01/R02/R03 đã có; regression files chưa viết |
-| TASK-V2-002 | READY | Live ChatGPT/Tunnel identity + timing spike, quyết định OQ-01/OQ-02 | None | Evidence nhiều tool calls/hai chat/reconnect/close/probes; kết luận resume mapping và measured wake budget | None | Chưa chạy connector thật; không có permission mở chat/gửi request thay người dùng được suy từ review |
-| TASK-V2-003 | TODO | Session ExecutionContext thay global cwd/shell/process/context/checkpoint scope | TASK-V2-001 | A/B xen kẽ async operations không lẫn; context đúng workspace sau activation/switch | None | R01/R10; bao gồm project instructions và startup bootstrap race |
-| TASK-V2-004 | TODO | Dispatch gate và confirmation snapshot/token contract | TASK-V2-003 | Binding/revision/session drift bị reject; native/shell/REPL/upstream/hook gates được test | None | R02/R03; full-machine access không bị ngầm đổi thành sandbox |
-| TASK-V2-005 | TODO | Stop/switch/dispose, operation/resource ownership và mutation leases | TASK-V2-003, TASK-V2-004 | Stop A không đổi B; cleanup owned child resources; no mutation sau revoked generation; cùng workspace có conflict handling | None | R04/R08 |
-| TASK-V2-006 | TODO | Public MCP gateway + Driver SessionStore + versioned IPC prototype | TASK-V2-002, TASK-V2-004, TASK-V2-005 | Transport sống qua executor restart; SessionStore có single authority; protocol/ownership contract được test | None | R05; không giả lập restore bằng dựng JobRuntime trống |
-| TASK-V2-007 | TODO | WakeCoordinator, quiescence, failure recovery và live wake acceptance | TASK-V2-006 | Single-flight; ba sleep/wake giữ Job; active resources giữ awake; crash không replay mutation; live client evidence | None | Ghi unknown side-effect outcome khi cần |
-| TASK-V2-008 | TODO | Install/data path split, migration và portable harness runner | TASK-V2-003 | Cả ba packs chạy ngoài checkout; WORKER policy vẫn load; original data và modified jobs bảo toàn | None | R06; chốt OQ-03 phần harness |
-| TASK-V2-009 | TODO | Manifest schema/API adapter, metadata catalog, immutable pack snapshots | TASK-V2-004, TASK-V2-008 | Legacy packs tương thích; aliases/API/resource path failures rõ; active revision được pin | None | R07/R09; giữ JSON-compatible YAML |
-| TASK-V2-010 | TODO | Pack staging/publish/history transaction primitives | TASK-V2-005, TASK-V2-009 | Concurrent base conflict; hash validation; crash recovery mỗi bước; live/catalog nhất quán | None | Core transaction infrastructure |
-| TASK-V2-011 | TODO | Job Authoring pack, fixtures và completion criteria | TASK-V2-010 | Create/update không hỏi project folder; staged invalid pack không publish; snapshot cũ tiếp tục chạy | None | Canonical pack mới theo yêu cầu v2 |
-| TASK-V2-012 | TODO | Minimal chat command mapping và MCP internal diagnostics | TASK-V2-007, TASK-V2-011 | Bốn cú pháp route đúng; confirmation giữ nguyên; dynamic catalog dùng được trên ChatGPT | None | Không giả định server tự nhận toàn nội dung chat |
-| TASK-V2-013 | TODO | Scheduled Task, supervision, credential migration và Windows lifecycle | TASK-V2-007, TASK-V2-008 | User logon/network reconnect/suspend/duplicate start/child crash; no secret leak; đúng process ownership | None | Chốt OQ-04; user-mode Driver |
-| TASK-V2-014 | TODO | Packaging, clean-machine upgrade/uninstall, docs và v2 release acceptance | TASK-V2-009, TASK-V2-012, TASK-V2-013 | Cài/logon/ChatGPT/wake/sleep/resume hai chat; upgrade giữ jobs; đầy đủ validation và review diff | None | Chốt OQ-03 packaging; merge cần user approval |
+| ID | Status | Task / Output | Depends On | Acceptance | Progress / Notes |
+|---|---|---|---|---|---|
+| TASK-V2-LOG-001 | DONE | Automatic structured runtime logging, redaction, rotation, Admin history | None | CI pass + live Windows/ChatGPT/tunnel log; secrets redacted; MCP/session/tool evidence captured | Live evidence collected 2026-09-20; transport session proved unsuitable as work identity |
+| TASK-V2-001 | READY | WorkRegistration contract, WorkspaceKey and execution ID naming | LOG-001 | deterministic workspace key; readable execution ID; no transport identity dependency | New architecture approved in conversation |
+| TASK-V2-002 | READY | WorkspaceOwnershipRegistry + registration/confirmation gate | TASK-V2-001 | one owner per canonical workspace; missing/stale execution → NO_ACTIVE_WORK; duplicate → WORKSPACE_BUSY | No fallback to most-recent Job/workspace |
+| TASK-V2-003 | TODO | ExecutionContext injection and removal of global Job/cwd/context authority | TASK-V2-002 | A/B interleaving does not change each other's Job/workspace/context | Covers current global cwd/instruction context risks |
+| TASK-V2-004 | TODO | Tool Family Registry + ephemeral instance factory + immutable ToolContext | TASK-V2-003 | shared families; Job cannot register duplicate core tools; instances cannot rebind | No fixed pool/free-list |
+| TASK-V2-005 | TODO | ActiveToolLeaseRegistry + stateful resource ownership + stop/switch cleanup | TASK-V2-004 | short leases disappear after call; long resource leases persist correctly; stop A does not affect B | Lease ID contains family/job/workspace/generation/call sequence |
+| TASK-V2-006 | TODO | Multi-execution concurrency acceptance and remaining global-state refactor | TASK-V2-005 | many executions call same family concurrently on different workspaces without family-level queue | Stress read/write/shell/git/process |
+| TASK-V2-007 | TODO | Driver public gateway + versioned IPC executor | TASK-V2-003, TASK-V2-005 | Driver remains authority while Worker can restart; protocol state separated from execution state | MCP sessions remain transport-only |
+| TASK-V2-008 | TODO | WakeCoordinator + quiescence-based Worker sleep | TASK-V2-007 | registrations survive >=3 sleep/wake cycles; no inactivity timeout required; live resources block sleep | Driver/tunnel stay alive |
+| TASK-V2-009 | TODO | installRoot/dataRoot split + AppData migration + portable harness | TASK-V2-003 | packs run outside checkout; customized packs preserved | job.yaml remains sole registry |
+| TASK-V2-010 | TODO | Manifest/API compatibility + immutable pack revision snapshots | TASK-V2-004, TASK-V2-009 | active execution pins revision; malformed/colliding resources rejected | Keep JSON-compatible YAML initially |
+| TASK-V2-011 | TODO | Pack staging/publish/history transaction primitives | TASK-V2-005, TASK-V2-010 | invalid pack never live; revision conflict deterministic; crash recovery valid | Internal publish infrastructure |
+| TASK-V2-012 | TODO | Job Authoring workflow + minimal chat control mapping | TASK-V2-011 | create/update validated; four public commands stay minimal | Internal register/status/switch allowed |
+| TASK-V2-013 | TODO | Windows logon host, supervision, tunnel/executor lifecycle | TASK-V2-008, TASK-V2-009 | duplicate start/network reconnect/suspend/child crash handled; no credential leak | User-mode Driver |
+| TASK-V2-014 | TODO | Packaging, clean-machine upgrade/uninstall, v2 release acceptance | TASK-V2-010, TASK-V2-012, TASK-V2-013 | install→register→parallel work→sleep/wake→upgrade preserving Jobs | Final release gate |
 
 ## Execution Rules
 
-- Status: TODO, READY, IN_PROGRESS, BLOCKED, DONE. Dependencies đạt mới bắt đầu dependent implementation.
-- Nếu identity spike không chứng minh contract, mark TASK-V2-006/007 và dependent release acceptance BLOCKED; không đoán conversation ID hay dùng global state.
-- DONE cần acceptance evidence và applicable deterministic validation, không chỉ file đã tạo.
-- Các task code chưa được thực hiện trong lượt review này; không ghi DONE cho task baseline/regression chỉ vì baseline test có sẵn đã pass.
-- Giữ stable IDs; task-local subplans chỉ chi tiết hóa phạm vi đã chốt.
-- Scope/architecture mới phải có record trước implementation; không đưa mục Deferred thành required work một cách âm thầm.
+- Status: TODO, READY, IN_PROGRESS, BLOCKED, DONE.
+- Do not use MCP transport session as execution authority.
+- Do not introduce a global active Job or global cwd fallback.
+- Do not add a fixed number of tool instances per family.
+- Do not queue calls merely because they use the same Tool Family.
+- Every execution tool must resolve a valid WorkRegistration before creating its instance.
+- Tool instance identity is immutable for its lifetime.
+- Workspace ownership is exclusive at canonical workspace level.
+- Active registration has no inactivity timeout by default.
+- DONE requires deterministic tests plus live acceptance when transport/Windows lifecycle is involved.
+- Scope changes must update ARCHITECTURE.md before implementation.
 
 ## Completion Summary
 
-2026-09-20: P0 được thu hẹp theo quyết định người dùng vào automatic runtime logging. Baseline build/validate/jobs/npm test PASS; đã reproduces changed-binding confirmation bug nhưng chưa xử lý vì ngoài P0. Logging implementation và hardening đã code; TASK-V2-LOG-001 vẫn IN_PROGRESS cho tới khi có CI + live Windows/ChatGPT evidence. Driver, AppData migration, authoring và packaging chưa bắt đầu.
+2026-09-20:
+- P0 logging implementation and hardening merged; CI passed.
+- Live runtime evidence collected.
+- Architecture changed from session-centric identity to explicit Job + Workspace Work Registration.
+- MCP transport session is now explicitly non-authoritative.
+- P1 starts with WorkRegistration + WorkspaceOwnership, then ExecutionContext and Tool Family refactor.
