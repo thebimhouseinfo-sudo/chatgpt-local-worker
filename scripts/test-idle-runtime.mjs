@@ -7,6 +7,7 @@ const sessionManager = await fs.readFile("src/lib/mcp-session-manager.ts", "utf8
 const tray = await fs.readFile("gptworker-tray.ps1", "utf8");
 const start = await fs.readFile("start.ps1", "utf8");
 const tunnel = await fs.readFile("openai-tunnel.ps1", "utf8");
+const setupTest = await fs.readFile("setup-test.bat", "utf8");
 
 const heavyModules = [
   "./tools/filesystem.js",
@@ -97,6 +98,32 @@ if (!tunnel.includes("Quote-ProcessArgument $ProfileFile")) {
 }
 if (!tunnel.includes('$argumentLine = "run --profile-file $quotedProfile"')) {
   throw new Error("detached tunnel must pass a quoted profile path argument line");
+}
+
+for (const required of [
+  "Tai Permissions, chon Restricted.",
+  "Tim dong Tunnels, sau do bat CA HAI quyen:",
+  "[x] Read",
+  "[x] Use",
+  "Khong chon Read Only",
+  "Khong can bat All cho toan bo API key.",
+  "Neu co muc chon ChatGPT workspace, chon dung workspace",
+  "API key nay giong nhu chia khoa",
+]) {
+  if (!tunnel.includes(required)) {
+    throw new Error(`setup wizard is missing non-developer guidance: ${required}`);
+  }
+}
+
+for (const required of [
+  "go bat ky chu nao de di tiep",
+  "Tunnels va bat CA HAI: Read + Use",
+  "KHONG can bat All cho toan bo API key",
+  "KHONG can biet lap trinh",
+]) {
+  if (!setupTest.includes(required)) {
+    throw new Error(`setup-test UX contract missing: ${required}`);
+  }
 }
 
 console.log("test-idle-runtime: ok");
