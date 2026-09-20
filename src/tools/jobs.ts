@@ -51,6 +51,31 @@ function stableBindings(bindings: Record<string, string> | undefined): string {
   );
 }
 
+function normalizedConfirmationValue(key: string, value: string): string {
+  const trimmed = value.trim();
+  if (key !== "workspace" || !path.isAbsolute(trimmed)) return trimmed;
+  const resolved = path.resolve(trimmed);
+  return process.platform === "win32" ? resolved.toLowerCase() : resolved;
+}
+
+function confirmationBindingsCompatible(
+  supplied: Record<string, string> | undefined,
+  confirmed: Record<string, string>
+): boolean {
+  if (!supplied) return true;
+  for (const [key, value] of Object.entries(supplied)) {
+    const confirmedValue = confirmed[key];
+    if (typeof confirmedValue !== "string") return false;
+    if (
+      normalizedConfirmationValue(key, value) !==
+      normalizedConfirmationValue(key, confirmedValue)
+    ) {
+      return false;
+    }
+  }
+  return true;
+}
+
 
 async function safe<T extends object>(
   tool: string,
@@ -671,6 +696,14 @@ export function registerJobTools(
           );
         }
 
+        if (!confirmationBindingsCompatible(bindings, proof.bindings)) {
+          throw new Error(
+            "Confirmation token is bound to different Job/Workspace bindings. Request a new confirmation before activation."
+          );
+        }
+
+        const confirmedJob = proof.jobId;
+        const confirmedBindings = proof.bindings;
         const status = await sessionRuntime.status();
         let activationToken = confirmation_token;
         const samePendingState =
@@ -679,8 +712,8 @@ export function registerJobTools(
 
         if (!samePendingState) {
           const primed = await sessionRuntime.select({
-            job,
-            bindings,
+            job: confirmedJob,
+            bindings: confirmedBindings,
             confirmed: false,
           });
           if (
@@ -727,8 +760,8 @@ export function registerJobTools(
         let selected: any;
         try {
           selected = await activationRuntime.select({
-            job,
-            bindings,
+            job: confirmedJob,
+            bindings: confirmedBindings,
             confirmed: true,
             confirmationToken: activationToken,
           });
