@@ -2,7 +2,7 @@
 
 ## Objective
 
-GPTWorker là một general local worker dùng ChatGPT làm UI. Driver + Secure MCP Tunnel có thể luôn sống rất nhẹ; Worker executor và tool instances chỉ sinh khi cần.
+GPTWorker là một general local worker dùng ChatGPT làm UI. Trên Windows, GPTWorker hoạt động như một background desktop app kiểu Google Drive: tự chạy khi user đăng nhập, không cần launcher hằng ngày, có system-tray icon để xem trạng thái/restart/thoát. Secure MCP Tunnel + resident control layer luôn sống rất nhẹ; execution runtime và tool instances chỉ được đánh thức/sinh khi có work thật sự.
 
 Kiến trúc v2 đặt Work Registration làm authority thay vì MCP transport session.
 
@@ -28,7 +28,18 @@ Do đó:
 
 ## Current Finalization Mode
 
-During v2 finalization, keep the current monolithic GPTWorker process. Driver/Executor split is optional hardening, not a release gate. Manual launch remains acceptable if it is reliable.
+Trong giai đoạn final test, **chưa đóng gói EXE/installer**. Source hiện tại, `setup.bat`, `run.bat` và PowerShell helpers vẫn được giữ để test/debug.
+
+Kiến trúc release đã chốt:
+
+- normal user không cần launcher hằng ngày;
+- GPTWorker đăng ký auto-start theo Windows user sau setup;
+- một resident host rất mỏng + Secure MCP Tunnel sống nền;
+- system-tray icon là điểm điều khiển local duy nhất;
+- execution runtime không giữ Job/tool/process khi idle;
+- `run.bat` chỉ còn là fallback/manual recovery cho source build, không phải daily UX;
+- process split Driver/Executor là implementation detail: có thể tách process nếu cần để đạt idle footprint, nhưng không bắt buộc chỉ để thỏa kiến trúc;
+- packaging chỉ bắt đầu sau final live source test và explicit user approval.
 
 Job Packs use two fixed roles:
 
@@ -37,30 +48,37 @@ Job Packs use two fixed roles:
 
 `job list` merges both sources. Job ids are globally unique; `job create` rejects any id already present in either source. `job update/remove` operate only on AppData custom Jobs. To customize a bundled default, `job create` may clone it into a new unique custom id; the repo source is never modified.
 
-## Optional Future Driver Architecture
-
+## Target Resident Desktop Architecture
 ~~~text
-ChatGPT
-  → Secure MCP Tunnel
-  → Driver / Public MCP Gateway
-      ├─ protocol / compatibility
+Windows logon
+  → GPTWorker Resident Host                         [always-on, very light]
+      ├─ system tray / single-instance supervisor
+      ├─ Public MCP front door
+      ├─ Secure MCP Tunnel supervision
       ├─ WorkRegistrationStore
       ├─ WorkspaceOwnershipRegistry
-      ├─ ActiveToolLeaseRegistry
+      ├─ ActiveToolLeaseRegistry metadata
       ├─ WakeCoordinator
-      └─ IPC
-           ↓
-        Worker Executor
-          ├─ JobRuntime / JobCatalog
+      └─ diagnostics / recovery
+           ↓ only when work needs execution
+        Execution Runtime                           [on-demand / quiescent when idle]
+          ├─ JobRuntime / JobCatalog execution context
           ├─ Tool Family Registry
           ├─ ephemeral tool instances
+          ├─ stateful owned resources
           └─ upstream adapters
+
+ChatGPT
+  → Secure MCP Tunnel
+  → Resident Host / Public MCP front door
 
 Mutable user data root: %LOCALAPPDATA%\GPTWorker\
 ~~~
 
-### Driver owns
+### Resident Host / Driver owns
 
+- per-user Windows auto-start lifecycle;
+- system-tray lifecycle and manual Exit/Restart;
 - public MCP protocol lifecycle;
 - single-instance host;
 - Work Registration authority;
@@ -71,7 +89,7 @@ Mutable user data root: %LOCALAPPDATA%\GPTWorker\
 - tunnel supervision;
 - diagnostics.
 
-### Worker executor owns
+### Execution runtime owns
 
 - core tool implementations;
 - family factories;
@@ -89,6 +107,61 @@ Mutable user data root: %LOCALAPPDATA%\GPTWorker\
 
 Job Pack does not own filesystem/shell/git implementations.
 
+## Resident Idle Contract
+
+Khi không có work đang chạy, GPTWorker phải trở về trạng thái resident tối thiểu:
+
+~~~text
+Resident Host
+  ├─ tray icon / supervisor
+  ├─ MCP front door
+  ├─ Secure MCP Tunnel
+  └─ event-driven control loop
+
+Execution state
+  ├─ no active Job/Workspace unless a WorkRegistration is intentionally alive
+  ├─ no shell session
+  ├─ no REPL instance
+  ├─ no managed child process
+  ├─ no borrowed tool instance
+  └─ no arbitrary polling loop keeping executor busy
+~~~
+
+"One thin active loop" là **logical architecture**, không phải cam kết đúng một OS thread. Node/.NET/tunnel-client có thể có internal threads, nhưng GPTWorker không được giữ execution workload, busy polling, tool pool hoặc background Job chỉ để chờ việc.
+
+Resident behavior phải event-driven. Health checks/polling chỉ dùng khi startup, recovery, explicit diagnostics hoặc cadence rất thưa có lý do rõ ràng.
+
+Incoming work:
+
+~~~text
+MCP request
+  → resident front door validates work/control context
+  → wake execution runtime if execution is needed
+  → borrow/create required tool instance
+  → execute
+  → release owned tool/resource
+  → return to quiescent state when no execution work remains
+~~~
+
+Closing ChatGPT does not stop GPTWorker. User manually exits from the tray when they want the local bridge fully off.
+
+### Tray contract
+
+System tray menu remains intentionally small:
+
+~~~text
+GPTWorker
+Status: Connected | Working | Degraded
+
+Open setup guide
+Restart GPTWorker
+Exit GPTWorker
+~~~
+
+- `Open setup guide` opens the local onboarding HTML.
+- `Restart GPTWorker` restarts resident host/tunnel and invalidates stale execution authority through normal epoch rules.
+- `Exit GPTWorker` stops the resident host, tunnel, execution runtime, and GPTWorker-owned child resources.
+- Tray Exit must not kill unrelated user applications.
 ## Work Identity
 
 ### WorkspaceKey
@@ -291,30 +364,33 @@ Every execution path checks ACTIVE registration before creating an instance.
 
 Preflight/control tools may be available before ACTIVE via explicit allowlist.
 
-## Three Independent Lifecycles
+## Four Independent Lifecycles
 
 ### 1. Transport
 
 MCP initialize/session/GET/DELETE/recovery. Disposable. Not authority.
 
-### 2. Work Registration
+### 2. Resident Host
 
-Job + Workspace execution authority. Lives until explicit stop/switch, Driver restart, or 10 minutes of inactivity. The idle clock applies only when no tool lease is active; releasing the final foreground lease restarts the idle clock.
+Starts with Windows user logon after setup and normally remains alive until manual tray Exit, restart, logoff, or OS shutdown. It owns the tray, tunnel supervision, MCP front door and work authority metadata. It is not a Job and does not imply an active Workspace.
 
-### 3. Worker Process
+### 3. Work Registration
 
-Executor process may sleep while registrations remain ACTIVE.
+Job + Workspace execution authority. Lives until explicit stop/switch, Resident Host restart, or 10 minutes of inactivity. The idle clock applies only when no tool lease is active; releasing the final foreground lease restarts the idle clock.
+
+### 4. Execution Runtime
+
+Execution runtime may be asleep/quiescent while Resident Host + tunnel remain alive.
 
 ~~~text
 activeCalls == 0
 AND activeResourceLeases == 0
 AND queuedDispatch == 0
 AND publishTransactions == 0
-  → executor may sleep
+  → execution runtime may sleep/unload
 ~~~
 
-Driver + tunnel stay alive.
-
+A valid later call wakes execution again without inventing a new Job/Workspace. A timed-out WorkRegistration, however, must be registered again.
 ## Stop / Switch
 
 job_stop:
@@ -368,17 +444,39 @@ An active execution continues using the revision it registered with. A later Job
 
 ## Public UX
 
-Daily UX remains intentionally small:
+Normal desktop UX:
 
 ~~~text
+FIRST TIME
+setup.bat
+  → configure Tunnel/API
+  → connect ChatGPT
+  → register per-user auto-start
+  → start resident GPTWorker
+
+EVERY DAY
+Windows logon
+  → GPTWorker tray icon appears
+  → Secure MCP Tunnel is ready
+  → open ChatGPT and use @gptworker
+~~~
+
+No launcher window is required for normal daily use.
+
+Chat command surface remains intentionally small:
+
+~~~text
+gptworker/help
 gptworker/job list
 gptworker/job create
 gptworker/job update
 gptworker/job remove
+gptworker/job export
+gptworker/job import
+gptworker/job stop
 ~~~
 
-Internal tools may implement select/register/status/switch/diagnostics. The user does not manage execution IDs or authority tokens manually; ChatGPT carries the work handle between tool calls. P1 must prove this behavior with the live connector before broader refactors depend on it.
-
+Internal tools may implement select/register/status/switch/diagnostics. The user does not manage execution IDs or authority tokens manually; ChatGPT carries the work handle between tool calls.
 ## Invariants
 
 1. No active Job + Workspace registration → no execution tool.
@@ -396,6 +494,10 @@ Internal tools may implement select/register/status/switch/diagnostics. The user
 13. No auto-attach to most recent Job/workspace; orphan recovery requires explicit confirmed replacement.
 14. Ambiguous/unknown execution never replays mutation.
 15. job.yaml is the only Job registry authority on disk.
+16. Windows resident host + tunnel may stay alive while execution runtime is quiescent.
+17. Idle resident state holds no pre-created tool pool, shell/REPL session, managed execution process or active Job merely for readiness.
+18. Normal daily UX requires no launcher window; tray icon is the local lifecycle control.
+19. Manual tray Exit stops GPTWorker-owned resident/tunnel/execution resources but never unrelated user applications.
 
 ## Security / Trust Model
 
@@ -405,11 +507,11 @@ Credentials are never embedded in readable execution IDs, tool lease IDs or Job 
 
 ## Deferred
 
-- active registration resume after Driver reboot;
+- active registration resume after Resident Host reboot/restart;
 - concurrent independent executions on the same workspace;
 - multi-machine execution;
 - untrusted pack OS sandbox;
 - marketplace/package manager;
-- Driver/Executor split unless manual launch proves insufficient;
-- Windows Service;
-- EXE packaging until AppData migration passes live tests.
+- Windows Service: not required for the desktop design; per-user logon background app is the target;
+- physical Driver/Executor process split unless idle-footprint testing proves it necessary;
+- EXE/installer packaging until the final live source test passes and the user explicitly approves packaging.
