@@ -17,39 +17,7 @@ import { TOOL_RESULT_OUTPUT_SCHEMA } from "./lib/tool-result.js";
 import { JobRuntime } from "./jobs/job-runtime.js";
 import { runWithWorkspaceCwd } from "./lib/path-security.js";
 import { acquireToolLease, releaseToolLease } from "./lib/work-registration.js";
-
-const CONTROL_TOOLS = new Set([
-  "job_list",
-  "job_status",
-  "job_select",
-  "job_switch",
-  "job_stop",
-  "agent_status",
-]);
-
-const FILESYSTEM_TOOLS = new Set([
-  "read_text_file", "read_file_base64", "write_file", "write_file_base64",
-  "edit_file", "multi_edit", "replace_regex", "apply_patch", "list_directory",
-  "glob", "grep", "delete_file", "create_directory", "delete_directory",
-  "copy_file", "move_file", "search_files", "directory_tree", "list_allowed_directories",
-]);
-
-const SHELL_TOOLS = new Set([
-  "run_command", "shell_status", "shell_reset", "start_process",
-  "process_status", "process_output", "stop_process", "clear_processes",
-]);
-
-function toolFamily(toolName: string): string {
-  if (FILESYSTEM_TOOLS.has(toolName)) return "filesystem";
-  if (SHELL_TOOLS.has(toolName)) return "shell";
-  if (toolName.startsWith("git_")) return "git";
-  if (toolName.includes("checkpoint") || toolName.includes("rewind")) return "rewind";
-  if (toolName.includes("repl")) return "repl";
-  if (["project_context", "list_skills", "load_skill", "remember", "load_path_rules"].includes(toolName)) {
-    return "context";
-  }
-  return "core";
-}
+import { requiresWorkHandle, toolFamily } from "./lib/tool-work-policy.js";
 
 const NOOP_TOOL = {
   remove: () => {},
@@ -66,7 +34,7 @@ function configureToolRegistration(server: McpServer): void {
   server.registerTool = ((name, config, callback) => {
     const toolName = String(name);
     const isUpstreamProxy = toolName.includes("__");
-    const requiresWork = !isUpstreamProxy && !CONTROL_TOOLS.has(toolName);
+    const requiresWork = requiresWorkHandle(toolName);
 
     // Upstream MCP tools are namespaced as <server>__<tool>. An enabled
     // upstream is always exposed directly, even when local tools use slim.
