@@ -2,6 +2,7 @@ import { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import type { RegisteredTool } from "@modelcontextprotocol/sdk/server/mcp.js";
 import { z } from "zod";
 import { registerJobTools } from "./tools/jobs.js";
+import { registerAdmissionTool } from "./tools/admission.js";
 import { registerWorkGateway } from "./tools/work-gateway.js";
 import { registerWorkspaceDiscoveryTool } from "./tools/workspace-discovery.js";
 import { buildServerInstructions } from "./lib/quickstart.js";
@@ -113,7 +114,7 @@ export function createMcpServer(
   const server = new McpServer(
     {
       name: "local-worker-mcp-server",
-      version: "2.4.0",
+      version: "2.5.0",
     },
     {
       capabilities: {
@@ -130,6 +131,10 @@ export function createMcpServer(
   );
 
   configureToolRegistration(server);
+
+  // The admission handshake is the first internal gate whenever ChatGPT is
+  // considering GPTWorker for ordinary work. It returns ACTIVE/CONTROL/INACTIVE.
+  registerAdmissionTool(server);
 
   const jobRuntime = new JobRuntime(workspaceRoot);
   const workResolver = registerWorkGateway(
