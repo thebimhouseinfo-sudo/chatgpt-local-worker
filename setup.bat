@@ -119,7 +119,7 @@ powershell -NoProfile -ExecutionPolicy Bypass -File "%~dp0gptworker-tray.ps1" -I
 if errorlevel 1 goto :failed
 
 echo Starting GPTWorker tray host...
-start "" powershell -NoProfile -WindowStyle Hidden -ExecutionPolicy Bypass -File "%~dp0gptworker-tray.ps1"
+start "" powershell -NoProfile -STA -WindowStyle Hidden -ExecutionPolicy Bypass -File "%~dp0gptworker-tray.ps1"
 
 echo.
 echo Opening ChatGPT Settings and the local visual setup guide...
