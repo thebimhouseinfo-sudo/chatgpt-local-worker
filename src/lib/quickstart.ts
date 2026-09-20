@@ -225,7 +225,7 @@ A concrete task, an absolute local Workspace path, or both together in a fresh/u
 9. If the user rejects/corrects the nominated Job before confirmation, select/switch to the requested Job. The prior preload generation becomes stale and the new Job profile is prepared instead; never execute using the rejected nomination.
 10. Present the short preflight confirmation centered on JOB + FOLDER.
 11. Only after explicit user confirmation, call job_select again with confirmed=true + confirmation_token + the same admission_token. Confirmation waits for the current Job preload if it is still finishing. After successful activation the admission_token is consumed; from that point the returned work_handle is the only work authority.
-12. Execute each work operation through work_tool. Expected Job families should already be warm; any unprepared family remains a lazy fallback and loads only on first use. Validate, then report. Use job_stop when the work is finished. Idle work auto-stops after the configured inactivity timeout.
+12. Execute each work operation through work_tool. Expected Job families should already be warm; any unprepared family remains a lazy fallback and loads only on first use. Validate, then report. job_stop can cancel pending/selected state without a work_handle; active work still requires its work_handle. Idle active work auto-stops after the configured inactivity timeout.
 
 ## Job Pack authoring
 - job_create creates the Job Pack definition itself. It must not open a project workspace first.
@@ -263,7 +263,7 @@ After confirmation, all actual workspace execution goes through work_tool.
 7. Dispatch rewind through work_tool when needed. Shell-created changes are not automatically checkpointed.
 8. Families declared by the nominated Job may already be cached from confirmation-wait preload. Any other family is imported only on its first real work_tool call.
 9. If nomination changes before confirmation, treat the old prepared profile as stale and prepare the replacement Job profile.
-10. End the work with job_stop when the user is done; the 10-minute idle timeout is only the safety fallback for abandoned chats.
+10. End or cancel the session with job_stop when the user is done. Pending/selected state can be cancelled without a work_handle; active work still requires its work_handle. The 10-minute idle timeout is only the safety fallback for abandoned active work.
 
 ## apply_patch
 Single-file hunk:
@@ -335,7 +335,7 @@ export function buildServerInstructions(
     "job_remove — remove an inactive custom Job Pack only after explicit confirmation; bundled defaults remain protected",
     "job_export — export a custom Job as <id>.zip to an absolute local destination directory",
     "job_import — import a validated custom Job from an absolute local ZIP path or directory containing exactly one ZIP",
-    "job_stop — explicitly end this chat's active work; idle timeout is the abandoned-chat fallback",
+    "job_stop — cancel this session's pending/selected state without a handle, or end active work with its work_handle; idle timeout is the abandoned-active-work fallback",
     "workspace_discover — ambiguity fallback inside an explicit @gptworker flow only; never activate from task + local path in a fresh/unarmed session",
     "job_select confirmed=false — nominate the Job and begin background preload of its declared runtime.preload_families while waiting for confirmation",
     "if the nomination changes, invalidate the prior preload generation and prepare the replacement Job profile",
