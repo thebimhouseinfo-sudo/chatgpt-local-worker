@@ -1,32 +1,65 @@
 export const GPTWORKER_HELP = `
 # GPTWorker — Hướng dẫn nhanh
 
-GPTWorker cho phép ChatGPT làm việc trực tiếp trên máy của bạn thông qua các Job Pack.
+**GPTWorker giúp ChatGPT làm việc trực tiếp với các file trên máy tính của bạn, đặc biệt là file code và tài liệu Microsoft Office như Word, Excel, PowerPoint.**
 
-## Cách dùng cơ bản
-1. Xem Job có sẵn bằng: gptworker/job list
-2. Nói việc cần làm và cung cấp thư mục tuyệt đối, ví dụ: D:\\Projects\\MyApp
-3. GPTWorker sẽ hiện JOB + FOLDER để bạn xác nhận trước khi chạy.
-4. Khi xong, dùng gptworker/job stop. Nếu bỏ chat không làm gì trong 10 phút, Job sẽ tự stop.
+Bạn chỉ cần nói bằng ngôn ngữ tự nhiên việc muốn làm và chỉ rõ thư mục cần làm việc.
 
-Mỗi chat chỉ có 1 Job + 1 Workspace đang hoạt động. Chat mới luôn bắt đầu ở trạng thái idle và không tự nhớ Workspace của chat cũ.
+Ví dụ:
 
-## Quản lý custom Job
-- gptworker/job create — tạo custom Job mới
-- gptworker/job update — sửa custom Job
-- gptworker/job remove — xóa custom Job sau khi kiểm tra trạng thái và xác nhận
-- gptworker/job export — đóng gói custom Job thành file ZIP
-- gptworker/job import — nhập custom Job từ file ZIP
+> “Đổi hết tên file trong thư mục D:\\Photos thành chữ in hoa.”
 
-Bundled Job đi kèm GPTWorker là read-only. Custom Job được lưu riêng trong AppData.
+Hoặc một công việc lớn hơn:
 
-## Quy tắc an toàn
-- Mọi đường dẫn file/thư mục phải là đường dẫn tuyệt đối.
-- GPTWorker luôn hỏi xác nhận trước khi bắt đầu Job.
-- Nếu remove một Job đang làm việc, GPTWorker sẽ báo số tool call đang chạy và hỏi lại trước khi ngắt Job rồi remove.
-- Một chat không được tự dừng WorkRegistration thuộc chat khác.
+> “Đọc các tài liệu trong thư mục D:\\BaoCao, tạo một file PowerPoint khoảng 30 slide và sử dụng các hình minh họa trong thư mục con Images.”
 
-Bạn có thể bắt đầu bằng gptworker/job list hoặc chỉ mô tả việc muốn làm; GPTWorker sẽ chọn Job phù hợp nếu có.
+GPTWorker sẽ giúp ChatGPT thao tác trực tiếp với các file trên máy tính để thực hiện công việc đó.
+
+## Job là gì?
+
+**Job là cách bạn dạy GPT phải làm việc theo một khuôn khổ nhất định, thay vì để GPT tự quyết định cách làm mỗi lần.**
+
+Ví dụ, bạn có thể tạo Job ppt và quy định trước font chữ phải dùng, kích thước tiêu đề, bố cục slide, transition, cách sử dụng hình ảnh và những bước cần kiểm tra trước khi hoàn thành.
+
+Từ đó, mỗi khi sử dụng Job ppt, GPT sẽ làm PowerPoint theo đúng các quy tắc bạn đã đặt ra.
+
+Bạn cũng có thể tự tạo Job cho những công việc thường xuyên của mình.
+
+## Thư mục làm việc
+
+**Mỗi khi bắt đầu một công việc, hãy cung cấp cho GPTWorker một thư mục làm việc cụ thể.**
+
+Có thể hiểu đơn giản là bạn đang nói với GPT:
+
+> **“Hãy làm việc trong thư mục này.”**
+
+Ví dụ:
+
+D:\\Projects\\MyPresentation
+
+GPTWorker sẽ dùng thư mục đó làm Workspace của công việc để GPT biết chính xác mình đang làm việc ở đâu và tránh sửa nhầm file ở nơi khác trên máy tính.
+
+Trước khi bắt đầu, GPTWorker sẽ báo lại:
+
+    JOB: ppt
+    FOLDER: D:\\Projects\\MyPresentation
+
+    Xác nhận bắt đầu?
+
+**Không có Job + Workspace được xác nhận thì GPTWorker không được bắt đầu làm việc.**
+
+## Các lệnh chính
+
+| Lệnh | Chức năng |
+|---|---|
+| gptworker/help | Xem hướng dẫn này |
+| gptworker/job list | Xem các Job hiện có |
+| gptworker/job create | Tạo custom Job mới |
+| gptworker/job update | Chỉnh sửa custom Job |
+| gptworker/job remove | Xóa custom Job sau khi kiểm tra và xác nhận |
+| gptworker/job export | Đóng gói custom Job thành file ZIP |
+| gptworker/job import | Cài custom Job từ file ZIP |
+| gptworker/job stop | Kết thúc Job đang làm việc |
 `.trim();
 
 export const MCP_QUICKSTART = `
