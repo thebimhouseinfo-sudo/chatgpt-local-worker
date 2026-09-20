@@ -292,6 +292,12 @@ export function validateActivationGate(input: ActivationGateInput): ActivationGa
   }
 
   const workspace = input.bindings?.workspace?.trim();
+  if (workspace && !path.isAbsolute(workspace)) {
+    throw new Error(
+      "ACTIVATION_REQUIRED: Workspace must be an absolute local Workspace path."
+    );
+  }
+
   return {
     trigger: "explicit_gptworker",
     workspace: workspace ? path.resolve(workspace) : undefined,
