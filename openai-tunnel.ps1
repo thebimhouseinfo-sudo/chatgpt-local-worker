@@ -190,12 +190,7 @@ function Show-ConnectorGuide([string]$TunnelId, [int]$UiPort = 8080) {
 
 function Invoke-TunnelInit {
     Write-Host ""
-    Write-Host "=== OpenAI Tunnel - Cai dat lan dau ===" -ForegroundColor Cyan
-    Write-Host ""
-    Write-Host "Can 2 gia tri tu OpenAI Platform:" -ForegroundColor Yellow
-    Write-Host "  Tunnels:  https://platform.openai.com/settings/organization/tunnels"
-    Write-Host "  API Keys: https://platform.openai.com/settings/organization/api-keys"
-    Write-Host "  (Dung Runtime API key, KHONG dung Admin key)" -ForegroundColor DarkGray
+    Write-Host "=== GPTWorker - Ket noi OpenAI Secure MCP Tunnel ===" -ForegroundColor Cyan
     Write-Host ""
 
     $existingId = Get-DotEnvValue "OPENAI_TUNNEL_ID"
@@ -203,27 +198,58 @@ function Invoke-TunnelInit {
 
     if ($existingId) {
         $tunnelId = $existingId
-        Write-Host "Tunnel ID (tu .env): $tunnelId"
+        Write-Host "[1/2] Secure MCP Tunnel: da cau hinh" -ForegroundColor Green
+        Write-Host "Tunnel ID: $tunnelId" -ForegroundColor DarkGray
     } else {
-        $tunnelId = Read-Host "Nhap OPENAI_TUNNEL_ID (tunnel_...)"
+        Write-Host "[1/2] TAO SECURE MCP TUNNEL" -ForegroundColor Yellow
+        Write-Host ""
+        Write-Host "Trang OpenAI Tunnels se duoc mo tren trinh duyet." -ForegroundColor White
+        Write-Host "Tao mot tunnel moi (goi y ten: gptworker)." -ForegroundColor White
+        Write-Host "Sau khi tao xong, copy Tunnel ID co dang tunnel_..." -ForegroundColor White
+        Write-Host ""
+        Start-Process "https://platform.openai.com/settings/organization/tunnels"
+
+        do {
+            $tunnelId = Read-Host "Paste Tunnel ID here (tunnel_...)"
+            if (-not $tunnelId -or $tunnelId -notmatch '^tunnel_[0-9a-f]{32}$') {
+                Write-Host "Tunnel ID khong hop le. Hay copy dung gia tri tunnel_... tu trang OpenAI Tunnels." -ForegroundColor Red
+                $tunnelId = $null
+            }
+        } until ($tunnelId)
+
+        Set-DotEnvValue "OPENAI_TUNNEL_ID" $tunnelId
+        Write-Host "[OK] Da luu Tunnel ID." -ForegroundColor Green
     }
 
     if ($existingKey) {
         $apiKey = $existingKey
-        Write-Host "API Key: **** (tu .env)"
+        Write-Host ""
+        Write-Host "[2/2] Runtime API key: da cau hinh" -ForegroundColor Green
     } else {
-        $apiKey = Read-Host "Nhap OPENAI_TUNNEL_API_KEY (sk-...)"
+        Write-Host ""
+        Write-Host "[2/2] TAO RUNTIME API KEY" -ForegroundColor Yellow
+        Write-Host ""
+        Write-Host "Trang OpenAI API Keys se duoc mo tren trinh duyet." -ForegroundColor White
+        Write-Host "Tao Runtime API key cho GPTWorker." -ForegroundColor White
+        Write-Host "Key can quyen Tunnels: Read + Use." -ForegroundColor White
+        Write-Host "Sau khi tao xong, copy API key co dang sk-..." -ForegroundColor White
+        Write-Host ""
+        Start-Process "https://platform.openai.com/settings/organization/api-keys"
+
+        do {
+            $apiKey = Read-Host "Paste Runtime API key here (sk-...)"
+            if (-not $apiKey -or $apiKey -notmatch '^sk-') {
+                Write-Host "API key khong hop le. Hay copy dung Runtime API key bat dau bang sk-." -ForegroundColor Red
+                $apiKey = $null
+            }
+        } until ($apiKey)
+
+        Set-DotEnvValue "OPENAI_TUNNEL_API_KEY" $apiKey
+        Write-Host "[OK] Da luu Runtime API key." -ForegroundColor Green
     }
 
-    if (-not $tunnelId -or $tunnelId -notmatch '^tunnel_[0-9a-f]{32}$') {
-        throw "OPENAI_TUNNEL_ID khong hop le. Dang tunnel_ + 32 ky tu hex."
-    }
-    if (-not $apiKey) {
-        throw "OPENAI_TUNNEL_API_KEY trong."
-    }
-
-    Set-DotEnvValue "OPENAI_TUNNEL_ID" $tunnelId
-    Set-DotEnvValue "OPENAI_TUNNEL_API_KEY" $apiKey
+    Write-Host ""
+    Write-Host "Dang kiem tra Tunnel + API key..." -ForegroundColor Cyan
 
     $envPort = Get-DotEnvValue "PORT"
     $resolvedPort = if ($Port -gt 0) { $Port } elseif ($envPort) { [int]$envPort } else { 3000 }
@@ -271,9 +297,8 @@ function Invoke-TunnelInit {
     }
 
     Write-Host ""
-    Write-Host "Da luu vao .env. Lan sau chi can:" -ForegroundColor Green
-    Write-Host "  .\start.ps1 -Force          # terminal 1"
-    Write-Host "  .\openai-tunnel.ps1         # terminal 2"
+    Write-Host "[OK] Tunnel va API key da duoc cau hinh." -ForegroundColor Green
+    Write-Host "Lan sau chi can chay run.bat." -ForegroundColor Green
     Show-ConnectorGuide -TunnelId $tunnelId
 }
 
