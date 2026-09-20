@@ -7,6 +7,7 @@ const sessionManager = await fs.readFile("src/lib/mcp-session-manager.ts", "utf8
 const tray = await fs.readFile("gptworker-tray.ps1", "utf8");
 const start = await fs.readFile("start.ps1", "utf8");
 const tunnel = await fs.readFile("openai-tunnel.ps1", "utf8");
+const setupTest = await fs.readFile("setup-test.bat", "utf8");
 
 const heavyModules = [
   "./tools/filesystem.js",
@@ -97,6 +98,30 @@ if (!tunnel.includes("Quote-ProcessArgument $ProfileFile")) {
 }
 if (!tunnel.includes('$argumentLine = "run --profile-file $quotedProfile"')) {
   throw new Error("detached tunnel must pass a quoted profile path argument line");
+}
+
+for (const required of [
+  "Permissions: choose Restricted.",
+  "Tunnels permissions, enable BOTH:",
+  "[x] Read",
+  "[x] Use",
+  "Do NOT use Read Only.",
+  "You do NOT need to grant All permissions to the whole API key.",
+  "Attach/select the ChatGPT workspace that will use GPTWorker.",
+]) {
+  if (!tunnel.includes(required)) {
+    throw new Error(`setup wizard is missing required guidance: ${required}`);
+  }
+}
+
+for (const required of [
+  "Type ANY non-empty text in either input field to continue.",
+  "Tunnels: enable Read + Use",
+  "do NOT grant All to the whole key just for GPTWorker",
+]) {
+  if (!setupTest.includes(required)) {
+    throw new Error(`setup-test UX contract missing: ${required}`);
+  }
 }
 
 console.log("test-idle-runtime: ok");
