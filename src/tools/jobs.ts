@@ -4,8 +4,6 @@ import { z } from "zod";
 import type { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import { JobRuntime } from "../jobs/job-runtime.js";
 import { createJobPack, updateJobPack, removeJobPack } from "../jobs/job-authoring.js";
-import { setDefaultCwd } from "../lib/path-security.js";
-import { resetShellSession } from "../lib/persistent-shell.js";
 import { clearWorkerState } from "../lib/worker-state.js";
 import { toolAnnotations } from "../lib/tool-annotations.js";
 import { toolError, toolResult } from "../lib/tool-result.js";
@@ -114,8 +112,6 @@ async function persistActiveSelection(result: any, runtime: JobRuntime) {
   const registration = await createWorkRegistration(jobId, workspace, () => {
     runtime.stop();
   });
-  setDefaultCwd(workspace);
-  resetShellSession(workspace);
   return {
     ...result,
     work_handle: getPublicWorkHandle(registration),
