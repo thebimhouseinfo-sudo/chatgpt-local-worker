@@ -176,10 +176,10 @@ Do not spend a tool round-trip merely to discover that required task/workspace i
 
 ## Fast Job nomination
 A work request may enter GPTWorker only through an explicit @gptworker flow:
-- either the current user turn literally contains `@gptworker`; or
-- a prior bare `@gptworker` in this same MCP session armed the flow, and the current reply now supplies the Job/task + explicit absolute local Workspace.
+- either the current user turn literally contains \`@gptworker\`; or
+- a prior bare \`@gptworker\` in this same MCP session armed the flow, and the current reply now supplies the Job choice + explicit absolute local Workspace. Task details may still be incomplete and can be collected by the Job runtime.
 
-A fresh task + absolute local path in a session that has not been armed by `@gptworker` must not enter GPTWorker. Do not inspect the repository before nomination unless the Job itself is genuinely ambiguous.
+A fresh task + absolute local path in a session that has not been armed by \`@gptworker\` must not enter GPTWorker. Do not inspect the repository before nomination unless the Job itself is genuinely ambiguous.
 
 High-confidence default routing:
 - \`coding\`: fix/modify/implement/debug/refactor/build/test code, app, script, repo, Lisp, frontend/backend behavior.
