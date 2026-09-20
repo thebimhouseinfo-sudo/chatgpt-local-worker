@@ -178,6 +178,15 @@ assert.equal(lateWorkspaceAdmission.mode, "ACTIVE");
 assert.equal(lateWorkspaceAdmission.workspace, undefined);
 const firstWorkspace = path.resolve("first-workspace");
 const secondWorkspace = path.resolve("second-workspace");
+assert.throws(
+  () =>
+    lateWorkspaceRuntime.validate(
+      lateWorkspaceAdmission.admission_token,
+      "relative-workspace"
+    ),
+  /absolute local Workspace/,
+  "relative Workspace must be rejected before an unbound token is mutated"
+);
 lateWorkspaceRuntime.validate(
   lateWorkspaceAdmission.admission_token,
   firstWorkspace
