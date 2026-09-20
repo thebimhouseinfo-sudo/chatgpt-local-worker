@@ -2,7 +2,8 @@
 # This is the pre-packaging desktop runtime used for final source testing.
 param(
     [switch]$InstallStartup,
-    [switch]$RemoveStartup
+    [switch]$RemoveStartup,
+    [switch]$RestartRuntimeOnStart
 )
 
 $ErrorActionPreference = "Stop"
@@ -397,6 +398,10 @@ $bootstrapTimer.Interval = 250
 $bootstrapTimer.Add_Tick({
     $bootstrapTimer.Stop()
     try {
+        if ($RestartRuntimeOnStart) {
+            Write-TrayLog "Fresh source launch requested; restarting GPTWorker runtime before bootstrap."
+            Stop-GptWorkerRuntime
+        }
         Start-GptWorkerRuntime
         Write-TrayLog "Runtime bootstrap completed with status $(Get-RuntimeStatus)."
     } catch {
