@@ -80,7 +80,8 @@ echo   Starting local GPTWorker
 echo ========================================
 
 echo Starting Worker in background with logs...
-powershell -NoProfile -Command "$log=Join-Path $env:LOCALAPPDATA 'GPTWorker\logs'; New-Item -ItemType Directory -Force -Path $log ^| Out-Null; $script=[IO.Path]::GetFullPath('%~dp0start.ps1'); $args='-NoProfile -ExecutionPolicy Bypass -File ""'+$script+'"" -Port %WORKER_PORT% -Force'; Start-Process powershell.exe -ArgumentList $args -WindowStyle Hidden -RedirectStandardOutput (Join-Path $log 'worker.out.log') -RedirectStandardError (Join-Path $log 'worker.err.log') ^| Out-Null"
+powershell -NoProfile -ExecutionPolicy Bypass -File "%~dp0start-worker-background.ps1" -Port %WORKER_PORT% -Force
+if errorlevel 1 goto :failed
 
 echo Waiting for local Worker on port %WORKER_PORT%...
 powershell -NoProfile -Command "$ok=$false; foreach ($i in 1..30) { try { $r=Invoke-WebRequest 'http://127.0.0.1:%WORKER_PORT%/health' -UseBasicParsing -TimeoutSec 1; if ($r.StatusCode -eq 200) { $ok=$true; break } } catch {}; Start-Sleep -Milliseconds 500 }; if (-not $ok) { exit 1 }"
