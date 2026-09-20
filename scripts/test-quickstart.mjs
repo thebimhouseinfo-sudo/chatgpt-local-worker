@@ -78,9 +78,7 @@ assert.equal(
 );
 
 assert.ok(GPTWORKER_HELP.includes("**Job + Workspace local**"));
-assert.ok(GPTWORKER_HELP.includes("## Kích hoạt GPTWorker"));
-assert.ok(GPTWORKER_HELP.includes("@gptworker"));
-assert.ok(GPTWORKER_HELP.includes("Workspace local"));
+assert.ok(!GPTWORKER_HELP.includes("## Kích hoạt GPTWorker"));
 assert.ok(MCP_QUICKSTART.includes("## GPTWorker activation gate"));
 assert.ok(MCP_QUICKSTART.includes("task_with_workspace"));
 assert.ok(MCP_QUICKSTART.includes("do not nominate a Job or FOLDER") || MCP_QUICKSTART.includes("do not ask the user for JOB/FOLDER"));
@@ -96,5 +94,20 @@ assert.ok(GPTWORKER_HELP.includes("gptworker/job remove"));
 assert.ok(GPTWORKER_HELP.includes("gptworker/job export"));
 assert.ok(GPTWORKER_HELP.includes("import"));
 assert.ok(GPTWORKER_HELP.includes("gptworker/job stop"));
+assert.equal(
+  GPTWORKER_HELP.split("Từ tài liệu trong D:\\Meeting tạo một presentation.").length - 1,
+  2,
+  "the fixed help text must preserve the user-approved duplicate example exactly"
+);
+assert.equal(
+  GPTWORKER_HELP.startsWith("# GPTWorker Help\n\nGPTWorker làm việc theo **Job + Workspace local**."),
+  true,
+  "fixed help header changed"
+);
+assert.equal(
+  GPTWORKER_HELP.endsWith("Chỉ sau khi user xác nhận, GPTWorker mới bắt đầu thao tác với Workspace."),
+  true,
+  "fixed help footer changed"
+);
 
 console.log("test-quickstart: ok");
