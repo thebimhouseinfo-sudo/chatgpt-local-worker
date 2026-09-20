@@ -6,72 +6,96 @@ import {
 } from "../dist/lib/activation-policy.js";
 
 const workspace = path.resolve("activation-test-workspace");
-const runtime = new AdmissionRuntime();
 
-const inactive = runtime.check({
-  userTurn: "Sửa UI này đẹp hơn",
+// Fresh/unarmed session: task + absolute local path must never activate GPTWorker.
+const fresh = new AdmissionRuntime();
+const directTaskWithPath = fresh.check({
+  userTurn: `Sửa app ở ${workspace} để thêm nút regenerate`,
   hasConcreteTask: true,
+  workspace,
 });
-assert.equal(inactive.mode, "INACTIVE");
-assert.equal(inactive.claimed, false);
-assert.equal(
-  inactive.next,
-  "stop_gptworker_continue_normal_chat_or_requested_plugin"
-);
+assert.equal(directTaskWithPath.mode, "INACTIVE");
+assert.equal(directTaskWithPath.claimed, false);
+assert.equal(directTaskWithPath.admission_token, undefined);
 
-const control = runtime.check({ userTurn: "gptworker/job list" });
+const control = fresh.check({ userTurn: "gptworker/job list" });
 assert.equal(control.mode, "CONTROL");
 assert.equal(control.claimed, false);
 
-const explicitAdmission = runtime.check({
-  userTurn: "@gptworker sửa app giúp tôi",
+// Current-turn explicit @gptworker works.
+const explicitAdmission = fresh.check({
+  userTurn: `@gptworker sửa app ở ${workspace} để thêm nút regenerate`,
+  hasConcreteTask: true,
+  workspace,
 });
 assert.equal(explicitAdmission.mode, "ACTIVE");
 assert.equal(explicitAdmission.trigger, "explicit_gptworker");
 assert.equal(typeof explicitAdmission.admission_token, "string");
 
-const naturalAdmission = runtime.check({
-  userTurn: `Sửa app ở ${workspace} để thêm nút regenerate`,
-  hasConcreteTask: true,
+// Bare @gptworker can arm the same MCP session for the next Job+Workspace reply.
+const continuationRuntime = new AdmissionRuntime();
+assert.equal(continuationRuntime.isExplicitAtFlowArmed(), false);
+assert.equal(
+  continuationRuntime.armExplicitAt("@gptworker"),
+  true,
+  "literal @gptworker must arm the current MCP session"
+);
+assert.equal(continuationRuntime.isExplicitAtFlowArmed(), true);
+
+const continuationAdmission = continuationRuntime.check({
+  userTurn: `2 ${workspace}`,
+  hasConcreteTask: false,
   workspace,
 });
-assert.equal(naturalAdmission.mode, "ACTIVE");
-assert.equal(naturalAdmission.trigger, "task_with_workspace");
-assert.equal(naturalAdmission.workspace, workspace);
-assert.equal(typeof naturalAdmission.admission_token, "string");
+assert.equal(continuationAdmission.mode, "ACTIVE");
+assert.equal(continuationAdmission.trigger, "explicit_gptworker");
+assert.equal(continuationAdmission.workspace, workspace);
+assert.equal(typeof continuationAdmission.admission_token, "string");
 
 assert.equal(
-  runtime.validate(naturalAdmission.admission_token, workspace).trigger,
-  "task_with_workspace"
+  continuationRuntime.validate(
+    continuationAdmission.admission_token,
+    workspace
+  ).trigger,
+  "explicit_gptworker"
 );
+
 assert.throws(
   () =>
-    runtime.validate(
-      naturalAdmission.admission_token,
+    continuationRuntime.validate(
+      continuationAdmission.admission_token,
       path.resolve("different-workspace")
     ),
   /Workspace does not match/
 );
 
-const fromAdmission = runtime.activation(
-  naturalAdmission.admission_token,
+const fromAdmission = continuationRuntime.activation(
+  continuationAdmission.admission_token,
   { workspace }
 );
-assert.equal(fromAdmission.trigger, "task_with_workspace");
+assert.equal(fromAdmission.trigger, "explicit_gptworker");
 assert.equal(fromAdmission.workspace, workspace);
 
 assert.throws(
-  () => runtime.activation(undefined, { workspace }),
+  () => continuationRuntime.activation(undefined, { workspace }),
   /ADMISSION_REQUIRED/
 );
 
+// @ authorization never crosses MCP sessions.
 const otherSession = new AdmissionRuntime();
+assert.equal(otherSession.isExplicitAtFlowArmed(), false);
+const crossSessionDirect = otherSession.check({
+  userTurn: `Đọc repo ${workspace} và lên kế hoạch`,
+  hasConcreteTask: true,
+  workspace,
+});
+assert.equal(crossSessionDirect.mode, "INACTIVE");
 assert.throws(
-  () => otherSession.validate(naturalAdmission.admission_token, workspace),
+  () => otherSession.validate(continuationAdmission.admission_token, workspace),
   /another MCP session/
 );
 
-// Preserve the lower-level evidence validator as a defense-in-depth primitive.
+// Lower-level activation proof remains literal-@ based.
 assert.throws(
   () => validateActivationGate({ bindings: { workspace } }),
   /ACTIVATION_REQUIRED/
@@ -81,7 +105,7 @@ assert.throws(
   () =>
     validateActivationGate({
       trigger: "explicit_gptworker",
-      activationRequest: "Sửa app này giúp tôi",
+      activationRequest: `Sửa app ở ${workspace}`,
       bindings: { workspace },
     }),
   /literal @gptworker/
@@ -89,18 +113,10 @@ assert.throws(
 
 const explicit = validateActivationGate({
   trigger: "explicit_gptworker",
-  activationRequest: "@gptworker sửa app giúp tôi",
+  activationRequest: "@gptworker",
   bindings: { workspace },
 });
 assert.equal(explicit.trigger, "explicit_gptworker");
-
-const natural = validateActivationGate({
-  trigger: "task_with_workspace",
-  activationRequest: `Sửa app ở ${workspace} để thêm nút regenerate`,
-  activationWorkspace: workspace,
-  bindings: { workspace },
-});
-assert.equal(natural.trigger, "task_with_workspace");
-assert.equal(natural.workspace, workspace);
+assert.equal(explicit.workspace, workspace);
 
 console.log("test-activation-policy: ok");

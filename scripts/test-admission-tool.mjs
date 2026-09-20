@@ -32,28 +32,50 @@ if (!inactiveJson.includes('"mode":"INACTIVE"')) {
 if (!inactiveJson.includes('"render_to_user":false')) {
   throw new Error("admission result must be marked non-user-facing");
 }
-if (!inactiveJson.includes("Continue the response as ordinary ChatGPT")) {
-  throw new Error("INACTIVE must instruct ChatGPT to continue normally");
+
+const workspace = path.resolve("admission-tool-test-workspace");
+
+// Direct task + path in a fresh session is blocked.
+const direct = await admission.callback({
+  user_turn: `Sửa app ở ${workspace} để thêm nút regenerate`,
+  has_concrete_task: true,
+  workspace,
+});
+const directJson = JSON.stringify(direct);
+if (!directJson.includes('"mode":"INACTIVE"')) {
+  throw new Error("fresh task + absolute local path without @gptworker must be INACTIVE");
 }
 
+// Literal @gptworker is ACTIVE.
 const explicit = await admission.callback({
-  user_turn: "@gptworker sửa app này",
+  user_turn: `@gptworker sửa app ở ${workspace}`,
   has_concrete_task: true,
+  workspace,
 });
 const explicitJson = JSON.stringify(explicit);
 if (!explicitJson.includes('"mode":"ACTIVE"') || !explicitJson.includes("admission_token")) {
   throw new Error("@gptworker must produce ACTIVE admission token");
 }
 
-const workspace = path.resolve("admission-tool-test-workspace");
-const natural = await admission.callback({
-  user_turn: `Sửa app ở ${workspace} để thêm nút regenerate`,
-  has_concrete_task: true,
+// A separately armed @ flow may continue without repeating @.
+const continuationRuntime = new AdmissionRuntime();
+continuationRuntime.armExplicitAt("@gptworker");
+const continuationRegistered = new Map();
+const continuationServer = {
+  registerTool(name, config, callback) {
+    continuationRegistered.set(name, { config, callback });
+    return { remove() {}, update() {}, enable() {}, disable() {}, enabled: true };
+  },
+};
+registerAdmissionTool(continuationServer, continuationRuntime);
+const continuationTool = continuationRegistered.get("gptworker_admission");
+const continuation = await continuationTool.callback({
+  user_turn: `2 ${workspace}`,
+  has_concrete_task: false,
   workspace,
 });
-const naturalJson = JSON.stringify(natural);
-if (!naturalJson.includes('"mode":"ACTIVE"') || !naturalJson.includes("task_with_workspace")) {
-  throw new Error("task + absolute local path must be ACTIVE");
+if (!JSON.stringify(continuation).includes('"mode":"ACTIVE"')) {
+  throw new Error("armed @gptworker flow must allow the following Job+Workspace continuation");
 }
 
 const control = await admission.callback({

@@ -1,7 +1,7 @@
 import path from "node:path";
 import { randomUUID } from "node:crypto";
 
-export type ActivationTrigger = "explicit_gptworker" | "task_with_workspace";
+export type ActivationTrigger = "explicit_gptworker";
 export type AdmissionMode = "ACTIVE" | "CONTROL" | "INACTIVE";
 
 export interface ActivationGateInput {
@@ -28,7 +28,6 @@ export interface AdmissionDecision {
   claimed: boolean;
   reason:
     | "explicit_gptworker"
-    | "task_with_workspace"
     | "public_command"
     | "user_did_not_invoke_gptworker";
   trigger?: ActivationTrigger;
@@ -45,7 +44,13 @@ interface AdmissionProof {
   mode: "ACTIVE";
   trigger: ActivationTrigger;
   request: string;
+  invocationRequest: string;
   workspace?: string;
+  createdAt: number;
+}
+
+interface ArmedAtFlow {
+  invocationRequest: string;
   createdAt: number;
 }
 
@@ -76,6 +81,7 @@ function isPublicControlCommand(userTurn: string): boolean {
 
 export class AdmissionRuntime {
   private readonly admissions = new Map<string, AdmissionProof>();
+  private armedAtFlow: ArmedAtFlow | undefined;
 
   private cleanup(): void {
     const now = Date.now();
@@ -84,6 +90,28 @@ export class AdmissionRuntime {
         this.admissions.delete(token);
       }
     }
+    if (
+      this.armedAtFlow &&
+      now - this.armedAtFlow.createdAt > ADMISSION_TTL_MS
+    ) {
+      this.armedAtFlow = undefined;
+    }
+  }
+
+  armExplicitAt(userTurn: string): boolean {
+    this.cleanup();
+    const request = userTurn?.trim();
+    if (!request || !/@gptworker\b/i.test(request)) return false;
+    this.armedAtFlow = {
+      invocationRequest: request,
+      createdAt: Date.now(),
+    };
+    return true;
+  }
+
+  isExplicitAtFlowArmed(): boolean {
+    this.cleanup();
+    return Boolean(this.armedAtFlow);
   }
 
   check(input: AdmissionCheckInput): AdmissionDecision {
@@ -108,25 +136,36 @@ export class AdmissionRuntime {
       };
     }
 
-    let trigger: ActivationTrigger | undefined;
+    let invocationRequest: string | undefined;
     let workspace: string | undefined;
 
     if (/@gptworker\b/i.test(userTurn)) {
-      trigger = "explicit_gptworker";
-    } else {
+      this.armExplicitAt(userTurn);
+      invocationRequest = userTurn;
       const candidate = input.workspace?.trim();
-      const hasWorkspace =
+      if (
+        candidate &&
+        path.isAbsolute(candidate) &&
+        includesPath(userTurn, candidate)
+      ) {
+        workspace = path.resolve(candidate);
+      }
+    } else if (this.armedAtFlow) {
+      // Continuation is allowed only after an explicit @gptworker invocation
+      // was observed in this exact MCP session.
+      const candidate = input.workspace?.trim();
+      const validWorkspace =
         Boolean(candidate) &&
         path.isAbsolute(candidate!) &&
         includesPath(userTurn, candidate!);
 
-      if (input.hasConcreteTask === true && hasWorkspace) {
-        trigger = "task_with_workspace";
+      if (validWorkspace) {
+        invocationRequest = this.armedAtFlow.invocationRequest;
         workspace = path.resolve(candidate!);
       }
     }
 
-    if (!trigger) {
+    if (!invocationRequest) {
       return {
         mode: "INACTIVE",
         claimed: false,
@@ -139,8 +178,9 @@ export class AdmissionRuntime {
     this.admissions.set(token, {
       token,
       mode: "ACTIVE",
-      trigger,
+      trigger: "explicit_gptworker",
       request: userTurn,
+      invocationRequest,
       workspace,
       createdAt: Date.now(),
     });
@@ -148,8 +188,8 @@ export class AdmissionRuntime {
     return {
       mode: "ACTIVE",
       claimed: true,
-      reason: trigger,
-      trigger,
+      reason: "explicit_gptworker",
+      trigger: "explicit_gptworker",
       workspace,
       admission_token: token,
       next: "continue_gptworker",
@@ -163,21 +203,21 @@ export class AdmissionRuntime {
     this.cleanup();
     if (!token) {
       throw new Error(
-        "ADMISSION_REQUIRED: call gptworker_admission first. GPTWorker work tools cannot be entered directly."
+        "ADMISSION_REQUIRED: GPTWorker work must come from an explicit @gptworker flow."
       );
     }
 
     const proof = this.admissions.get(token);
     if (!proof) {
       throw new Error(
-        "ADMISSION_REQUIRED: admission token is missing, stale, invalid, or belongs to another MCP session. Re-run gptworker_admission against the current user request."
+        "ADMISSION_REQUIRED: admission token is missing, stale, invalid, or belongs to another MCP session. Start again through @gptworker."
       );
     }
 
-    if (expectedWorkspace && proof.trigger === "task_with_workspace") {
-      if (normalizedPath(proof.workspace || "") !== normalizedPath(expectedWorkspace)) {
+    if (expectedWorkspace && proof.workspace) {
+      if (normalizedPath(proof.workspace) !== normalizedPath(expectedWorkspace)) {
         throw new Error(
-          "ADMISSION_REQUIRED: Workspace does not match the Workspace bound to this admission token."
+          "ADMISSION_REQUIRED: Workspace does not match the Workspace admitted in this @gptworker flow."
         );
       }
     }
@@ -189,74 +229,46 @@ export class AdmissionRuntime {
     token: string | undefined,
     bindings?: Record<string, string>
   ): ActivationGateResult {
-    const expectedWorkspace = bindings?.workspace;
-    const proof = this.validate(token, expectedWorkspace);
+    const proof = this.validate(token, bindings?.workspace);
 
     return validateActivationGate({
       trigger: proof.trigger,
       activationWorkspace: proof.workspace,
-      activationRequest: proof.request,
+      activationRequest: proof.invocationRequest,
       bindings,
     });
   }
 
   clear(): void {
     this.admissions.clear();
+    this.armedAtFlow = undefined;
   }
 }
 
 export function validateActivationGate(input: ActivationGateInput): ActivationGateResult {
-  if (!input.trigger) {
+  if (input.trigger !== "explicit_gptworker") {
     throw new Error(
-      "ACTIVATION_REQUIRED: GPTWorker may start only after an explicit @gptworker invocation in this chat, or a concrete work request that includes an explicit absolute local Workspace. Do not infer activation from memory, previous chats, project familiarity, or the availability of GPTWorker."
+      "ACTIVATION_REQUIRED: GPTWorker work may start only from an explicit @gptworker flow. A task, local path, memory, previous chat, project familiarity, or GPTWorker availability is not activation evidence."
     );
   }
 
   const request = input.activationRequest?.trim();
   if (!request) {
     throw new Error(
-      "ACTIVATION_REQUIRED: activation_request must contain the current-session user text that actually triggered GPTWorker. Never synthesize it from memory or another chat."
+      "ACTIVATION_REQUIRED: activation_request must contain the explicit @gptworker invocation observed in this MCP session."
     );
   }
 
-  if (input.trigger === "explicit_gptworker") {
-    if (!/@gptworker\b/i.test(request)) {
-      throw new Error(
-        "ACTIVATION_REQUIRED: explicit_gptworker requires literal @gptworker in the current-session activating user text."
-      );
-    }
-    return { trigger: input.trigger, request };
-  }
-
-  const activationWorkspace = input.activationWorkspace?.trim();
-  if (!activationWorkspace || !path.isAbsolute(activationWorkspace)) {
+  if (!/@gptworker\b/i.test(request)) {
     throw new Error(
-      "ACTIVATION_REQUIRED: task_with_workspace requires an absolute local Workspace explicitly supplied with the activating work request."
+      "ACTIVATION_REQUIRED: explicit_gptworker requires literal @gptworker."
     );
   }
 
-  const boundWorkspace = input.bindings?.workspace?.trim();
-  if (!boundWorkspace || !path.isAbsolute(boundWorkspace)) {
-    throw new Error(
-      "ACTIVATION_REQUIRED: task_with_workspace requires bindings.workspace to be the explicit absolute local Workspace."
-    );
-  }
-
-  if (normalizedPath(activationWorkspace) !== normalizedPath(boundWorkspace)) {
-    throw new Error(
-      "ACTIVATION_REQUIRED: activation_workspace must match bindings.workspace. Do not substitute a remembered or previously used Workspace."
-    );
-  }
-
-  if (!includesPath(request, activationWorkspace)) {
-    throw new Error(
-      "ACTIVATION_REQUIRED: task_with_workspace requires the explicit local Workspace path to appear in the current-session activating user text. A path recovered from memory, another chat, Worker state, or project history is invalid."
-    );
-  }
-
+  const workspace = input.bindings?.workspace?.trim();
   return {
-    trigger: input.trigger,
-    workspace: boundWorkspace,
+    trigger: "explicit_gptworker",
+    workspace: workspace ? path.resolve(workspace) : undefined,
     request,
   };
 }

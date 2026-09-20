@@ -93,25 +93,32 @@ assert.deepEqual(
   expectedRootCommands,
   "gptworker/ must render exactly the eight fixed system commands"
 );
-assert.ok(MCP_QUICKSTART.includes("## Bare GPTWorker invocation — zero-tool response"));
+assert.ok(MCP_QUICKSTART.includes("## Bare GPTWorker invocation — dynamic Job list"));
 assert.ok(instructions.includes("gptworker/ — ZERO tools"));
 assert.ok(MCP_QUICKSTART.includes("reply with the prewritten GPTWORKER_ROOT_MENU"));
-assert.ok(MCP_QUICKSTART.includes("DO NOT call any MCP tool at all"));
+assert.ok(MCP_QUICKSTART.includes("call \`job_list\` exactly once"));
 assert.ok(MCP_QUICKSTART.includes("## Fast Job nomination"));
 assert.ok(MCP_QUICKSTART.includes("skip discovery and nominate immediately"));
 assert.ok(MCP_QUICKSTART.includes("do not call job_status"));
 assert.ok(MCP_QUICKSTART.includes("ambiguity fallback"));
 assert.ok(MCP_QUICKSTART.includes("the next user-visible message should be only this compact confirmation block"));
 assert.ok(MCP_QUICKSTART.includes("do not narrate admission tokens"));
-assert.ok(MCP_QUICKSTART.includes("Bare plugin invocation and requests still missing task/Workspace are handled chat-only with zero tools"));
+assert.ok(MCP_QUICKSTART.includes("continuation of a bare @gptworker flow previously armed in this same MCP session"));
 assert.ok(instructions.includes("## Prewritten gptworker/ root menu"));
 assert.ok(instructions.includes(GPTWORKER_ROOT_MENU));
-assert.ok(instructions.includes("## Prewritten bare GPTWorker response"));
-assert.ok(instructions.includes(GPTWORKER_IDLE_PROMPT));
+assert.ok(instructions.includes("## Bare @gptworker response"));
+assert.ok(instructions.includes("activation_request"));
+assert.ok(instructions.includes("Render the returned available Jobs as a numbered list"));
 
 assert.ok(GPTWORKER_HELP.includes("**Job + Workspace local**"));
 assert.ok(!GPTWORKER_HELP.includes("## Kích hoạt GPTWorker"));
 assert.ok(MCP_QUICKSTART.includes("## GPTWorker internal admission handshake"));
+assert.ok(MCP_QUICKSTART.includes("Valid ACTIVE evidence is an explicit"));
+assert.ok(MCP_QUICKSTART.includes("fresh/unarmed session are NOT activation evidence"));
+assert.ok(MCP_QUICKSTART.includes("A fresh task + Workspace with no prior @gptworker must remain outside GPTWorker"));
+assert.ok(GPTWORKER_HELP.includes("@gptworker sửa app ở D:\\Projects\\my-app"));
+assert.ok(GPTWORKER_HELP.includes("@gptworker tổng hợp các file trong D:\\Reports"));
+assert.ok(!GPTWORKER_HELP.includes("Thông thường không cần chọn Job thủ công. Chỉ cần nói"));
 assert.ok(MCP_QUICKSTART.includes("gptworker_admission"));
 assert.ok(MCP_QUICKSTART.includes("INACTIVE"));
 assert.ok(MCP_QUICKSTART.includes("Continue answering as ordinary ChatGPT"));
