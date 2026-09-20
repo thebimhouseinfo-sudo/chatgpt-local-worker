@@ -44,9 +44,9 @@ export function registerAdmissionTool(server: McpServer): void {
         render_to_user: false,
         ...decision,
         instruction:
-          decision.mode === "inactive"
+          decision.mode === "INACTIVE"
             ? "STOP GPTWorker. Do not call any GPTWorker discovery/job/work tool. Continue the response as ordinary ChatGPT, or use another plugin/tool if that is what the user requested."
-            : decision.mode === "control"
+            : decision.mode === "CONTROL"
               ? "Handle only the explicit GPTWorker control command. Do not activate a Job unless the user separately starts work."
               : "GPTWorker is admitted for this conversation flow. Carry admission_token into pre-confirmation discovery and Job nomination.",
       });
