@@ -74,6 +74,15 @@ echo Building and launching the real source tray runtime...
 call "%~dp0run.bat"
 if errorlevel 1 goto :failed
 
+echo.
+echo The GPTWorker tray icon should now be visible.
+echo RIGHT-CLICK the tray icon and choose:
+echo   Restart GPTWorker
+echo.
+echo This intentionally tests Restart and guarantees the running Worker
+echo reloads the build you just created.
+pause
+
 set "WORKER_PORT=3000"
 for /f "tokens=2 delims==" %%A in ('findstr /B /C:"PORT=" ".env"') do set "WORKER_PORT=%%A"
 set "TUNNEL_HEALTH_PORT=8080"
