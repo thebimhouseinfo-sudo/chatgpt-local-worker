@@ -22,20 +22,13 @@ const expectedRootCommands = [
   "gptworker/job stop",
 ];
 
-const menuStart = MCP_QUICKSTART.indexOf(
-  "When the user sends exactly gptworker/"
+assert.ok(
+  MCP_QUICKSTART.includes("When the user sends exactly gptworker/"),
+  "root command contract marker missing"
 );
-assert.notEqual(menuStart, -1, "root command contract marker missing");
-
-const menuSlice = MCP_QUICKSTART.slice(menuStart).split("\n\n")[0];
-const listed = menuSlice
-  .split("\n")
-  .map((line) => line.trim())
-  .filter((line) => line.startsWith("- gptworker/"))
-  .map((line) => line.slice(2));
 
 assert.deepEqual(
-  listed,
+  GPTWORKER_ROOT_MENU.split("\n"),
   expectedRootCommands,
   "gptworker/ root menu must contain exactly the eight fixed commands"
 );
