@@ -2,6 +2,7 @@ import { randomUUID } from "node:crypto";
 import fs from "fs/promises";
 import { getAuditPath } from "./audit.js";
 import { enqueueRuntimeLog, loadRuntimeLog } from "./runtime-log.js";
+import { requiresWorkHandle, toolFamily } from "./tool-work-policy.js";
 
 export type ActivityKind = "tool" | "mcp" | "session" | "system";
 
@@ -313,6 +314,45 @@ export function logMcpRequest(
 
   if (rpc.method === "tools/call" && rpc.params?.name) {
     const tool = rpc.params.name;
+    const args =
+      rpc.params.arguments && typeof rpc.params.arguments === "object"
+        ? (rpc.params.arguments as Record<string, unknown>)
+        : {};
+    const missingExecutionId =
+      requiresWorkHandle(tool) &&
+      (typeof args.execution_id !== "string" || !args.execution_id);
+    const missingAuthorityToken =
+      requiresWorkHandle(tool) &&
+      (typeof args.authority_token !== "string" || !args.authority_token);
+    const rejectedForMissingWork = missingExecutionId || missingAuthorityToken;
+    const workError = rejectedForMissingWork
+      ? "NO_ACTIVE_WORK: execution_id + authority_token are required"
+      : undefined;
+
+    if (rejectedForMissingWork) {
+      appendActivity({
+        kind: "tool",
+        tool,
+        action: "tool_lease_rejected",
+        status: "blocked",
+        session_id: sessionId,
+        request_id: rpc.id,
+        client: "chatgpt",
+        work_id:
+          typeof args.execution_id === "string" ? args.execution_id : undefined,
+        tool_family: toolFamily(tool),
+        summary: workError,
+        details: {
+          work_id:
+            typeof args.execution_id === "string" ? args.execution_id : undefined,
+          family: toolFamily(tool),
+          reason: "NO_ACTIVE_WORK",
+          missing_execution_id: missingExecutionId,
+          missing_authority_token: missingAuthorityToken,
+        },
+      });
+    }
+
     appendActivity({
       kind: "mcp",
       tool,
@@ -320,13 +360,14 @@ export function logMcpRequest(
       session_id: sessionId,
       request_id: rpc.id,
       client: "chatgpt",
-      status: isError ? "error" : "ok",
+      status: rejectedForMissingWork ? "blocked" : isError ? "error" : "ok",
       duration_ms: durationMs,
-      summary,
+      summary: workError || summary,
       details: {
         http_status: httpStatus,
         request_id: rpc.id,
         arguments: rpc.params.arguments,
+        ...(rejectedForMissingWork ? { application_status: "blocked" } : {}),
         ...(errorMessage ? { error: errorMessage } : {}),
       },
     });
