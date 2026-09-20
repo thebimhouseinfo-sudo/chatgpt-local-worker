@@ -9,6 +9,7 @@ const CONTROL_TOOLS = new Set([
   "job_select",
   "job_switch",
   "job_stop",
+  "workspace_discover",
   "agent_status",
 ]);
 
