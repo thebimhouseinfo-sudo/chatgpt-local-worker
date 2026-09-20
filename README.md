@@ -102,7 +102,7 @@ After both values are available, GPTWorker automatically configures `tunnel-clie
 
 After the tunnel is ready, `setup.bat` automatically opens **ChatGPT Settings → Plugins** and the local visual guide at `docs/setup-guide/index.html`.
 
-Use **ChatGPT on the web** for this one-time connection step. Keep the local guide open beside ChatGPT and follow screenshots `1.png` → `4.png`.
+Use **ChatGPT on the web** for this one-time connection step. Keep the local guide open beside ChatGPT and follow screenshots `1.png` → `5.png`.
 
 1. Follow screenshots `1.png` and `2.png`: open `Settings → Plugins` and enable **Developer mode**.
 2. Follow screenshot `3.png`: open the Plugins page and press `+` to create a new plugin.
@@ -115,7 +115,8 @@ Use **ChatGPT on the web** for this one-time connection step. Keep the local gui
 4. Do **not** choose **Server URL**.
 5. Do **not** use **Use tunnel ID instead**.
 6. Tick the confirmation checkbox shown in the dialog and press **Connect/Create**.
-7. Open a new chat and invoke `@gptworker`, then try `gptworker/`.
+7. Follow screenshot `5.png`: **restart Windows**. This verifies that GPTWorker really starts automatically with the current Windows user.
+8. After Windows starts again, open ChatGPT and invoke `@gptworker` to begin using GPTWorker.
 
 The visual guide uses the screenshots in:
 
@@ -130,6 +131,7 @@ in this order:
 2.png
 3.png
 4.png
+5.png
 ```
 
 Keep these filenames stable when replacing screenshots so the HTML does not need to change.
@@ -142,21 +144,19 @@ http://127.0.0.1:3000/mcp
 
 That endpoint stays local to your PC. ChatGPT connects through the OpenAI Secure MCP Tunnel.
 
-### 5. Test the connection
+### 5. Restart Windows and use GPTWorker
 
-Open a normal ChatGPT chat and invoke:
+After creating the plugin, **restart Windows**.
+
+GPTWorker is registered to auto-start for the current Windows user, so after sign-in the tray icon should appear and the Worker + Secure MCP Tunnel should come back automatically without running a launcher.
+
+Then open ChatGPT and invoke:
 
 ```text
 @gptworker
 ```
 
-Then try:
-
-```text
-gptworker/
-```
-
-You should see the GPTWorker root commands. After this one-time setup, GPTWorker starts automatically for the current Windows user. `run.bat` remains a source-build fallback/manual launcher during final testing.
+That is the normal way to start using GPTWorker. During source development, `run.bat` remains available only as a fallback/manual launcher.
 
 ### Setup core and future Wizard
 
