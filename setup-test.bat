@@ -77,19 +77,27 @@ pause
 
 call :screen "STEP 3 / 4" "Preview the OpenAI connection wizard"
 
-echo   Two input screens will be shown:
+echo   Two guided screens will be shown:
 echo.
-echo     1. Secure MCP Tunnel ID
+echo     1. Secure MCP Tunnel
+echo        - role needs Tunnels: Read + Use
+echo        - add Manage only if you create/edit tunnels
+echo        - attach the correct ChatGPT workspace
+echo        - copy the generated Tunnel ID
+echo.
 echo     2. Runtime API key
+echo        - create a new secret key
+echo        - choose Restricted permissions
+echo        - Tunnels: enable Read + Use
+echo        - do NOT use Read Only
+echo        - do NOT grant All to the whole key just for GPTWorker
 echo.
 echo   This is UX PREVIEW mode.
-echo   Type ANY non-empty text in either field to continue.
+echo   Type ANY non-empty text in either input field to continue.
 echo   Example: demo
 echo.
-echo   The same OpenAI pages used by real setup will still open so you
-echo   can verify the complete onboarding flow.
-echo.
-echo   Nothing entered in this step will be saved.
+echo   The real OpenAI pages still open so you can follow every screen.
+echo   Nothing entered in this step is validated or saved.
 echo.
 pause
 
