@@ -48,6 +48,21 @@ const workspaceGenerations = new Map<string, number>();
 const activeLeases = new Map<string, ToolLease>();
 let epochPromise: Promise<number> | null = null;
 
+function positiveEnvMs(name: string, fallback: number): number {
+  const value = Number.parseInt(process.env[name] || "", 10);
+  return Number.isFinite(value) && value > 0 ? value : fallback;
+}
+
+const WORK_IDLE_TIMEOUT_MS = positiveEnvMs(
+  "WORK_REGISTRATION_IDLE_MS",
+  10 * 60 * 1000
+);
+const WORK_IDLE_SWEEP_MS = positiveEnvMs(
+  "WORK_REGISTRATION_SWEEP_MS",
+  Math.min(60_000, Math.max(1_000, Math.floor(WORK_IDLE_TIMEOUT_MS / 4)))
+);
+let cleanupTimer: ReturnType<typeof setInterval> | null = null;
+
 function normalizeWorkspaceIdentity(value: string): string {
   let normalized = path.resolve(value);
   if (process.platform === "win32") normalized = normalized.toLowerCase();
@@ -190,11 +205,18 @@ export function validateWorkHandle(
   return registration;
 }
 
-export function releaseWorkRegistration(
-  executionId: string,
-  authorityToken: string
+function hasActiveLease(executionId: string): boolean {
+  for (const lease of activeLeases.values()) {
+    if (lease.workId === executionId) return true;
+  }
+  return false;
+}
+
+function releaseRegistration(
+  registration: WorkRegistration,
+  reason: "explicit_stop" | "idle_timeout"
 ): WorkRegistration {
-  const registration = validateWorkHandle(executionId, authorityToken);
+  const executionId = registration.executionId;
 
   for (const lease of activeLeases.values()) {
     if (lease.workId === executionId) {
@@ -217,7 +239,7 @@ export function releaseWorkRegistration(
           job_id: registration.jobId,
           workspace_key: registration.workspaceKey,
           family: lease.family,
-          reason: "work_stopped",
+          reason,
         },
       });
     }
@@ -226,6 +248,26 @@ export function releaseWorkRegistration(
   registrations.delete(executionId);
   if (workspaceOwners.get(registration.workspace) === executionId) {
     workspaceOwners.delete(registration.workspace);
+  }
+
+  if (reason === "idle_timeout") {
+    appendActivity({
+      kind: "system",
+      action: "work_auto_stopped",
+      status: "ok",
+      target: registration.workspaceKey,
+      summary: executionId,
+      work_id: executionId,
+      job_id: registration.jobId,
+      workspace_key: registration.workspaceKey,
+      details: {
+        work_id: executionId,
+        job_id: registration.jobId,
+        workspace_key: registration.workspaceKey,
+        idle_timeout_ms: WORK_IDLE_TIMEOUT_MS,
+        last_activity_at: registration.lastActivityAt,
+      },
+    });
   }
 
   appendActivity({
@@ -242,10 +284,52 @@ export function releaseWorkRegistration(
       job_id: registration.jobId,
       workspace_key: registration.workspaceKey,
       generation: registration.generation,
+      reason,
     },
   });
 
   return registration;
+}
+
+export function releaseWorkRegistration(
+  executionId: string,
+  authorityToken: string
+): WorkRegistration {
+  const registration = validateWorkHandle(executionId, authorityToken);
+  return releaseRegistration(registration, "explicit_stop");
+}
+
+export function sweepExpiredWorkRegistrations(nowMs = Date.now()): number {
+  let released = 0;
+
+  for (const registration of [...registrations.values()]) {
+    if (hasActiveLease(registration.executionId)) continue;
+
+    const lastActivityMs = Date.parse(registration.lastActivityAt);
+    if (!Number.isFinite(lastActivityMs)) continue;
+    if (nowMs - lastActivityMs < WORK_IDLE_TIMEOUT_MS) continue;
+
+    releaseRegistration(registration, "idle_timeout");
+    released += 1;
+  }
+
+  return released;
+}
+
+export function getWorkIdleTimeoutMs(): number {
+  return WORK_IDLE_TIMEOUT_MS;
+}
+
+function startWorkRegistrationSweeper(): void {
+  if (cleanupTimer) return;
+  cleanupTimer = setInterval(() => {
+    try {
+      sweepExpiredWorkRegistrations();
+    } catch {
+      // Runtime cleanup is fail-open; the next sweep retries.
+    }
+  }, WORK_IDLE_SWEEP_MS);
+  cleanupTimer.unref?.();
 }
 
 export function acquireToolLease(
@@ -330,6 +414,8 @@ export function releaseToolLease(
   errorMessage?: string
 ): void {
   activeLeases.delete(lease.leaseId);
+  const registration = registrations.get(lease.workId);
+  if (registration) registration.lastActivityAt = new Date().toISOString();
   appendActivity({
     kind: "tool",
     tool: lease.tool,
@@ -370,3 +456,5 @@ export function resetWorkRegistrationStateForTests(): void {
   workspaceGenerations.clear();
   activeLeases.clear();
 }
+
+startWorkRegistrationSweeper();
