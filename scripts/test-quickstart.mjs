@@ -130,6 +130,8 @@ assert.ok(!MCP_QUICKSTART.includes("current user turn literally contains \`@gptw
 assert.ok(MCP_QUICKSTART.includes("keep reusing that same admission_token"));
 assert.ok(MCP_QUICKSTART.includes("the admission_token is consumed"));
 assert.ok(MCP_QUICKSTART.includes("work_handle is the only work authority"));
+assert.ok(MCP_QUICKSTART.includes("job_stop can cancel pending/selected state without a work_handle"));
+assert.ok(MCP_QUICKSTART.includes("active work still requires its work_handle"));
 assert.ok(MCP_QUICKSTART.includes("task but omitted the absolute local Workspace"));
 assert.ok(MCP_QUICKSTART.includes("call \`gptworker_admission\` once on that same @gptworker turn"));
 assert.ok(MCP_QUICKSTART.includes("reuse that same admission_token when the user supplies the Workspace"));
