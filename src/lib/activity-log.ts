@@ -99,6 +99,7 @@ export function appendActivity(partial: Omit<ActivityEntry, "id" | "time"> & { t
     schema_version: 1,
     pid: process.pid,
     ...partial,
+    action: partial.action ? redactString(partial.action) : partial.action,
     summary: partial.summary ? redactString(partial.summary) : partial.summary,
     target: partial.target ? redactString(partial.target) : partial.target,
     details: partial.details
