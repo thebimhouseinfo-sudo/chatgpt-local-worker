@@ -714,18 +714,19 @@ export function registerJobTools(
         // Reserve execution authority before mutating JobRuntime to active.
         // If the Workspace is busy, the runtime remains awaiting_confirmation
         // and the user's confirmation proof remains retryable.
+        const activationRuntime = sessionRuntime;
         const registration = await createWorkRegistration(
           proof.jobId,
           confirmedWorkspace,
           () => {
-            sessionRuntime.stop();
+            activationRuntime.stop();
             lifecycle?.clear();
           }
         );
 
         let selected: any;
         try {
-          selected = await sessionRuntime.select({
+          selected = await activationRuntime.select({
             job,
             bindings,
             confirmed: true,
