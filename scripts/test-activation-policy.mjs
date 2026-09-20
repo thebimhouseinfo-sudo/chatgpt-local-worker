@@ -18,6 +18,17 @@ assert.equal(directTaskWithPath.mode, "INACTIVE");
 assert.equal(directTaskWithPath.claimed, false);
 assert.equal(directTaskWithPath.admission_token, undefined);
 
+const mentionOnly = fresh.check({
+  userTurn: `Đừng gọi @gptworker, chỉ giải thích ${workspace}`,
+  hasConcreteTask: true,
+  workspace,
+});
+assert.equal(
+  mentionOnly.mode,
+  "INACTIVE",
+  "@gptworker mentioned mid-sentence must not count as explicit invocation"
+);
+
 const control = fresh.check({ userTurn: "gptworker/job list" });
 assert.equal(control.mode, "CONTROL");
 assert.equal(control.claimed, false);
@@ -31,6 +42,18 @@ const explicitAdmission = fresh.check({
 assert.equal(explicitAdmission.mode, "ACTIVE");
 assert.equal(explicitAdmission.trigger, "explicit_gptworker");
 assert.equal(typeof explicitAdmission.admission_token, "string");
+
+const leadingWhitespaceRuntime = new AdmissionRuntime();
+const leadingWhitespaceAdmission = leadingWhitespaceRuntime.check({
+  userTurn: `   @gptworker sửa app ở ${workspace}`,
+  hasConcreteTask: true,
+  workspace,
+});
+assert.equal(
+  leadingWhitespaceAdmission.mode,
+  "ACTIVE",
+  "leading whitespace before @gptworker should preserve the normal invocation flow"
+);
 
 // A current-turn @gptworker request must not leave a stale arm behind either.
 const directAfterExplicit = fresh.check({
@@ -157,6 +180,17 @@ assert.throws(
       bindings: { workspace },
     }),
   /literal @gptworker/
+);
+
+assert.throws(
+  () =>
+    validateActivationGate({
+      trigger: "explicit_gptworker",
+      activationRequest: "Đừng gọi @gptworker trong câu này",
+      bindings: { workspace },
+    }),
+  /start with @gptworker/,
+  "mid-sentence mention must not satisfy the low-level activation proof"
 );
 
 const explicit = validateActivationGate({
