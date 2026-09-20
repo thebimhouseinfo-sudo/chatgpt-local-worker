@@ -1,4 +1,4 @@
-export const GPTWORKER_HELP = \`
+export const GPTWORKER_HELP = `
 # GPTWorker — Hướng dẫn nhanh
 
 **GPTWorker cho phép ChatGPT làm việc trực tiếp với file trên máy tính thông qua các Job.**
@@ -47,7 +47,7 @@ Dùng \`gptworker/job list\` để xem toàn bộ Job đang có, kể cả custo
 | \`gptworker/job create\` | Tạo custom Job mới |
 | \`gptworker/job update\` | Chỉnh sửa custom Job |
 | \`gptworker/job stop\` | Kết thúc công việc hiện tại và đưa GPTWorker về idle |
-\`.trim();
+`.trim();
 
 export const MCP_QUICKSTART = `
 ## GPTWorker root command surface
