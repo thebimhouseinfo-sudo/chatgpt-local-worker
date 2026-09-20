@@ -773,6 +773,7 @@ export function registerJobTools(
         const released = releaseWorkRegistration(execution_id, authority_token);
         const stopped = sessionRuntime.stop();
         lifecycle?.clear();
+        admissionRuntime.clear();
         return {
           ...stopped,
           released_work: {
