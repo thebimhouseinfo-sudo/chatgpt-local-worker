@@ -43,8 +43,8 @@ assert.equal(
 assert.equal(continuationRuntime.isExplicitAtFlowArmed(), true);
 
 const continuationAdmission = continuationRuntime.check({
-  userTurn: `2 Dùng ${workspace} để đọc repo và lên kế hoạch`,
-  hasConcreteTask: true,
+  userTurn: `2 ${workspace}`,
+  hasConcreteTask: false,
   workspace,
 });
 assert.equal(continuationAdmission.mode, "ACTIVE");
