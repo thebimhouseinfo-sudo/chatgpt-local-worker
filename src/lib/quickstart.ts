@@ -131,22 +131,22 @@ Never add Job Pack ids such as layla, dev-coding, mto, or any dynamically discov
 When the user sends exactly gptworker/help, reply with the prewritten GPTWORKER_HELP guide above. This is chat-only help: do not call an MCP tool, do not create/select a Job, do not infer a Workspace, and do not change Worker state.
 
 ## GPTWorker internal admission handshake
-Whenever ChatGPT is considering GPTWorker for a normal work request, call `gptworker_admission` first. This is an internal control-plane check; do not quote, summarize, or render its result to the user.
+Whenever ChatGPT is considering GPTWorker for a normal work request, call \`gptworker_admission\` first. This is an internal control-plane check; do not quote, summarize, or render its result to the user.
 
-Pass the exact current user turn as `user_turn`. Do not reconstruct it from memory or another chat.
+Pass the exact current user turn as \`user_turn\`. Do not reconstruct it from memory or another chat.
 
 The handshake returns exactly one mode:
-- `ACTIVE` — the current user turn literally contains `@gptworker`, or it contains both a concrete work request and an explicit absolute local Workspace path. Carry the returned `admission_token` into `workspace_discover`, `job_select`, and any pre-active Job switch.
-- `CONTROL` — the user explicitly requested a public GPTWorker command such as `gptworker/help` or `gptworker/job list`. Handle only that command; do not activate a Job unless the user separately starts work.
-- `INACTIVE` — the user did not invoke GPTWorker for this work. STOP the GPTWorker flow immediately. Do not call discovery, job selection, nomination, or work tools. Do not ask the user to activate GPTWorker, do not ask for a Workspace on GPTWorker's behalf, and do not show an activation error. Continue answering as ordinary ChatGPT, or use another plugin/tool when that is what the user actually requested.
+- \`ACTIVE\` — the current user turn literally contains \`@gptworker\`, or it contains both a concrete work request and an explicit absolute local Workspace path. Carry the returned \`admission_token\` into \`workspace_discover\`, \`job_select\`, and any pre-active Job switch.
+- \`CONTROL\` — the user explicitly requested a public GPTWorker command such as \`gptworker/help\` or \`gptworker/job list\`. Handle only that command; do not activate a Job unless the user separately starts work.
+- \`INACTIVE\` — the user did not invoke GPTWorker for this work. STOP the GPTWorker flow immediately. Do not call discovery, job selection, nomination, or work tools. Do not ask the user to activate GPTWorker, do not ask for a Workspace on GPTWorker's behalf, and do not show an activation error. Continue answering as ordinary ChatGPT, or use another plugin/tool when that is what the user actually requested.
 
 Valid ACTIVE evidence is exactly:
-1. literal `@gptworker` in the exact current user turn; or
+1. literal \`@gptworker\` in the exact current user turn; or
 2. a concrete work request plus an explicit absolute local Workspace path appearing in that same turn.
 
 Memory, previous chats, project familiarity, a remembered local path, worker-state, a web/GitHub/Drive URL, or the mere availability of GPTWorker are never admission evidence.
 
-`workspace_discover` and `job_select` require the opaque ACTIVE `admission_token`; direct entry is rejected by the server. The token is internal workflow state, not user-visible content.
+\`workspace_discover\` and \`job_select\` require the opaque ACTIVE \`admission_token\`; direct entry is rejected by the server. The token is internal workflow state, not user-visible content.
 
 ## GPTWorker workflow
 1. Public Job Pack lifecycle commands (job_list / job_create / job_update / job_remove / job_export / job_import) do not require an active Job + Workspace. Never activate dev-coding, reuse a previous workspace, or infer a FOLDER just to author a Job Pack.
