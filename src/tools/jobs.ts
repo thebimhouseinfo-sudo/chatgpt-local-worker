@@ -153,6 +153,11 @@ export function registerJobTools(
   }
 
   function rememberConfirmation(result: any): void {
+    // One MCP session has only one current nomination state.
+    // Any successful re-selection supersedes every prior confirmation proof,
+    // even when the new state still has missing bindings and emits no token yet.
+    pendingConfirmations.clear();
+
     const token = result?.confirmation_token;
     const jobId = result?.job?.id;
     const bindings = result?.state?.bindings;
