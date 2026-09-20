@@ -62,23 +62,37 @@ if errorlevel 1 goto :failed
 
 echo.
 echo ========================================
-echo   Starting local GPTWorker
+echo   Resetting previous GPTWorker runtime
 echo ========================================
 
 set "WORKER_PORT=3000"
 for /f "tokens=2 delims==" %%A in ('findstr /B /C:"PORT=" ".env"') do set "WORKER_PORT=%%A"
+set "TUNNEL_HEALTH_PORT=8080"
+for /f "tokens=2 delims==" %%A in ('findstr /B /C:"OPENAI_TUNNEL_HEALTH_PORT=" ".env"') do set "TUNNEL_HEALTH_PORT=%%A"
 
-start "" powershell -NoProfile -WindowStyle Hidden -ExecutionPolicy Bypass -File "%~dp0start.ps1" -Port %WORKER_PORT% -Force
+echo Clearing old tray / Worker / Tunnel...
+powershell -NoProfile -ExecutionPolicy Bypass -File "%~dp0reset-runtime.ps1" -WorkerPort %WORKER_PORT% -TunnelHealthPort %TUNNEL_HEALTH_PORT%
+if errorlevel 1 goto :failed
+
+echo.
+echo ========================================
+echo   Starting local GPTWorker
+echo ========================================
+
+echo Starting Worker in background with logs...
+powershell -NoProfile -ExecutionPolicy Bypass -File "%~dp0start-worker-background.ps1" -Port %WORKER_PORT% -Force
+if errorlevel 1 goto :failed
 
 echo Waiting for local Worker on port %WORKER_PORT%...
 powershell -NoProfile -Command "$ok=$false; foreach ($i in 1..30) { try { $r=Invoke-WebRequest 'http://127.0.0.1:%WORKER_PORT%/health' -UseBasicParsing -TimeoutSec 1; if ($r.StatusCode -eq 200) { $ok=$true; break } } catch {}; Start-Sleep -Milliseconds 500 }; if (-not $ok) { exit 1 }"
 if errorlevel 1 (
   echo [ERROR] Local Worker did not become ready before tunnel doctor.
-  echo Check the GPTWorker Server window.
+  echo Check whether port %WORKER_PORT% is occupied and rerun setup.bat.
   goto :failed
 )
 
 echo [OK] Local Worker is ready.
+powershell -NoProfile -Command "$p=(netstat -ano ^| Select-String ':%WORKER_PORT%\s' ^| Select-String 'LISTENING' ^| Select-Object -First 1); if($p){$parts=($p -replace '\s+',' ').ToString().Trim().Split(' '); Write-Host ('Worker PID: '+$parts[-1])}"
 
 echo.
 echo ========================================
@@ -89,15 +103,20 @@ echo.
 echo GPTWorker will guide the connection setup one step at a time.
 echo Each OpenAI page will open automatically exactly when its value is needed.
 echo.
-powershell -NoProfile -ExecutionPolicy Bypass -File "%~dp0openai-tunnel.ps1" -Init
+powershell -NoProfile -ExecutionPolicy Bypass -File "%~dp0openai-tunnel.ps1" -Init -Force -Port %WORKER_PORT% -HealthPort %TUNNEL_HEALTH_PORT%
 if errorlevel 1 goto :failed
 
-set "TUNNEL_HEALTH_PORT=8080"
-for /f "tokens=2 delims==" %%A in ('findstr /B /C:"OPENAI_TUNNEL_HEALTH_PORT=" ".env"') do set "TUNNEL_HEALTH_PORT=%%A"
-
 echo.
+echo Verifying local Worker again before starting the tunnel...
+powershell -NoProfile -Command "try{$w=Invoke-RestMethod 'http://127.0.0.1:%WORKER_PORT%/health' -TimeoutSec 2; if($w.name -ne 'chatgpt-local-worker'){exit 1}}catch{exit 1}"
+if errorlevel 1 (
+  echo [ERROR] Local Worker stopped after tunnel doctor.
+  echo Check: %LOCALAPPDATA%\GPTWorker\logs\worker.err.log
+  goto :failed
+)
+
 echo Starting Secure MCP Tunnel...
-start "" powershell -NoProfile -WindowStyle Hidden -ExecutionPolicy Bypass -File "%~dp0openai-tunnel.ps1" -Port %WORKER_PORT%
+start "" powershell -NoProfile -WindowStyle Hidden -ExecutionPolicy Bypass -File "%~dp0openai-tunnel.ps1" -Port %WORKER_PORT% -HealthPort %TUNNEL_HEALTH_PORT% -Force
 
 echo Waiting for tunnel readiness on port %TUNNEL_HEALTH_PORT%...
 powershell -NoProfile -Command "$ok=$false; foreach ($i in 1..120) { try { $r=Invoke-WebRequest 'http://127.0.0.1:%TUNNEL_HEALTH_PORT%/readyz' -UseBasicParsing -TimeoutSec 1; if ($r.StatusCode -eq 200) { $ok=$true; break } } catch {}; Start-Sleep -Milliseconds 500 }; if (-not $ok) { exit 1 }"
@@ -162,5 +181,18 @@ exit /b 0
 :failed
 echo.
 echo [ERROR] Setup failed. See the output above.
+echo.
+echo Attempting to restore GPTWorker background runtime from the saved .env...
+findstr /B /C:"OPENAI_TUNNEL_ID=tunnel_" ".env" >nul 2>nul
+if not errorlevel 1 (
+  findstr /B /C:"OPENAI_TUNNEL_API_KEY=sk-" ".env" >nul 2>nul
+  if not errorlevel 1 (
+    start "" powershell -NoProfile -STA -WindowStyle Hidden -ExecutionPolicy Bypass -File "%~dp0gptworker-tray.ps1"
+    echo Recovery tray launch requested.
+  )
+)
+echo.
+echo Worker log: %LOCALAPPDATA%\GPTWorker\logs\worker.err.log
+echo Tray log:   %LOCALAPPDATA%\GPTWorker\logs\tray.err.log
 pause
 exit /b 1
