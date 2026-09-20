@@ -251,7 +251,8 @@ export function registerJobTools(
               "Confirmation token is bound to different Job/Workspace bindings. Request a new confirmation before activation."
             );
           }
-          activationToken = primed.confirmation_token;
+          activationToken =
+            (primed as any).confirmation_token || primed?.state?.confirmation_token;
         } else if (
           status?.job?.id !== proof.jobId ||
           stableBindings(status?.state?.bindings) !== stableBindings(proof.bindings)
