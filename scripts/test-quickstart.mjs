@@ -6,6 +6,7 @@ import assert from "node:assert/strict";
 import {
   GPTWORKER_HELP,
   GPTWORKER_IDLE_PROMPT,
+  GPTWORKER_ROOT_MENU,
   MCP_QUICKSTART,
   buildServerInstructions,
 } from "../dist/lib/quickstart.js";
@@ -79,18 +80,29 @@ assert.equal(
 );
 
 assert.ok(GPTWORKER_IDLE_PROMPT.includes("Bạn muốn tôi giúp bạn làm gì?"));
-assert.ok(GPTWORKER_IDLE_PROMPT.includes("- coding"));
-assert.ok(GPTWORKER_IDLE_PROMPT.includes("- planning"));
-assert.ok(GPTWORKER_IDLE_PROMPT.includes("- layla"));
-assert.ok(GPTWORKER_IDLE_PROMPT.includes("- mto"));
+assert.ok(GPTWORKER_IDLE_PROMPT.includes("1. coding"));
+assert.ok(GPTWORKER_IDLE_PROMPT.includes("2. planning"));
+assert.ok(GPTWORKER_IDLE_PROMPT.includes("3. layla"));
+assert.ok(GPTWORKER_IDLE_PROMPT.includes("4. mto"));
+assert.ok(
+  GPTWORKER_IDLE_PROMPT.includes(
+    "Hãy chọn Job và đưa tôi thư mục làm việc để bắt đầu, hoặc gõ gptworker/ để xem các system commands."
+  )
+);
 for (const command of expectedRootCommands) {
   assert.ok(
-    GPTWORKER_IDLE_PROMPT.includes(command),
-    `idle GPTWorker greeting missing management command: ${command}`
+    !GPTWORKER_IDLE_PROMPT.includes(command),
+    `bare @gptworker greeting must not include system command: ${command}`
   );
 }
-assert.ok(GPTWORKER_IDLE_PROMPT.includes("thư mục local tuyệt đối"));
+assert.deepEqual(
+  GPTWORKER_ROOT_MENU.split("\n"),
+  expectedRootCommands,
+  "gptworker/ must render exactly the eight fixed system commands"
+);
 assert.ok(MCP_QUICKSTART.includes("## Bare GPTWorker invocation — zero-tool response"));
+assert.ok(MCP_QUICKSTART.includes("gptworker/ — ZERO tools"));
+assert.ok(MCP_QUICKSTART.includes("reply with the prewritten GPTWORKER_ROOT_MENU"));
 assert.ok(MCP_QUICKSTART.includes("DO NOT call any MCP tool at all"));
 assert.ok(MCP_QUICKSTART.includes("## Fast Job nomination"));
 assert.ok(MCP_QUICKSTART.includes("skip discovery and nominate immediately"));
@@ -99,6 +111,8 @@ assert.ok(MCP_QUICKSTART.includes("ambiguity fallback"));
 assert.ok(MCP_QUICKSTART.includes("the next user-visible message should be only this compact confirmation block"));
 assert.ok(MCP_QUICKSTART.includes("do not narrate admission tokens"));
 assert.ok(MCP_QUICKSTART.includes("Bare plugin invocation and requests still missing task/Workspace are handled chat-only with zero tools"));
+assert.ok(instructions.includes("## Prewritten gptworker/ root menu"));
+assert.ok(instructions.includes(GPTWORKER_ROOT_MENU));
 assert.ok(instructions.includes("## Prewritten bare GPTWorker response"));
 assert.ok(instructions.includes(GPTWORKER_IDLE_PROMPT));
 
