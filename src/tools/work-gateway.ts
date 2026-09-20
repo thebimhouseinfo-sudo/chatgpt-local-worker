@@ -8,6 +8,7 @@ type ToolCallback = (args?: Record<string, unknown>, ...rest: unknown[]) => unkn
 
 interface CapturedTool {
   name: string;
+  config: { inputSchema?: Record<string, z.ZodTypeAny> };
   callback: ToolCallback;
 }
 
@@ -67,10 +68,10 @@ function createCaptureServer(): FamilyCache {
   const server = {
     registerTool(
       name: string,
-      _config: unknown,
+      config: { inputSchema?: Record<string, z.ZodTypeAny> },
       callback: ToolCallback
     ): RegisteredTool {
-      tools.set(String(name), { name: String(name), callback });
+      tools.set(String(name), { name: String(name), config, callback });
       return fakeHandle();
     },
   } as unknown as McpServer;
@@ -214,7 +215,9 @@ export function registerWorkGateway(
     },
     async ({ tool, arguments: args }) => {
       const captured = await resolver.resolve(tool);
-      return captured.callback(args ?? {});
+      const inputSchema = captured.config.inputSchema ?? {};
+      const parsed = z.object(inputSchema).passthrough().parse(args ?? {});
+      return captured.callback(parsed);
     }
   );
 
