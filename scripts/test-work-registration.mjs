@@ -98,5 +98,10 @@ work.releaseToolLease(busyLease);
 assert.ok(Date.parse(busy.lastActivityAt) > Date.now() - 5000);
 work.releaseWorkRegistration(busy.executionId, busy.authorityToken);
 
-await fs.rm(tempRoot, { recursive: true, force: true });
+await fs.rm(tempRoot, {
+  recursive: true,
+  force: true,
+  maxRetries: 8,
+  retryDelay: 75,
+});
 console.log("test-work-registration: ok");
