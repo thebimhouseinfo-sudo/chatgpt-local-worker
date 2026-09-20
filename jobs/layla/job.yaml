@@ -1,0 +1,31 @@
+{
+  "id": "layla",
+  "name": "Layla",
+  "version": "1.0.0",
+  "status": "ready",
+  "description": "Universal general-purpose Job for ad-hoc work across text files, Microsoft Office documents, spreadsheets, presentations, file/folder organization, and mixed local file sets. Layla adapts the workflow to the user's requested outcome instead of imposing a domain-specific process.",
+  "aliases": ["assistant", "secretary", "thuky", "thu-ky", "office", "universal", "general"],
+  "keywords": ["file", "files", "folder", "document", "txt", "word", "docx", "excel", "xlsx", "spreadsheet", "powerpoint", "ppt", "pptx", "presentation", "office", "report", "organize", "rename", "convert", "merge", "extract", "summarize"],
+  "inputs": [
+    {"key":"workspace","type":"directory","required":true,"description":"Absolute local folder containing the files to work with. This becomes the active workspace after confirmation."},
+    {"key":"task","type":"string","required":true,"description":"The concrete outcome the user wants Layla to produce"}
+  ],
+  "outputs": [
+    {"key":"delivery","type":"string","required":false,"description":"Optional requested output file, folder, naming convention, format, or delivery constraint"}
+  ],
+  "permissions": {
+    "filesystem": "read-write-after-confirm",
+    "shell": "allowed-after-confirm-when-needed",
+    "git": "allowed-after-confirm-when-the-workspace-is-a-repository-and-the-task-needs-it",
+    "network": "only-when-required-by-the-user-task-and-available-through-existing-tools"
+  },
+  "confirmation": {
+    "required": true,
+    "template": "JOB: layla\nFOLDER: {workspace}\n\nXác nhận bắt đầu?"
+  },
+  "skills": [],
+  "harness": {
+    "entrypoints": ["harness/validate.mjs"]
+  },
+  "validators": ["harness/validate.mjs"]
+}
