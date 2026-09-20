@@ -316,6 +316,9 @@ export function buildServerInstructions(
 
   const body = contextBlock?.trim();
   const commandContract = [
+    "## Prewritten bare GPTWorker response",
+    "When the user invokes only @gptworker / the GPTWorker plugin without a concrete task + absolute local Workspace, return this immediately and do not call tools:",
+    GPTWORKER_IDLE_PROMPT,
     "## Prewritten gptworker/help response",
     "When the user sends exactly gptworker/help, return the following guide and do not call tools:",
     GPTWORKER_HELP,
