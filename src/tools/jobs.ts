@@ -20,6 +20,36 @@ import {
 
 const BindingsSchema = z.record(z.string(), z.string());
 
+const CONFIRMATION_PROOF_TTL_MS = 30 * 60 * 1000;
+const pendingConfirmations = new Map<
+  string,
+  { jobId: string; bindings: Record<string, string>; createdAt: number }
+>();
+
+function stableBindings(bindings: Record<string, string> | undefined): string {
+  return JSON.stringify(
+    Object.fromEntries(Object.entries(bindings || {}).sort(([a], [b]) => a.localeCompare(b)))
+  );
+}
+
+function rememberConfirmation(result: any): void {
+  const token = result?.confirmation_token;
+  const jobId = result?.job?.id;
+  const bindings = result?.state?.bindings;
+  if (!token || !jobId || !bindings) return;
+  pendingConfirmations.set(token, { jobId, bindings: { ...bindings }, createdAt: Date.now() });
+}
+
+function getConfirmationProof(token: string | undefined) {
+  const now = Date.now();
+  for (const [key, proof] of pendingConfirmations) {
+    if (now - proof.createdAt > CONFIRMATION_PROOF_TTL_MS) pendingConfirmations.delete(key);
+  }
+  if (!token) return undefined;
+  return pendingConfirmations.get(token);
+}
+
+
 async function safe<T extends object>(
   tool: string,
   fn: () => Promise<T> | T
@@ -182,12 +212,62 @@ export function registerJobTools(
     async ({ job, bindings, confirmed, confirmation_token }) =>
       safe("job_select", async () => {
         await bindRuntimeToWorkspace(bindings);
+
+        if (!confirmed) {
+          const selected = await sessionRuntime.select({
+            job,
+            bindings,
+            confirmed: false,
+          });
+          rememberConfirmation(selected);
+          await validateResolvedWorkspace(selected);
+          return persistActiveSelection(selected);
+        }
+
+        const proof = getConfirmationProof(confirmation_token);
+        if (!proof) {
+          throw new Error(
+            "Confirmation token missing/stale. Run job_select with confirmed=false, show the returned prompt, then retry after explicit user confirmation."
+          );
+        }
+
+        const status = await sessionRuntime.status();
+        let activationToken = confirmation_token;
+        const samePendingState =
+          status?.state?.phase === "awaiting_confirmation" &&
+          status?.state?.confirmation_token === confirmation_token;
+
+        if (!samePendingState) {
+          const primed = await sessionRuntime.select({
+            job,
+            bindings,
+            confirmed: false,
+          });
+          if (
+            primed?.job?.id !== proof.jobId ||
+            stableBindings(primed?.state?.bindings) !== stableBindings(proof.bindings)
+          ) {
+            throw new Error(
+              "Confirmation token is bound to different Job/Workspace bindings. Request a new confirmation before activation."
+            );
+          }
+          activationToken = primed.confirmation_token;
+        } else if (
+          status?.job?.id !== proof.jobId ||
+          stableBindings(status?.state?.bindings) !== stableBindings(proof.bindings)
+        ) {
+          throw new Error(
+            "Confirmation token is bound to different Job/Workspace bindings. Request a new confirmation before activation."
+          );
+        }
+
         const selected = await sessionRuntime.select({
           job,
           bindings,
-          confirmed,
-          confirmationToken: confirmation_token,
+          confirmed: true,
+          confirmationToken: activationToken,
         });
+        pendingConfirmations.delete(confirmation_token!);
         await validateResolvedWorkspace(selected);
         return persistActiveSelection(selected);
       })
