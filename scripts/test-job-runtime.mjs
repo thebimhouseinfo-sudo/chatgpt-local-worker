@@ -20,6 +20,15 @@ assert.equal(listing.jobs.find((job) => job.id === "mto")?.skill_count, 0);
 const mtoListing = await runtime.list("fan takeoff");
 assert.equal(mtoListing.suggested_job_ids.includes("mto"), true);
 
+await assert.rejects(
+  () =>
+    runtime.select({
+      job: "dev-coding",
+      bindings: { workspace: ".", task: "relative path must fail" },
+    }),
+  /must be an absolute path/
+);
+
 const partial = await runtime.select({
   job: "dev-coding",
   bindings: { workspace: "." },
@@ -32,9 +41,9 @@ assert.deepEqual(partial.harness, []);
 const selected = await runtime.select({
   job: "dev-coding",
   bindings: {
-    workspace: ".",
+    workspace: repoRoot,
     task: "Validate the dev-coding Job Runtime lifecycle",
-    planning_dir: "./.worker/dev",
+    planning_dir: path.join(repoRoot, ".worker", "dev"),
     task_id: "TASK-001",
   },
 });
@@ -46,9 +55,9 @@ assert.deepEqual(selected.harness, []);
 const active = await runtime.select({
   job: "dev-coding",
   bindings: {
-    workspace: ".",
+    workspace: repoRoot,
     task: "Validate the dev-coding Job Runtime lifecycle",
-    planning_dir: "./.worker/dev",
+    planning_dir: path.join(repoRoot, ".worker", "dev"),
     task_id: "TASK-001",
   },
   confirmed: true,
@@ -66,9 +75,9 @@ runtime.stop();
 const planSelected = await runtime.select({
   job: "dev-planing",
   bindings: {
-    workspace: ".",
+    workspace: repoRoot,
     objective: "Plan a safe runtime change",
-    planning_dir: "./DEV_PLAN.test",
+    planning_dir: path.join(repoRoot, "DEV_PLAN.test"),
   },
 });
 assert.equal(planSelected.state.phase, "awaiting_confirmation");
@@ -78,9 +87,9 @@ assert.deepEqual(planSelected.skills, []);
 const planActive = await runtime.select({
   job: "dev-planing",
   bindings: {
-    workspace: ".",
+    workspace: repoRoot,
     objective: "Plan a safe runtime change",
-    planning_dir: "./DEV_PLAN.test",
+    planning_dir: path.join(repoRoot, "DEV_PLAN.test"),
   },
   confirmed: true,
   confirmationToken: planSelected.confirmation_token,
@@ -97,7 +106,7 @@ runtime.stop();
 const mtoPartial = await runtime.select({
   job: "mto",
   bindings: {
-    workspace: ".",
+    workspace: repoRoot,
     task: "Update AC and Fan EQM from the latest input",
   },
 });
@@ -108,7 +117,7 @@ assert.deepEqual(mtoPartial.harness, []);
 const mtoSelected = await runtime.select({
   job: "mto",
   bindings: {
-    workspace: ".",
+    workspace: repoRoot,
     task: "Update AC and Fan EQM from the latest input",
     equipment: "ac,fan",
     input_revision: "latest",
@@ -121,7 +130,7 @@ assert.deepEqual(mtoSelected.harness, []);
 const mtoActive = await runtime.select({
   job: "mto",
   bindings: {
-    workspace: ".",
+    workspace: repoRoot,
     task: "Update AC and Fan EQM from the latest input",
     equipment: "ac,fan",
     input_revision: "latest",
