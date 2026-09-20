@@ -13,7 +13,7 @@ const inactive = checkAdmission({
   userTurn: "Sửa UI này đẹp hơn",
   hasConcreteTask: true,
 });
-assert.equal(inactive.mode, "inactive");
+assert.equal(inactive.mode, "INACTIVE");
 assert.equal(inactive.claimed, false);
 assert.equal(
   inactive.next,
@@ -21,41 +21,41 @@ assert.equal(
 );
 
 const control = checkAdmission({ userTurn: "gptworker/job list" });
-assert.equal(control.mode, "control");
+assert.equal(control.mode, "CONTROL");
 assert.equal(control.claimed, false);
 
 const explicitAdmission = checkAdmission({
   userTurn: "@gptworker sửa app giúp tôi",
 });
-assert.equal(explicitAdmission.mode, "active");
+assert.equal(explicitAdmission.mode, "ACTIVE");
 assert.equal(explicitAdmission.trigger, "explicit_gptworker");
-assert.equal(typeof explicitAdmission.admissionToken, "string");
+assert.equal(typeof explicitAdmission.admission_token, "string");
 
 const naturalAdmission = checkAdmission({
   userTurn: `Sửa app ở ${workspace} để thêm nút regenerate`,
   hasConcreteTask: true,
   workspace,
 });
-assert.equal(naturalAdmission.mode, "active");
+assert.equal(naturalAdmission.mode, "ACTIVE");
 assert.equal(naturalAdmission.trigger, "task_with_workspace");
 assert.equal(naturalAdmission.workspace, workspace);
-assert.equal(typeof naturalAdmission.admissionToken, "string");
+assert.equal(typeof naturalAdmission.admission_token, "string");
 
 assert.equal(
-  validateAdmissionToken(naturalAdmission.admissionToken, workspace).trigger,
+  validateAdmissionToken(naturalAdmission.admission_token, workspace).trigger,
   "task_with_workspace"
 );
 assert.throws(
   () =>
     validateAdmissionToken(
-      naturalAdmission.admissionToken,
+      naturalAdmission.admission_token,
       path.resolve("different-workspace")
     ),
   /Workspace does not match/
 );
 
 const fromAdmission = activationFromAdmission(
-  naturalAdmission.admissionToken,
+  naturalAdmission.admission_token,
   { workspace }
 );
 assert.equal(fromAdmission.trigger, "task_with_workspace");
