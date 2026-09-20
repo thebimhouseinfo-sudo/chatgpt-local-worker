@@ -68,7 +68,7 @@ echo ========================================
 set "WORKER_PORT=3000"
 for /f "tokens=2 delims==" %%A in ('findstr /B /C:"PORT=" ".env"') do set "WORKER_PORT=%%A"
 
-start "GPTWorker Server" /min powershell -NoProfile -ExecutionPolicy Bypass -NoExit -File "%~dp0start.ps1" -Port %WORKER_PORT% -Force
+start "" powershell -NoProfile -WindowStyle Hidden -ExecutionPolicy Bypass -File "%~dp0start.ps1" -Port %WORKER_PORT% -Force
 
 echo Waiting for local Worker on port %WORKER_PORT%...
 powershell -NoProfile -Command "$ok=$false; foreach ($i in 1..30) { try { $r=Invoke-WebRequest 'http://127.0.0.1:%WORKER_PORT%/health' -UseBasicParsing -TimeoutSec 1; if ($r.StatusCode -eq 200) { $ok=$true; break } } catch {}; Start-Sleep -Milliseconds 500 }; if (-not $ok) { exit 1 }"
@@ -97,7 +97,7 @@ for /f "tokens=2 delims==" %%A in ('findstr /B /C:"OPENAI_TUNNEL_HEALTH_PORT=" "
 
 echo.
 echo Starting Secure MCP Tunnel...
-start "GPTWorker Tunnel" /min powershell -NoProfile -ExecutionPolicy Bypass -NoExit -File "%~dp0openai-tunnel.ps1" -Port %WORKER_PORT%
+start "" powershell -NoProfile -WindowStyle Hidden -ExecutionPolicy Bypass -File "%~dp0openai-tunnel.ps1" -Port %WORKER_PORT%
 
 echo Waiting for tunnel readiness on port %TUNNEL_HEALTH_PORT%...
 powershell -NoProfile -Command "$ok=$false; foreach ($i in 1..120) { try { $r=Invoke-WebRequest 'http://127.0.0.1:%TUNNEL_HEALTH_PORT%/readyz' -UseBasicParsing -TimeoutSec 1; if ($r.StatusCode -eq 200) { $ok=$true; break } } catch {}; Start-Sleep -Milliseconds 500 }; if (-not $ok) { exit 1 }"
@@ -112,6 +112,14 @@ if errorlevel 1 (
 )
 
 echo [OK] GPTWorker and Secure MCP Tunnel are ready.
+
+echo.
+echo Registering GPTWorker tray app for this Windows user...
+powershell -NoProfile -ExecutionPolicy Bypass -File "%~dp0gptworker-tray.ps1" -InstallStartup
+if errorlevel 1 goto :failed
+
+echo Starting GPTWorker tray host...
+start "" powershell -NoProfile -WindowStyle Hidden -ExecutionPolicy Bypass -File "%~dp0gptworker-tray.ps1"
 
 echo.
 echo Opening ChatGPT Settings and the local visual setup guide...
@@ -131,8 +139,9 @@ echo.
 echo ========================================
 echo   Setup complete
 echo ========================================
-echo Next time, only run: run.bat
-echo Then use @gptworker in ChatGPT.
+echo GPTWorker is now registered to start automatically with this Windows user.
+echo Normally, just open ChatGPT and use @gptworker.
+echo run.bat remains available as a source-build fallback/manual restart.
 echo.
 pause
 exit /b 0
