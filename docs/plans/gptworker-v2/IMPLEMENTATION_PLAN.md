@@ -414,7 +414,8 @@ Acceptance:
 - `job list` merges both sources.
 - Job ids are globally unique.
 - `job create` checks both roots and publishes only to AppData.
-- `job update/remove` operate only on custom AppData Jobs.
+- `job create clone_from=<existing-id>` may copy an existing default/custom Job to a new unique custom id.
+- `job update/remove` operate only on custom AppData Jobs; defaults are immutable.
 - default repo Jobs are never mutated by Job authoring.
 - invalid custom packs never become live.
 - `job stop` remains an internal cleanup primitive, not public UX.
@@ -424,6 +425,7 @@ Acceptance:
 - repo defaults remain visible with empty AppData;
 - create custom → list shows both default + custom;
 - duplicate id against default/custom is rejected at create;
+- clone default → new custom id works without mutating source;
 - update/remove custom works;
 - update/remove default is rejected;
 - malformed custom pack never shadows a default.
