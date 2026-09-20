@@ -70,12 +70,8 @@ for /f "tokens=2 delims==" %%A in ('findstr /B /C:"PORT=" ".env"') do set "WORKE
 set "TUNNEL_HEALTH_PORT=8080"
 for /f "tokens=2 delims==" %%A in ('findstr /B /C:"OPENAI_TUNNEL_HEALTH_PORT=" ".env"') do set "TUNNEL_HEALTH_PORT=%%A"
 
-echo Stopping an existing GPTWorker tray host if present...
-powershell -NoProfile -Command "$target=[IO.Path]::GetFullPath('%~dp0gptworker-tray.ps1'); Get-CimInstance Win32_Process -ErrorAction SilentlyContinue ^| Where-Object { $_.ProcessId -ne $PID -and ($_.Name -ieq 'powershell.exe' -or $_.Name -ieq 'pwsh.exe') -and $_.CommandLine -and $_.CommandLine.IndexOf($target,[StringComparison]::OrdinalIgnoreCase) -ge 0 } ^| ForEach-Object { Stop-Process -Id $_.ProcessId -Force -ErrorAction SilentlyContinue }; Start-Sleep -Milliseconds 700"
-del /q "%LOCALAPPDATA%\GPTWorker\tray-ready.json" >nul 2>nul
-
-echo Releasing old Worker/Tunnel ports safely...
-powershell -NoProfile -Command "$ErrorActionPreference='Stop'; function Owner([int]$p){$l=netstat -ano ^| Select-String (':'+$p+'\s') ^| Select-String 'LISTENING' ^| Select-Object -First 1; if($l){[int](($l -replace '\s+',' ').ToString().Trim().Split(' ')[-1])}}; $wp=%WORKER_PORT%; $tp=%TUNNEL_HEALTH_PORT%; $tpid=Owner $tp; if($tpid){$p=Get-Process -Id $tpid -ErrorAction SilentlyContinue; if(-not $p -or $p.ProcessName -ne 'tunnel-client'){Write-Host ('[ERROR] Port '+$tp+' is owned by PID '+$tpid+' ('+$(if($p){$p.ProcessName}else{'unknown'})+'), not tunnel-client.'); exit 41}; Stop-Process -Id $tpid -Force -ErrorAction SilentlyContinue}; $wHealthy=$false; try{$w=Invoke-RestMethod ('http://127.0.0.1:'+$wp+'/health') -TimeoutSec 2; $wHealthy=($w.name -eq 'chatgpt-local-worker')}catch{}; $wpid=Owner $wp; if($wpid){if(-not $wHealthy){$p=Get-Process -Id $wpid -ErrorAction SilentlyContinue; Write-Host ('[ERROR] Port '+$wp+' is occupied by PID '+$wpid+' ('+$(if($p){$p.ProcessName}else{'unknown'})+'), but it is not a healthy GPTWorker.'); exit 42}; Stop-Process -Id $wpid -Force -ErrorAction SilentlyContinue}; Start-Sleep -Milliseconds 800"
+echo Clearing old tray / Worker / Tunnel...
+powershell -NoProfile -ExecutionPolicy Bypass -File "%~dp0reset-runtime.ps1" -WorkerPort %WORKER_PORT% -TunnelHealthPort %TUNNEL_HEALTH_PORT%
 if errorlevel 1 goto :failed
 
 echo.
