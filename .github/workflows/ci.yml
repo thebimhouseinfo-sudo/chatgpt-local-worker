@@ -35,6 +35,7 @@ jobs:
         shell: pwsh
         run: |
           [scriptblock]::Create((Get-Content -Raw './openai-tunnel.ps1')) | Out-Null
+          [scriptblock]::Create((Get-Content -Raw './start.ps1')) | Out-Null
           [scriptblock]::Create((Get-Content -Raw './gptworker-tray.ps1')) | Out-Null
           [scriptblock]::Create((Get-Content -Raw './reset-runtime.ps1')) | Out-Null
           [scriptblock]::Create((Get-Content -Raw './start-worker-background.ps1')) | Out-Null
