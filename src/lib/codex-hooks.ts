@@ -170,6 +170,25 @@ function hookContext(output: string): string {
   }
 }
 
+let cachedSessionStartHooks = "";
+let sessionStartPrime: Promise<string> | null = null;
+
+export function getCachedCodexSessionStartHooks(): string {
+  return cachedSessionStartHooks;
+}
+
+export function primeCodexSessionStartHooks(): Promise<string> {
+  if (!sessionStartPrime) {
+    sessionStartPrime = runCodexSessionStartHooks()
+      .then((value) => {
+        cachedSessionStartHooks = value;
+        return value;
+      })
+      .catch(() => "");
+  }
+  return sessionStartPrime;
+}
+
 export async function runCodexSessionStartHooks(): Promise<string> {
   const hooks = (await getCodexHooks()).filter((hook) => hook.enabled && hook.supported);
   const ponytail = hooks.find((hook) => hook.plugin === "ponytail@ponytail" && hook.event === "session_start");
