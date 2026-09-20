@@ -31,7 +31,7 @@ await assert.rejects(
 
 const partial = await runtime.select({
   job: "dev-coding",
-  bindings: { workspace: "." },
+  bindings: { workspace: repoRoot },
 });
 assert.equal(partial.state.phase, "selected");
 assert.deepEqual(partial.missing_bindings, ["task"]);
