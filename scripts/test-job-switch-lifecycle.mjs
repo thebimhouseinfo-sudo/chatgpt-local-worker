@@ -87,9 +87,28 @@ assert.throws(
   "pre-active admission token must be consumed when job_switch creates active work"
 );
 
-releaseWorkRegistration(
+// Once active, work_handle itself authorizes a switch. The old registration
+// must be released and the replacement active Job must receive a fresh handle.
+const switchedAgain = await jobSwitch({
+  job: "no-confirm",
+  execution_id: current.work_handle.execution_id,
+  authority_token: current.work_handle.authority_token,
+});
+assert.equal(switchedAgain.structuredContent.ok, true);
+
+const replacement = switchedAgain.structuredContent.data?.current;
+assert.equal(replacement?.state?.phase, "active");
+assert.equal(typeof replacement?.work_handle?.execution_id, "string");
+assert.equal(typeof replacement?.work_handle?.authority_token, "string");
+assert.notEqual(
+  replacement.work_handle.execution_id,
   current.work_handle.execution_id,
-  current.work_handle.authority_token
+  "active job_switch must create a fresh work registration"
+);
+
+releaseWorkRegistration(
+  replacement.work_handle.execution_id,
+  replacement.work_handle.authority_token
 );
 await fs.rm(tempRoot, { recursive: true, force: true });
 
