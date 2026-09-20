@@ -27,13 +27,16 @@ const {
   createJobPack,
   updateJobPack,
   removeJobPack,
+  inspectJobPackForRemoval,
   exportJobPack,
   importJobPack,
   validateJobPack,
 } = await import("../dist/jobs/job-authoring.js");
 const { JobRuntime } = await import("../dist/jobs/job-runtime.js");
 const {
+  acquireToolLease,
   createWorkRegistration,
+  releaseToolLease,
   releaseWorkRegistration,
 } = await import("../dist/lib/work-registration.js");
 
@@ -184,6 +187,17 @@ await assert.rejects(
 const activeWorkspace = path.join(tempRoot, "active-workspace");
 await fs.mkdir(activeWorkspace, { recursive: true });
 const activeRegistration = await createWorkRegistration("test-job", activeWorkspace);
+const activeLease = acquireToolLease(
+  "read_text_file",
+  "filesystem",
+  activeRegistration.executionId,
+  activeRegistration.authorityToken
+);
+const removalPreflight = await inspectJobPackForRemoval("test-job");
+assert.equal(removalPreflight.source, "custom");
+assert.equal(removalPreflight.active_work_count, 1);
+assert.equal(removalPreflight.active_tool_count, 1);
+assert.equal(removalPreflight.active_tools[0]?.tool, "read_text_file");
 
 await assert.rejects(
   () => updateJobPack("test-job", { description: "Must stop active work first." }),
@@ -194,6 +208,7 @@ await assert.rejects(
   /is active/
 );
 
+releaseToolLease(activeLease, "ok");
 releaseWorkRegistration(
   activeRegistration.executionId,
   activeRegistration.authorityToken
