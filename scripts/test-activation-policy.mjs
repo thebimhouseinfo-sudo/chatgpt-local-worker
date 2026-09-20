@@ -167,4 +167,29 @@ const explicit = validateActivationGate({
 assert.equal(explicit.trigger, "explicit_gptworker");
 assert.equal(explicit.workspace, workspace);
 
+// If @gptworker is admitted before a Workspace is known, the token may be
+// unbound initially, but the first Workspace validation must bind it permanently.
+const lateWorkspaceRuntime = new AdmissionRuntime();
+const lateWorkspaceAdmission = lateWorkspaceRuntime.check({
+  userTurn: "@gptworker",
+  hasConcreteTask: false,
+});
+assert.equal(lateWorkspaceAdmission.mode, "ACTIVE");
+assert.equal(lateWorkspaceAdmission.workspace, undefined);
+const firstWorkspace = path.resolve("first-workspace");
+const secondWorkspace = path.resolve("second-workspace");
+lateWorkspaceRuntime.validate(
+  lateWorkspaceAdmission.admission_token,
+  firstWorkspace
+);
+assert.throws(
+  () =>
+    lateWorkspaceRuntime.validate(
+      lateWorkspaceAdmission.admission_token,
+      secondWorkspace
+    ),
+  /Workspace does not match/,
+  "an admission token must bind to the first Workspace it authorizes"
+);
+
 console.log("test-activation-policy: ok");
