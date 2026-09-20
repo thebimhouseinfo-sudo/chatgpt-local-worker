@@ -252,9 +252,16 @@ export class JobRuntime {
     for (const spec of specs) {
       const raw = bindings[spec.key]?.trim();
       if (!raw) continue;
-      resolved[spec.key] = isPathLikeType(spec.type)
-        ? path.resolve(this.workspaceRoot, raw)
-        : raw;
+      if (isPathLikeType(spec.type)) {
+        if (!path.isAbsolute(raw)) {
+          throw new Error(
+            `Binding '${spec.key}' for ${meta.id} must be an absolute path: ${raw}`
+          );
+        }
+        resolved[spec.key] = path.resolve(raw);
+      } else {
+        resolved[spec.key] = raw;
+      }
     }
     return resolved;
   }
