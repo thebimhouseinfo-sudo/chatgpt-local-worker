@@ -250,7 +250,7 @@ function Start-GptWorkerRuntime {
             return
         }
 
-        $script:WorkerLauncher = Start-HiddenPowerShell -ScriptPath (Join-Path $ScriptDir "start.ps1") -ExtraArgs @("-Port", "$WorkerPort") -LogPrefix "worker"
+        $script:WorkerLauncher = Start-HiddenPowerShell -ScriptPath (Join-Path $ScriptDir "start.ps1") -ExtraArgs @("-Port", "$WorkerPort", "-Detach") -LogPrefix "worker-launcher"
 
         if (-not (Wait-ForCondition { Test-WorkerHealthy } 25)) {
             $script:RuntimeState = "Degraded"
@@ -268,7 +268,7 @@ function Start-GptWorkerRuntime {
             return
         }
 
-        $script:TunnelLauncher = Start-HiddenPowerShell -ScriptPath (Join-Path $ScriptDir "openai-tunnel.ps1") -ExtraArgs @("-Port", "$WorkerPort") -LogPrefix "tunnel"
+        $script:TunnelLauncher = Start-HiddenPowerShell -ScriptPath (Join-Path $ScriptDir "openai-tunnel.ps1") -ExtraArgs @("-Port", "$WorkerPort", "-Detach") -LogPrefix "tunnel-launcher"
 
         if (-not (Wait-ForCondition { Test-TunnelHealthy } 65)) {
             $script:RuntimeState = "Degraded"

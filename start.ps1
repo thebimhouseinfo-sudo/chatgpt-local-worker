@@ -1,7 +1,8 @@
 # Start GPTWorker MCP server. Project/workspace is selected later from ChatGPT.
 param(
     [int]$Port = 3000,
-    [switch]$Force
+    [switch]$Force,
+    [switch]$Detach
 )
 
 $ScriptDir = Split-Path -Parent $MyInvocation.MyCommand.Path
@@ -109,6 +110,14 @@ if (Test-WorkerBuildStale) {
 Write-Host "Starting local Worker..." -ForegroundColor Green
 Write-Host "Use @gptworker in ChatGPT after run.bat starts the tunnel." -ForegroundColor DarkGray
 Write-Host ""
+
+if ($Detach) {
+    $logDir = Join-Path $env:LOCALAPPDATA "GPTWorker\logs"
+    New-Item -ItemType Directory -Force -Path $logDir | Out-Null
+    $process = Start-Process -FilePath "node.exe" -ArgumentList @("dist/index.js") -WorkingDirectory $ScriptDir -WindowStyle Hidden -RedirectStandardOutput (Join-Path $logDir "worker.out.log") -RedirectStandardError (Join-Path $logDir "worker.err.log") -PassThru
+    Write-Host "Worker PID: $($process.Id)"
+    exit 0
+}
 
 & node dist/index.js
 $exitCode = $LASTEXITCODE
