@@ -203,7 +203,8 @@ function Show-ConnectorGuide([string]$TunnelId, [int]$UiPort = 8080) {
     Write-Host "7. KHONG dung 'Use tunnel ID instead'."
     Write-Host "8. Tick xac nhan, sau do Connect/Create."
     Write-Host "9. Sau khi tao plugin xong, RESTART WINDOWS de kiem tra GPTWorker auto-start."
-    Write-Host "10. Windows len lai -> mo ChatGPT -> go @gptworker de su dung."
+    Write-Host "10. Windows len lai -> mo ChatGPT -> go @gptworker."
+    Write-Host "11. Go gptworker/help va doc huong dan truoc Job dau tien."
     Write-Host ""
     Write-Host "KHONG nhap http://127.0.0.1:3000/mcp vao ChatGPT." -ForegroundColor Yellow
     Write-Host "Tunnel ID chi dung noi bo de GPTWorker khoi dong Secure MCP Tunnel; UI ChatGPT chon tunnel tu list." -ForegroundColor DarkGray
