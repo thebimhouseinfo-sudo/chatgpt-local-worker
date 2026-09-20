@@ -81,7 +81,7 @@ OPENAI_TUNNEL_ID      = tunnel_...
 OPENAI_TUNNEL_API_KEY = sk-...
 ```
 
-Then GPTWorker continues automatically: it installs/builds/tests the Worker, validates the local MCP endpoint, configures `tunnel-client`, runs tunnel `doctor`, starts the Secure MCP Tunnel, and waits for readiness.
+`setup.bat` has already installed, built, tested, and started the local Worker before this prompt. After you paste the Tunnel ID and API key, it configures `tunnel-client`, runs tunnel `doctor`, starts the Secure MCP Tunnel, waits for readiness, and then opens ChatGPT for the final connection step.
 
 Do not share the API key and do not commit `.env` to Git.
 
