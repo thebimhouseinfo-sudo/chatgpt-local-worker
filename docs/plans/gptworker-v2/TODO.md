@@ -2,7 +2,7 @@
 
 ## Active Backlog
 
-- [ ] Live-test Job routing: repo defaults + AppData custom Jobs; create/update/remove custom without mutating defaults.
+- [ ] Live-test Job routing: repo defaults + AppData custom Jobs; create/update/remove custom without mutating defaults; clone a default into a new custom id.
 - [ ] Complete P1A live lease pilot in [WORK_TOOL_LEASE_PILOT.md](WORK_TOOL_LEASE_PILOT.md): 2 chats, 2 workspaces, interleaved filesystem calls, no handle swap, no token leak.
 - [ ] Implement deterministic WorkspaceKey: readable slug + stable hash of canonical absolute path.
 - [ ] Implement WorkRegistrationStore, persistent monotonic DriverEpoch, readable ExecutionId and opaque authorityToken.
