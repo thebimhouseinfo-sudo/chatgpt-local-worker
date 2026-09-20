@@ -5,6 +5,7 @@ import { randomUUID } from "node:crypto";
 import { appendActivity } from "../lib/activity-log.js";
 import { getCustomJobsRoot, getDefaultJobsRoot, getWorkerDataRoot } from "../lib/worker-home.js";
 import {
+  getActiveToolLeasesForJob,
   getActiveWorkCountForJob,
   hasActiveWorkForJob,
 } from "../lib/work-registration.js";
@@ -631,11 +632,14 @@ export async function inspectJobPackForRemoval(idInput: string) {
     );
   }
 
+  const activeToolLeases = getActiveToolLeasesForJob(id);
   return {
     job_id: id,
     source: "custom" as const,
     pack_dir: customDir,
     active_work_count: getActiveWorkCountForJob(id),
+    active_tool_count: activeToolLeases.length,
+    active_tools: activeToolLeases,
     validation,
   };
 }
