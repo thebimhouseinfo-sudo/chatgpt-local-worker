@@ -89,4 +89,61 @@ assert.match(
   "cross-session confirmation must fail as missing/stale in this session"
 );
 
+
+
+const sessionC = makeSession();
+const admissionC = sessionC.admission.check({
+  userTurn: `@gptworker đọc ${repoRoot} và lên kế hoạch`,
+  hasConcreteTask: true,
+  workspace: repoRoot,
+});
+assert.equal(admissionC.mode, "ACTIVE");
+
+const firstBindings = {
+  workspace: repoRoot,
+  objective: "Plan version A",
+};
+const firstNomination = await sessionC.jobSelect({
+  job: "dev-planing",
+  bindings: firstBindings,
+  confirmed: false,
+  admission_token: admissionC.admission_token,
+});
+assert.equal(firstNomination.structuredContent.ok, true);
+const firstConfirmation = data(firstNomination)?.confirmation_token;
+assert.equal(typeof firstConfirmation, "string");
+
+const revisedBindings = {
+  workspace: repoRoot,
+  objective: "Plan version B",
+};
+const revisedNomination = await sessionC.jobSelect({
+  job: "dev-planing",
+  bindings: revisedBindings,
+  confirmed: false,
+  admission_token: admissionC.admission_token,
+});
+assert.equal(revisedNomination.structuredContent.ok, true);
+const revisedConfirmation = data(revisedNomination)?.confirmation_token;
+assert.equal(typeof revisedConfirmation, "string");
+assert.notEqual(revisedConfirmation, firstConfirmation);
+
+const staleSameSessionConfirm = await sessionC.jobSelect({
+  job: "dev-planing",
+  bindings: firstBindings,
+  confirmed: true,
+  admission_token: admissionC.admission_token,
+  confirmation_token: firstConfirmation,
+});
+assert.equal(
+  staleSameSessionConfirm.structuredContent.ok,
+  false,
+  "a superseded confirmation token must not reactivate old bindings"
+);
+assert.match(
+  String(data(staleSameSessionConfirm)?.error || ""),
+  /Confirmation token missing\/stale/,
+  "superseded confirmation must fail as stale"
+);
+
 console.log("test-job-confirmation-isolation: ok");
