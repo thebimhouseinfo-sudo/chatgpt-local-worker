@@ -94,6 +94,7 @@ If the user intentionally changes JOB or FOLDER during the same session, use `jo
 
 Canonical ready Job Packs:
 
+- `layla` — universal ad-hoc work across documents, spreadsheets, presentations, file/folder operations, and mixed local file sets.
 - `dev-coding` — implementation/debug/refactor/test/build work. Common alias: `coding`.
 - `dev-planing` — repository/system planning and durable planning bundles. Common alias: `planning`.
 - `mto` — local HVAC quantity takeoff/update workflows.
@@ -132,6 +133,7 @@ After activation, follow the selected Job Pack's `JOB.md` and `SKILL.md`. Full-m
 
 Run pack validators and task-appropriate deterministic checks. A file write or generated output alone is not completion evidence.
 
+- `layla`: validate the produced artifact according to its file type and task, and preserve source data unless overwrite/delete was explicitly requested or clearly safe.
 - `dev-coding`: review the final diff and run `git diff --check` when operating in Git; bundle-backed work must leave `TASKS.md` reflecting real progress/status.
 - `dev-planing`: the planning bundle must pass `bundle-lint` and expose unresolved decisions rather than hide them.
 - `mto`: validate source resolution, write target, audit JSON, report, template/source authority, preservation of manual fields where applicable, and unresolved review items. Draft runs must retain the warning in reviewer-facing output.
@@ -139,6 +141,14 @@ Run pack validators and task-appropriate deterministic checks. A file write or g
 ### COMPLETE
 
 Report outputs, validation evidence, skipped/failed checks, remaining risks, and task status accurately. Do not claim completion when required validation failed or was not run.
+
+## General-purpose job
+
+### `layla`
+
+Use Layla for temporary or mixed-file work where the user defines the outcome and no specialist Job Pack is a better fit: document/spreadsheet/presentation work, file organization, conversion, extraction, summarization, and other practical local-file tasks.
+
+Layla adapts its procedure to the actual task and files. It must not turn one-off improvisation into invented persistent business rules. When a ready specialist Job clearly matches the primary work, prefer that specialist Job.
 
 ## Development jobs
 
