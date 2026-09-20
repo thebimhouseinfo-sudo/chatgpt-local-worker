@@ -8,7 +8,10 @@ process.env.LOCAL_WORKER_HOME = tempRoot;
 
 const { AdmissionRuntime } = await import("../dist/lib/activation-policy.js");
 const { registerJobTools } = await import("../dist/tools/jobs.js");
-const { releaseWorkRegistration } = await import("../dist/lib/work-registration.js");
+const {
+  releaseWorkRegistration,
+  validateWorkHandle,
+} = await import("../dist/lib/work-registration.js");
 
 const registered = new Map();
 const server = {
@@ -85,6 +88,27 @@ assert.throws(
   () => admission.validate(admitted.admission_token),
   /ADMISSION_REQUIRED/,
   "pre-active admission token must be consumed when job_switch creates active work"
+);
+
+const invalidWorkspace = path.join(tempRoot, "missing-workspace");
+const invalidSwitch = await jobSwitch({
+  job: "no-confirm",
+  bindings: { workspace: invalidWorkspace },
+  execution_id: current.work_handle.execution_id,
+  authority_token: current.work_handle.authority_token,
+});
+assert.equal(invalidSwitch.structuredContent.ok, false);
+assert.match(
+  String(invalidSwitch.structuredContent.data?.error || ""),
+  /does not exist or is not a directory/
+);
+assert.doesNotThrow(
+  () =>
+    validateWorkHandle(
+      current.work_handle.execution_id,
+      current.work_handle.authority_token
+    ),
+  "invalid replacement Workspace must not destroy the current active work handle"
 );
 
 // Once active, work_handle itself authorizes a switch. The old registration
