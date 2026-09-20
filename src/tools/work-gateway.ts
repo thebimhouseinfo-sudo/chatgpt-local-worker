@@ -45,6 +45,8 @@ type ToolFamily = keyof typeof FAMILY_TOOLS;
 
 export const WORK_TOOL_OPERATIONS = Object.values(FAMILY_TOOLS).flat();
 
+const PROCESS_LOADED_FAMILIES = new Set<ToolFamily>();
+
 const TOOL_FAMILY = new Map<string, ToolFamily>();
 for (const [family, tools] of Object.entries(FAMILY_TOOLS) as Array<
   [ToolFamily, readonly string[]]
@@ -134,6 +136,7 @@ export function createWorkToolResolver(
       }
 
       loaded.set(family, capture);
+      PROCESS_LOADED_FAMILIES.add(family);
       return capture;
     })();
 
@@ -170,6 +173,13 @@ export function createWorkToolResolver(
         ),
       };
     },
+  };
+}
+
+export function getWorkGatewayTelemetry() {
+  return {
+    loaded_families: [...PROCESS_LOADED_FAMILIES],
+    loaded_family_count: PROCESS_LOADED_FAMILIES.size,
   };
 }
 
