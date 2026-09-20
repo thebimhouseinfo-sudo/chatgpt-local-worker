@@ -85,7 +85,13 @@ echo ========================================
 echo   OpenAI Secure MCP Tunnel setup
 echo ========================================
 echo The local Worker is running, so tunnel doctor can validate the MCP target.
-echo Follow the prompts. The ChatGPT connection should be named: gptworker
+echo.
+echo Before continuing, you need:
+echo   API key: https://platform.openai.com/settings/organization/api-keys
+echo   Tunnel:  https://platform.openai.com/settings/organization/tunnels
+echo.
+echo Create/copy the Runtime API key and tunnel_... ID, then follow the prompts.
+echo The ChatGPT connection should be named: gptworker
 
 echo.
 powershell -NoProfile -ExecutionPolicy Bypass -File "%~dp0openai-tunnel.ps1" -Init
@@ -113,16 +119,23 @@ if errorlevel 1 (
 echo [OK] GPTWorker and Secure MCP Tunnel are ready.
 
 echo.
-echo Opening ChatGPT app/connector settings...
-start "" "https://chatgpt.com/#settings/Connectors"
+echo Opening ChatGPT...
+start "" "https://chatgpt.com/"
 
 echo.
-echo In ChatGPT:
-echo   1. Enable Developer Mode if the UI asks for it.
-echo   2. Apps / Create -> Connection: Tunnel.
-echo   3. Select your tunnel or paste the tunnel ID.
-echo   4. Scan Tools / Test connection.
-echo   5. Name the app: gptworker
+echo Create the GPTWorker Plugin/App in ChatGPT:
+echo   1. Use ChatGPT on the web.
+echo   2. Enable Developer Mode:
+echo      Settings ^> Apps ^> Advanced Settings ^> Developer Mode
+echo   3. Open Plugins ^> +, or Settings ^> Apps ^> Create.
+echo   4. Create a new custom app/plugin.
+echo   5. Name: gptworker
+echo   6. Connection: Tunnel
+echo   7. Select your tunnel or paste the tunnel_... ID.
+echo   8. Scan Tools / Test connection, then Create/Save.
+echo.
+echo After it is connected, open a normal chat and use: @gptworker
+echo Then try: gptworker/
 echo.
 echo Do NOT enter http://127.0.0.1:3000/mcp into ChatGPT.
 echo.
