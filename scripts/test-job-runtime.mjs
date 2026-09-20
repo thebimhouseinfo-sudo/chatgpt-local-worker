@@ -7,18 +7,56 @@ const repoRoot = path.resolve(path.dirname(fileURLToPath(import.meta.url)), ".."
 const runtime = new JobRuntime(repoRoot, path.join(repoRoot, "jobs"));
 
 const listing = await runtime.list("repo lisp");
-assert.equal(listing.jobs.length, 3);
-assert.deepEqual(listing.jobs.map((job) => job.id).sort(), ["dev-coding", "dev-planing", "mto"]);
+assert.equal(listing.jobs.length, 4);
+assert.deepEqual(listing.jobs.map((job) => job.id).sort(), ["dev-coding", "dev-planing", "layla", "mto"]);
 assert.equal(listing.suggested_job_ids.includes("dev-coding"), true);
 assert.equal(listing.jobs.find((job) => job.id === "dev-coding")?.status, "ready");
 assert.equal(listing.jobs.find((job) => job.id === "dev-coding")?.skill_count, 13);
 assert.equal(listing.jobs.find((job) => job.id === "dev-planing")?.status, "ready");
 assert.equal(listing.jobs.find((job) => job.id === "dev-planing")?.skill_count, 6);
+assert.equal(listing.jobs.find((job) => job.id === "layla")?.status, "ready");
+assert.equal(listing.jobs.find((job) => job.id === "layla")?.skill_count, 0);
 assert.equal(listing.jobs.find((job) => job.id === "mto")?.status, "ready");
 assert.equal(listing.jobs.find((job) => job.id === "mto")?.skill_count, 0);
 
 const mtoListing = await runtime.list("fan takeoff");
 assert.equal(mtoListing.suggested_job_ids.includes("mto"), true);
+
+const laylaListing = await runtime.list("PowerPoint Excel files");
+assert.equal(laylaListing.suggested_job_ids.includes("layla"), true);
+
+const laylaPartial = await runtime.select({
+  job: "layla",
+  bindings: { workspace: repoRoot },
+});
+assert.equal(laylaPartial.state.phase, "selected");
+assert.deepEqual(laylaPartial.missing_bindings, ["task"]);
+
+const laylaSelected = await runtime.select({
+  job: "layla",
+  bindings: {
+    workspace: repoRoot,
+    task: "Organize a mixed set of documents and create a summary presentation",
+  },
+});
+assert.equal(laylaSelected.state.phase, "awaiting_confirmation");
+assert.equal(typeof laylaSelected.confirmation_token, "string");
+
+const laylaActive = await runtime.select({
+  job: "layla",
+  bindings: {
+    workspace: repoRoot,
+    task: "Organize a mixed set of documents and create a summary presentation",
+  },
+  confirmed: true,
+  confirmationToken: laylaSelected.confirmation_token,
+});
+assert.equal(laylaActive.state.phase, "active");
+assert.equal(laylaActive.job.id, "layla");
+assert.equal(laylaActive.harness.length, 1);
+assert.equal(laylaActive.validators.length, 1);
+
+runtime.stop();
 
 await assert.rejects(
   () =>
