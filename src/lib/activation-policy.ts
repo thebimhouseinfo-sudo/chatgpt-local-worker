@@ -44,12 +44,6 @@ export function validateActivationGate(input: ActivationGateInput): ActivationGa
     return { trigger: input.trigger, request };
   }
 
-  if (!request) {
-    throw new Error(
-      "ACTIVATION_REQUIRED: task_with_workspace requires the concrete user work request that triggered GPTWorker."
-    );
-  }
-
   const activationWorkspace = input.activationWorkspace?.trim();
   if (!activationWorkspace || !path.isAbsolute(activationWorkspace)) {
     throw new Error(
