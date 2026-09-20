@@ -688,7 +688,13 @@ export function registerJobTools(
         });
         pendingConfirmations.delete(confirmation_token!);
         await validateResolvedWorkspace(selected);
-        return persistActiveSelection(selected, sessionRuntime, lifecycle);
+        const active = await persistActiveSelection(
+          selected,
+          sessionRuntime,
+          lifecycle
+        );
+        admissionRuntime.consume(admission_token);
+        return active;
       })
   );
 
