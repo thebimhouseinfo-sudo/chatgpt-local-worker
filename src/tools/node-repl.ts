@@ -34,6 +34,23 @@ interface WindowsComputerUseClientConstructor {
   new (options: { transport: SkyTransport }): unknown;
 }
 
+export function createWorkspaceRequire(workspaceRoot: string) {
+  const baseRequire = createRequire(path.join(workspaceRoot, "package.json"));
+  return (specifier: string) => {
+    if (
+      specifier === "fs" ||
+      specifier === "node:fs" ||
+      specifier === "fs/promises" ||
+      specifier === "node:fs/promises"
+    ) {
+      throw new Error(
+        "Filesystem access is disabled inside node_repl. Use GPTWorker filesystem tools with absolute paths."
+      );
+    }
+    return baseRequire(specifier);
+  };
+}
+
 export function createWorkspaceProcessView(workspaceRoot: string): NodeJS.Process {
   const resolved = path.resolve(workspaceRoot);
   const env = {
@@ -100,7 +117,7 @@ async function createState(workspaceRoot: string): Promise<ReplState> {
     setTimeout,
     clearTimeout,
     fetch,
-    require: createRequire(path.join(workspaceRoot, "package.json")),
+    require: createWorkspaceRequire(workspaceRoot),
     console: { log: (...values: unknown[]) => output.push(values.map((value) => util.inspect(value, { depth: 4 })).join(" ")) },
     nodeRepl,
     __localCoderOutput: output,
@@ -120,7 +137,7 @@ export function registerNodeReplTool(server: McpServer, _startupWorkspaceRoot: s
     "node_repl",
     {
       title: "Node REPL",
-      description: "Stateful JavaScript session rooted at the confirmed active workspace. process.cwd() and workspaceRoot resolve to that workspace; process.chdir() is disabled to prevent changing GPTWorker's host cwd. Prefer dedicated filesystem tools for routine file mutations. Store state on globalThis. When the Computer Use plugin is enabled and its skill is loaded, globalThis.sky exposes Codex Windows Computer Use.",
+      description: "Stateful JavaScript session rooted at the confirmed active workspace. process.cwd() and workspaceRoot resolve to that workspace; process.chdir() is disabled. Direct fs/fs-promises access is blocked: use GPTWorker filesystem tools with absolute paths for file I/O. Store state on globalThis. When the Computer Use plugin is enabled and its skill is loaded, globalThis.sky exposes Codex Windows Computer Use.",
       inputSchema: {
         action: z.enum(["eval", "reset", "status"]).default("eval"),
         code: z.string().optional().describe("JavaScript. Use globalThis for state across calls; nodeRepl.write() emits text."),

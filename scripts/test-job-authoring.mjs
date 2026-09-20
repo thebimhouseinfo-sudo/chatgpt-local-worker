@@ -27,9 +27,18 @@ const {
   createJobPack,
   updateJobPack,
   removeJobPack,
+  inspectJobPackForRemoval,
+  exportJobPack,
+  importJobPack,
   validateJobPack,
 } = await import("../dist/jobs/job-authoring.js");
 const { JobRuntime } = await import("../dist/jobs/job-runtime.js");
+const {
+  acquireToolLease,
+  createWorkRegistration,
+  releaseToolLease,
+  releaseWorkRegistration,
+} = await import("../dist/lib/work-registration.js");
 
 const created = await createJobPack({
   id: "test-job",
@@ -154,6 +163,58 @@ assert.match(
 const validation = await validateJobPack(path.join(customJobsRoot, "test-job"));
 assert.equal(validation.ok, true);
 
+const exportDir = path.join(tempRoot, "exports");
+await fs.mkdir(exportDir, { recursive: true });
+
+await assert.rejects(
+  () => exportJobPack("dev-coding", exportDir),
+  /Only custom Jobs can be exported/
+);
+
+const exported = await exportJobPack("test-job", exportDir);
+assert.equal(exported.exported, true);
+assert.equal(exported.archive, path.join(exportDir, "test-job.zip"));
+assert.equal(
+  await fs.stat(exported.archive).then((stat) => stat.isFile()),
+  true
+);
+
+await assert.rejects(
+  () => exportJobPack("test-job", "relative-export-dir"),
+  /absolute local path/
+);
+
+const activeWorkspace = path.join(tempRoot, "active-workspace");
+await fs.mkdir(activeWorkspace, { recursive: true });
+const activeRegistration = await createWorkRegistration("test-job", activeWorkspace);
+const activeLease = acquireToolLease(
+  "read_text_file",
+  "filesystem",
+  activeRegistration.executionId,
+  activeRegistration.authorityToken
+);
+const removalPreflight = await inspectJobPackForRemoval("test-job");
+assert.equal(removalPreflight.source, "custom");
+assert.equal(removalPreflight.active_work_count, 1);
+assert.equal(removalPreflight.active_tool_count, 1);
+assert.equal(removalPreflight.active_tools[0]?.tool, "read_text_file");
+
+await assert.rejects(
+  () => updateJobPack("test-job", { description: "Must stop active work first." }),
+  /is active/
+);
+await assert.rejects(
+  () => removeJobPack("test-job"),
+  /is active/
+);
+
+releaseToolLease(activeLease, "ok");
+releaseWorkRegistration(
+  activeRegistration.executionId,
+  activeRegistration.authorityToken
+);
+
+
 await assert.rejects(
   () =>
     createJobPack({
@@ -189,6 +250,31 @@ await assert.rejects(
 const afterRemove = await runtime.list();
 assert.equal(afterRemove.jobs.some((job) => job.id === "dev-coding"), true);
 assert.equal(afterRemove.jobs.some((job) => job.id === "test-job"), false);
+
+const imported = await importJobPack(exportDir);
+assert.equal(imported.imported, true);
+assert.equal(imported.job_id, "test-job");
+assert.equal(
+  await fs.stat(path.join(customJobsRoot, "test-job", "JOB.md")).then(() => true),
+  true
+);
+
+const importedListing = await runtime.list();
+assert.equal(
+  importedListing.jobs.find((job) => job.id === "test-job")?.source,
+  "custom"
+);
+
+await assert.rejects(
+  () => importJobPack(exportDir),
+  /already exists/
+);
+await assert.rejects(
+  () => importJobPack("relative-import-dir"),
+  /absolute local path/
+);
+
+await removeJobPack("test-job");
 
 await fs.rm(tempRoot, { recursive: true, force: true });
 console.log("test-job-authoring: ok");

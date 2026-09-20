@@ -1,9 +1,17 @@
 import fs from "fs/promises";
 import path from "path";
+import { randomUUID } from "node:crypto";
 import { z } from "zod";
 import type { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import { JobRuntime } from "../jobs/job-runtime.js";
-import { createJobPack, updateJobPack, removeJobPack } from "../jobs/job-authoring.js";
+import {
+  createJobPack,
+  updateJobPack,
+  removeJobPack,
+  inspectJobPackForRemoval,
+  exportJobPack,
+  importJobPack,
+} from "../jobs/job-authoring.js";
 import { clearWorkerState } from "../lib/worker-state.js";
 import { toolAnnotations } from "../lib/tool-annotations.js";
 import { toolError, toolResult } from "../lib/tool-result.js";
@@ -39,6 +47,22 @@ const pendingConfirmations = new Map<
   string,
   { jobId: string; bindings: Record<string, string>; createdAt: number }
 >();
+
+const pendingRemovalConfirmations = new Map<
+  string,
+  { jobId: string; mode: "remove" | "interrupt_remove"; createdAt: number }
+>();
+
+function getRemovalProof(token: string | undefined) {
+  const now = Date.now();
+  for (const [key, proof] of pendingRemovalConfirmations) {
+    if (now - proof.createdAt > CONFIRMATION_PROOF_TTL_MS) {
+      pendingRemovalConfirmations.delete(key);
+    }
+  }
+  if (!token) return undefined;
+  return pendingRemovalConfirmations.get(token);
+}
 
 function stableBindings(bindings: Record<string, string> | undefined): string {
   return JSON.stringify(
@@ -269,13 +293,176 @@ export function registerJobTools(
     {
       title: "Job Remove",
       description:
-        "Remove a custom AppData Job Pack. Bundled repo default Jobs cannot be removed.",
+        "Two-phase custom Job removal. First call confirmed=false: GPTWorker verifies the Job is custom and reports whether it has active WorkRegistrations or active tool leases. After explicit user confirmation, retry with confirmed=true + confirmation_token. If the Job is active in this chat, pass its work_handle so GPTWorker can stop that owned work before removal. Work owned by another chat is never stopped implicitly.",
       inputSchema: {
-        id: z.string().min(1).describe("Exact Job id to remove"),
+        id: z.string().min(1).describe("Exact custom Job id to remove"),
+        confirmed: z.boolean().optional().default(false).describe(
+          "Set true only after explicit user confirmation of the returned removal prompt"
+        ),
+        confirmation_token: z.string().optional().describe(
+          "Token returned by the preflight job_remove call"
+        ),
+        execution_id: z.string().optional().describe(
+          "Current chat work_handle.execution_id when this exact Job is active here"
+        ),
+        authority_token: z.string().optional().describe(
+          "Current chat work_handle.authority_token"
+        ),
       },
       annotations: toolAnnotations("edit"),
     },
-    async ({ id }) => safe("job_remove", () => removeJobPack(id))
+    async ({
+      id,
+      confirmed,
+      confirmation_token,
+      execution_id,
+      authority_token,
+    }) =>
+      safe("job_remove", async () => {
+        let preflight = await inspectJobPackForRemoval(id);
+
+        if (!confirmed) {
+          const mode =
+            preflight.active_tool_count > 0
+              ? "interrupt_remove"
+              : "remove";
+          const token = randomUUID();
+          pendingRemovalConfirmations.set(token, {
+            jobId: preflight.job_id,
+            mode,
+            createdAt: Date.now(),
+          });
+
+          const confirmationPrompt =
+            preflight.active_tool_count > 0
+              ? "Custom Job '" +
+                preflight.job_id +
+                "' đang làm việc (" +
+                preflight.active_tool_count +
+                " tool call đang chạy). Xác nhận ngắt Job và remove?"
+              : preflight.active_work_count > 0
+                ? "Custom Job '" +
+                  preflight.job_id +
+                  "' đang active nhưng hiện không có tool call đang chạy. Xác nhận job stop rồi remove?"
+                : "Xóa custom Job '" +
+                  preflight.job_id +
+                  "' khỏi AppData?";
+
+          return {
+            ...preflight,
+            removal_pending: true,
+            confirmation_required: true,
+            confirmation_mode: mode,
+            confirmation_token: token,
+            confirmation_prompt: confirmationPrompt,
+          };
+        }
+
+        const proof = getRemovalProof(confirmation_token);
+        if (!proof || proof.jobId !== preflight.job_id) {
+          throw new Error(
+            "Removal confirmation missing/stale. Call job_remove with confirmed=false first, show its exact prompt, then retry after explicit user confirmation."
+          );
+        }
+
+        if (
+          preflight.active_tool_count > 0 &&
+          proof.mode !== "interrupt_remove"
+        ) {
+          const token = randomUUID();
+          pendingRemovalConfirmations.delete(confirmation_token!);
+          pendingRemovalConfirmations.set(token, {
+            jobId: preflight.job_id,
+            mode: "interrupt_remove",
+            createdAt: Date.now(),
+          });
+          return {
+            ...preflight,
+            removal_pending: true,
+            confirmation_required: true,
+            confirmation_mode: "interrupt_remove",
+            confirmation_token: token,
+            confirmation_prompt:
+              "Custom Job '" +
+              preflight.job_id +
+              "' bắt đầu làm việc sau lần xác nhận trước (" +
+              preflight.active_tool_count +
+              " tool call đang chạy). Xác nhận ngắt Job và remove?",
+          };
+        }
+
+        if (preflight.active_work_count > 0) {
+          if (!execution_id || !authority_token) {
+            throw new Error(
+              "JOB_ACTIVE: custom Job '" +
+                preflight.job_id +
+                "' still has active work. To interrupt/remove it, supply the current chat's matching work_handle after the user confirms. Work from another chat cannot be stopped implicitly."
+            );
+          }
+
+          const work = validateWorkHandle(execution_id, authority_token);
+          if (work.jobId !== preflight.job_id) {
+            throw new Error(
+              "JOB_ACTIVE: supplied work_handle belongs to Job '" +
+                work.jobId +
+                "', not '" +
+                preflight.job_id +
+                "'."
+            );
+          }
+
+          releaseWorkRegistration(execution_id, authority_token);
+          sessionRuntime.stop();
+          preflight = await inspectJobPackForRemoval(id);
+
+          if (preflight.active_work_count > 0) {
+            throw new Error(
+              "JOB_ACTIVE: another WorkRegistration still owns custom Job '" +
+                preflight.job_id +
+                "'. GPTWorker stopped only the confirmed work_handle; another chat must stop its own work or wait for the 10-minute idle timeout."
+            );
+          }
+        }
+
+        pendingRemovalConfirmations.delete(confirmation_token!);
+        return removeJobPack(id);
+      })
+  );
+
+  server.registerTool(
+    "job_export",
+    {
+      title: "Job Export",
+      description:
+        "Export one custom AppData Job Pack as <id>.zip into an existing absolute local destination directory. Bundled repo Jobs cannot be exported.",
+      inputSchema: {
+        id: z.string().min(1).describe("Exact custom Job id to export"),
+        destination: z
+          .string()
+          .min(1)
+          .describe("Absolute local destination directory for <id>.zip"),
+      },
+      annotations: toolAnnotations("edit"),
+    },
+    async ({ id, destination }) =>
+      safe("job_export", () => exportJobPack(id, destination))
+  );
+
+  server.registerTool(
+    "job_import",
+    {
+      title: "Job Import",
+      description:
+        "Import one custom Job Pack ZIP into AppData. Source must be an absolute local .zip path or an absolute directory containing exactly one .zip. Import validates first and never overwrites existing/default Jobs.",
+      inputSchema: {
+        source: z
+          .string()
+          .min(1)
+          .describe("Absolute local .zip path or absolute directory containing exactly one Job ZIP"),
+      },
+      annotations: toolAnnotations("edit"),
+    },
+    async ({ source }) => safe("job_import", () => importJobPack(source))
   );
 
   server.registerTool(

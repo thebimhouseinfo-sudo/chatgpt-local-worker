@@ -97,10 +97,14 @@ function stripQuotes(value: string): string {
   return value.trim().replace(/^['"]|['"]$/g, "");
 }
 
-function resolveCdTarget(current: string, target: string): string {
+function resolveCdTarget(_current: string, target: string): string {
   const cleaned = stripQuotes(target);
-  if (cleaned === "-" || cleaned === "~") return current;
-  return path.isAbsolute(cleaned) ? path.resolve(cleaned) : path.resolve(current, cleaned);
+  if (!path.isAbsolute(cleaned)) {
+    throw new Error(
+      "Shell directory changes require an absolute path. Relative cd/Set-Location/pushd targets are not allowed: " + cleaned
+    );
+  }
+  return path.resolve(cleaned);
 }
 
 /** Update cwd when cd / Set-Location appears at the start of a command. */
@@ -121,7 +125,10 @@ export function applyCwdDirectives(
 
     const cdMatch = rest.match(/^cd(?:\s+(.+?))?(?:\s*;\s*|\s*&&\s*|$)/i);
     if (cdMatch) {
-      if (cdMatch[1]) cwd = resolveCdTarget(cwd, cdMatch[1]);
+      if (!cdMatch[1]) {
+        throw new Error("Shell cd requires an explicit absolute path.");
+      }
+      cwd = resolveCdTarget(cwd, cdMatch[1]);
       rest = rest.slice(cdMatch[0].length).trim();
       continue;
     }

@@ -4,6 +4,12 @@ import path from "node:path";
 import { randomUUID } from "node:crypto";
 import { appendActivity } from "../lib/activity-log.js";
 import { getCustomJobsRoot, getDefaultJobsRoot, getWorkerDataRoot } from "../lib/worker-home.js";
+import {
+  getActiveToolLeasesForJob,
+  getActiveWorkCountForJob,
+  hasActiveWorkForJob,
+} from "../lib/work-registration.js";
+import { extractJobZip, writeJobZip } from "../lib/zip-archive.js";
 
 export type JobPackStatus = "ready" | "placeholder";
 
@@ -102,6 +108,67 @@ function resolveInsidePack(packDir: string, rel: string): string {
     throw new Error("Path escapes Job Pack: " + rel);
   }
   return absolute;
+}
+
+function assertAbsoluteLocalPath(value: string, label: string): string {
+  const trimmed = value.trim();
+  if (!trimmed || !path.isAbsolute(trimmed)) {
+    throw new Error(label + " must be an absolute local path.");
+  }
+  return path.resolve(trimmed);
+}
+
+async function requireExistingDirectory(value: string, label: string): Promise<string> {
+  const absolute = assertAbsoluteLocalPath(value, label);
+  const stat = await fs.stat(absolute).catch(() => null);
+  if (!stat?.isDirectory()) {
+    throw new Error(label + " must point to an existing directory: " + absolute);
+  }
+  return absolute;
+}
+
+async function resolveImportZipSource(sourceInput: string): Promise<string> {
+  const absolute = assertAbsoluteLocalPath(sourceInput, "Import source");
+  const stat = await fs.stat(absolute).catch(() => null);
+  if (!stat) throw new Error("Import source does not exist: " + absolute);
+
+  if (stat.isFile()) {
+    if (path.extname(absolute).toLowerCase() !== ".zip") {
+      throw new Error("Import source file must be a .zip archive: " + absolute);
+    }
+    return absolute;
+  }
+
+  if (!stat.isDirectory()) {
+    throw new Error("Import source must be a ZIP file or directory containing one ZIP.");
+  }
+
+  const zipFiles = (await fs.readdir(absolute, { withFileTypes: true }))
+    .filter((entry) => entry.isFile() && path.extname(entry.name).toLowerCase() === ".zip")
+    .map((entry) => path.join(absolute, entry.name))
+    .sort((a, b) => a.localeCompare(b));
+
+  if (zipFiles.length === 0) {
+    throw new Error("No .zip Job Pack found in import directory: " + absolute);
+  }
+  if (zipFiles.length > 1) {
+    throw new Error(
+      "Import directory contains multiple ZIP files. Point to the exact ZIP file instead: " +
+        zipFiles.map((item) => path.basename(item)).join(", ")
+    );
+  }
+  return zipFiles[0];
+}
+
+async function resolveImportedPackRoot(stageRoot: string): Promise<string> {
+  const entries = await fs.readdir(stageRoot, { withFileTypes: true });
+  const visible = entries.filter((entry) => entry.name !== "__MACOSX");
+  if (visible.length !== 1 || !visible[0].isDirectory()) {
+    throw new Error(
+      "Job ZIP must contain exactly one top-level Job directory."
+    );
+  }
+  return path.join(stageRoot, visible[0].name);
 }
 
 async function exists(target: string): Promise<boolean> {
@@ -457,6 +524,9 @@ export async function updateJobPack(idInput: string, patch: JobPackPatch) {
   const jobsRoot = getCustomJobsRoot();
   const liveDir = path.join(jobsRoot, id);
   const defaultDir = path.join(getDefaultJobsRoot(), id);
+  if (hasActiveWorkForJob(id)) {
+    throw new Error("Custom Job '" + id + "' is active. Stop its WorkRegistration before updating it.");
+  }
   if (!(await exists(liveDir))) {
     if (await exists(defaultDir)) {
       throw new Error(
@@ -541,11 +611,157 @@ export async function updateJobPack(idInput: string, patch: JobPackPatch) {
   }
 }
 
+export async function inspectJobPackForRemoval(idInput: string) {
+  const id = assertJobId(idInput);
+  const customDir = path.join(getCustomJobsRoot(), id);
+  const defaultDir = path.join(getDefaultJobsRoot(), id);
+
+  if (!(await exists(customDir))) {
+    if (await exists(defaultDir)) {
+      throw new Error(
+        "Job '" + id + "' is a bundled default Job and cannot be removed."
+      );
+    }
+    throw new Error("Unknown custom Job '" + id + "'.");
+  }
+
+  const validation = await validateJobPack(customDir);
+  if (!validation.ok) {
+    throw new Error(
+      "Custom Job '" + id + "' is invalid: " + validation.errors.join("; ")
+    );
+  }
+
+  const activeToolLeases = getActiveToolLeasesForJob(id);
+  return {
+    job_id: id,
+    source: "custom" as const,
+    pack_dir: customDir,
+    active_work_count: getActiveWorkCountForJob(id),
+    active_tool_count: activeToolLeases.length,
+    active_tools: activeToolLeases,
+    validation,
+  };
+}
+
+export async function exportJobPack(
+  idInput: string,
+  destinationInput: string
+) {
+  const id = assertJobId(idInput);
+  const customDir = path.join(getCustomJobsRoot(), id);
+  const defaultDir = path.join(getDefaultJobsRoot(), id);
+
+  if (!(await exists(customDir))) {
+    if (await exists(defaultDir)) {
+      throw new Error(
+        "Job '" + id + "' is a bundled default Job. Only custom Jobs can be exported."
+      );
+    }
+    throw new Error("Unknown custom Job '" + id + "'.");
+  }
+
+  const validation = await validateJobPack(customDir);
+  if (!validation.ok) {
+    throw new Error("Custom Job is invalid and cannot be exported: " + validation.errors.join("; "));
+  }
+
+  const destination = await requireExistingDirectory(destinationInput, "Export destination");
+  const archive = path.join(destination, id + ".zip");
+  if (await exists(archive)) {
+    throw new Error("Export archive already exists: " + archive);
+  }
+
+  await writeJobZip(customDir, archive, id);
+  appendActivity({
+    kind: "system",
+    action: "job_exported",
+    status: "ok",
+    target: id,
+    summary: id + " exported",
+    details: {
+      job_id: id,
+      source: "custom",
+      archive,
+      destination,
+    },
+  });
+
+  return {
+    job_id: id,
+    exported: true,
+    archive,
+    validation,
+  };
+}
+
+export async function importJobPack(sourceInput: string) {
+  const sourceZip = await resolveImportZipSource(sourceInput);
+  const stageRoot = path.join(
+    getWorkerDataRoot(),
+    ".job-import-staging",
+    randomUUID()
+  );
+
+  try {
+    await fs.mkdir(stageRoot, { recursive: true });
+    await extractJobZip(sourceZip, stageRoot);
+    const stagePack = await resolveImportedPackRoot(stageRoot);
+    const validation = await validateJobPack(stagePack);
+    if (!validation.ok) {
+      throw new Error("Imported Job validation failed: " + validation.errors.join("; "));
+    }
+
+    const id = assertJobId(validation.id);
+    const defaultDir = path.join(getDefaultJobsRoot(), id);
+    const liveDir = path.join(getCustomJobsRoot(), id);
+
+    if (await exists(defaultDir)) {
+      throw new Error(
+        "Imported Job id '" + id + "' is reserved by a bundled default Job."
+      );
+    }
+    if (await exists(liveDir)) {
+      throw new Error(
+        "Custom Job '" + id + "' already exists. Import never overwrites an existing Job."
+      );
+    }
+
+    await publishNew(stagePack, liveDir);
+    appendActivity({
+      kind: "system",
+      action: "job_imported",
+      status: "ok",
+      target: id,
+      summary: id + " imported to AppData custom jobs/",
+      details: {
+        job_id: id,
+        source_archive: sourceZip,
+        pack_dir: liveDir,
+        source: "custom",
+      },
+    });
+
+    return {
+      job_id: id,
+      imported: true,
+      source_archive: sourceZip,
+      pack_dir: liveDir,
+      validation,
+    };
+  } finally {
+    await fs.rm(stageRoot, { recursive: true, force: true }).catch(() => undefined);
+  }
+}
+
 export async function removeJobPack(idInput: string) {
   const id = assertJobId(idInput);
   const jobsRoot = getCustomJobsRoot();
   const liveDir = path.join(jobsRoot, id);
   const defaultDir = path.join(getDefaultJobsRoot(), id);
+  if (hasActiveWorkForJob(id)) {
+    throw new Error("Custom Job '" + id + "' is active. Stop its WorkRegistration before removing it.");
+  }
   if (!(await exists(liveDir))) {
     if (await exists(defaultDir)) {
       throw new Error(

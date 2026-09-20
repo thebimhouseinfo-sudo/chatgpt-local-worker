@@ -25,6 +25,8 @@ try {
     "job_create",
     "job_update",
     "job_remove",
+    "job_export",
+    "job_import",
     "job_stop",
     "move_file",
   ]) {

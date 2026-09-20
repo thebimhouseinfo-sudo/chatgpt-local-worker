@@ -3,6 +3,8 @@ const CONTROL_TOOLS = new Set([
   "job_create",
   "job_update",
   "job_remove",
+  "job_export",
+  "job_import",
   "job_status",
   "job_select",
   "job_switch",

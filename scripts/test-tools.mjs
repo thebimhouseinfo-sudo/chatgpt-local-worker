@@ -4,7 +4,8 @@ import { fileURLToPath } from "url";
 import { globFiles } from "../dist/lib/glob-search.js";
 import { grepSearch } from "../dist/lib/grep-search.js";
 import { applyMultiFilePatch, applyUnifiedPatchToText, isMultiFilePatch } from "../dist/lib/patch.js";
-import { createWorkspaceProcessView } from "../dist/tools/node-repl.js";
+import { createWorkspaceProcessView, createWorkspaceRequire } from "../dist/tools/node-repl.js";
+import { validatePath } from "../dist/lib/path-security.js";
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const root = path.resolve(__dirname, "..");
@@ -104,6 +105,29 @@ await run("multi-file patch apply", async () => {
   if (results.length !== 1 || !results[0].ok) throw new Error(JSON.stringify(results));
   const text = await fs.readFile(file, "utf-8");
   if (!text.includes("gamma")) throw new Error(text);
+});
+
+await run("relative filesystem path is rejected", async () => {
+  let blocked = false;
+  try {
+    await validatePath("relative/file.txt");
+  } catch (error) {
+    blocked = /absolute path/i.test(String(error?.message || error));
+  }
+  if (!blocked) throw new Error("relative filesystem path should be rejected");
+});
+
+await run("node_repl blocks direct fs access", async () => {
+  const workspaceRequire = createWorkspaceRequire(tmpDir);
+  let blocked = false;
+  try {
+    workspaceRequire("fs");
+  } catch (error) {
+    blocked = /filesystem access is disabled/i.test(String(error?.message || error));
+  }
+  if (!blocked) throw new Error("node_repl fs require should be blocked");
+  const pathModule = workspaceRequire("path");
+  if (typeof pathModule.join !== "function") throw new Error("non-fs modules should remain available");
 });
 
 await run("node_repl process view is workspace-bound", async () => {

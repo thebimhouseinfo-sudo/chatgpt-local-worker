@@ -293,7 +293,7 @@ export function registerFilesystemTools(server: McpServer): void {
       description:
         "Preferred way to edit code. Codex @@ hunks or *** Begin Patch format. Read the file first. Use dry_run:true to preview.",
       inputSchema: {
-        path: z.string().optional().describe("Target file (single-file) or base directory (multi-file)"),
+        path: z.string().optional().describe("Absolute target file (single-file) or absolute base directory (multi-file; required)"),
         patch: z.string(),
         dry_run: z.boolean().optional().default(false),
       },
@@ -304,12 +304,14 @@ export function registerFilesystemTools(server: McpServer): void {
       requireWriteAllowed();
 
       if (isMultiFilePatch(patch)) {
-        let baseDir: string | undefined;
-        if (filePath) {
-          const validPath = await validatePath(filePath);
-          const stat = await fs.stat(validPath);
-          baseDir = stat.isDirectory() ? validPath : path.dirname(validPath);
+        if (!filePath) {
+          throw new Error(
+            "Absolute base path is required for multi-file patches."
+          );
         }
+        const validPath = await validatePath(filePath);
+        const stat = await fs.stat(validPath);
+        const baseDir = stat.isDirectory() ? validPath : path.dirname(validPath);
         const patchPaths = parseMultiFilePatch(patch, baseDir).map((op) => op.path);
         const checkpointId = await checkpointBefore("apply_patch", patchPaths, { dry_run });
         const results = await applyMultiFilePatch(patch, { base_dir: baseDir, dry_run });
