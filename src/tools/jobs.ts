@@ -44,48 +44,11 @@ const JobFilesSchema = z
   .describe("Additional pack files keyed by relative path, e.g. skills/foo.md or harness/validate.mjs");
 
 const CONFIRMATION_PROOF_TTL_MS = 30 * 60 * 1000;
-const pendingConfirmations = new Map<
-  string,
-  { jobId: string; bindings: Record<string, string>; createdAt: number }
->();
-
-const pendingRemovalConfirmations = new Map<
-  string,
-  { jobId: string; mode: "remove" | "interrupt_remove"; createdAt: number }
->();
-
-function getRemovalProof(token: string | undefined) {
-  const now = Date.now();
-  for (const [key, proof] of pendingRemovalConfirmations) {
-    if (now - proof.createdAt > CONFIRMATION_PROOF_TTL_MS) {
-      pendingRemovalConfirmations.delete(key);
-    }
-  }
-  if (!token) return undefined;
-  return pendingRemovalConfirmations.get(token);
-}
 
 function stableBindings(bindings: Record<string, string> | undefined): string {
   return JSON.stringify(
     Object.fromEntries(Object.entries(bindings || {}).sort(([a], [b]) => a.localeCompare(b)))
   );
-}
-
-function rememberConfirmation(result: any): void {
-  const token = result?.confirmation_token;
-  const jobId = result?.job?.id;
-  const bindings = result?.state?.bindings;
-  if (!token || !jobId || !bindings) return;
-  pendingConfirmations.set(token, { jobId, bindings: { ...bindings }, createdAt: Date.now() });
-}
-
-function getConfirmationProof(token: string | undefined) {
-  const now = Date.now();
-  for (const [key, proof] of pendingConfirmations) {
-    if (now - proof.createdAt > CONFIRMATION_PROOF_TTL_MS) pendingConfirmations.delete(key);
-  }
-  if (!token) return undefined;
-  return pendingConfirmations.get(token);
 }
 
 
@@ -166,6 +129,51 @@ export function registerJobTools(
   admissionRuntime: AdmissionRuntime
 ): void {
   let sessionRuntime = runtime;
+
+  // Confirmation authority is scoped to this MCP server/session.
+  // Never share user-confirmation proofs between ChatGPT sessions.
+  const pendingConfirmations = new Map<
+    string,
+    { jobId: string; bindings: Record<string, string>; createdAt: number }
+  >();
+  const pendingRemovalConfirmations = new Map<
+    string,
+    { jobId: string; mode: "remove" | "interrupt_remove"; createdAt: number }
+  >();
+
+  function getRemovalProof(token: string | undefined) {
+    const now = Date.now();
+    for (const [key, proof] of pendingRemovalConfirmations) {
+      if (now - proof.createdAt > CONFIRMATION_PROOF_TTL_MS) {
+        pendingRemovalConfirmations.delete(key);
+      }
+    }
+    if (!token) return undefined;
+    return pendingRemovalConfirmations.get(token);
+  }
+
+  function rememberConfirmation(result: any): void {
+    const token = result?.confirmation_token;
+    const jobId = result?.job?.id;
+    const bindings = result?.state?.bindings;
+    if (!token || !jobId || !bindings) return;
+    pendingConfirmations.set(token, {
+      jobId,
+      bindings: { ...bindings },
+      createdAt: Date.now(),
+    });
+  }
+
+  function getConfirmationProof(token: string | undefined) {
+    const now = Date.now();
+    for (const [key, proof] of pendingConfirmations) {
+      if (now - proof.createdAt > CONFIRMATION_PROOF_TTL_MS) {
+        pendingConfirmations.delete(key);
+      }
+    }
+    if (!token) return undefined;
+    return pendingConfirmations.get(token);
+  }
 
   async function bindRuntimeToWorkspace(
     bindings?: Record<string, string>,
@@ -780,6 +788,8 @@ export function registerJobTools(
         const stopped = sessionRuntime.stop();
         lifecycle?.clear();
         admissionRuntime.clear();
+        pendingConfirmations.clear();
+        pendingRemovalConfirmations.clear();
         return {
           ...stopped,
           released_work: {
