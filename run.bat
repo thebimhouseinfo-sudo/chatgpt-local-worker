@@ -32,7 +32,7 @@ if errorlevel 1 (
 )
 
 echo Restarting any existing GPTWorker tray host...
-powershell -NoProfile -Command "$target=[IO.Path]::GetFullPath('%~dp0gptworker-tray.ps1'); Get-CimInstance Win32_Process -ErrorAction SilentlyContinue ^| Where-Object { ($_.Name -ieq 'powershell.exe' -or $_.Name -ieq 'pwsh.exe') -and $_.CommandLine -and $_.CommandLine.IndexOf($target,[StringComparison]::OrdinalIgnoreCase) -ge 0 } ^| ForEach-Object { Stop-Process -Id $_.ProcessId -Force -ErrorAction SilentlyContinue }; Start-Sleep -Milliseconds 700"
+powershell -NoProfile -Command "$target=[IO.Path]::GetFullPath('%~dp0gptworker-tray.ps1'); Get-CimInstance Win32_Process -ErrorAction SilentlyContinue ^| Where-Object { $_.ProcessId -ne $PID -and ($_.Name -ieq 'powershell.exe' -or $_.Name -ieq 'pwsh.exe') -and $_.CommandLine -and $_.CommandLine.IndexOf($target,[StringComparison]::OrdinalIgnoreCase) -ge 0 } ^| ForEach-Object { Stop-Process -Id $_.ProcessId -Force -ErrorAction SilentlyContinue }; Start-Sleep -Milliseconds 700"
 del /q "%LOCALAPPDATA%\GPTWorker\tray-ready.json" >nul 2>nul
 
 echo Starting GPTWorker tray host...
