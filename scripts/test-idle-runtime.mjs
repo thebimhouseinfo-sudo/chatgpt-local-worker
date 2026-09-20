@@ -44,6 +44,10 @@ if (!workGateway.includes("async resolve(tool: string)")) {
   throw new Error("work gateway does not resolve operations on demand");
 }
 
+if (sessionManager.includes("refreshProxiedTools")) {
+  throw new Error("MCP session startup must not auto-discover upstream tools");
+}
+
 if (sessionManager.includes("await runCodexSessionStartHooks")) {
   throw new Error("SessionStart hooks must not block MCP initialize");
 }
