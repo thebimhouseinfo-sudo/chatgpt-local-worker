@@ -90,6 +90,9 @@ assert.ok(MCP_QUICKSTART.includes("## Fast Job nomination"));
 assert.ok(MCP_QUICKSTART.includes("skip discovery and nominate immediately"));
 assert.ok(MCP_QUICKSTART.includes("do not call job_status"));
 assert.ok(MCP_QUICKSTART.includes("ambiguity fallback"));
+assert.ok(MCP_QUICKSTART.includes("the next user-visible message should be only this compact confirmation block"));
+assert.ok(MCP_QUICKSTART.includes("do not narrate admission tokens"));
+assert.ok(MCP_QUICKSTART.includes("Bare plugin invocation and requests still missing task/Workspace are handled chat-only with zero tools"));
 assert.ok(instructions.includes("## Prewritten bare GPTWorker response"));
 assert.ok(instructions.includes(GPTWORKER_IDLE_PROMPT));
 
