@@ -470,8 +470,16 @@ export function getWorkRegistrationCount(): number {
   return registrations.size;
 }
 
+export function getActiveWorkCountForJob(jobId: string): number {
+  let count = 0;
+  for (const registration of registrations.values()) {
+    if (registration.jobId === jobId) count += 1;
+  }
+  return count;
+}
+
 export function hasActiveWorkForJob(jobId: string): boolean {
-  return [...registrations.values()].some((registration) => registration.jobId === jobId);
+  return getActiveWorkCountForJob(jobId) > 0;
 }
 
 export function resetWorkRegistrationStateForTests(): void {
