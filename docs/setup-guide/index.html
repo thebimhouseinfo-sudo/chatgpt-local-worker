@@ -100,7 +100,7 @@
   <section class="hero">
     <h1>Kết nối GPTWorker với ChatGPT</h1>
     <p>Secure MCP Tunnel đã sẵn sàng. ChatGPT Settings và trang hướng dẫn này đã được mở tự động.</p>
-    <p class="muted">Làm lần lượt theo 4 hình bên dưới. Đây chỉ là bước kết nối lần đầu.</p>
+    <p class="muted">Làm lần lượt theo các hình bên dưới. Đây chỉ là bước kết nối lần đầu.</p>
   </section>
 
   <section class="step">
@@ -108,13 +108,19 @@
       <div class="num">1</div>
       <div>
         <h2>Bật Developer mode</h2>
-        <p>Trong ChatGPT Settings, mở phần <strong>Plugins</strong> và bật <strong>Developer mode</strong> như hình.</p>
+        <p>Trong ChatGPT Settings, vào phần <strong>Plugins</strong>, sau đó bật <strong>Developer mode</strong> như hai hình dưới đây.</p>
         <a class="button" href="https://chatgpt.com/#settings/Plugins" target="_blank" rel="noreferrer">Mở Settings → Plugins</a>
       </div>
     </div>
+
     <div class="shot">
-      <img src="images/1.png" alt="Bật Developer mode trong ChatGPT Settings" onerror="this.style.display='none';this.nextElementSibling.style.display='grid'">
+      <img src="images/1.png" alt="Mở phần Plugins trong ChatGPT Settings" onerror="this.style.display='none';this.nextElementSibling.style.display='grid'">
       <div class="placeholder" style="display:none">Không tìm thấy <code>images/1.png</code></div>
+    </div>
+
+    <div class="shot">
+      <img src="images/2.png" alt="Bật Developer mode trong ChatGPT Settings" onerror="this.style.display='none';this.nextElementSibling.style.display='grid'">
+      <div class="placeholder" style="display:none">Không tìm thấy <code>images/2.png</code></div>
     </div>
   </section>
 
@@ -123,13 +129,14 @@
       <div class="num">2</div>
       <div>
         <h2>Mở Plugins và tạo plugin mới</h2>
-        <p>Mở trang Plugins, sau đó nhấn nút <strong>+</strong> để tạo plugin mới như hình.</p>
+        <p>Sau khi bật Developer mode, mở trang <strong>Plugins</strong> và nhấn nút <strong>+</strong> ở góc trên bên phải như hình.</p>
         <a class="button" href="https://chatgpt.com/plugins" target="_blank" rel="noreferrer">Mở Plugins</a>
       </div>
     </div>
+
     <div class="shot">
-      <img src="images/2.png" alt="Mở Plugins và nhấn nút cộng để tạo plugin mới" onerror="this.style.display='none';this.nextElementSibling.style.display='grid'">
-      <div class="placeholder" style="display:none">Không tìm thấy <code>images/2.png</code></div>
+      <img src="images/3.png" alt="Mở Plugins và nhấn nút cộng để tạo plugin mới" onerror="this.style.display='none';this.nextElementSibling.style.display='grid'">
+      <div class="placeholder" style="display:none">Không tìm thấy <code>images/3.png</code></div>
     </div>
   </section>
 
@@ -137,20 +144,24 @@
     <div class="step-head">
       <div class="num">3</div>
       <div>
-        <h2>Tạo plugin GPTWorker</h2>
-        <p>Điền thông tin theo hình và kết nối plugin với Secure MCP Tunnel vừa tạo.</p>
+        <h2>Cấu hình plugin GPTWorker</h2>
+        <p>Nhập đúng như hình 4:</p>
         <ul>
-          <li>Name: <code>gptworker</code></li>
-          <li>Connection: <code>Tunnel</code></li>
-          <li>Chọn đúng Tunnel của GPTWorker hoặc paste Tunnel ID <code>tunnel_...</code></li>
-          <li>Chạy <strong>Scan Tools / Test connection</strong>, sau đó Create/Save</li>
+          <li><strong>Name:</strong> <code>gptworker</code></li>
+          <li><strong>Description:</strong> có thể để trống</li>
+          <li><strong>Connection:</strong> chọn <code>Tunnel</code> — <strong>không chọn Server URL</strong></li>
+          <li><strong>Available tunnels:</strong> chọn đúng Tunnel của GPTWorker từ danh sách</li>
+          <li><strong>Không dùng</strong> <code>Use tunnel ID instead</code></li>
+          <li><strong>Authentication:</strong> chọn <code>No Auth</code></li>
+          <li>Tick ô xác nhận ở cuối, sau đó nhấn <strong>Connect/Create</strong></li>
         </ul>
-        <div class="callout"><strong>Không</strong> nhập <code>http://127.0.0.1:3000/mcp</code> vào ChatGPT. MCP local được nối qua Secure MCP Tunnel.</div>
+        <div class="callout"><strong>Quan trọng:</strong> không nhập URL MCP local và không paste Tunnel ID vào ô URL. Chỉ chọn <strong>Tunnel</strong> rồi chọn Tunnel có sẵn trong danh sách.</div>
       </div>
     </div>
+
     <div class="shot">
-      <img src="images/3.png" alt="Tạo plugin gptworker và chọn Secure MCP Tunnel" onerror="this.style.display='none';this.nextElementSibling.style.display='grid'">
-      <div class="placeholder" style="display:none">Không tìm thấy <code>images/3.png</code></div>
+      <img src="images/4.png" alt="Cấu hình plugin gptworker bằng Secure MCP Tunnel" onerror="this.style.display='none';this.nextElementSibling.style.display='grid'">
+      <div class="placeholder" style="display:none">Không tìm thấy <code>images/4.png</code></div>
     </div>
   </section>
 
@@ -159,21 +170,18 @@
       <div class="num">4</div>
       <div>
         <h2>Gọi GPTWorker lần đầu</h2>
-        <p>Mở một chat mới. Gõ <code>@gptworker</code> và chọn GPTWorker khi ChatGPT hiện plugin.</p>
-        <p>Sau khi plugin đã được gọi, thử:</p>
+        <p>Sau khi plugin đã kết nối thành công, mở một chat mới và gọi:</p>
+        <div class="callout"><code>@gptworker</code></div>
+        <p>Sau đó thử:</p>
         <div class="callout"><code>gptworker/</code></div>
         <p>Nếu kết nối đúng, ChatGPT sẽ hiển thị menu lệnh của GPTWorker.</p>
       </div>
-    </div>
-    <div class="shot">
-      <img src="images/4.png" alt="Gọi gptworker lần đầu trong ChatGPT" onerror="this.style.display='none';this.nextElementSibling.style.display='grid'">
-      <div class="placeholder" style="display:none">Không tìm thấy <code>images/4.png</code></div>
     </div>
   </section>
 
   <section class="done">
     <h2>Hoàn tất</h2>
-    <p>Kết nối ChatGPT chỉ cần thiết lập một lần. Trong bản source hiện tại, dùng <code>run.bat</code> để bật lại GPTWorker khi cần test; bản desktop sau này sẽ tự chạy nền theo Windows.</p>
+    <p>Kết nối ChatGPT chỉ cần thiết lập một lần. GPTWorker sẽ chạy nền cùng Windows và có thể tắt/restart từ icon ở system tray.</p>
   </section>
 </main>
 </body>
