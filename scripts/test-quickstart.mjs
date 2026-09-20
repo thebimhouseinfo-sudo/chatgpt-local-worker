@@ -6,6 +6,7 @@ import assert from "node:assert/strict";
 import {
   GPTWORKER_HELP,
   GPTWORKER_IDLE_PROMPT,
+  GPTWORKER_ROOT_MENU,
   MCP_QUICKSTART,
   buildServerInstructions,
 } from "../dist/lib/quickstart.js";
@@ -21,20 +22,13 @@ const expectedRootCommands = [
   "gptworker/job stop",
 ];
 
-const menuStart = MCP_QUICKSTART.indexOf(
-  "When the user sends exactly gptworker/"
+assert.ok(
+  MCP_QUICKSTART.includes("When the user sends exactly gptworker/"),
+  "root command contract marker missing"
 );
-assert.notEqual(menuStart, -1, "root command contract marker missing");
-
-const menuSlice = MCP_QUICKSTART.slice(menuStart).split("\n\n")[0];
-const listed = menuSlice
-  .split("\n")
-  .map((line) => line.trim())
-  .filter((line) => line.startsWith("- gptworker/"))
-  .map((line) => line.slice(2));
 
 assert.deepEqual(
-  listed,
+  GPTWORKER_ROOT_MENU.split("\n"),
   expectedRootCommands,
   "gptworker/ root menu must contain exactly the eight fixed commands"
 );
@@ -79,18 +73,29 @@ assert.equal(
 );
 
 assert.ok(GPTWORKER_IDLE_PROMPT.includes("Bạn muốn tôi giúp bạn làm gì?"));
-assert.ok(GPTWORKER_IDLE_PROMPT.includes("- coding"));
-assert.ok(GPTWORKER_IDLE_PROMPT.includes("- planning"));
-assert.ok(GPTWORKER_IDLE_PROMPT.includes("- layla"));
-assert.ok(GPTWORKER_IDLE_PROMPT.includes("- mto"));
+assert.ok(GPTWORKER_IDLE_PROMPT.includes("1. coding"));
+assert.ok(GPTWORKER_IDLE_PROMPT.includes("2. planning"));
+assert.ok(GPTWORKER_IDLE_PROMPT.includes("3. layla"));
+assert.ok(GPTWORKER_IDLE_PROMPT.includes("4. mto"));
+assert.ok(
+  GPTWORKER_IDLE_PROMPT.includes(
+    "Hãy chọn Job và đưa tôi thư mục làm việc để bắt đầu, hoặc gõ gptworker/ để xem các system commands."
+  )
+);
 for (const command of expectedRootCommands) {
   assert.ok(
-    GPTWORKER_IDLE_PROMPT.includes(command),
-    `idle GPTWorker greeting missing management command: ${command}`
+    !GPTWORKER_IDLE_PROMPT.includes(command),
+    `bare @gptworker greeting must not include system command: ${command}`
   );
 }
-assert.ok(GPTWORKER_IDLE_PROMPT.includes("thư mục local tuyệt đối"));
+assert.deepEqual(
+  GPTWORKER_ROOT_MENU.split("\n"),
+  expectedRootCommands,
+  "gptworker/ must render exactly the eight fixed system commands"
+);
 assert.ok(MCP_QUICKSTART.includes("## Bare GPTWorker invocation — zero-tool response"));
+assert.ok(instructions.includes("gptworker/ — ZERO tools"));
+assert.ok(MCP_QUICKSTART.includes("reply with the prewritten GPTWORKER_ROOT_MENU"));
 assert.ok(MCP_QUICKSTART.includes("DO NOT call any MCP tool at all"));
 assert.ok(MCP_QUICKSTART.includes("## Fast Job nomination"));
 assert.ok(MCP_QUICKSTART.includes("skip discovery and nominate immediately"));
@@ -99,6 +104,8 @@ assert.ok(MCP_QUICKSTART.includes("ambiguity fallback"));
 assert.ok(MCP_QUICKSTART.includes("the next user-visible message should be only this compact confirmation block"));
 assert.ok(MCP_QUICKSTART.includes("do not narrate admission tokens"));
 assert.ok(MCP_QUICKSTART.includes("Bare plugin invocation and requests still missing task/Workspace are handled chat-only with zero tools"));
+assert.ok(instructions.includes("## Prewritten gptworker/ root menu"));
+assert.ok(instructions.includes(GPTWORKER_ROOT_MENU));
 assert.ok(instructions.includes("## Prewritten bare GPTWorker response"));
 assert.ok(instructions.includes(GPTWORKER_IDLE_PROMPT));
 

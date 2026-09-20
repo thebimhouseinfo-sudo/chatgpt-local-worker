@@ -113,30 +113,35 @@ Xác nhận bắt đầu?
 Chỉ sau khi user xác nhận, GPTWorker mới bắt đầu thao tác với Workspace.
 `.trim();
 
+export const GPTWORKER_ROOT_MENU = `
+gptworker/help
+gptworker/job list
+gptworker/job create
+gptworker/job update
+gptworker/job remove
+gptworker/job export
+gptworker/job import
+gptworker/job stop
+`.trim();
+
 export const GPTWORKER_IDLE_PROMPT = `
 Bạn muốn tôi giúp bạn làm gì?
 
 Job có sẵn:
-- coding — sửa code, debug, build/test project.
-- planning — đọc repo, phân tích và lập kế hoạch; không sửa source code.
-- layla — tài liệu, file, Word/Excel/PowerPoint/PDF và công việc tổng hợp.
-- mto — HVAC quantity takeoff / bóc khối lượng.
+1. coding — sửa code, debug, build/test project.
+2. planning — đọc repo, phân tích và lập kế hoạch; không sửa source code.
+3. layla — tài liệu, file, Word/Excel/PowerPoint/PDF và công việc tổng hợp.
+4. mto — HVAC quantity takeoff / bóc khối lượng.
 
-Quản lý GPTWorker:
-- gptworker/help
-- gptworker/job list
-- gptworker/job create
-- gptworker/job update
-- gptworker/job remove
-- gptworker/job export
-- gptworker/job import
-- gptworker/job stop
-
-Để bắt đầu công việc, hãy chọn Job và gửi thư mục local tuyệt đối cần làm việc, ví dụ D:\\Projects\\my-app.
+Hãy chọn Job và đưa tôi thư mục làm việc để bắt đầu, hoặc gõ gptworker/ để xem các system commands.
 `.trim();
 export const MCP_QUICKSTART = `
 ## GPTWorker root command surface
-When the user sends exactly gptworker/ (or asks what GPTWorker commands are available), show only these eight fixed root commands:
+When the user sends exactly gptworker/ (or asks what GPTWorker system commands are available), reply with the prewritten GPTWORKER_ROOT_MENU above.
+
+This is chat-only and zero-tool: do not call job_list, gptworker_admission, job_status, or any MCP tool.
+
+The root menu contains exactly these eight system commands and no Job ids:
 - gptworker/help
 - gptworker/job list
 - gptworker/job create
@@ -146,7 +151,7 @@ When the user sends exactly gptworker/ (or asks what GPTWorker commands are avai
 - gptworker/job import
 - gptworker/job stop
 
-Never add Job Pack ids such as layla, dev-coding, mto, or any dynamically discovered job to this root command menu. Job Pack ids belong only in job_list results or natural-language job selection.
+Never add Job Pack ids such as layla, dev-coding, mto, or dynamically discovered custom Jobs to this root command menu. Job Pack ids belong only in job_list results or the bare @gptworker Job greeting.
 
 ## gptworker/help
 When the user sends exactly gptworker/help, reply with the prewritten GPTWORKER_HELP guide above. This is chat-only help: do not call an MCP tool, do not create/select a Job, do not infer a Workspace, and do not change Worker state.
@@ -154,7 +159,7 @@ When the user sends exactly gptworker/help, reply with the prewritten GPTWORKER_
 ## Bare GPTWorker invocation — zero-tool response
 When the user only invokes GPTWorker itself (for example a bare \`@gptworker\` mention / plugin invocation) and has not yet supplied a concrete task + absolute local Workspace, DO NOT call any MCP tool at all. Do not call gptworker_admission, job_status, job_list, or workspace_discover.
 
-Reply immediately with the prewritten GPTWORKER_IDLE_PROMPT above. It must include both the default Job list and the fixed GPTWorker management commands. This response must be instant and chat-only.
+Reply immediately with the prewritten GPTWORKER_IDLE_PROMPT above. It must show only the numbered available Job choices plus the one-line instruction to choose a Job + Workspace or use gptworker/ for system commands. Do not include the system command list here. This response must be instant and chat-only.
 
 If the user invoked \`@gptworker\` and already described a clear task but omitted the absolute local Workspace:
 - do not call tools yet;
@@ -308,7 +313,8 @@ export function buildServerInstructions(
     `Startup root: ${workspaceRoot}`,
     `Startup roots: ${workspaceRoots.join("; ")}`,
     "gptworker/help — reply with the prewritten newcomer guide only; do not call tools or change Worker state",
-    "bare @gptworker/plugin invocation with no task+Workspace — ZERO tools; reply immediately with GPTWORKER_IDLE_PROMPT",
+    "gptworker/ — ZERO tools; reply only with GPTWORKER_ROOT_MENU (8 system commands, no Jobs)",
+    "bare @gptworker/plugin invocation with no task+Workspace — ZERO tools; reply only with numbered Jobs + instruction to choose Job/Workspace or use gptworker/",
     "gptworker_admission — first internal handshake only once a concrete GPTWorker work request is ready to enter nomination; never render the result to the user; INACTIVE means stop GPTWorker and continue normal ChatGPT or the actually requested plugin",
     "job_status — inspect this chat's work only when its work_handle is supplied; otherwise report unemployed",
     "job_list — list/suggest jobs only after explicit GPTWorker activation or when the user explicitly requests the Job catalog",
@@ -328,6 +334,9 @@ export function buildServerInstructions(
 
   const body = contextBlock?.trim();
   const commandContract = [
+    "## Prewritten gptworker/ root menu",
+    "When the user sends exactly gptworker/, return this immediately and do not call tools:",
+    GPTWORKER_ROOT_MENU,
     "## Prewritten bare GPTWorker response",
     "When the user invokes only @gptworker / the GPTWorker plugin without a concrete task + absolute local Workspace, return this immediately and do not call tools:",
     GPTWORKER_IDLE_PROMPT,
