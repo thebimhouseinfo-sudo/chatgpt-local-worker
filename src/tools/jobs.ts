@@ -533,7 +533,7 @@ export function registerJobTools(
           .default(false)
           .describe("Set true only after explicit user confirmation"),
         activation_trigger: ActivationTriggerSchema.describe(
-          "Required activation evidence. Use explicit_gptworker only when the user explicitly invoked @gptworker in this chat. Use task_with_workspace only when the activating user request itself contains both the concrete task and an explicit absolute local workspace path."
+          "Required activation evidence from the current chat session. Use explicit_gptworker only when current-session user text literally contains @gptworker. Use task_with_workspace only when the concrete work request itself contains an explicit absolute local Workspace path."
         ),
         activation_workspace: z
           .string()
@@ -543,9 +543,9 @@ export function registerJobTools(
           ),
         activation_request: z
           .string()
-          .optional()
+          .min(1)
           .describe(
-            "For task_with_workspace only: the concrete work request from the activating user message. Do not synthesize this from memory or a previous chat."
+            "Exact current-session user text that proves activation. For explicit_gptworker it must contain literal @gptworker. For task_with_workspace it must contain the concrete work request and the exact local Workspace path. Never synthesize this from memory, another chat, Worker state, or project history."
           ),
         confirmation_token: z
           .string()
