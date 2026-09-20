@@ -15,10 +15,14 @@ FIRST TIME
 setup.bat
 → install/build/test
 → initialize OpenAI Secure MCP Tunnel
+→ register Windows auto-start
+→ start GPTWorker tray app
 → create ChatGPT connection named gptworker
 
 EVERYDAY
-run.bat
+Windows sign-in
+→ GPTWorker tray icon appears automatically
+→ open ChatGPT
 → @gptworker
 → confirm JOB + local FOLDER
 → work
@@ -158,11 +162,7 @@ Then try:
 gptworker/
 ```
 
-You should see the GPTWorker root commands. After this one-time setup, normal use only requires:
-
-```text
-run.bat
-```
+You should see the GPTWorker root commands. After this one-time setup, GPTWorker starts automatically for the current Windows user. `run.bat` remains a source-build fallback/manual launcher during final testing.
 
 ### Setup core and future Wizard
 
@@ -183,19 +183,39 @@ During development, run:
 setup-test.bat
 ```
 
-This simulates the complete first-time onboarding flow — Tunnel page, API key page, validation/startup messages, ChatGPT Settings, and the local HTML guide — without changing `.env`, restarting the Worker/Tunnel, or touching the current connection.
+This combines a **fake credential-onboarding test** with the **real source tray runtime**. The Tunnel/API values typed into the fake prompts are never saved and should be fake values only. At step 3 the script uses the existing saved `.env` to run `npm run build`, register per-user Windows auto-start, start the real tray host, and verify the real Worker + Secure MCP Tunnel.
 
-Use fake input only in this test flow; do not paste a real API key.
+This is the recommended final source test because it exercises onboarding, build, tray, auto-start registration, live tunnel readiness, the HTML guide, and the real ChatGPT connection in one pass.
 
 ## Daily use
 
-Run:
+After real setup, GPTWorker behaves like a background desktop app:
 
 ```text
-run.bat
+Windows sign-in
+→ GPTWorker tray icon
+→ Worker + Secure MCP Tunnel ready in background
+→ open ChatGPT and use @gptworker
 ```
 
-This starts both the local Worker and the OpenAI Secure MCP Tunnel.
+There is no normal daily launcher window.
+
+The tray menu is intentionally small:
+
+```text
+Status: Connected | Working | Degraded
+Open setup guide
+Restart GPTWorker
+Exit GPTWorker
+```
+
+The tray host checks health at startup, when its menu is opened, and on a low-frequency 60-second timer. It does not busy-poll. Runtime logs for the hidden source processes are written under:
+
+```text
+%LOCALAPPDATA%\GPTWorker\logs
+```
+
+During source testing, `run.bat` rebuilds the current TypeScript source and launches the tray host. The tray host is single-instance, so running it again does not create a second tray app.
 
 Then use the connection in ChatGPT:
 
@@ -312,14 +332,16 @@ The MCP server binds to localhost by default and ChatGPT reaches it through the 
 ## Useful files
 
 ```text
-setup.bat                # first-time setup
-run.bat                  # normal launcher
+setup.bat                # real first-time setup + Windows auto-start registration
+setup-test.bat           # combined fake onboarding + real source tray test
+run.bat                  # source build + manual tray launcher/fallback
+gptworker-tray.ps1       # Windows tray supervisor / resident source host
 worker-state.json        # local current job/workspace (created locally, git-ignored)
-WORKER.md                 # authoritative runtime policy
-AGENTS.md                 # instructions for agents modifying this repo
-jobs/                     # Job Packs
-src/                      # Worker core
-openai-tunnel.ps1         # Secure MCP Tunnel helper
+WORKER.md                # authoritative runtime policy
+AGENTS.md                # instructions for agents modifying this repo
+jobs/                    # Job Packs
+src/                     # Worker core
+openai-tunnel.ps1        # Secure MCP Tunnel helper
 ```
 
 ## Manual development commands
@@ -333,16 +355,17 @@ npm run validate:jobs
 npm test
 ```
 
-The older PowerShell helpers remain available for development/troubleshooting, but normal operator use should be `setup.bat` once and `run.bat` afterwards.
+The PowerShell helpers remain available for development/troubleshooting. Normal operator use is `setup.bat` once, then Windows auto-start + the GPTWorker tray icon.
 
 ## Troubleshooting
 
 | Symptom | Check |
 |---|---|
 | `run.bat` says not set up | Run `setup.bat` once |
+| Tray icon does not appear | Run `run.bat`; if it still fails, check `%LOCALAPPDATA%\GPTWorker\logs` |
+| Tray status is `Degraded` | Check `worker.err.log` and `tunnel.err.log` under `%LOCALAPPDATA%\GPTWorker\logs`, then use tray → Restart GPTWorker |
 | `@gptworker` is unavailable | Confirm the ChatGPT connection named `gptworker` still exists |
-| Worker does not start | Check the minimized `GPTWorker Server` PowerShell window |
-| Tunnel does not connect | Check the minimized `GPTWorker Tunnel` PowerShell window; confirm `tunnel-client --version` is 0.0.14 and rerun `openai-tunnel.ps1 -Doctor` |
+| Tunnel does not connect | Confirm `tunnel-client --version` is 0.0.14 and rerun `openai-tunnel.ps1 -Doctor` |
 | Doctor reports `mcp_server_reachable` / `oauth_metadata` connection refused | The local Worker is not listening yet. Pull the latest repo and rerun `setup.bat`; setup now starts and health-checks the Worker before doctor. |
 | Doctor fails with 401/403 | Verify the tunnel and runtime key belong to the intended organization/workspace; the key principal needs Tunnels Read + Use. New tunnel/role changes can take time to propagate. |
 | ChatGPT asks for an MCP endpoint | Prefer **Connection: Tunnel** and select/paste the tunnel ID. Do not paste the localhost MCP URL. |
