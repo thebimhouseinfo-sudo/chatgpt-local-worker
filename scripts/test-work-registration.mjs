@@ -9,6 +9,11 @@ process.env.LOCAL_WORKER_HOME = tempRoot;
 const work = await import("../dist/lib/work-registration.js");
 const pathSecurity = await import("../dist/lib/path-security.js");
 
+function comparablePath(value) {
+  const resolved = path.resolve(value);
+  return process.platform === "win32" ? resolved.toLowerCase() : resolved;
+}
+
 const wsA = path.join(tempRoot, "Project A");
 const wsB = path.join(tempRoot, "Project B");
 await fs.mkdir(wsA, { recursive: true });
@@ -29,7 +34,7 @@ assert.throws(
 );
 
 const validated = work.validateWorkHandle(regA.executionId, regA.authorityToken);
-assert.equal(validated.workspace, path.resolve(wsA));
+assert.equal(comparablePath(validated.workspace), comparablePath(wsA));
 
 const lease = work.acquireToolLease(
   "read_text_file",
@@ -58,7 +63,10 @@ await Promise.all([
     observed.push(pathSecurity.getDefaultCwd());
   }),
 ]);
-assert.deepEqual(new Set(observed), new Set([path.resolve(wsA), path.resolve(wsB)]));
+assert.deepEqual(
+  new Set(observed.map(comparablePath)),
+  new Set([wsA, wsB].map(comparablePath))
+);
 
 work.releaseWorkRegistration(regA.executionId, regA.authorityToken);
 assert.equal(work.getWorkRegistrationCount(), 0);
