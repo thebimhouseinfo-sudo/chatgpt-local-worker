@@ -31,10 +31,11 @@ jobs:
       - name: Validate Job Packs
         run: npm run validate:jobs
 
-      - name: Validate PowerShell tunnel script syntax
+      - name: Validate PowerShell runtime scripts syntax
         shell: pwsh
         run: |
           [scriptblock]::Create((Get-Content -Raw './openai-tunnel.ps1')) | Out-Null
+          [scriptblock]::Create((Get-Content -Raw './gptworker-tray.ps1')) | Out-Null
 
       - name: Full test suite
         run: npm test
