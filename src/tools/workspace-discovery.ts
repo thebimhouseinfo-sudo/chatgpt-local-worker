@@ -2,7 +2,7 @@ import fs from "node:fs/promises";
 import path from "node:path";
 import { z } from "zod";
 import type { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
-import { validateAdmissionToken } from "../lib/activation-policy.js";
+import type { AdmissionRuntime } from "../lib/activation-policy.js";
 import { globFiles } from "../lib/glob-search.js";
 import { grepSearch } from "../lib/grep-search.js";
 import { toolAnnotations } from "../lib/tool-annotations.js";
@@ -52,7 +52,10 @@ async function pathInsideWorkspace(workspace: string, raw?: string): Promise<str
   return real;
 }
 
-export function registerWorkspaceDiscoveryTool(server: McpServer): void {
+export function registerWorkspaceDiscoveryTool(
+  server: McpServer,
+  admissionRuntime: AdmissionRuntime
+): void {
   server.registerTool(
     "workspace_discover",
     {
@@ -85,7 +88,7 @@ export function registerWorkspaceDiscoveryTool(server: McpServer): void {
       admission_token,
     }) => {
       const root = await canonicalWorkspace(workspace);
-      validateAdmissionToken(admission_token, workspace);
+      admissionRuntime.validate(admission_token, workspace);
 
       if (operation === "list_directory") {
         const dir = await pathInsideWorkspace(
