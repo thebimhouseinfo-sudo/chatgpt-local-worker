@@ -5,8 +5,8 @@ This ledger supersedes the previous session-centric task mapping. The architectu
 | ID | Status | Task / Output | Depends On | Acceptance | Progress / Notes |
 |---|---|---|---|---|---|
 | TASK-V2-LOG-001 | DONE | Automatic structured runtime logging, redaction, rotation, Admin history | None | CI pass + live Windows/ChatGPT/tunnel log; secrets redacted; MCP/session/tool evidence captured | Live evidence collected 2026-09-20; transport session proved unsuitable as work identity |
-| TASK-V2-001 | READY | WorkRegistration contract, WorkspaceKey and execution ID naming | LOG-001 | deterministic workspace key; readable execution ID; no transport identity dependency | New architecture approved in conversation |
-| TASK-V2-002 | READY | WorkspaceOwnershipRegistry + registration/confirmation gate | TASK-V2-001 | one owner per canonical workspace; missing/stale execution → NO_ACTIVE_WORK; duplicate → WORKSPACE_BUSY | No fallback to most-recent Job/workspace |
+| TASK-V2-001 | READY | WorkRegistration contract, WorkspaceKey, DriverEpoch and work-handle naming | TASK-V2-LOG-001 | deterministic workspace key; readable execution ID; opaque authority token; epoch/generation non-reuse; live handle continuity | New architecture approved; final review added epoch/token/live-carry acceptance |
+| TASK-V2-002 | READY | WorkspaceOwnershipRegistry + registration/confirmation/replace gate | TASK-V2-001 | one owner per canonical workspace; missing/stale/wrong-token → NO_ACTIVE_WORK; duplicate → WORKSPACE_BUSY; explicit confirmed replace recovers orphaned registration | No fallback or silent attach to most-recent Job/workspace |
 | TASK-V2-003 | TODO | ExecutionContext injection and removal of global Job/cwd/context authority | TASK-V2-002 | A/B interleaving does not change each other's Job/workspace/context | Covers current global cwd/instruction context risks |
 | TASK-V2-004 | TODO | Tool Family Registry + ephemeral instance factory + immutable ToolContext | TASK-V2-003 | shared families; Job cannot register duplicate core tools; instances cannot rebind | No fixed pool/free-list |
 | TASK-V2-005 | TODO | ActiveToolLeaseRegistry + stateful resource ownership + stop/switch cleanup | TASK-V2-004 | short leases disappear after call; long resource leases persist correctly; stop A does not affect B | Lease ID contains family/job/workspace/generation/call sequence |
@@ -27,10 +27,13 @@ This ledger supersedes the previous session-centric task mapping. The architectu
 - Do not introduce a global active Job or global cwd fallback.
 - Do not add a fixed number of tool instances per family.
 - Do not queue calls merely because they use the same Tool Family.
-- Every execution tool must resolve a valid WorkRegistration before creating its instance.
+- Every execution tool must resolve a valid WorkRegistration and matching authority token before creating its instance.
 - Tool instance identity is immutable for its lifetime.
 - Workspace ownership is exclusive at canonical workspace level.
 - Active registration has no inactivity timeout by default.
+- DriverEpoch changes on every Driver start; readable execution IDs must not be reused across epochs.
+- Lost-handle/orphan recovery is explicit confirmed replacement, never auto-attach.
+- P1 is not DONE until live ChatGPT proves handle continuity across repeated and interleaved calls.
 - DONE requires deterministic tests plus live acceptance when transport/Windows lifecycle is involved.
 - Scope changes must update ARCHITECTURE.md before implementation.
 
