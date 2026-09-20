@@ -17,8 +17,9 @@ This ledger supersedes the previous session-centric task mapping. The architectu
 | TASK-V2-010 | TODO | Manifest/API compatibility + immutable pack revision snapshots | TASK-V2-004, TASK-V2-009 | active execution pins revision; malformed/colliding resources rejected | Keep JSON-compatible YAML initially |
 | TASK-V2-011 | IN_PROGRESS | AppData custom Job staging/validate/publish primitives | TASK-V2-005 | invalid pack never live; update rollback safe; path scope validated | Staging and backup live under GPTWorker data root |
 | TASK-V2-012 | IN_PROGRESS | Job Authoring workflow + public list/create/update/remove | TASK-V2-011 | create/list/update/remove works live through ChatGPT | stop remains internal only |
-| TASK-V2-013 | DEFERRED | Optional Windows background host | TASK-V2-008, TASK-V2-009 | implement only if manual launch is insufficient | Not a release gate |
-| TASK-V2-014 | DEFERRED | EXE packaging after AppData trial | TASK-V2-009, TASK-V2-012 | clean-machine packaging preserves customized Jobs | Last step only |
+| TASK-V2-013 | READY | Windows resident tray host + per-user auto-start + thin idle lifecycle | TASK-V2-008, TASK-V2-009 | logon starts hidden resident host+tunnel; tray controls status/guide/restart/exit; no daily launcher; idle keeps no execution resources solely for readiness; ChatGPT call wakes execution | Required architecture gate before packaging; physical Driver/Executor split optional |
+| TASK-V2-015 | TODO | Final live source acceptance of resident lifecycle | TASK-V2-013, TASK-V2-006, TASK-V2-009 | real Windows test proves tray/autostart, idle quiescence, wake-on-call, timeout cleanup, restart, manual Exit, and no cross-workspace regression | User will test before packaging |
+| TASK-V2-014 | DEFERRED | EXE/installer packaging | TASK-V2-015 | clean-machine packaging preserves custom Jobs, auto-start and tray lifecycle | Do not start until TASK-V2-015 passes and user explicitly approves |
 
 ## Execution Rules
 
@@ -43,7 +44,8 @@ This ledger supersedes the previous session-centric task mapping. The architectu
 - Public Job UX changed to list/create/update/remove; stop is internal only.
 - Repo Job Packs are bundled defaults and remain read-only through Job authoring.
 - User custom Job Packs route to AppData now.
-- Driver and EXE work remain deferred.
+- Windows resident tray host is now a required pre-packaging architecture target; a physical Driver/Executor split remains optional.
+- EXE/installer packaging remains deferred until final live source acceptance and explicit user approval.
 - P0 logging implementation and hardening merged; CI passed.
 - Live runtime evidence collected.
 - Architecture changed from session-centric identity to explicit Job + Workspace Work Registration.
