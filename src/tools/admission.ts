@@ -13,7 +13,7 @@ export function registerAdmissionTool(
     {
       title: "GPTWorker Admission",
       description:
-        "Internal non-user-facing admission handshake for GPTWorker work. GPTWorker work activation is @-only: ACTIVE only when the exact current user turn literally contains @gptworker. A task plus an absolute local path without @gptworker is always INACTIVE. CONTROL is for explicit gptworker/ commands. INACTIVE means GPTWorker must stop immediately; do not nominate a Job, do not inspect the workspace, and continue as normal ChatGPT or use the plugin/tool the user actually requested.",
+        "Internal non-user-facing admission handshake for GPTWorker work. GPTWorker work activation is @-flow-only: ACTIVE when the exact current user turn literally contains @gptworker, or when a prior bare @gptworker armed this same MCP session and the current continuation supplies a concrete task + matching absolute local Workspace. A fresh task plus local path in an unarmed session is always INACTIVE. CONTROL is for explicit gptworker/ commands. INACTIVE means GPTWorker must stop immediately; do not nominate a Job, do not inspect the workspace, and continue as normal ChatGPT or use the plugin/tool the user actually requested.",
       inputSchema: {
         user_turn: z
           .string()
@@ -24,13 +24,13 @@ export function registerAdmissionTool(
           .optional()
           .default(false)
           .describe(
-            "Compatibility field only. A concrete task does not activate GPTWorker without literal @gptworker."
+            "Required for an armed-flow continuation: true only when the current reply contains a concrete work request. It never activates a fresh/unarmed session."
           ),
         workspace: z
           .string()
           .optional()
           .describe(
-            "Compatibility/context field only. A Workspace path does not activate GPTWorker without literal @gptworker."
+            "For an armed-flow continuation, pass the exact absolute local Workspace from the current reply. It never activates a fresh/unarmed session."
           ),
       },
       annotations: toolAnnotations("read"),
