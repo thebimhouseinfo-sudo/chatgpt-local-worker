@@ -10,7 +10,10 @@ import type { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import { createMcpServer } from "../server-factory.js";
 import { getUpstreamManager } from "./mcp-upstream-manager.js";
 import { refreshProxiedTools } from "./mcp-tool-proxy.js";
-import { runCodexSessionStartHooks } from "./codex-hooks.js";
+import {
+  getCachedCodexSessionStartHooks,
+  primeCodexSessionStartHooks,
+} from "./codex-hooks.js";
 import { logSystemEvent } from "./activity-log.js";
 
 
@@ -212,9 +215,9 @@ export function createSessionManager(config: SessionManagerConfig): SessionManag
   }
 
   async function buildSession(preferredSessionId?: string): Promise<McpSession> {
-    const hookInstructions = await runCodexSessionStartHooks().catch((error) => {
-      console.warn("[MCP] Codex SessionStart hook failed:", error);
-      return "";
+    const hookInstructions = getCachedCodexSessionStartHooks();
+    void primeCodexSessionStartHooks().catch((error) => {
+      console.warn("[MCP] Codex SessionStart hook warmup failed:", error);
     });
     const mcpServer = createMcpServer(
       config.workspaceRoot,
