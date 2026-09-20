@@ -11,14 +11,14 @@ This ledger supersedes the previous session-centric task mapping. The architectu
 | TASK-V2-004 | TODO | Tool Family Registry + ephemeral instance factory + immutable ToolContext | TASK-V2-003 | shared families; Job cannot register duplicate core tools; instances cannot rebind | No fixed pool/free-list |
 | TASK-V2-005 | TODO | ActiveToolLeaseRegistry + stateful resource ownership + stop/switch cleanup | TASK-V2-004 | short leases disappear after call; long resource leases persist correctly; stop A does not affect B | Lease ID contains family/job/workspace/generation/call sequence |
 | TASK-V2-006 | TODO | Multi-execution concurrency acceptance and remaining global-state refactor | TASK-V2-005 | many executions call same family concurrently on different workspaces without family-level queue | Stress read/write/shell/git/process |
-| TASK-V2-007 | TODO | Driver public gateway + versioned IPC executor | TASK-V2-003, TASK-V2-005 | Driver remains authority while Worker can restart; protocol state separated from execution state | MCP sessions remain transport-only |
-| TASK-V2-008 | TODO | WakeCoordinator + quiescence-based Worker sleep | TASK-V2-007 | registrations survive >=3 sleep/wake cycles; no inactivity timeout required; live resources block sleep | Driver/tunnel stay alive |
-| TASK-V2-009 | TODO | installRoot/dataRoot split + AppData migration + portable harness | TASK-V2-003 | packs run outside checkout; customized packs preserved | job.yaml remains sole registry |
+| TASK-V2-007 | DEFERRED | Optional Driver / IPC split | TASK-V2-003, TASK-V2-005 | Only implement if monolithic/manual launch becomes insufficient | Not a v2 finalization gate |
+| TASK-V2-008 | TODO | Stateful resource ownership + 5-minute idle release | TASK-V2-005 | shell/process resources clean independently; WorkRegistration survives idle release | Does not require Driver split |
+| TASK-V2-009 | DEFERRED | AppData migration trial after repo-local v2 finalization | TASK-V2-003, TASK-V2-012 | same Job lifecycle works from AppData; customized packs preserved | Do only after live repo-local acceptance |
 | TASK-V2-010 | TODO | Manifest/API compatibility + immutable pack revision snapshots | TASK-V2-004, TASK-V2-009 | active execution pins revision; malformed/colliding resources rejected | Keep JSON-compatible YAML initially |
-| TASK-V2-011 | TODO | Pack staging/publish/history transaction primitives | TASK-V2-005, TASK-V2-010 | invalid pack never live; revision conflict deterministic; crash recovery valid | Internal publish infrastructure |
-| TASK-V2-012 | TODO | Job Authoring workflow + minimal chat control mapping | TASK-V2-011 | create/update validated; four public commands stay minimal | Internal register/status/switch allowed |
-| TASK-V2-013 | TODO | Windows logon host, supervision, tunnel/executor lifecycle | TASK-V2-008, TASK-V2-009 | duplicate start/network reconnect/suspend/child crash handled; no credential leak | User-mode Driver |
-| TASK-V2-014 | TODO | Packaging, clean-machine upgrade/uninstall, v2 release acceptance | TASK-V2-010, TASK-V2-012, TASK-V2-013 | install→register→parallel work→sleep/wake→upgrade preserving Jobs | Final release gate |
+| TASK-V2-011 | IN_PROGRESS | Repo-local staging/validate/publish primitives | TASK-V2-005 | invalid pack never live; update rollback safe; path scope validated | Implemented in current authoring wave |
+| TASK-V2-012 | IN_PROGRESS | Job Authoring workflow + public list/create/update/remove | TASK-V2-011 | create/list/update/remove works live through ChatGPT | stop remains internal only |
+| TASK-V2-013 | DEFERRED | Optional Windows background host | TASK-V2-008, TASK-V2-009 | implement only if manual launch is insufficient | Not a release gate |
+| TASK-V2-014 | DEFERRED | EXE packaging after AppData trial | TASK-V2-009, TASK-V2-012 | clean-machine packaging preserves customized Jobs | Last step only |
 
 ## Execution Rules
 
@@ -40,6 +40,9 @@ This ledger supersedes the previous session-centric task mapping. The architectu
 ## Completion Summary
 
 2026-09-20:
+- Public Job UX changed to list/create/update/remove; stop is internal only.
+- Mutable Job Packs remain repo-local until v2 behavior is finalized.
+- Driver and EXE work are deferred; AppData migration comes after repo-local live acceptance.
 - P0 logging implementation and hardening merged; CI passed.
 - Live runtime evidence collected.
 - Architecture changed from session-centric identity to explicit Job + Workspace Work Registration.
