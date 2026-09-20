@@ -54,7 +54,7 @@ assert.ok(
   "final MCP instructions missing MCP_QUICKSTART"
 );
 assert.ok(
-  instructions.includes("GPTWorker giúp ChatGPT làm việc trực tiếp"),
+  instructions.includes("GPTWorker cho phép ChatGPT làm việc trực tiếp"),
   "final MCP instructions missing prewritten gptworker/help content"
 );
 assert.ok(
