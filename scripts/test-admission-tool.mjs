@@ -70,8 +70,8 @@ const continuationServer = {
 registerAdmissionTool(continuationServer, continuationRuntime);
 const continuationTool = continuationRegistered.get("gptworker_admission");
 const continuation = await continuationTool.callback({
-  user_turn: `2 ${workspace} đọc repo và lên kế hoạch`,
-  has_concrete_task: true,
+  user_turn: `2 ${workspace}`,
+  has_concrete_task: false,
   workspace,
 });
 if (!JSON.stringify(continuation).includes('"mode":"ACTIVE"')) {
