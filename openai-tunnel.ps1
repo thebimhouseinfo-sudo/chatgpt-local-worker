@@ -9,7 +9,8 @@ param(
     [switch]$WizardPreview,
     [string]$TunnelId = "",
     [string]$ApiKey = "",
-    [switch]$NoBrowser
+    [switch]$NoBrowser,
+    [switch]$Detach
 )
 
 $ErrorActionPreference = "Stop"
@@ -494,6 +495,14 @@ Write-Host ""
 Write-Host "URL on dinh - khong doi moi lan chay (khac cloudflared)" -ForegroundColor Green
 Write-Host "Nhan Ctrl+C de dung tunnel" -ForegroundColor DarkGray
 Write-Host ""
+
+if ($Detach) {
+    $logDir = Join-Path $env:LOCALAPPDATA "GPTWorker\logs"
+    New-Item -ItemType Directory -Force -Path $logDir | Out-Null
+    $process = Start-Process -FilePath $bin -ArgumentList @("run", "--profile-file", $ProfileFile) -WorkingDirectory $ScriptDir -WindowStyle Hidden -RedirectStandardOutput (Join-Path $logDir "tunnel.out.log") -RedirectStandardError (Join-Path $logDir "tunnel.err.log") -PassThru
+    Write-Host "Tunnel PID: $($process.Id)"
+    exit 0
+}
 
 Show-ConnectorGuide -TunnelId $tunnelId -UiPort $resolvedHealth
 
