@@ -6,6 +6,7 @@ import { registerAdmissionTool } from "./tools/admission.js";
 import { registerWorkGateway } from "./tools/work-gateway.js";
 import { registerWorkspaceDiscoveryTool } from "./tools/workspace-discovery.js";
 import { buildServerInstructions } from "./lib/quickstart.js";
+import { AdmissionRuntime } from "./lib/activation-policy.js";
 import type { McpUpstreamManager } from "./lib/mcp-upstream-manager.js";
 import { getChatGptToolProfile, shouldExposeTool } from "./lib/tool-profile.js";
 import { TOOL_RESULT_OUTPUT_SCHEMA } from "./lib/tool-result.js";
@@ -132,9 +133,13 @@ export function createMcpServer(
 
   configureToolRegistration(server);
 
+  // Admission authority is scoped to this MCP server/session so tokens cannot
+  // authorize another chat/session.
+  const admissionRuntime = new AdmissionRuntime();
+
   // The admission handshake is the first internal gate whenever ChatGPT is
   // considering GPTWorker for ordinary work. It returns ACTIVE/CONTROL/INACTIVE.
-  registerAdmissionTool(server);
+  registerAdmissionTool(server, admissionRuntime);
 
   const jobRuntime = new JobRuntime(workspaceRoot);
   const workResolver = registerWorkGateway(
@@ -146,7 +151,7 @@ export function createMcpServer(
 
   // workspace_discover is the minimal read-only pre-confirmation probe used
   // only after the user supplied a task + absolute local Workspace.
-  registerWorkspaceDiscoveryTool(server);
+  registerWorkspaceDiscoveryTool(server, admissionRuntime);
 
   // Once a Job is nominated, warm its declared tool families in the
   // background while the user reads the confirmation prompt. Confirmation
@@ -168,7 +173,7 @@ export function createMcpServer(
     clear() {
       workResolver.clearPreparedJob();
     },
-  });
+  }, admissionRuntime);
 
   return server;
 }
