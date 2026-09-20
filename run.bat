@@ -66,7 +66,19 @@ if errorlevel 1 (
 
 echo.
 echo [OK] GPTWorker tray host is running.
-echo Worker + Secure MCP Tunnel are starting behind the tray.
+echo Waiting for Worker + Secure MCP Tunnel...
+powershell -NoProfile -ExecutionPolicy Bypass -File "%~dp0wait-runtime-ready.ps1" -WorkerPort %WORKER_PORT% -TunnelHealthPort %TUNNEL_HEALTH_PORT% -TimeoutSeconds 75
+if errorlevel 1 (
+  echo.
+  echo [ERROR] Tray is running but GPTWorker runtime is not ready.
+  echo Worker log: %LOCALAPPDATA%\GPTWorker\logs\worker.err.log
+  echo Tunnel log: %LOCALAPPDATA%\GPTWorker\logs\tunnel.err.log
+  pause
+  exit /b 1
+)
+
+echo.
+echo [OK] GPTWorker is connected and ready.
 echo Right-click the tray icon for Status / Open setup guide / Restart / Exit.
 echo.
 exit /b 0
