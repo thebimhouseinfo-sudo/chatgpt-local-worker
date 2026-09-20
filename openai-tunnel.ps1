@@ -5,7 +5,10 @@ param(
     [switch]$Install,
     [switch]$Doctor,
     [switch]$Init,
-    [switch]$Force
+    [switch]$Force,
+    [string]$TunnelId = "",
+    [string]$ApiKey = "",
+    [switch]$NoBrowser
 )
 
 $ErrorActionPreference = "Stop"
@@ -21,6 +24,9 @@ $ProfileDir = Join-Path $ScriptDir "profiles"
 $ProfileFile = Join-Path $ProfileDir "$ProfileName.yaml"
 $ZipName = "tunnel-client-$TUNNEL_VERSION-windows-amd64.zip"
 $DownloadUrl = "https://github.com/openai/tunnel-client/releases/download/$TUNNEL_VERSION/$ZipName"
+$TunnelsUrl = "https://platform.openai.com/settings/organization/tunnels"
+$ApiKeysUrl = "https://platform.openai.com/settings/organization/api-keys"
+$ChatGPTUrl = "https://chatgpt.com/"
 
 function Get-DotEnvValue([string]$Name) {
     if (-not (Test-Path ".env")) { return $null }
@@ -188,42 +194,111 @@ function Show-ConnectorGuide([string]$TunnelId, [int]$UiPort = 8080) {
     Write-Host "Ready:     http://127.0.0.1:$UiPort/readyz" -ForegroundColor Green
 }
 
-function Invoke-TunnelInit {
-    Write-Host ""
-    Write-Host "=== OpenAI Tunnel - Cai dat lan dau ===" -ForegroundColor Cyan
-    Write-Host ""
-    Write-Host "Can 2 gia tri tu OpenAI Platform:" -ForegroundColor Yellow
-    Write-Host "  Tunnels:  https://platform.openai.com/settings/organization/tunnels"
-    Write-Host "  API Keys: https://platform.openai.com/settings/organization/api-keys"
-    Write-Host "  (Dung Runtime API key, KHONG dung Admin key)" -ForegroundColor DarkGray
-    Write-Host ""
+function Test-TunnelIdValue([string]$Value) {
+    return [bool]($Value -and $Value -match '^tunnel_[0-9a-f]{32}$')
+}
 
-    $existingId = Get-DotEnvValue "OPENAI_TUNNEL_ID"
-    $existingKey = Get-DotEnvValue "OPENAI_TUNNEL_API_KEY"
+function Test-ApiKeyValue([string]$Value) {
+    return [bool]($Value -and $Value -match '^sk-')
+}
 
-    if ($existingId) {
-        $tunnelId = $existingId
-        Write-Host "Tunnel ID (tu .env): $tunnelId"
-    } else {
-        $tunnelId = Read-Host "Nhap OPENAI_TUNNEL_ID (tunnel_...)"
-    }
-
-    if ($existingKey) {
-        $apiKey = $existingKey
-        Write-Host "API Key: **** (tu .env)"
-    } else {
-        $apiKey = Read-Host "Nhap OPENAI_TUNNEL_API_KEY (sk-...)"
-    }
-
-    if (-not $tunnelId -or $tunnelId -notmatch '^tunnel_[0-9a-f]{32}$') {
+function Save-TunnelCredentials([string]$ResolvedTunnelId, [string]$ResolvedApiKey) {
+    if (-not (Test-TunnelIdValue $ResolvedTunnelId)) {
         throw "OPENAI_TUNNEL_ID khong hop le. Dang tunnel_ + 32 ky tu hex."
     }
-    if (-not $apiKey) {
-        throw "OPENAI_TUNNEL_API_KEY trong."
+    if (-not (Test-ApiKeyValue $ResolvedApiKey)) {
+        throw "OPENAI_TUNNEL_API_KEY khong hop le. API key phai bat dau bang sk-."
     }
 
-    Set-DotEnvValue "OPENAI_TUNNEL_ID" $tunnelId
-    Set-DotEnvValue "OPENAI_TUNNEL_API_KEY" $apiKey
+    Set-DotEnvValue "OPENAI_TUNNEL_ID" $ResolvedTunnelId
+    Set-DotEnvValue "OPENAI_TUNNEL_API_KEY" $ResolvedApiKey
+}
+
+function Resolve-TunnelIdForSetup {
+    if (Test-TunnelIdValue $TunnelId) {
+        Write-Host "[1/2] Secure MCP Tunnel: nhan tu setup UI" -ForegroundColor Green
+        return $TunnelId
+    }
+
+    $existingId = Get-DotEnvValue "OPENAI_TUNNEL_ID"
+    if (Test-TunnelIdValue $existingId) {
+        Write-Host "[1/2] Secure MCP Tunnel: da cau hinh" -ForegroundColor Green
+        Write-Host "Tunnel ID: $existingId" -ForegroundColor DarkGray
+        return $existingId
+    }
+
+    if ($NoBrowser) {
+        throw "Chua co Tunnel ID. Setup UI phai cung cap -TunnelId."
+    }
+
+    Write-Host "[1/2] TAO SECURE MCP TUNNEL" -ForegroundColor Yellow
+    Write-Host ""
+    Write-Host "Trang OpenAI Tunnels se duoc mo tren trinh duyet." -ForegroundColor White
+    Write-Host "Tao mot tunnel moi (goi y ten: gptworker)." -ForegroundColor White
+    Write-Host "Sau khi tao xong, copy Tunnel ID co dang tunnel_..." -ForegroundColor White
+    Write-Host ""
+    Start-Process $TunnelsUrl
+
+    while ($true) {
+        $value = Read-Host "Paste Tunnel ID here (tunnel_...)"
+        if (Test-TunnelIdValue $value) {
+            Write-Host "[OK] Tunnel ID hop le." -ForegroundColor Green
+            return $value
+        }
+        Write-Host "Tunnel ID khong hop le. Hay copy dung gia tri tunnel_... tu trang OpenAI Tunnels." -ForegroundColor Red
+    }
+}
+
+function Resolve-ApiKeyForSetup {
+    if (Test-ApiKeyValue $ApiKey) {
+        Write-Host "[2/2] Runtime API key: nhan tu setup UI" -ForegroundColor Green
+        return $ApiKey
+    }
+
+    $existingKey = Get-DotEnvValue "OPENAI_TUNNEL_API_KEY"
+    if (Test-ApiKeyValue $existingKey) {
+        Write-Host "[2/2] Runtime API key: da cau hinh" -ForegroundColor Green
+        return $existingKey
+    }
+
+    if ($NoBrowser) {
+        throw "Chua co Runtime API key. Setup UI phai cung cap -ApiKey."
+    }
+
+    Write-Host ""
+    Write-Host "[2/2] TAO RUNTIME API KEY" -ForegroundColor Yellow
+    Write-Host ""
+    Write-Host "Trang OpenAI API Keys se duoc mo tren trinh duyet." -ForegroundColor White
+    Write-Host "Tao Runtime API key cho GPTWorker." -ForegroundColor White
+    Write-Host "Key can quyen Tunnels: Read + Use." -ForegroundColor White
+    Write-Host "Sau khi tao xong, copy API key co dang sk-..." -ForegroundColor White
+    Write-Host ""
+    Start-Process $ApiKeysUrl
+
+    while ($true) {
+        $value = Read-Host "Paste Runtime API key here (sk-...)"
+        if (Test-ApiKeyValue $value) {
+            Write-Host "[OK] Runtime API key hop le." -ForegroundColor Green
+            return $value
+        }
+        Write-Host "API key khong hop le. Hay copy dung Runtime API key bat dau bang sk-." -ForegroundColor Red
+    }
+}
+
+function Invoke-TunnelInit {
+    Write-Host ""
+    Write-Host "=== GPTWorker - Ket noi OpenAI Secure MCP Tunnel ===" -ForegroundColor Cyan
+    Write-Host ""
+
+    # These resolver functions are the setup core. setup.bat uses the interactive
+    # path today; a future GUI wizard can pass -TunnelId/-ApiKey -NoBrowser and
+    # reuse the same validation, persistence, doctor, and tunnel configuration.
+    $resolvedTunnelId = Resolve-TunnelIdForSetup
+    $resolvedApiKey = Resolve-ApiKeyForSetup
+    Save-TunnelCredentials -ResolvedTunnelId $resolvedTunnelId -ResolvedApiKey $resolvedApiKey
+
+    Write-Host ""
+    Write-Host "Dang kiem tra Tunnel + API key..." -ForegroundColor Cyan
 
     $envPort = Get-DotEnvValue "PORT"
     $resolvedPort = if ($Port -gt 0) { $Port } elseif ($envPort) { [int]$envPort } else { 3000 }
@@ -231,12 +306,12 @@ function Invoke-TunnelInit {
     $resolvedHealth = if ($HealthPort -gt 0) { $HealthPort } elseif ($envHealth) { [int]$envHealth } else { 8080 }
     $mcpPath = Get-McpPath
     $mcpUrl = "http://127.0.0.1:$resolvedPort$mcpPath"
-    Ensure-Profile -McpUrl $mcpUrl -TunnelId $tunnelId -TargetHealthPort $resolvedHealth
+    Ensure-Profile -McpUrl $mcpUrl -TunnelId $resolvedTunnelId -TargetHealthPort $resolvedHealth
 
     $bin = Install-TunnelClient
-    $env:OPENAI_TUNNEL_API_KEY = $apiKey
-    $env:CONTROL_PLANE_API_KEY = $apiKey
-    $env:CONTROL_PLANE_TUNNEL_ID = $tunnelId
+    $env:OPENAI_TUNNEL_API_KEY = $resolvedApiKey
+    $env:CONTROL_PLANE_API_KEY = $resolvedApiKey
+    $env:CONTROL_PLANE_TUNNEL_ID = $resolvedTunnelId
 
     Write-Host ""
     Write-Host "tunnel-client version: $(& $bin --version)" -ForegroundColor DarkGray
@@ -258,7 +333,7 @@ function Invoke-TunnelInit {
         $savedAdminKey = $env:OPENAI_ADMIN_KEY
         try {
             Remove-Item Env:OPENAI_ADMIN_KEY -ErrorAction SilentlyContinue
-            & $bin admin tunnels get $tunnelId --json
+            & $bin admin tunnels get $resolvedTunnelId --json
             if ($LASTEXITCODE -ne 0) {
                 Write-Host "Runtime key khong doc duoc tunnel. Kiem tra organization/workspace va RBAC Read+Use." -ForegroundColor Red
             } else {
@@ -271,10 +346,9 @@ function Invoke-TunnelInit {
     }
 
     Write-Host ""
-    Write-Host "Da luu vao .env. Lan sau chi can:" -ForegroundColor Green
-    Write-Host "  .\start.ps1 -Force          # terminal 1"
-    Write-Host "  .\openai-tunnel.ps1         # terminal 2"
-    Show-ConnectorGuide -TunnelId $tunnelId
+    Write-Host "[OK] Tunnel va API key da duoc cau hinh." -ForegroundColor Green
+    Write-Host "Lan sau chi can chay run.bat." -ForegroundColor Green
+    Show-ConnectorGuide -TunnelId $resolvedTunnelId
 }
 
 # --- Main ---
