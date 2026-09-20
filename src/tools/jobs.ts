@@ -101,7 +101,7 @@ async function validateResolvedWorkspace(result: any): Promise<void> {
   await validateWorkspacePath(workspace);
 }
 
-async function persistActiveSelection(result: any) {
+async function persistActiveSelection(result: any, runtime: JobRuntime) {
   await validateResolvedWorkspace(result);
   if (result?.state?.phase !== "active") return result;
 
@@ -111,7 +111,9 @@ async function persistActiveSelection(result: any) {
     throw new Error("Active job must have both a canonical job id and workspace binding.");
   }
 
-  const registration = await createWorkRegistration(jobId, workspace);
+  const registration = await createWorkRegistration(jobId, workspace, () => {
+    runtime.stop();
+  });
   setDefaultCwd(workspace);
   resetShellSession(workspace);
   return {
@@ -366,7 +368,7 @@ export function registerJobTools(
           });
           rememberConfirmation(selected);
           await validateResolvedWorkspace(selected);
-          return persistActiveSelection(selected);
+          return persistActiveSelection(selected, sessionRuntime);
         }
 
         const proof = getConfirmationProof(confirmation_token);
@@ -415,7 +417,7 @@ export function registerJobTools(
         });
         pendingConfirmations.delete(confirmation_token!);
         await validateResolvedWorkspace(selected);
-        return persistActiveSelection(selected);
+        return persistActiveSelection(selected, sessionRuntime);
       })
   );
 

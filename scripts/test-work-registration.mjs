@@ -68,11 +68,15 @@ assert.equal(regA2.generation, 2);
 assert.notEqual(regA2.executionId, regA.executionId);
 work.releaseWorkRegistration(regA2.executionId, regA2.authorityToken);
 
-// Idle work auto-stops after 10 minutes.
-const idle = await work.createWorkRegistration("dev-coding", wsB);
+// Idle work auto-stops after 10 minutes and invokes the owning runtime cleanup hook.
+let idleRuntimeStopped = 0;
+const idle = await work.createWorkRegistration("dev-coding", wsB, () => {
+  idleRuntimeStopped += 1;
+});
 idle.lastActivityAt = new Date(Date.now() - work.getWorkIdleTimeoutMs() - 1000).toISOString();
 assert.equal(work.sweepExpiredWorkRegistrations(Date.now()), 1);
 assert.equal(work.getWorkRegistrationCount(), 0);
+assert.equal(idleRuntimeStopped, 1);
 assert.throws(
   () => work.validateWorkHandle(idle.executionId, idle.authorityToken),
   /NO_ACTIVE_WORK/
