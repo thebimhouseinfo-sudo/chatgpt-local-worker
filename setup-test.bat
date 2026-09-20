@@ -1,98 +1,95 @@
 @echo off
 setlocal
 cd /d "%~dp0"
-title GPTWorker Setup Wizard Test
+title GPTWorker Setup Wizard Preview
+color 0B
 
-cls
+call :screen "GPTWorker Setup Wizard Preview" "Safe UX dry-run - your saved connection will not be replaced"
+
+echo   [PREVIEW MODE]
 echo.
-echo ============================================================
-echo   GPTWorker Setup Wizard - Terminal Test
-echo ============================================================
+echo   This flow lets you inspect the real first-time setup experience.
 echo.
-echo This is a DRY-RUN of the real first-time setup experience.
+echo   What is safe in this preview:
+echo     - Tunnel ID field accepts ANY non-empty text.
+echo     - API key field accepts ANY non-empty text.
+echo     - Preview credentials are NOT validated and NOT saved.
+echo     - Existing .env connection is NOT replaced.
 echo.
-echo - Uses the same Tunnel and API instructions as setup.bat.
-echo - Opens the same OpenAI pages at the same steps.
-echo - Validates the values you enter.
-echo - Does NOT save the entered Tunnel ID or API key.
-echo - Does NOT replace your existing .env connection.
+echo   The real setup.bat still validates both credentials normally.
 echo.
-echo The existing .env, if already configured, will only be used later
-echo to launch the real tray/runtime for the final integration check.
+echo   Existing .env may be used only at the final integration step
+echo   to launch your already-configured GPTWorker runtime.
 echo.
 pause
 
-cls
-echo.
-echo ============================================================
-echo   Step 1 of 4 - Check this computer
-echo ============================================================
+call :screen "STEP 1 / 4" "Check this computer"
+
+echo   Checking required software...
 echo.
 
 where node >nul 2>nul
 if errorlevel 1 (
-  echo [ERROR] Node.js is not installed or not in PATH.
-  echo Install Node.js 18+ and run setup-test.bat again.
+  echo   [FAIL] Node.js is not installed or not in PATH.
+  echo          Install Node.js 18+ and run setup-test.bat again.
   goto :failed
 )
-for /f "tokens=*" %%V in ('node --version') do echo [OK] Node.js %%V
+for /f "tokens=*" %%V in ('node --version') do echo   [ OK ] Node.js %%V
 
 where git >nul 2>nul
 if errorlevel 1 (
-  echo [ERROR] Git is not installed or not in PATH.
-  echo Install Git for Windows and run setup-test.bat again.
+  echo   [FAIL] Git is not installed or not in PATH.
+  echo          Install Git for Windows and run setup-test.bat again.
   goto :failed
 )
-for /f "tokens=*" %%V in ('git --version') do echo [OK] %%V
+for /f "tokens=*" %%V in ('git --version') do echo   [ OK ] %%V
 
 echo.
-echo This computer is ready for GPTWorker.
+echo   This computer is ready for GPTWorker.
 echo.
 pause
 
-cls
-echo.
-echo ============================================================
-echo   Step 2 of 4 - Install, build and validate GPTWorker
-echo ============================================================
-echo.
-echo Installing dependencies...
+call :screen "STEP 2 / 4" "Install, build and validate GPTWorker"
+
+echo   [1/4] Installing dependencies...
 call npm install
 if errorlevel 1 goto :failed
 
 echo.
-echo Building source...
+echo   [2/4] Building source...
 call npm run build
 if errorlevel 1 goto :failed
 
 echo.
-echo Validating Job Packs...
+echo   [3/4] Validating Job Packs...
 call npm run validate:jobs
 if errorlevel 1 goto :failed
 
 echo.
-echo Running tests...
+echo   [4/4] Running tests...
 call npm test
 if errorlevel 1 goto :failed
 
 echo.
-echo [OK] GPTWorker source passed build and validation.
+echo   [ OK ] Source build and validation passed.
 echo.
 pause
 
-cls
+call :screen "STEP 3 / 4" "Preview the OpenAI connection wizard"
+
+echo   Two input screens will be shown:
 echo.
-echo ============================================================
-echo   Step 3 of 4 - Connect OpenAI Secure MCP Tunnel
-echo ============================================================
+echo     1. Secure MCP Tunnel ID
+echo     2. Runtime API key
 echo.
-echo The next prompts are the SAME terminal instructions used by the
-echo real setup flow.
+echo   This is UX PREVIEW mode.
+echo   Type ANY non-empty text in either field to continue.
+echo   Example: demo
 echo.
-echo The Tunnel page will open first. After a valid Tunnel ID is entered,
-echo the API Keys page will open. Follow the instructions shown here.
+echo   The same OpenAI pages used by real setup will still open so you
+echo   can verify the complete onboarding flow.
 echo.
-echo This test validates the values but does not save them.
+echo   Nothing entered in this step will be saved.
 echo.
 pause
 
@@ -100,76 +97,84 @@ powershell -NoProfile -ExecutionPolicy Bypass -File "%~dp0openai-tunnel.ps1" -In
 if errorlevel 1 goto :failed
 
 echo.
-echo [OK] Connection wizard flow completed successfully.
+echo   [ OK ] Connection wizard preview completed.
 echo.
 pause
 
-cls
-echo.
-echo ============================================================
-echo   Step 4 of 4 - Start GPTWorker and finish in ChatGPT
-echo ============================================================
-echo.
+call :screen "STEP 4 / 4" "Start GPTWorker and finish in ChatGPT"
 
 if not exist ".env" (
-  echo Existing .env was not found.
+  echo   No existing .env was found.
   echo.
-  echo The terminal wizard itself has been tested successfully, but this
-  echo dry-run intentionally did not save the Tunnel/API values you entered.
-  echo Run setup.bat for a real first-time installation.
+  echo   The setup UX preview completed successfully.
+  echo   Because preview credentials are intentionally not saved,
+  echo   there is no real connection to launch at this final step.
+  echo.
+  echo   Run setup.bat when you are ready for the real installation.
   echo.
   goto :wizard_done
 )
 
-echo Registering GPTWorker to start with this Windows user...
+echo   [1/3] Registering GPTWorker startup entry...
 powershell -NoProfile -ExecutionPolicy Bypass -File "%~dp0gptworker-tray.ps1" -InstallStartup
 if errorlevel 1 goto :failed
 
 echo.
-echo Starting the real tray/runtime using the EXISTING saved .env...
+echo   [2/3] Starting tray/runtime with the EXISTING saved .env...
 call "%~dp0run.bat"
 if errorlevel 1 goto :failed
 
 echo.
-echo [OK] GPTWorker tray, Worker and Secure MCP Tunnel are ready.
-echo.
-echo Opening ChatGPT Settings and the local setup guide...
+echo   [3/3] Opening ChatGPT Settings and local visual guide...
 start "" "https://chatgpt.com/#settings/Plugins"
 start "" "%~dp0docs\setup-guide\index.html"
 
 echo.
-echo Finish the onboarding in the browser:
+echo   [ OK ] GPTWorker tray, Worker and Secure MCP Tunnel are ready.
 echo.
-echo   1. Images 1 + 2: enable Developer mode.
-echo   2. Image 3: open Plugins and click +.
-echo   3. Image 4: create gptworker using Connection = Tunnel,
-echo      choose the Tunnel from Available tunnels, Authentication = No Auth.
-echo   4. Image 5: restart Windows.
-echo   5. After Windows starts again, open ChatGPT and type @gptworker.
-echo   6. Then type gptworker/help and read the usage guide before working.
+echo   Finish onboarding in the browser:
 echo.
-echo Restarting Windows is the final auto-start test.
+echo     1. Enable Developer mode.
+echo     2. Open Plugins and click +.
+echo     3. Name = gptworker.
+echo     4. Connection = Tunnel.
+echo     5. Choose GPTWorker from Available tunnels.
+echo     6. Authentication = No Auth.
+echo     7. Connect/Create, then restart Windows.
+echo     8. Open ChatGPT and type @gptworker.
+echo.
+echo   Restarting Windows is the final auto-start test.
 echo.
 
 :wizard_done
+call :screen "PREVIEW COMPLETE" "GPTWorker setup experience finished"
+
+echo   [ OK ] System check
+echo   [ OK ] Build and validation
+echo   [ OK ] Tunnel input UX
+echo   [ OK ] API key input UX
 echo.
-echo ============================================================
-echo   Setup Wizard Test complete
-echo ============================================================
-echo.
-echo The terminal onboarding flow has been exercised without replacing
-echo your saved Tunnel ID or API key.
+echo   Preview credentials were not saved.
+echo   Your existing connection was not replaced.
 echo.
 pause
 exit /b 0
 
 :failed
-echo.
-echo ============================================================
-echo   Setup Wizard Test failed
-echo ============================================================
-echo.
-echo Review the error above and fix that step before continuing.
+call :screen "PREVIEW FAILED" "A setup-test step could not complete"
+
+echo   Review the error shown above.
+echo   No preview credential was written to .env.
 echo.
 pause
 exit /b 1
+
+:screen
+cls
+echo.
+echo ================================================================
+echo   %~1
+echo   %~2
+echo ================================================================
+echo.
+exit /b 0
