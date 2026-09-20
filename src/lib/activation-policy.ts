@@ -28,11 +28,22 @@ export function validateActivationGate(input: ActivationGateInput): ActivationGa
     );
   }
 
-  if (input.trigger === "explicit_gptworker") {
-    return { trigger: input.trigger };
+  const request = input.activationRequest?.trim();
+  if (!request) {
+    throw new Error(
+      "ACTIVATION_REQUIRED: activation_request must contain the current-session user text that actually triggered GPTWorker. Never synthesize it from memory or another chat."
+    );
   }
 
-  const request = input.activationRequest?.trim();
+  if (input.trigger === "explicit_gptworker") {
+    if (!/@gptworker\b/i.test(request)) {
+      throw new Error(
+        "ACTIVATION_REQUIRED: explicit_gptworker requires literal @gptworker in the current-session activating user text."
+      );
+    }
+    return { trigger: input.trigger, request };
+  }
+
   if (!request) {
     throw new Error(
       "ACTIVATION_REQUIRED: task_with_workspace requires the concrete user work request that triggered GPTWorker."
@@ -56,6 +67,16 @@ export function validateActivationGate(input: ActivationGateInput): ActivationGa
   if (normalizedPath(activationWorkspace) !== normalizedPath(boundWorkspace)) {
     throw new Error(
       "ACTIVATION_REQUIRED: activation_workspace must match bindings.workspace. Do not substitute a remembered or previously used Workspace."
+    );
+  }
+
+  const requestComparable =
+    process.platform === "win32" ? request.toLowerCase() : request;
+  const workspaceComparable =
+    process.platform === "win32" ? activationWorkspace.toLowerCase() : activationWorkspace;
+  if (!requestComparable.includes(workspaceComparable)) {
+    throw new Error(
+      "ACTIVATION_REQUIRED: task_with_workspace requires the explicit local Workspace path to appear in the current-session activating user text. A path recovered from memory, another chat, Worker state, or project history is invalid."
     );
   }
 
