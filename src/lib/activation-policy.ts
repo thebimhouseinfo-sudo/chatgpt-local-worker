@@ -220,10 +220,17 @@ export class AdmissionRuntime {
     }
 
     if (expectedWorkspace) {
+      const workspace = expectedWorkspace.trim();
+      if (!path.isAbsolute(workspace)) {
+        throw new Error(
+          "ADMISSION_REQUIRED: Workspace must be an absolute local Workspace path."
+        );
+      }
+
       if (!proof.workspace) {
-        proof.workspace = path.resolve(expectedWorkspace.trim());
+        proof.workspace = path.resolve(workspace);
       } else if (
-        normalizedPath(proof.workspace) !== normalizedPath(expectedWorkspace)
+        normalizedPath(proof.workspace) !== normalizedPath(workspace)
       ) {
         throw new Error(
           "ADMISSION_REQUIRED: Workspace does not match the Workspace admitted in this @gptworker flow."
