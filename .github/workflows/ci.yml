@@ -44,3 +44,67 @@ jobs:
 
       - name: Full test suite
         run: npm test
+
+
+  windows-worker-smoke:
+    runs-on: windows-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+
+      - name: Install dependencies
+        run: npm install
+
+      - name: Build
+        run: npm run build
+
+      - name: Start detached Worker and verify health
+        shell: pwsh
+        run: |
+          if (-not (Test-Path ".env")) { Copy-Item ".env.example" ".env" }
+          & .\start.ps1 -Port 3000 -Detach
+          if ($LASTEXITCODE -ne 0) { throw "start.ps1 failed with exit code $LASTEXITCODE" }
+
+          $deadline = (Get-Date).AddSeconds(20)
+          $healthy = $false
+          do {
+            try {
+              $health = Invoke-RestMethod "http://127.0.0.1:3000/health" -TimeoutSec 2
+              if ($health.status -eq "ok" -and $health.name -eq "chatgpt-local-worker") {
+                $healthy = $true
+                break
+              }
+            } catch {}
+            Start-Sleep -Milliseconds 500
+          } while ((Get-Date) -lt $deadline)
+
+          if (-not $healthy) {
+            $logDir = Join-Path $env:LOCALAPPDATA "GPTWorker\logs"
+            foreach ($name in @("worker.err.log", "worker.out.log")) {
+              $file = Join-Path $logDir $name
+              if (Test-Path $file) {
+                Write-Host "--- $name ---"
+                Get-Content $file -Tail 80
+              }
+            }
+            throw "Detached Worker did not become healthy on Windows."
+          }
+
+          Write-Host "Windows detached Worker smoke test passed."
+
+      - name: Stop smoke Worker
+        if: always()
+        shell: pwsh
+        run: |
+          $line = netstat -ano | Select-String ":3000\s" | Select-String "LISTENING" | Select-Object -First 1
+          if ($line) {
+            $parts = ($line -replace '\s+', ' ').ToString().Trim().Split(' ')
+            $ownerPid = [int]$parts[-1]
+            if ($ownerPid -gt 0) { Stop-Process -Id $ownerPid -Force -ErrorAction SilentlyContinue }
+          }
