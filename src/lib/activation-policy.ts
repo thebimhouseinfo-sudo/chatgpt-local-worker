@@ -185,6 +185,11 @@ export class AdmissionRuntime {
       createdAt: Date.now(),
     });
 
+    // The explicit @ flow is one-shot for admitting a new Job/Workspace request.
+    // Once a token is minted, the token carries the current flow through
+    // nomination + confirmation; future direct requests must invoke @gptworker again.
+    this.armedAtFlow = undefined;
+
     return {
       mode: "ACTIVE",
       claimed: true,
