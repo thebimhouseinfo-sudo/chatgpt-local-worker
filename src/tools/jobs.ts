@@ -727,7 +727,7 @@ export function registerJobTools(
     {
       title: "Job Switch",
       description:
-        "Clear current session/persistent job state, then select a different Job Pack or FOLDER. The replacement must still be explicitly confirmed before activation.",
+        "Clear current session/persistent job state, then select a different Job Pack or FOLDER. Jobs that require confirmation still wait for explicit confirmation; no-confirm Jobs may activate immediately and must return a fresh work_handle.",
       inputSchema: {
         job: z.string().min(1),
         bindings: BindingsSchema.optional(),
