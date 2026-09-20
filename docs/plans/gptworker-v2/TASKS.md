@@ -12,7 +12,7 @@ This ledger supersedes the previous session-centric task mapping. The architectu
 | TASK-V2-005 | TODO | ActiveToolLeaseRegistry + stateful resource ownership + stop/switch cleanup | TASK-V2-004 | short leases disappear after call; long resource leases persist correctly; stop A does not affect B | Lease ID contains family/job/workspace/generation/call sequence |
 | TASK-V2-006 | TODO | Multi-execution concurrency acceptance and remaining global-state refactor | TASK-V2-005 | many executions call same family concurrently on different workspaces without family-level queue | Stress read/write/shell/git/process |
 | TASK-V2-007 | DEFERRED | Optional Driver / IPC split | TASK-V2-003, TASK-V2-005 | Only implement if monolithic/manual launch becomes insufficient | Not a v2 finalization gate |
-| TASK-V2-008 | TODO | Stateful resource ownership + 5-minute idle release | TASK-V2-005 | shell/process resources clean independently; WorkRegistration survives idle release | Does not require Driver split |
+| TASK-V2-008 | TODO | Stateful resource ownership + 10-minute full idle stop | TASK-V2-005 | no active call is killed mid-flight; after 10 idle minutes WorkRegistration, workspace ownership and owned resources are released | Does not require Driver split |
 | TASK-V2-009 | DEFERRED | AppData migration trial after repo-local v2 finalization | TASK-V2-003, TASK-V2-012 | same Job lifecycle works from AppData; customized packs preserved | Do only after live repo-local acceptance |
 | TASK-V2-010 | TODO | Manifest/API compatibility + immutable pack revision snapshots | TASK-V2-004, TASK-V2-009 | active execution pins revision; malformed/colliding resources rejected | Keep JSON-compatible YAML initially |
 | TASK-V2-011 | IN_PROGRESS | Repo-local staging/validate/publish primitives | TASK-V2-005 | invalid pack never live; update rollback safe; path scope validated | Implemented in current authoring wave |
@@ -30,7 +30,7 @@ This ledger supersedes the previous session-centric task mapping. The architectu
 - Every execution tool must resolve a valid WorkRegistration and matching authority token before creating its instance.
 - Tool instance identity is immutable for its lifetime.
 - Workspace ownership is exclusive at canonical workspace level.
-- Active registration has no inactivity timeout by default.
+- Active registration auto-stops after 10 idle minutes; active foreground leases suspend the timeout until release.
 - DriverEpoch changes on every Driver start; readable execution IDs must not be reused across epochs.
 - Lost-handle/orphan recovery is explicit confirmed replacement, never auto-attach.
 - P1 is not DONE until live ChatGPT proves handle continuity across repeated and interleaved calls.
