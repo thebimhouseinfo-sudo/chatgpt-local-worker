@@ -35,7 +35,7 @@ Job Packs use two fixed roles:
 - `repo/jobs/<job-id>/` = bundled default Jobs shipped with GPTWorker; runtime treats them as read-only defaults.
 - `%LOCALAPPDATA%\GPTWorker\jobs\<job-id>\` = custom Jobs created by the user.
 
-`job list` merges both sources. Job ids are globally unique; `job create` rejects any id already present in either source. `job update/remove` operate only on AppData custom Jobs.
+`job list` merges both sources. Job ids are globally unique; `job create` rejects any id already present in either source. `job update/remove` operate only on AppData custom Jobs. To customize a bundled default, `job create` may clone it into a new unique custom id; the repo source is never modified.
 
 ## Optional Future Driver Architecture
 
@@ -358,7 +358,7 @@ repo\jobs\<job-id>\
 
 Each pack's `job.yaml` is its registration source; there is no second registry file. Catalog is rebuilt in RAM by merging repo defaults with AppData custom Jobs.
 
-Job ids are globally unique. `job create` checks both roots and rejects duplicates. `job update/remove` target only custom AppData Jobs. If someone manually places a colliding custom folder in AppData, runtime ignores that invalid custom pack and keeps the bundled default.
+Job ids are globally unique. `job create` checks both roots and rejects duplicates. It may also clone an existing Job into a new custom id. `job update/remove` target only custom AppData Jobs; bundled defaults are immutable. If someone manually places a colliding custom folder in AppData, runtime ignores that invalid custom pack and keeps the bundled default.
 
 ## Pack Revision
 
