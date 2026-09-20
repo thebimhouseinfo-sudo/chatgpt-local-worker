@@ -99,8 +99,48 @@
 <main>
   <section class="hero">
     <h1>Kết nối GPTWorker với ChatGPT</h1>
-    <p>Secure MCP Tunnel đã sẵn sàng. ChatGPT Settings và trang hướng dẫn này đã được mở tự động.</p>
-    <p class="muted">Làm lần lượt theo các hình bên dưới. Đây chỉ là bước kết nối lần đầu.</p>
+    <p>Hướng dẫn này dành cho người dùng không cần biết lập trình. Hãy làm lần lượt từng bước, bấm đúng tên nút được ghi trên màn hình.</p>
+    <p class="muted">Nếu bạn đang chạy <code>setup-test.bat</code>, hai ô Tunnel ID và API key chỉ là thử giao diện: có thể nhập bất kỳ chữ nào để đi tiếp và dữ liệu đó không được lưu.</p>
+  </section>
+
+  <section class="step">
+    <div class="step-head">
+      <div class="num">A</div>
+      <div>
+        <h2>Tạo Secure MCP Tunnel trên OpenAI</h2>
+        <p>Đây là “đường nối an toàn” để ChatGPT có thể nói chuyện với GPTWorker đang chạy trên máy của bạn. Không cần hiểu kỹ thuật bên trong; chỉ cần làm đúng các bước sau.</p>
+        <ol>
+          <li>Mở OpenAI Platform và vào <strong>Organization → Tunnels</strong>.</li>
+          <li>Nếu có phần quyền cho Tunnels, bật <strong>Read</strong> và <strong>Use</strong>. Nếu chính bạn là người tạo hoặc sửa Tunnel, bật thêm <strong>Manage</strong>.</li>
+          <li>Nhấn tạo Tunnel mới và đặt tên dễ nhớ, ví dụ <code>gptworker</code>.</li>
+          <li>Nếu có mục chọn ChatGPT workspace, hãy chọn đúng workspace mà bạn sẽ dùng GPTWorker.</li>
+          <li>Nhấn <strong>Create</strong>/<strong>Save</strong>.</li>
+          <li>Sau khi tạo xong, copy <strong>Tunnel ID</strong>. Giá trị thật thường bắt đầu bằng <code>tunnel_...</code>.</li>
+        </ol>
+        <div class="callout"><strong>Vì sao cần quyền Use?</strong> Read chỉ cho phép xem Tunnel. GPTWorker cần <strong>Use</strong> để thực sự dùng Tunnel và kết nối với ChatGPT.</div>
+      </div>
+    </div>
+  </section>
+
+  <section class="step">
+    <div class="step-head">
+      <div class="num">B</div>
+      <div>
+        <h2>Tạo API key cho GPTWorker</h2>
+        <p>API key này giống như “chìa khóa” cho phép GPTWorker sử dụng Tunnel vừa tạo.</p>
+        <ol>
+          <li>Mở OpenAI Platform → <strong>API Keys</strong>.</li>
+          <li>Nhấn <strong>Create new secret key</strong>.</li>
+          <li>Đặt tên dễ nhớ, ví dụ <code>gptworker-runtime</code>.</li>
+          <li>Tại <strong>Permissions</strong>, chọn <strong>Restricted</strong>.</li>
+          <li>Tìm mục <strong>Tunnels</strong> và bật đủ cả <strong>Read</strong> + <strong>Use</strong>.</li>
+          <li>Không dùng <strong>Read Only</strong>, vì như vậy sẽ thiếu quyền <strong>Use</strong>.</li>
+          <li>Không cần bật <strong>All</strong> cho toàn bộ API key; GPTWorker chỉ cần quyền Tunnels phù hợp.</li>
+          <li>Nhấn tạo key và copy key ngay khi OpenAI hiển thị. Key thật thường bắt đầu bằng <code>sk-...</code>.</li>
+        </ol>
+        <div class="callout"><strong>Quan trọng:</strong> nếu chỉ bật Read mà quên Use, Tunnel có thể được nhìn thấy nhưng GPTWorker sẽ không kết nối/chạy đúng.</div>
+      </div>
+    </div>
   </section>
 
   <section class="step">
