@@ -4,22 +4,20 @@ cd /d "%~dp0"
 title GPTWorker Setup Wizard Preview
 color 0B
 
-call :screen "GPTWorker Setup Wizard Preview" "Safe UX dry-run - your saved connection will not be replaced"
+call :screen "GPTWorker Setup Wizard Preview" "Ban co the thu toan bo giao dien ma khong can API/Tunnel that"
 
-echo   [PREVIEW MODE]
+echo   [CHE DO THU GIAO DIEN]
 echo.
-echo   This flow lets you inspect the real first-time setup experience.
+echo   File nay dung de xem va kiem tra trai nghiem cai dat truoc.
+echo   Ban KHONG can biet lap trinh va KHONG can co credential that.
 echo.
-echo   What is safe in this preview:
-echo     - Tunnel ID field accepts ANY non-empty text.
-echo     - API key field accepts ANY non-empty text.
-echo     - Preview credentials are NOT validated and NOT saved.
-echo     - Existing .env connection is NOT replaced.
+echo   O 2 buoc nhap Tunnel ID va API key:
+echo     - chi can go bat ky chu nao, vi du: demo
+echo     - setup-test se cho qua man hinh
+echo     - gia tri do KHONG duoc luu
+echo     - ket noi hien tai cua ban KHONG bi thay the
 echo.
-echo   The real setup.bat still validates both credentials normally.
-echo.
-echo   Existing .env may be used only at the final integration step
-echo   to launch your already-configured GPTWorker runtime.
+echo   Khi chay setup.bat that, GPTWorker moi kiem tra Tunnel ID/API key that.
 echo.
 pause
 
@@ -75,29 +73,28 @@ echo   [ OK ] Source build and validation passed.
 echo.
 pause
 
-call :screen "STEP 3 / 4" "Preview the OpenAI connection wizard"
+call :screen "STEP 3 / 4" "Thu man hinh tao Tunnel va API key"
 
-echo   Two guided screens will be shown:
+echo   Ban se thay 2 man hinh huong dan:
 echo.
-echo     1. Secure MCP Tunnel
-echo        - role needs Tunnels: Read + Use
-echo        - add Manage only if you create/edit tunnels
-echo        - attach the correct ChatGPT workspace
-echo        - copy the generated Tunnel ID
+echo     1. TAO TUNNEL
+echo        - vao OpenAI Platform -> Organization -> Tunnels
+echo        - neu co muc quyen, bat Tunnels: Read + Use
+echo        - neu ban tu tao/sua Tunnel, bat them Manage
+echo        - chon dung ChatGPT workspace se dung GPTWorker
+echo        - tao xong thi copy Tunnel ID
 echo.
-echo     2. Runtime API key
-echo        - create a new secret key
-echo        - choose Restricted permissions
-echo        - Tunnels: enable Read + Use
-echo        - do NOT use Read Only
-echo        - do NOT grant All to the whole key just for GPTWorker
+echo     2. TAO API KEY
+echo        - bam Create new secret key
+echo        - tai Permissions chon Restricted
+echo        - tim muc Tunnels va bat CA HAI: Read + Use
+echo        - KHONG dung Read Only
+echo        - KHONG can bat All cho toan bo API key
+echo        - tao xong thi copy key ngay
 echo.
-echo   This is UX PREVIEW mode.
-echo   Type ANY non-empty text in either input field to continue.
-echo   Example: demo
-echo.
-echo   The real OpenAI pages still open so you can follow every screen.
-echo   Nothing entered in this step is validated or saved.
+echo   Day chi la CHE DO THU GIAO DIEN.
+echo   O moi o nhap, go bat ky chu nao de di tiep. Vi du: demo
+echo   Gia tri ban go KHONG duoc kiem tra va KHONG duoc luu.
 echo.
 pause
 
@@ -155,15 +152,15 @@ echo   Restarting Windows is the final auto-start test.
 echo.
 
 :wizard_done
-call :screen "PREVIEW COMPLETE" "GPTWorker setup experience finished"
+call :screen "PREVIEW COMPLETE" "Ban da di het luong cai dat thu"
 
-echo   [ OK ] System check
-echo   [ OK ] Build and validation
-echo   [ OK ] Tunnel input UX
-echo   [ OK ] API key input UX
+echo   [ OK ] Kiem tra may
+echo   [ OK ] Build va test
+echo   [ OK ] Man hinh Tunnel
+echo   [ OK ] Man hinh API key
 echo.
-echo   Preview credentials were not saved.
-echo   Your existing connection was not replaced.
+echo   Du lieu thu KHONG duoc luu.
+echo   Ket noi hien tai cua ban KHONG bi thay the.
 echo.
 pause
 exit /b 0
