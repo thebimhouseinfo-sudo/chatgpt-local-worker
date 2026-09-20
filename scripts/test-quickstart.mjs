@@ -125,6 +125,8 @@ assert.ok(MCP_QUICKSTART.includes("Continue answering as ordinary ChatGPT"));
 assert.ok(MCP_QUICKSTART.includes("another plugin/tool"));
 assert.ok(MCP_QUICKSTART.includes("admission_token"));
 assert.ok(MCP_QUICKSTART.includes("The @-flow arm is one-shot"));
+assert.ok(MCP_QUICKSTART.includes("starts with \`@gptworker\`"));
+assert.ok(!MCP_QUICKSTART.includes("current user turn literally contains \`@gptworker\`"));
 assert.ok(MCP_QUICKSTART.includes("keep reusing that same admission_token"));
 assert.ok(MCP_QUICKSTART.includes("the admission_token is consumed"));
 assert.ok(MCP_QUICKSTART.includes("work_handle is the only work authority"));
