@@ -201,6 +201,17 @@ const explicit = validateActivationGate({
 assert.equal(explicit.trigger, "explicit_gptworker");
 assert.equal(explicit.workspace, workspace);
 
+assert.throws(
+  () =>
+    validateActivationGate({
+      trigger: "explicit_gptworker",
+      activationRequest: "@gptworker",
+      bindings: { workspace: "relative-workspace" },
+    }),
+  /absolute local Workspace/,
+  "low-level activation gate must reject a relative Workspace"
+);
+
 // If @gptworker is admitted before a Workspace is known, the token may be
 // unbound initially, but the first Workspace validation must bind it permanently.
 const lateWorkspaceRuntime = new AdmissionRuntime();
