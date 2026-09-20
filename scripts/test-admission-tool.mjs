@@ -46,14 +46,17 @@ if (!explicitJson.includes('"mode":"ACTIVE"') || !explicitJson.includes("admissi
 }
 
 const workspace = path.resolve("admission-tool-test-workspace");
-const natural = await admission.callback({
+const direct = await admission.callback({
   user_turn: `Sửa app ở ${workspace} để thêm nút regenerate`,
   has_concrete_task: true,
   workspace,
 });
-const naturalJson = JSON.stringify(natural);
-if (!naturalJson.includes('"mode":"ACTIVE"') || !naturalJson.includes("task_with_workspace")) {
-  throw new Error("task + absolute local path must be ACTIVE");
+const directJson = JSON.stringify(direct);
+if (!directJson.includes('"mode":"INACTIVE"')) {
+  throw new Error("task + absolute local path without @gptworker must be INACTIVE");
+}
+if (directJson.includes("admission_token")) {
+  throw new Error("direct task + path must not receive admission authority");
 }
 
 const control = await admission.callback({
