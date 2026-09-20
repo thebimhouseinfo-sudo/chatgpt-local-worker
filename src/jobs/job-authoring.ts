@@ -3,7 +3,7 @@ import fs from "node:fs/promises";
 import path from "node:path";
 import { randomUUID } from "node:crypto";
 import { appendActivity } from "../lib/activity-log.js";
-import { getJobsRoot, getWorkerHome } from "../lib/worker-home.js";
+import { getCustomJobsRoot, getDefaultJobsRoot, getWorkerHome } from "../lib/worker-home.js";
 
 export type JobPackStatus = "ready" | "placeholder";
 
@@ -285,9 +285,15 @@ async function publishReplacement(stageDir: string, liveDir: string): Promise<vo
 
 export async function createJobPack(draft: JobPackDraft) {
   const id = assertJobId(draft.id);
-  const jobsRoot = getJobsRoot();
+  const jobsRoot = getCustomJobsRoot();
   const liveDir = path.join(jobsRoot, id);
-  if (await exists(liveDir)) throw new Error("Job '" + id + "' already exists.");
+  const defaultDir = path.join(getDefaultJobsRoot(), id);
+  if (await exists(defaultDir)) {
+    throw new Error(
+      "Job '" + id + "' is a bundled default Job. Custom Job ids must be unique."
+    );
+  }
+  if (await exists(liveDir)) throw new Error("Custom Job '" + id + "' already exists.");
 
   const stageDir = stagingPackDir(id);
   const stageRoot = path.dirname(stageDir);
@@ -320,8 +326,8 @@ export async function createJobPack(draft: JobPackDraft) {
       action: "job_created",
       status: "ok",
       target: id,
-      summary: id + " published to repo-local jobs/",
-      details: { job_id: id, pack_dir: liveDir },
+      summary: id + " published to AppData custom jobs/",
+      details: { job_id: id, pack_dir: liveDir, source: "custom" },
     });
     return { job_id: id, pack_dir: liveDir, validation };
   } finally {
@@ -331,9 +337,17 @@ export async function createJobPack(draft: JobPackDraft) {
 
 export async function updateJobPack(idInput: string, patch: JobPackPatch) {
   const id = assertJobId(idInput);
-  const jobsRoot = getJobsRoot();
+  const jobsRoot = getCustomJobsRoot();
   const liveDir = path.join(jobsRoot, id);
-  if (!(await exists(liveDir))) throw new Error("Unknown Job '" + id + "'.");
+  const defaultDir = path.join(getDefaultJobsRoot(), id);
+  if (!(await exists(liveDir))) {
+    if (await exists(defaultDir)) {
+      throw new Error(
+        "Job '" + id + "' is a bundled default Job and cannot be updated through custom Job authoring."
+      );
+    }
+    throw new Error("Unknown custom Job '" + id + "'.");
+  }
 
   const stageDir = stagingPackDir(id);
   const stageRoot = path.dirname(stageDir);
@@ -401,8 +415,8 @@ export async function updateJobPack(idInput: string, patch: JobPackPatch) {
       action: "job_updated",
       status: "ok",
       target: id,
-      summary: id + " updated in repo-local jobs/",
-      details: { job_id: id, pack_dir: liveDir },
+      summary: id + " updated in AppData custom jobs/",
+      details: { job_id: id, pack_dir: liveDir, source: "custom" },
     });
     return { job_id: id, pack_dir: liveDir, validation };
   } finally {
@@ -412,9 +426,17 @@ export async function updateJobPack(idInput: string, patch: JobPackPatch) {
 
 export async function removeJobPack(idInput: string) {
   const id = assertJobId(idInput);
-  const jobsRoot = getJobsRoot();
+  const jobsRoot = getCustomJobsRoot();
   const liveDir = path.join(jobsRoot, id);
-  if (!(await exists(liveDir))) throw new Error("Unknown Job '" + id + "'.");
+  const defaultDir = path.join(getDefaultJobsRoot(), id);
+  if (!(await exists(liveDir))) {
+    if (await exists(defaultDir)) {
+      throw new Error(
+        "Job '" + id + "' is a bundled default Job and cannot be removed through custom Job authoring."
+      );
+    }
+    throw new Error("Unknown custom Job '" + id + "'.");
+  }
 
   await fs.rm(liveDir, { recursive: true, force: false });
   appendActivity({
@@ -422,8 +444,8 @@ export async function removeJobPack(idInput: string) {
     action: "job_removed",
     status: "ok",
     target: id,
-    summary: id + " removed from repo-local jobs/",
-    details: { job_id: id, pack_dir: liveDir },
+    summary: id + " removed from AppData custom jobs/",
+    details: { job_id: id, pack_dir: liveDir, source: "custom" },
   });
   return { job_id: id, removed: true, pack_dir: liveDir };
 }
