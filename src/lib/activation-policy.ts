@@ -2,7 +2,7 @@ import path from "node:path";
 import { randomUUID } from "node:crypto";
 
 export type ActivationTrigger = "explicit_gptworker" | "task_with_workspace";
-export type AdmissionMode = "active" | "control" | "inactive";
+export type AdmissionMode = "ACTIVE" | "CONTROL" | "INACTIVE";
 
 export interface ActivationGateInput {
   trigger: ActivationTrigger | undefined;
@@ -33,7 +33,7 @@ export interface AdmissionDecision {
     | "user_did_not_invoke_gptworker";
   trigger?: ActivationTrigger;
   workspace?: string;
-  admissionToken?: string;
+  admission_token?: string;
   next:
     | "continue_gptworker"
     | "run_control_command_only"
@@ -42,7 +42,7 @@ export interface AdmissionDecision {
 
 interface AdmissionProof {
   token: string;
-  mode: "active";
+  mode: "ACTIVE";
   trigger: ActivationTrigger;
   request: string;
   workspace?: string;
@@ -88,7 +88,7 @@ export function checkAdmission(input: AdmissionCheckInput): AdmissionDecision {
   const userTurn = input.userTurn?.trim();
   if (!userTurn) {
     return {
-      mode: "inactive",
+      mode: "INACTIVE",
       claimed: false,
       reason: "user_did_not_invoke_gptworker",
       next: "stop_gptworker_continue_normal_chat_or_requested_plugin",
@@ -97,7 +97,7 @@ export function checkAdmission(input: AdmissionCheckInput): AdmissionDecision {
 
   if (isPublicControlCommand(userTurn)) {
     return {
-      mode: "control",
+      mode: "CONTROL",
       claimed: false,
       reason: "public_command",
       next: "run_control_command_only",
@@ -124,7 +124,7 @@ export function checkAdmission(input: AdmissionCheckInput): AdmissionDecision {
 
   if (!trigger) {
     return {
-      mode: "inactive",
+      mode: "INACTIVE",
       claimed: false,
       reason: "user_did_not_invoke_gptworker",
       next: "stop_gptworker_continue_normal_chat_or_requested_plugin",
@@ -134,7 +134,7 @@ export function checkAdmission(input: AdmissionCheckInput): AdmissionDecision {
   const token = randomUUID();
   admissions.set(token, {
     token,
-    mode: "active",
+    mode: "ACTIVE",
     trigger,
     request: userTurn,
     workspace,
@@ -142,12 +142,12 @@ export function checkAdmission(input: AdmissionCheckInput): AdmissionDecision {
   });
 
   return {
-    mode: "active",
+    mode: "ACTIVE",
     claimed: true,
     reason: trigger,
     trigger,
     workspace,
-    admissionToken: token,
+    admission_token: token,
     next: "continue_gptworker",
   };
 }
