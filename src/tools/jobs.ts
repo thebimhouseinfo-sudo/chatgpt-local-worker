@@ -804,7 +804,7 @@ export function registerJobTools(
     {
       title: "Job Stop",
       description:
-        "Stop this chat's active work. Always pass the current work_handle. Never infer or stop the most recent Job/Workspace from another chat. Orphaned work auto-stops after 10 minutes idle.",
+        "Stop this MCP session and return it to idle. Pending/selected state can be cancelled without a work_handle. Active work requires this chat's current work_handle; never infer or stop another chat's Job/Workspace. Orphaned active work auto-stops after 10 minutes idle.",
       inputSchema: {
         execution_id: z.string().optional().describe("Current work_handle.execution_id"),
         authority_token: z.string().optional().describe("Current work_handle.authority_token"),
@@ -813,26 +813,60 @@ export function registerJobTools(
     },
     async ({ execution_id, authority_token }) =>
       safe("job_stop", async () => {
-        if (!execution_id || !authority_token) {
+        const hasAnyHandlePart = Boolean(execution_id || authority_token);
+
+        if (hasAnyHandlePart) {
+          if (!execution_id || !authority_token) {
+            throw new Error(
+              "Both execution_id and authority_token are required to stop active work."
+            );
+          }
+
+          const released = releaseWorkRegistration(
+            execution_id,
+            authority_token
+          );
+          const stopped = sessionRuntime.stop();
+          lifecycle?.clear();
+          admissionRuntime.clear();
+          pendingConfirmations.clear();
+          pendingRemovalConfirmations.clear();
+
+          return {
+            ...stopped,
+            released_work: {
+              execution_id: released.executionId,
+              job_id: released.jobId,
+              workspace_key: released.workspaceKey,
+            },
+            worker_state: await clearWorkerState(),
+          };
+        }
+
+        const status = await sessionRuntime.status();
+        if (status?.state?.phase === "active") {
           throw new Error(
-            "NO_ACTIVE_WORK: job_stop requires this chat's execution_id + authority_token. " +
+            "NO_ACTIVE_WORK: active work can be stopped only with this chat's execution_id + authority_token. " +
             "A new chat cannot stop another chat's work; orphaned work auto-stops after 10 minutes idle."
           );
         }
-        const released = releaseWorkRegistration(execution_id, authority_token);
+
+        // Pending/selected/idle state is local to this MCP session and has no
+        // work registration to authorize. Cancel it without touching global
+        // persistent worker state that may belong to another chat.
         const stopped = sessionRuntime.stop();
         lifecycle?.clear();
         admissionRuntime.clear();
         pendingConfirmations.clear();
         pendingRemovalConfirmations.clear();
+
         return {
           ...stopped,
-          released_work: {
-            execution_id: released.executionId,
-            job_id: released.jobId,
-            workspace_key: released.workspaceKey,
+          released_work: null,
+          worker_state: {
+            unchanged: true,
+            reason: "No active work registration was released.",
           },
-          worker_state: await clearWorkerState(),
         };
       })
   );
