@@ -13,7 +13,7 @@ import {
   importJobPack,
 } from "../jobs/job-authoring.js";
 import { clearWorkerState } from "../lib/worker-state.js";
-import { activationFromAdmission } from "../lib/activation-policy.js";
+import type { AdmissionRuntime } from "../lib/activation-policy.js";
 import { toolAnnotations } from "../lib/tool-annotations.js";
 import { toolError, toolResult } from "../lib/tool-result.js";
 import {
@@ -162,7 +162,8 @@ async function persistActiveSelection(
 export function registerJobTools(
   server: McpServer,
   runtime: JobRuntime,
-  lifecycle?: JobPreparationLifecycle
+  lifecycle: JobPreparationLifecycle | undefined,
+  admissionRuntime: AdmissionRuntime
 ): void {
   let sessionRuntime = runtime;
 
@@ -567,7 +568,7 @@ export function registerJobTools(
       confirmation_token,
     }) =>
       safe("job_select", async () => {
-        activationFromAdmission(admission_token, bindings);
+        admissionRuntime.activation(admission_token, bindings);
         await bindRuntimeToWorkspace(bindings);
 
         if (!confirmed) {
@@ -688,7 +689,7 @@ export function registerJobTools(
     async ({ job, bindings, execution_id, authority_token, admission_token }) =>
       safe("job_switch", async () => {
         if (!execution_id && !authority_token) {
-          activationFromAdmission(admission_token, bindings);
+          admissionRuntime.activation(admission_token, bindings);
         }
         if (execution_id || authority_token) {
           if (!execution_id || !authority_token) {
