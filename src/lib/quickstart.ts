@@ -1,6 +1,6 @@
 export const MCP_QUICKSTART = `
 ## GPTWorker root command surface
-When the user sends exactly `gptworker/` (or asks what GPTWorker commands are available), show only these five fixed management commands:
+When the user sends exactly gptworker/ (or asks what GPTWorker commands are available), show only these five fixed management commands:
 - gptworker/job list
 - gptworker/job create
 - gptworker/job update
