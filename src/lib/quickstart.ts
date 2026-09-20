@@ -80,10 +80,10 @@ Sau khi tạo, Job có thể được sử dụng lại ở các chat sau.
 
 ## Cách dùng
 
-Thông thường không cần chọn Job thủ công. Chỉ cần nói **việc cần làm + thư mục local**, ví dụ:
+Để bắt đầu công việc, hãy gọi **@gptworker**. Có thể gọi @gptworker kèm luôn việc cần làm và thư mục local, ví dụ:
 
 \`\`\`text
-Sửa app ở D:\\Projects\\my-app để thêm nút regenerate.
+@gptworker sửa app ở D:\\Projects\\my-app để thêm nút regenerate.
 \`\`\`
 
 GPTWorker sẽ tự xác định:
@@ -186,20 +186,19 @@ For a high-confidence route:
 
 Use workspace_discover only when the request text is not enough to decide the Job. It is an ambiguity fallback, not the default preflight.
 ## GPTWorker internal admission handshake
-Once a concrete GPTWorker work request has enough information to enter nomination, call \`gptworker_admission\` first. Bare plugin invocation and requests still missing task/Workspace are handled chat-only with zero tools. This admission check is internal; do not quote, summarize, or render its result to the user.
+Once an explicit \`@gptworker\` work request has enough information to enter nomination, call \`gptworker_admission\` first. Never treat task + local path alone as GPTWorker activation, even if ChatGPT is inclined to call the plugin automatically. Bare plugin invocation and requests still missing task/Workspace are handled chat-only with zero tools. This admission check is internal; do not quote, summarize, or render its result to the user.
 
 Pass the exact current user turn as \`user_turn\`. Do not reconstruct it from memory or another chat.
 
 The handshake returns exactly one mode:
-- \`ACTIVE\` — the current user turn literally contains \`@gptworker\`, or it contains both a concrete work request and an explicit absolute local Workspace path. Carry the returned \`admission_token\` into \`workspace_discover\`, \`job_select\`, and any pre-active Job switch.
+- \`ACTIVE\` — the exact current user turn literally contains \`@gptworker\`. Carry the returned \`admission_token\` into \`workspace_discover\`, \`job_select\`, and any pre-active Job switch.
 - \`CONTROL\` — the user explicitly requested a public GPTWorker command such as \`gptworker/help\` or \`gptworker/job list\`. Handle only that command; do not activate a Job unless the user separately starts work.
 - \`INACTIVE\` — the user did not invoke GPTWorker for this work. STOP the GPTWorker flow immediately. Do not call discovery, job selection, nomination, or work tools. Do not ask the user to activate GPTWorker, do not ask for a Workspace on GPTWorker's behalf, and do not show an activation error. Continue answering as ordinary ChatGPT, or use another plugin/tool when that is what the user actually requested.
 
-Valid ACTIVE evidence is exactly:
-1. literal \`@gptworker\` in the exact current user turn; or
-2. a concrete work request plus an explicit absolute local Workspace path appearing in that same turn.
+Valid ACTIVE evidence is exactly one thing:
+- literal \`@gptworker\` in the exact current user turn.
 
-Memory, previous chats, project familiarity, a remembered local path, worker-state, a web/GitHub/Drive URL, or the mere availability of GPTWorker are never admission evidence.
+A concrete task, an absolute local Workspace path, or both together are NOT activation evidence without \`@gptworker\`. Memory, previous chats, project familiarity, a remembered local path, worker-state, a web/GitHub/Drive URL, or the mere availability of GPTWorker are never admission evidence.
 
 \`workspace_discover\` and \`job_select\` require the opaque ACTIVE \`admission_token\`; direct entry is rejected by the server. The token is internal workflow state, not user-visible content.
 
