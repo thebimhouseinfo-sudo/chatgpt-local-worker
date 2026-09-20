@@ -29,6 +29,7 @@ import { getChatGptToolProfile } from "./lib/tool-profile.js";
 import { buildLegacyDiscoverFallback } from "./lib/mcp-discover-compat.js";
 import { flushRuntimeLog } from "./lib/runtime-log.js";
 import { getWorkRegistrationCount } from "./lib/work-registration.js";
+import { getWorkGatewayTelemetry } from "./tools/work-gateway.js";
 
 const PORT = parseInt(process.env.PORT || "3000", 10);
 const HOST = process.env.HOST || "127.0.0.1";
@@ -186,6 +187,13 @@ app.get("/health", (_req, res) => {
   const memory = process.memoryUsage();
   const mb = (bytes: number) => Math.round((bytes / 1024 / 1024) * 10) / 10;
   const activeWork = getWorkRegistrationCount();
+  const gateway = getWorkGatewayTelemetry();
+  const runtimeMode =
+    gateway.loaded_family_count > 0
+      ? "on-demand-execution"
+      : activeWork > 0
+        ? "armed"
+        : "control-plane";
   res.json({
     status: "ok",
     name: "chatgpt-local-worker",
@@ -195,7 +203,8 @@ app.get("/health", (_req, res) => {
     fullDiskAccess: getFullDiskAccess(),
     activeSessions: sessionManager.count(),
     activeWork,
-    runtimeMode: activeWork > 0 ? "execution" : "control-plane",
+    runtimeMode,
+    loadedWorkFamilies: gateway.loaded_families,
     memory: {
       rss_mb: mb(memory.rss),
       heap_used_mb: mb(memory.heapUsed),
