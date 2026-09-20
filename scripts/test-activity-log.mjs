@@ -47,3 +47,10 @@ assert.ok(errEntry, "expected error activity entry");
 assert.equal(errEntry.summary, "Bad Request: Server not initialized");
 
 console.log("activity-log: ok");
+// work-handle summaries must never leak opaque authority tokens
+const summarized = summarizeToolArgs("custom_tool", {
+  execution_id: "exec:dev-coding@test#123456:e1:g1",
+  authority_token: "super-secret-authority-token-value",
+});
+assert.equal(summarized.includes("super-secret-authority-token-value"), false);
+
