@@ -13,7 +13,7 @@ export function registerAdmissionTool(
     {
       title: "GPTWorker Admission",
       description:
-        "Internal non-user-facing admission handshake for GPTWorker work. GPTWorker work activation is @-flow-only: ACTIVE when the exact current user turn literally contains @gptworker, or when a prior bare @gptworker armed this same MCP session and the current continuation supplies the absolute local Workspace (task details may still be incomplete). A fresh task plus local path in an unarmed session is always INACTIVE. CONTROL is for explicit gptworker/ commands. INACTIVE means GPTWorker must stop immediately; do not nominate a Job, do not inspect the workspace, and continue as normal ChatGPT or use the plugin/tool the user actually requested.",
+        "Internal non-user-facing admission handshake for GPTWorker work. GPTWorker work activation is @-flow-only: ACTIVE when the exact current user turn starts with @gptworker, or when a prior bare @gptworker armed this same MCP session and the current continuation supplies the absolute local Workspace (task details may still be incomplete). A fresh task plus local path in an unarmed session is always INACTIVE. CONTROL is for explicit gptworker/ commands. INACTIVE means GPTWorker must stop immediately; do not nominate a Job, do not inspect the workspace, and continue as normal ChatGPT or use the plugin/tool the user actually requested.",
       inputSchema: {
         user_turn: z
           .string()
