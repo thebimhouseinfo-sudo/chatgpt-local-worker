@@ -31,7 +31,7 @@ try {
   const discovery = registered.get("workspace_discover");
   if (!discovery) throw new Error("workspace_discover was not registered");
 
-  const activationRequest = `Inspect files in ${tmpDir} and choose the right Job.`;
+  const activationRequest = `@gptworker inspect files in ${tmpDir} and choose the right Job.`;
   const admission = admissionRuntime.check({
     userTurn: activationRequest,
     hasConcreteTask: true,
@@ -50,6 +50,26 @@ try {
   });
   if (!JSON.stringify(listResult).includes("README.md")) {
     throw new Error("discovery list did not return workspace file");
+  }
+
+  let workspaceSwitchBlocked = false;
+  try {
+    await discovery.callback({
+      workspace: outsideDir,
+      task: "inspect another project",
+      operation: "list_directory",
+      arguments: {},
+      admission_token: admission.admission_token,
+    });
+  } catch (error) {
+    workspaceSwitchBlocked = /Workspace does not match/i.test(
+      String(error?.message || error)
+    );
+  }
+  if (!workspaceSwitchBlocked) {
+    throw new Error(
+      "workspace_discover must bind an unbound admission token to the first validated Workspace"
+    );
   }
 
   const readResult = await discovery.callback({
