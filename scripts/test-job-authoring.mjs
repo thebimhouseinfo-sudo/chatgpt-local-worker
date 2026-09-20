@@ -1,14 +1,27 @@
-
 import assert from "node:assert/strict";
 import fs from "node:fs/promises";
 import os from "node:os";
 import path from "node:path";
+import { fileURLToPath } from "node:url";
 
+const repoRoot = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
 const tempRoot = await fs.mkdtemp(path.join(os.tmpdir(), "gptworker-job-authoring-"));
-const jobsRoot = path.join(tempRoot, "jobs");
-await fs.mkdir(jobsRoot, { recursive: true });
+const dataRoot = path.join(tempRoot, "appdata", "GPTWorker");
+const customJobsRoot = path.join(dataRoot, "jobs");
+const defaultJobsRoot = path.join(tempRoot, "repo-default-jobs");
+
+await fs.mkdir(customJobsRoot, { recursive: true });
+await fs.mkdir(defaultJobsRoot, { recursive: true });
+await fs.cp(
+  path.join(repoRoot, "jobs", "dev-coding"),
+  path.join(defaultJobsRoot, "dev-coding"),
+  { recursive: true }
+);
+
 process.env.LOCAL_WORKER_HOME = tempRoot;
-process.env.JOB_PACKS_PATH = jobsRoot;
+process.env.GPTWORKER_DATA_ROOT = dataRoot;
+process.env.JOB_PACKS_PATH = customJobsRoot;
+process.env.DEFAULT_JOB_PACKS_PATH = defaultJobsRoot;
 
 const {
   createJobPack,
@@ -21,7 +34,7 @@ const { JobRuntime } = await import("../dist/jobs/job-runtime.js");
 const created = await createJobPack({
   id: "test-job",
   name: "Test Job",
-  description: "Temporary Job Pack used by automated authoring tests.",
+  description: "Temporary custom Job Pack used by automated authoring tests.",
   keywords: ["test", "authoring"],
   inputs: [
     {
@@ -48,15 +61,42 @@ const created = await createJobPack({
 
 assert.equal(created.job_id, "test-job");
 assert.equal(created.validation.ok, true);
-assert.equal(await fs.stat(path.join(jobsRoot, "test-job", "JOB.md")).then(() => true), true);
+assert.equal(
+  await fs.stat(path.join(customJobsRoot, "test-job", "JOB.md")).then(() => true),
+  true
+);
 
-const runtime = new JobRuntime(tempRoot, jobsRoot);
+const runtime = new JobRuntime(tempRoot);
 const listing = await runtime.list("test authoring");
-assert.equal(listing.jobs.some((job) => job.id === "test-job"), true);
+const defaultJob = listing.jobs.find((job) => job.id === "dev-coding");
+const customJob = listing.jobs.find((job) => job.id === "test-job");
+assert.equal(defaultJob?.source, "default");
+assert.equal(customJob?.source, "custom");
+assert.equal(listing.jobs.length, 2);
+
+await assert.rejects(
+  () =>
+    createJobPack({
+      id: "dev-coding",
+      name: "Duplicate Default",
+      description: "Must be rejected because bundled default ids are reserved.",
+    }),
+  /bundled default Job/
+);
+
+await assert.rejects(
+  () => updateJobPack("dev-coding", { description: "Do not mutate defaults." }),
+  /bundled default Job/
+);
+
+await assert.rejects(
+  () => removeJobPack("dev-coding"),
+  /bundled default Job/
+);
 
 const updated = await updateJobPack("test-job", {
   version: "0.2.0",
-  description: "Updated temporary Job Pack.",
+  description: "Updated temporary custom Job Pack.",
   job_md: "# Test Job\n\nUpdated contract.\n",
   files: {
     "skills/second.md": "# Second skill\n",
@@ -66,16 +106,16 @@ const updated = await updateJobPack("test-job", {
 assert.equal(updated.validation.ok, true);
 
 const manifest = JSON.parse(
-  await fs.readFile(path.join(jobsRoot, "test-job", "job.yaml"), "utf8")
+  await fs.readFile(path.join(customJobsRoot, "test-job", "job.yaml"), "utf8")
 );
 assert.equal(manifest.version, "0.2.0");
 assert.deepEqual(manifest.skills, ["skills/example.md", "skills/second.md"]);
 assert.match(
-  await fs.readFile(path.join(jobsRoot, "test-job", "JOB.md"), "utf8"),
+  await fs.readFile(path.join(customJobsRoot, "test-job", "JOB.md"), "utf8"),
   /Updated contract/
 );
 
-const validation = await validateJobPack(path.join(jobsRoot, "test-job"));
+const validation = await validateJobPack(path.join(customJobsRoot, "test-job"));
 assert.equal(validation.ok, true);
 
 await assert.rejects(
@@ -89,7 +129,7 @@ await assert.rejects(
   /Job validation failed/
 );
 await assert.rejects(
-  fs.stat(path.join(jobsRoot, "broken-job")),
+  fs.stat(path.join(customJobsRoot, "broken-job")),
   (error) => error && error.code === "ENOENT"
 );
 
@@ -106,9 +146,13 @@ await assert.rejects(
 const removed = await removeJobPack("test-job");
 assert.equal(removed.removed, true);
 await assert.rejects(
-  fs.stat(path.join(jobsRoot, "test-job")),
+  fs.stat(path.join(customJobsRoot, "test-job")),
   (error) => error && error.code === "ENOENT"
 );
+
+const afterRemove = await runtime.list();
+assert.equal(afterRemove.jobs.some((job) => job.id === "dev-coding"), true);
+assert.equal(afterRemove.jobs.some((job) => job.id === "test-job"), false);
 
 await fs.rm(tempRoot, { recursive: true, force: true });
 console.log("test-job-authoring: ok");
