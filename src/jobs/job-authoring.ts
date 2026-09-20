@@ -21,8 +21,9 @@ export interface JobConfirmationDefinition {
 
 export interface JobPackDraft {
   id: string;
-  name: string;
-  description: string;
+  clone_from?: string;
+  name?: string;
+  description?: string;
   version?: string;
   status?: JobPackStatus;
   aliases?: string[];
@@ -122,6 +123,9 @@ function normalizeField(field: JobFieldDefinition) {
 }
 
 function buildManifest(draft: JobPackDraft) {
+  if (!draft.name?.trim() || !draft.description?.trim()) {
+    throw new Error("name and description are required when creating a Job from scratch.");
+  }
   return {
     id: assertJobId(draft.id),
     name: draft.name.trim(),
@@ -283,6 +287,115 @@ async function publishReplacement(stageDir: string, liveDir: string): Promise<vo
   }
 }
 
+async function resolveCloneSource(idInput: string): Promise<{
+  id: string;
+  dir: string;
+  source: "default" | "custom";
+}> {
+  const id = assertJobId(idInput);
+  const defaultDir = path.join(getDefaultJobsRoot(), id);
+  if (await exists(defaultDir)) return { id, dir: defaultDir, source: "default" };
+
+  const customDir = path.join(getCustomJobsRoot(), id);
+  if (await exists(customDir)) return { id, dir: customDir, source: "custom" };
+
+  throw new Error("Unknown source Job '" + id + "'.");
+}
+
+async function createClonedJobPack(draft: JobPackDraft, liveDir: string) {
+  const targetId = assertJobId(draft.id);
+  const source = await resolveCloneSource(draft.clone_from!);
+  const stageDir = stagingPackDir(targetId);
+  const stageRoot = path.dirname(stageDir);
+
+  try {
+    await fs.mkdir(path.dirname(stageDir), { recursive: true });
+    await fs.cp(source.dir, stageDir, { recursive: true });
+
+    const current = await readManifest(stageDir);
+    const next = {
+      ...current,
+      id: targetId,
+      name: draft.name?.trim() || (String(current.name || source.id) + " Custom"),
+      description:
+        draft.description?.trim() ||
+        String(current.description || "Custom clone of " + source.id),
+      aliases: draft.aliases ?? [],
+      ...(draft.version !== undefined ? { version: draft.version.trim() } : {}),
+      ...(draft.status !== undefined ? { status: draft.status } : {}),
+      ...(draft.keywords !== undefined ? { keywords: draft.keywords } : {}),
+      ...(draft.inputs !== undefined
+        ? { inputs: draft.inputs.map(normalizeField) }
+        : {}),
+      ...(draft.outputs !== undefined
+        ? { outputs: draft.outputs.map(normalizeField) }
+        : {}),
+      ...(draft.permissions !== undefined
+        ? { permissions: draft.permissions }
+        : {}),
+      ...(draft.confirmation !== undefined
+        ? {
+            confirmation: {
+              required: draft.confirmation.required ?? true,
+              template:
+                draft.confirmation.template ||
+                current.confirmation?.template ||
+                "JOB: {job}\nFOLDER: {workspace}\n\nXác nhận bắt đầu?",
+            },
+          }
+        : {}),
+      ...(draft.skills !== undefined ? { skills: draft.skills } : {}),
+      ...(draft.harness_entrypoints !== undefined
+        ? { harness: { entrypoints: draft.harness_entrypoints } }
+        : {}),
+      ...(draft.validators !== undefined ? { validators: draft.validators } : {}),
+      cloned_from: {
+        job_id: source.id,
+        source: source.source,
+      },
+    };
+
+    await writeText(path.join(stageDir, "job.yaml"), JSON.stringify(next, null, 2) + "\n");
+    if (draft.job_md !== undefined) {
+      await writeText(path.join(stageDir, "JOB.md"), draft.job_md);
+    }
+    if (draft.skill_md !== undefined) {
+      await writeText(path.join(stageDir, "SKILL.md"), draft.skill_md);
+    }
+    await writeExtraFiles(stageDir, draft.files);
+
+    const validation = await validateJobPack(stageDir);
+    if (!validation.ok) {
+      throw new Error("Cloned Job validation failed: " + validation.errors.join("; "));
+    }
+
+    await publishNew(stageDir, liveDir);
+    appendActivity({
+      kind: "system",
+      action: "job_created",
+      status: "ok",
+      target: targetId,
+      summary: targetId + " cloned to AppData custom jobs/",
+      details: {
+        job_id: targetId,
+        pack_dir: liveDir,
+        source: "custom",
+        cloned_from: source.id,
+        cloned_from_source: source.source,
+      },
+    });
+    return {
+      job_id: targetId,
+      pack_dir: liveDir,
+      source: "custom",
+      cloned_from: source.id,
+      validation,
+    };
+  } finally {
+    await fs.rm(stageRoot, { recursive: true, force: true }).catch(() => undefined);
+  }
+}
+
 export async function createJobPack(draft: JobPackDraft) {
   const id = assertJobId(draft.id);
   const jobsRoot = getCustomJobsRoot();
@@ -295,6 +408,10 @@ export async function createJobPack(draft: JobPackDraft) {
   }
   if (await exists(liveDir)) throw new Error("Custom Job '" + id + "' already exists.");
 
+  if (draft.clone_from) {
+    return createClonedJobPack({ ...draft, id }, liveDir);
+  }
+
   const stageDir = stagingPackDir(id);
   const stageRoot = path.dirname(stageDir);
   try {
@@ -306,12 +423,12 @@ export async function createJobPack(draft: JobPackDraft) {
     );
     await writeText(
       path.join(stageDir, "JOB.md"),
-      draft.job_md?.trim() || "# " + draft.name + "\n\n" + draft.description + "\n"
+      draft.job_md?.trim() || "# " + draft.name! + "\n\n" + draft.description! + "\n"
     );
     await writeText(
       path.join(stageDir, "SKILL.md"),
       draft.skill_md?.trim() ||
-        "# " + draft.name + " — Operating SOP\n\nFollow the Job contract in JOB.md.\n"
+        "# " + draft.name! + " — Operating SOP\n\nFollow the Job contract in JOB.md.\n"
     );
     await writeExtraFiles(stageDir, draft.files);
 
