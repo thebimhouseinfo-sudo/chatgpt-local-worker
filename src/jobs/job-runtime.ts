@@ -179,13 +179,17 @@ export class JobRuntime {
     const defaults = await this.packsFromRoot(roots.defaults, "default");
     const user = await this.packsFromRoot(roots.user, "user");
 
-    // Overlay semantics: repo defaults are always available, but a valid
-    // AppData/user pack with the same id wins. No second registry is needed.
-    const byId = new Map<string, LoadedJobPack>();
-    for (const pack of defaults) byId.set(pack.meta.id, pack);
-    for (const pack of user) byId.set(pack.meta.id, pack);
+    const defaultIds = new Set(defaults.map((pack) => pack.meta.id));
+    const collisions = user.filter((pack) => defaultIds.has(pack.meta.id));
+    if (collisions.length > 0) {
+      throw new Error(
+        "Custom Job id collides with bundled default Job(s): " +
+          collisions.map((pack) => pack.meta.id).join(", ") +
+          ". Custom Jobs must use unique ids."
+      );
+    }
 
-    return [...byId.values()].sort((a, b) =>
+    return [...defaults, ...user].sort((a, b) =>
       a.meta.id.localeCompare(b.meta.id)
     );
   }
@@ -358,7 +362,7 @@ export class JobRuntime {
       note:
         this.explicitJobsRoot
           ? "Using one explicit Job Pack root."
-          : "AppData/user Job Packs override repo defaults by job id. Repo defaults remain the fallback. Keyword matching is suggestion-only.",
+          : "Repo jobs are bundled defaults; AppData jobs are user-created custom Jobs only. Job ids must be globally unique. Keyword matching is suggestion-only.",
     };
   }
 
