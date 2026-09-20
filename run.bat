@@ -32,7 +32,7 @@ if errorlevel 1 (
 )
 
 echo Starting GPTWorker tray host...
-start "" powershell -NoProfile -WindowStyle Hidden -ExecutionPolicy Bypass -File "%~dp0gptworker-tray.ps1"
+start "" powershell -NoProfile -STA -WindowStyle Hidden -ExecutionPolicy Bypass -File "%~dp0gptworker-tray.ps1"
 
 echo.
 echo [OK] Launch requested.
