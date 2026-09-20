@@ -190,6 +190,14 @@ export function buildServerInstructions(
   ].join("\n");
 
   const body = contextBlock?.trim();
-  if (!body) return `${header}\n\n${footer}`;
-  return `${header}\n\n${body}\n\n${footer}`;
+  const commandContract = [
+    "## Prewritten gptworker/help response",
+    "When the user sends exactly gptworker/help, return the following guide and do not call tools:",
+    GPTWORKER_HELP,
+    MCP_QUICKSTART,
+  ].join("\n\n");
+
+  return [header, body, commandContract, footer]
+    .filter(Boolean)
+    .join("\n\n");
 }
