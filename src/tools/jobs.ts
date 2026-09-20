@@ -365,6 +365,32 @@ export function registerJobTools(
           );
         }
 
+        if (
+          preflight.active_tool_count > 0 &&
+          proof.mode !== "interrupt_remove"
+        ) {
+          const token = randomUUID();
+          pendingRemovalConfirmations.delete(confirmation_token!);
+          pendingRemovalConfirmations.set(token, {
+            jobId: preflight.job_id,
+            mode: "interrupt_remove",
+            createdAt: Date.now(),
+          });
+          return {
+            ...preflight,
+            removal_pending: true,
+            confirmation_required: true,
+            confirmation_mode: "interrupt_remove",
+            confirmation_token: token,
+            confirmation_prompt:
+              "Custom Job '" +
+              preflight.job_id +
+              "' bắt đầu làm việc sau lần xác nhận trước (" +
+              preflight.active_tool_count +
+              " tool call đang chạy). Xác nhận ngắt Job và remove?",
+          };
+        }
+
         if (preflight.active_work_count > 0) {
           if (!execution_id || !authority_token) {
             throw new Error(
