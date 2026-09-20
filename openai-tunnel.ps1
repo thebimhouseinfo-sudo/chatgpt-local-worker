@@ -227,6 +227,29 @@ function Test-ApiKeyValue([string]$Value) {
     return [bool]($Value -and $Value -match '^sk-')
 }
 
+function Show-SetupWizardStep(
+    [string]$Step,
+    [string]$Title,
+    [string]$Subtitle = ""
+) {
+    Write-Host ""
+    Write-Host "================================================================" -ForegroundColor DarkCyan
+    Write-Host ("  STEP {0}  {1}" -f $Step, $Title) -ForegroundColor Cyan
+    if ($Subtitle) {
+        Write-Host ("  {0}" -f $Subtitle) -ForegroundColor DarkGray
+    }
+    Write-Host "================================================================" -ForegroundColor DarkCyan
+    Write-Host ""
+}
+
+function Show-PreviewHint([string]$Label) {
+    Write-Host "  PREVIEW MODE" -ForegroundColor Magenta
+    Write-Host "  This field is UX-only in setup-test.bat." -ForegroundColor DarkGray
+    Write-Host "  Enter ANY text to continue; it will not be validated or saved." -ForegroundColor DarkGray
+    Write-Host ("  Example: {0}" -f $Label) -ForegroundColor DarkGray
+    Write-Host ""
+}
+
 function Save-TunnelCredentials([string]$ResolvedTunnelId, [string]$ResolvedApiKey) {
     if (-not (Test-TunnelIdValue $ResolvedTunnelId)) {
         throw "OPENAI_TUNNEL_ID khong hop le. Dang tunnel_ + 32 ky tu hex."
@@ -240,6 +263,13 @@ function Save-TunnelCredentials([string]$ResolvedTunnelId, [string]$ResolvedApiK
 }
 
 function Resolve-TunnelIdForSetup {
+    if ($WizardPreview -and $TunnelId) {
+        Show-SetupWizardStep -Step "1/2" -Title "Secure MCP Tunnel" -Subtitle "Preview input supplied by setup-test."
+        Show-PreviewHint -Label "anything"
+        Write-Host "[PREVIEW] Tunnel input accepted." -ForegroundColor Green
+        return $TunnelId
+    }
+
     if (Test-TunnelIdValue $TunnelId) {
         Write-Host "[1/2] Secure MCP Tunnel: nhan tu setup UI" -ForegroundColor Green
         return $TunnelId
@@ -258,16 +288,30 @@ function Resolve-TunnelIdForSetup {
         throw "Chua co Tunnel ID. Setup UI phai cung cap -TunnelId."
     }
 
-    Write-Host "[1/2] TAO SECURE MCP TUNNEL" -ForegroundColor Yellow
-    Write-Host ""
-    Write-Host "Trang OpenAI Tunnels se duoc mo tren trinh duyet." -ForegroundColor White
-    Write-Host "Tao mot tunnel moi (goi y ten: gptworker)." -ForegroundColor White
-    Write-Host "Sau khi tao xong, copy Tunnel ID co dang tunnel_..." -ForegroundColor White
-    Write-Host ""
+    Show-SetupWizardStep -Step "1/2" -Title "Create Secure MCP Tunnel" -Subtitle "OpenAI Tunnels will open in your browser."
+    Write-Host "Create a tunnel for GPTWorker, then copy its Tunnel ID." -ForegroundColor White
+    if ($WizardPreview) {
+        Show-PreviewHint -Label "demo-tunnel"
+    } else {
+        Write-Host "Expected format: tunnel_ + 32 hex characters." -ForegroundColor DarkGray
+        Write-Host ""
+    }
+
     Start-Process $TunnelsUrl
 
     while ($true) {
-        $value = Read-Host "Paste Tunnel ID here (tunnel_...)"
+        $prompt = if ($WizardPreview) { "Preview Tunnel ID (any text)" } else { "Paste Tunnel ID (tunnel_...)" }
+        $value = Read-Host $prompt
+
+        if ($WizardPreview) {
+            if ([string]::IsNullOrWhiteSpace($value)) {
+                Write-Host "Please type something so the input step can be previewed." -ForegroundColor Yellow
+                continue
+            }
+            Write-Host "[PREVIEW] Accepted. No validation and no save will occur." -ForegroundColor Green
+            return $value
+        }
+
         if (Test-TunnelIdValue $value) {
             Write-Host "[OK] Tunnel ID hop le." -ForegroundColor Green
             return $value
@@ -277,6 +321,13 @@ function Resolve-TunnelIdForSetup {
 }
 
 function Resolve-ApiKeyForSetup {
+    if ($WizardPreview -and $ApiKey) {
+        Show-SetupWizardStep -Step "2/2" -Title "Runtime API Key" -Subtitle "Preview input supplied by setup-test."
+        Show-PreviewHint -Label "anything"
+        Write-Host "[PREVIEW] API key input accepted." -ForegroundColor Green
+        return $ApiKey
+    }
+
     if (Test-ApiKeyValue $ApiKey) {
         Write-Host "[2/2] Runtime API key: nhan tu setup UI" -ForegroundColor Green
         return $ApiKey
@@ -294,18 +345,31 @@ function Resolve-ApiKeyForSetup {
         throw "Chua co Runtime API key. Setup UI phai cung cap -ApiKey."
     }
 
-    Write-Host ""
-    Write-Host "[2/2] TAO RUNTIME API KEY" -ForegroundColor Yellow
-    Write-Host ""
-    Write-Host "Trang OpenAI API Keys se duoc mo tren trinh duyet." -ForegroundColor White
-    Write-Host "Tao Runtime API key cho GPTWorker." -ForegroundColor White
-    Write-Host "Key can quyen Tunnels: Read + Use." -ForegroundColor White
-    Write-Host "Sau khi tao xong, copy API key co dang sk-..." -ForegroundColor White
-    Write-Host ""
+    Show-SetupWizardStep -Step "2/2" -Title "Create Runtime API Key" -Subtitle "OpenAI API Keys will open in your browser."
+    Write-Host "Create a Runtime API key for GPTWorker." -ForegroundColor White
+    Write-Host "Required permission in real setup: Tunnels Read + Use." -ForegroundColor DarkGray
+    if ($WizardPreview) {
+        Show-PreviewHint -Label "demo-api-key"
+    } else {
+        Write-Host "Expected format: key begins with sk-." -ForegroundColor DarkGray
+        Write-Host ""
+    }
+
     Start-Process $ApiKeysUrl
 
     while ($true) {
-        $value = Read-Host "Paste Runtime API key here (sk-...)"
+        $prompt = if ($WizardPreview) { "Preview API key (any text)" } else { "Paste Runtime API key (sk-...)" }
+        $value = Read-Host $prompt
+
+        if ($WizardPreview) {
+            if ([string]::IsNullOrWhiteSpace($value)) {
+                Write-Host "Please type something so the input step can be previewed." -ForegroundColor Yellow
+                continue
+            }
+            Write-Host "[PREVIEW] Accepted. No validation and no save will occur." -ForegroundColor Green
+            return $value
+        }
+
         if (Test-ApiKeyValue $value) {
             Write-Host "[OK] Runtime API key hop le." -ForegroundColor Green
             return $value
@@ -316,7 +380,15 @@ function Resolve-ApiKeyForSetup {
 
 function Invoke-TunnelInit {
     Write-Host ""
-    Write-Host "=== GPTWorker - Ket noi OpenAI Secure MCP Tunnel ===" -ForegroundColor Cyan
+    Write-Host "================================================================" -ForegroundColor DarkCyan
+    if ($WizardPreview) {
+        Write-Host "  GPTWorker Connection Wizard - UX Preview" -ForegroundColor Cyan
+        Write-Host "  Safe dry-run: arbitrary input accepted, nothing saved." -ForegroundColor Magenta
+    } else {
+        Write-Host "  GPTWorker - Connect OpenAI Secure MCP Tunnel" -ForegroundColor Cyan
+        Write-Host "  Real setup: credentials are validated before saving." -ForegroundColor DarkGray
+    }
+    Write-Host "================================================================" -ForegroundColor DarkCyan
     Write-Host ""
 
     # These resolver functions are the setup core. setup.bat uses the interactive
@@ -327,11 +399,16 @@ function Invoke-TunnelInit {
 
     if ($WizardPreview) {
         Write-Host ""
-        Write-Host "[OK] Tunnel ID hop le." -ForegroundColor Green
-        Write-Host "[OK] Runtime API key co dung dinh dang." -ForegroundColor Green
+        Write-Host "================================================================" -ForegroundColor DarkCyan
+        Write-Host "  PREVIEW COMPLETE" -ForegroundColor Green
+        Write-Host "================================================================" -ForegroundColor DarkCyan
+        Write-Host "  [OK] Tunnel input screen" -ForegroundColor Green
+        Write-Host "  [OK] API key input screen" -ForegroundColor Green
+        Write-Host "  [SKIP] Credential format validation" -ForegroundColor Yellow
+        Write-Host "  [SKIP] Saving .env" -ForegroundColor Yellow
+        Write-Host "  [SKIP] Tunnel doctor / connection changes" -ForegroundColor Yellow
         Write-Host ""
-        Write-Host "Wizard preview hoan tat." -ForegroundColor Cyan
-        Write-Host "Khong ghi .env, khong chay doctor va khong thay doi ket noi hien tai." -ForegroundColor DarkGray
+        Write-Host "Nothing from this preview was saved." -ForegroundColor DarkGray
         return
     }
 
