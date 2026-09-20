@@ -70,6 +70,10 @@ function includesPath(request: string, workspace: string): boolean {
   return requestComparable.includes(workspaceComparable);
 }
 
+function isExplicitGptworkerInvocation(userTurn: string): boolean {
+  return /^\s*@gptworker\b/i.test(userTurn);
+}
+
 function isPublicControlCommand(userTurn: string): boolean {
   const value = userTurn.trim();
   return (
@@ -101,7 +105,7 @@ export class AdmissionRuntime {
   armExplicitAt(userTurn: string): boolean {
     this.cleanup();
     const request = userTurn?.trim();
-    if (!request || !/@gptworker\b/i.test(request)) return false;
+    if (!request || !isExplicitGptworkerInvocation(request)) return false;
     this.armedAtFlow = {
       invocationRequest: request,
       createdAt: Date.now(),
@@ -139,7 +143,7 @@ export class AdmissionRuntime {
     let invocationRequest: string | undefined;
     let workspace: string | undefined;
 
-    if (/@gptworker\b/i.test(userTurn)) {
+    if (isExplicitGptworkerInvocation(userTurn)) {
       this.armExplicitAt(userTurn);
       invocationRequest = userTurn;
       const candidate = input.workspace?.trim();
@@ -281,9 +285,9 @@ export function validateActivationGate(input: ActivationGateInput): ActivationGa
     );
   }
 
-  if (!/@gptworker\b/i.test(request)) {
+  if (!isExplicitGptworkerInvocation(request)) {
     throw new Error(
-      "ACTIVATION_REQUIRED: explicit_gptworker requires literal @gptworker."
+      "ACTIVATION_REQUIRED: explicit_gptworker requires the current user turn to start with @gptworker."
     );
   }
 
