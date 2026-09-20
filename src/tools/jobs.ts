@@ -203,7 +203,7 @@ export function registerJobTools(
     {
       title: "Job List",
       description:
-        "List available Job Packs. Use for an explicit gptworker/job list request, or after a valid GPTWorker activation trigger when JOB is unclear. Do not call this tool merely because an ordinary chat request resembles a Job. Optional query only suggests matches; it never selects or runs a job.",
+        "List available Job Packs. For a bare @gptworker invocation, pass activation_request with the exact current user text so this MCP session is armed for the following Job+Workspace reply. For explicit gptworker/job list, omit activation_request. Do not call this tool merely because an ordinary chat request resembles a Job. Optional query only suggests matches; it never selects or runs a job.",
       inputSchema: {
         query: z
           .string()
@@ -211,10 +211,33 @@ export function registerJobTools(
           .describe(
             "Optional user wording/keyword such as 'takeoff MTO' or 'repo lisp' for suggestion scoring only"
           ),
+        activation_request: z
+          .string()
+          .optional()
+          .describe(
+            "Bare @gptworker only: exact current user text containing literal @gptworker. Arms this MCP session for the following Job+Workspace continuation."
+          ),
       },
       annotations: toolAnnotations("read"),
     },
-    async ({ query }) => safe("job_list", () => sessionRuntime.list(query))
+    async ({ query, activation_request }) =>
+      safe("job_list", async () => {
+        if (activation_request) {
+          const armed = admissionRuntime.armExplicitAt(activation_request);
+          if (!armed) {
+            throw new Error(
+              "ACTIVATION_REQUIRED: activation_request for bare Job listing must contain literal @gptworker."
+            );
+          }
+        }
+        const result = await sessionRuntime.list(query);
+        return {
+          ...result,
+          at_flow_armed: activation_request
+            ? admissionRuntime.isExplicitAtFlowArmed()
+            : undefined,
+        };
+      })
   );
 
 
