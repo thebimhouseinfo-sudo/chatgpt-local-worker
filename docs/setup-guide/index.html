@@ -1,0 +1,160 @@
+<!doctype html>
+<html lang="vi">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>GPTWorker - Kết nối với ChatGPT</title>
+  <style>
+    :root {
+      color-scheme: light;
+      --bg: #f6f8fb;
+      --panel: #ffffff;
+      --text: #172033;
+      --muted: #667085;
+      --line: #dfe5ef;
+      --accent: #2563eb;
+      --soft: #eef4ff;
+      --ok: #0f766e;
+      --code: #101828;
+    }
+    * { box-sizing: border-box; }
+    body {
+      margin: 0;
+      font-family: Inter, "Segoe UI", Arial, sans-serif;
+      background: var(--bg);
+      color: var(--text);
+      line-height: 1.55;
+    }
+    main { max-width: 960px; margin: 0 auto; padding: 40px 20px 72px; }
+    .hero, .step, .done {
+      background: var(--panel);
+      border: 1px solid var(--line);
+      border-radius: 18px;
+      box-shadow: 0 10px 30px rgba(16,24,40,.06);
+    }
+    .hero { padding: 28px; margin-bottom: 22px; }
+    h1 { margin: 0 0 10px; font-size: clamp(28px, 4vw, 42px); }
+    h2 { margin: 0 0 8px; font-size: 24px; }
+    p { margin: 8px 0; }
+    .muted { color: var(--muted); }
+    .step { padding: 24px; margin: 18px 0; }
+    .step-head { display: flex; gap: 14px; align-items: flex-start; margin-bottom: 12px; }
+    .num {
+      width: 34px; height: 34px; flex: 0 0 34px;
+      display: grid; place-items: center;
+      border-radius: 999px; background: var(--accent); color: white; font-weight: 700;
+    }
+    .path, code {
+      font-family: "Cascadia Code", Consolas, monospace;
+      background: var(--soft);
+      color: var(--code);
+      padding: 2px 7px;
+      border-radius: 7px;
+    }
+    .shot {
+      margin-top: 18px;
+      border: 1px dashed #b8c3d6;
+      border-radius: 14px;
+      background: #fbfcfe;
+      overflow: hidden;
+    }
+    .shot img { width: 100%; display: block; }
+    .shot .placeholder {
+      min-height: 190px;
+      display: grid;
+      place-items: center;
+      padding: 24px;
+      text-align: center;
+      color: var(--muted);
+    }
+    ul { margin: 10px 0 0 20px; padding: 0; }
+    .done { padding: 24px; margin-top: 24px; border-color: #b7e4d8; }
+    .done h2 { color: var(--ok); }
+    .callout {
+      margin-top: 14px;
+      padding: 14px 16px;
+      border-radius: 12px;
+      background: var(--soft);
+      border: 1px solid #cddcff;
+    }
+  </style>
+</head>
+<body>
+<main>
+  <section class="hero">
+    <h1>Kết nối GPTWorker với ChatGPT</h1>
+    <p>Tunnel đã chạy. Hãy hoàn tất 3 bước dưới đây trong tab ChatGPT Settings vừa được mở.</p>
+    <p class="muted">Trang này được lưu ngay trong GPTWorker và có thể mở lại bất cứ lúc nào.</p>
+  </section>
+
+  <section class="step">
+    <div class="step-head">
+      <div class="num">1</div>
+      <div>
+        <h2>Bật Developer Mode</h2>
+        <p>Trong ChatGPT, vào <span class="path">Settings → Apps → Advanced Settings → Developer Mode</span> và bật Developer Mode nếu chưa bật.</p>
+      </div>
+    </div>
+    <div class="shot">
+      <img src="images/01-developer-mode.png" alt="Bật Developer Mode trong ChatGPT" onerror="this.style.display='none';this.nextElementSibling.style.display='grid'">
+      <div class="placeholder" style="display:none">
+        Ảnh hướng dẫn sẽ hiển thị tại đây khi có file<br><code>images/01-developer-mode.png</code>
+      </div>
+    </div>
+  </section>
+
+  <section class="step">
+    <div class="step-head">
+      <div class="num">2</div>
+      <div>
+        <h2>Tạo Plugin/App mới</h2>
+        <p>Mở khu vực tạo Plugin/App mới, đặt tên <code>gptworker</code>, chọn <strong>Connection: Tunnel</strong> rồi chọn Tunnel vừa tạo hoặc paste Tunnel ID.</p>
+        <ul>
+          <li>Name: <code>gptworker</code></li>
+          <li>Connection: <code>Tunnel</code></li>
+          <li>Chọn đúng Tunnel của GPTWorker</li>
+          <li>Chạy <strong>Scan Tools / Test connection</strong> rồi Create/Save</li>
+        </ul>
+      </div>
+    </div>
+    <div class="shot">
+      <img src="images/02-create-plugin.png" alt="Tạo Plugin hoặc App gptworker" onerror="this.style.display='none';this.nextElementSibling.style.display='grid'">
+      <div class="placeholder" style="display:none">
+        Ảnh hướng dẫn sẽ hiển thị tại đây khi có file<br><code>images/02-create-plugin.png</code>
+      </div>
+    </div>
+    <div class="shot">
+      <img src="images/03-select-tunnel.png" alt="Chọn Secure MCP Tunnel" onerror="this.style.display='none';this.nextElementSibling.style.display='grid'">
+      <div class="placeholder" style="display:none">
+        Ảnh hướng dẫn sẽ hiển thị tại đây khi có file<br><code>images/03-select-tunnel.png</code>
+      </div>
+    </div>
+  </section>
+
+  <section class="step">
+    <div class="step-head">
+      <div class="num">3</div>
+      <div>
+        <h2>Gọi GPTWorker lần đầu</h2>
+        <p>Mở một chat mới và gọi Plugin/App:</p>
+        <div class="callout"><code>@gptworker</code></div>
+        <p>Sau đó thử:</p>
+        <div class="callout"><code>gptworker/</code></div>
+        <p>Nếu kết nối đúng, ChatGPT sẽ hiển thị các lệnh chính của GPTWorker.</p>
+      </div>
+    </div>
+    <div class="shot">
+      <img src="images/04-first-use.png" alt="Gọi gptworker lần đầu trong ChatGPT" onerror="this.style.display='none';this.nextElementSibling.style.display='grid'">
+      <div class="placeholder" style="display:none">
+        Ảnh hướng dẫn sẽ hiển thị tại đây khi có file<br><code>images/04-first-use.png</code>
+      </div>
+    </div>
+  </section>
+
+  <section class="done">
+    <h2>Hoàn tất</h2>
+    <p>Từ lần sau chỉ cần chạy <code>run.bat</code>, mở ChatGPT và gọi <code>@gptworker</code>.</p>
+  </section>
+</main>
+</body>
+</html>
