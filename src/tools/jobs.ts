@@ -650,7 +650,15 @@ export function registerJobTools(
             };
           }
 
-          return persistActiveSelection(selected, sessionRuntime, lifecycle);
+          const prepared = await persistActiveSelection(
+            selected,
+            sessionRuntime,
+            lifecycle
+          );
+          if ((prepared as any)?.work_handle) {
+            admissionRuntime.consume(admission_token);
+          }
+          return prepared;
         }
 
         const proof = getConfirmationProof(confirmation_token);
