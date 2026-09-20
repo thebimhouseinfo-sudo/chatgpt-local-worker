@@ -39,6 +39,7 @@ export const SLIM_CHATGPT_TOOLS = new Set([
   "job_remove",
   "job_select",
   "job_status",
+  "job_stop",
   "job_switch",
   "read_text_file",
   "write_file",
