@@ -684,11 +684,26 @@ Implementation result:
 - `toolFamily(agent_status) = context`;
 - `agent_status` now requires active work authority like other context operations.
 
-### R2.3 — P1: stale Job Pack instructions — ⚠️ FROZEN-STALE
+### R2.3 — P1: stale Job Pack instructions — ✅ FIXED
 
-Default Job asset mapping is complete, but `jobs/dev-coding/JOB.md` still references retired capability text such as checkpoint/rewind and upstream MCP.
+Default Job asset mapping is complete. User explicitly unfreezed the stale documentation portion of `jobs/**` for this correction.
 
-`jobs/**` remains frozen. This Round 2 records the stale text but does **not** modify Job Pack files without explicit unfreeze.
+Updated:
+
+- `jobs/dev-coding/JOB.md`: removed callable checkpoint/rewind and upstream MCP guidance; now describes local `work_tool` families and automatic checkpoint safety correctly;
+- `jobs/dev-coding/SKILL.md`: removed stale MCP/checkpoint/rewind execution wording and replaced it with the current local execution model.
+
+Context audit also reviewed:
+
+- `README.md`;
+- `WORKER.md`;
+- `AGENTS.md`;
+- `src/lib/quickstart.ts`;
+- default Job `JOB.md` / `SKILL.md` files.
+
+The remaining uses of “memory” in WORKER/quickstart are intentional admission rules saying that remembered chat/project information is **not activation evidence**. They are not a GPTWorker memory subsystem.
+
+The `mto` phrase “upstream/fallback reconciliation evidence” is domain language, not upstream MCP, so it remains unchanged.
 
 ### R2.4 — P2: Custom Job authoring cannot declare preload families — ✅ FIXED
 
