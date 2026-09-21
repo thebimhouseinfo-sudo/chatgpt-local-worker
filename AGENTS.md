@@ -1,4 +1,4 @@
-# ChatGPT Local Worker — Repository Agent Instructions
+# GPTWorker — Repository Agent Instructions
 
 This file is for agents **modifying this repository**. It is intentionally concise because root `AGENTS.md` is auto-loaded into project context.
 
@@ -7,19 +7,19 @@ For runtime/job policy, `WORKER.md` is authoritative.
 
 ## Repository identity
 
-This is a **General Local Worker**, not a coding-only agent.
+This is a **stability-first General Local Worker**, not a coding-only agent. Reliability of the resident Worker, Job lifecycle, workspace handling, and local execution path takes priority over retaining inherited coding-agent features.
 
 The architecture is:
 
 ```text
 ChatGPT
   → Job Runtime
-  → shared Local Worker execution core
+  → shared GPTWorker execution core
   → one active Job Pack
   → actual project work
 ```
 
-The execution core owns generic capabilities such as filesystem/search/edit, shell/processes, git, checkpoint/rewind, project context/memory, skills/path rules, and upstream MCP bridging.
+The execution core owns the generic capabilities required by Job Packs. Filesystem/search/edit, shell/processes, git, workspace/context handling, and deterministic validation are primary. Inherited compatibility features such as checkpoint/rewind, Codex-specific hooks, or upstream MCP bridging are optional and should remain only when they improve GPTWorker reliability or a real Job requires them.
 
 Job Packs own workflow/policy/SOP, specialist skills or business rules, deterministic harnesses, and completion criteria.
 
@@ -63,7 +63,7 @@ Keyword matches may suggest a job; they are never permission to activate one.
 2. Read `WORKER.md` when the change affects Job Runtime behavior, lifecycle, permissions, Job Packs, or cross-job policy.
 3. For a Job Pack change, read that pack's `JOB.md`, `SKILL.md`, `job.yaml`, relevant rules/skills, and harness/tests.
 4. Prefer focused changes over broad rewrites.
-5. Preserve compatibility deliberately; do not rename inherited `codex-*` internals solely for cosmetic consistency.
+5. Preserve compatibility deliberately when it protects real workflows. Do not retain inherited `codex-*`, coding-agent, Admin UI, or upstream-MCP behavior solely because it existed upstream; simplify or replace it when the GPTWorker path is more stable.
 
 The normal repository workflow is:
 
