@@ -3,6 +3,7 @@ import path from "path";
 import { randomUUID } from "crypto";
 import { z } from "zod";
 import { getJobPackRoots } from "../lib/worker-home.js";
+import { JOB_PRELOAD_FAMILIES } from "../lib/runtime-families.js";
 
 const JobFieldSchema = z.object({
   key: z.string().min(1),
