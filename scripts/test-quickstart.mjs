@@ -205,24 +205,19 @@ const instructions = buildServerInstructions(
 );
 
 assert.ok(instructions.includes("PROJECT CONTEXT SENTINEL"));
-assert.ok(instructions.includes(GPTWORKER_ROOT_MENU));
-assert.ok(instructions.includes(GPTWORKER_HELP));
 assert.ok(instructions.startsWith("# GPTWorker static control surface — HIGHEST PRIORITY"));
-assert.ok(instructions.indexOf(GPTWORKER_ROOT_MENU) < instructions.indexOf("PROJECT CONTEXT SENTINEL"));
-assert.ok(instructions.indexOf(GPTWORKER_HELP) < instructions.indexOf("PROJECT CONTEXT SENTINEL"));
-assert.equal(
-  instructions.split(GPTWORKER_ROOT_MENU).length - 1,
-  1,
-  "approved root menu must appear exactly once in server instructions"
-);
-assert.equal(
-  instructions.split(GPTWORKER_HELP).length - 1,
-  1,
-  "approved Help must appear exactly once in server instructions"
-);
-assert.ok(instructions.includes("Do not call tools. Do not summarize, explain, rewrite, reorder, or add anything."));
-assert.ok(instructions.includes("Only immediately after GPTWORKER_ROOT_MENU"));
+assert.ok(instructions.includes("gptworker_control once with surface=commands"));
+assert.ok(instructions.includes("gptworker_control once with surface=help"));
+assert.ok(instructions.includes("return the tool text verbatim and nothing else"));
 assert.ok(instructions.includes("Outside those immediately preceding choice lists, never interpret a bare number"));
+assert.ok(
+  !instructions.includes(GPTWORKER_ROOT_MENU),
+  "root menu text must not bloat initialize instructions"
+);
+assert.ok(
+  !instructions.includes(GPTWORKER_HELP),
+  "Help text must not bloat initialize instructions"
+);
 assert.ok(MCP_QUICKSTART.includes("reply with \`welcome_text\` verbatim"));
 assert.ok(MCP_QUICKSTART.includes("call \`job_list\` exactly once"));
 assert.ok(MCP_QUICKSTART.includes("private \`mto\` Job is never shown in Welcome"));
@@ -250,15 +245,9 @@ const slimContext = await buildInstructionContext({
 assert.ok(slimContext.contextText.includes("Slim control plane:"));
 assert.ok(!slimContext.contextText.includes("# GPTWorker — Worker Policy"));
 assert.ok(!slimContext.contextText.includes("# ChatGPT Local Worker — Repository Agent Instructions"));
-assert.equal(
-  slimContext.instructionsText.split(GPTWORKER_ROOT_MENU).length - 1,
-  1,
-  "slim instructions must contain the fixed root menu exactly once"
-);
-assert.equal(
-  slimContext.instructionsText.split(GPTWORKER_HELP).length - 1,
-  1,
-  "slim instructions must contain the fixed Help exactly once"
-);
+assert.ok(!slimContext.instructionsText.includes(GPTWORKER_ROOT_MENU));
+assert.ok(!slimContext.instructionsText.includes(GPTWORKER_HELP));
+assert.ok(slimContext.instructionsText.includes("gptworker_control once with surface=commands"));
+assert.ok(slimContext.instructionsText.includes("gptworker_control once with surface=help"));
 
 console.log("test-quickstart: ok");
