@@ -2,7 +2,7 @@ import fs from "fs/promises";
 import path from "path";
 import { z } from "zod";
 import type { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
-import { validatePath } from "../lib/path-security.js";
+import { validatePath, validateReadPath } from "../lib/path-security.js";
 import { audit } from "../lib/audit.js";
 import { requireWriteAllowed } from "../lib/permissions.js";
 import { applyMultiFilePatch, applyUnifiedPatchToText, buildSimpleDiff, isMultiFilePatch, parseMultiFilePatch } from "../lib/patch.js";
@@ -90,7 +90,7 @@ export function registerFilesystemTools(server: McpServer): void {
       annotations: toolAnnotations("read"),
     },
     async ({ path: filePath, offset, limit, head, tail }) => {
-      const validPath = await validatePath(filePath);
+      const validPath = await validateReadPath(filePath);
       const content = await fs.readFile(validPath, "utf-8");
       const lines = content.split("\n");
 
@@ -124,7 +124,7 @@ export function registerFilesystemTools(server: McpServer): void {
       annotations: toolAnnotations("read"),
     },
     async ({ path: filePath, offset, length }) => {
-      const validPath = await validatePath(filePath);
+      const validPath = await validateReadPath(filePath);
       const stat = await fs.stat(validPath);
       if (!stat.isFile()) throw new Error("Path is not a regular file");
       const start = Math.min(offset, stat.size);
@@ -361,7 +361,7 @@ export function registerFilesystemTools(server: McpServer): void {
       annotations: toolAnnotations("read"),
     },
     async ({ path: dirPath, ignore }) => {
-      const validPath = await validatePath(dirPath);
+      const validPath = await validateReadPath(dirPath);
       const entries = await fs.readdir(validPath, { withFileTypes: true });
       const ignoreMatchers = (ignore || []).map(
         (p) => new RegExp("^" + p.replace(/\./g, "\\.").replace(/\*/g, ".*").replace(/\?/g, ".") + "$", "i")
@@ -387,7 +387,7 @@ export function registerFilesystemTools(server: McpServer): void {
       annotations: toolAnnotations("read"),
     },
     async ({ pattern, path: searchPath, max_results }) => {
-      const validPath = searchPath ? await validatePath(searchPath) : (await import("../lib/path-security.js")).getAllowedRoots()[0];
+      const validPath = searchPath ? await validateReadPath(searchPath) : (await import("../lib/path-security.js")).getAllowedRoots()[0];
       const matches = await globFiles(validPath, pattern, max_results);
       await audit({ tool: "glob", action: "glob", target: validPath, status: "ok", details: { pattern, results: matches.length } });
       return toolResult("glob", { path: validPath, pattern, matches: matches.map((m) => m.path), count: matches.length });
@@ -426,7 +426,7 @@ export function registerFilesystemTools(server: McpServer): void {
       context_after,
       context_around,
     }) => {
-      const validPath = searchPath ? await validatePath(searchPath) : (await import("../lib/path-security.js")).getAllowedRoots()[0];
+      const validPath = searchPath ? await validateReadPath(searchPath) : (await import("../lib/path-security.js")).getAllowedRoots()[0];
       const output = await grepSearch({
         pattern,
         path: validPath,
@@ -554,7 +554,7 @@ export function registerFilesystemTools(server: McpServer): void {
   );
 
   server.registerTool("search_files", { title: "Search Files", description: "Search file contents for a text pattern.", inputSchema: { path: z.string(), pattern: z.string(), glob: z.string().optional().default("*"), max_results: z.number().optional().default(50) }, annotations: toolAnnotations("read") }, async ({ path: searchPath, pattern, glob: globPattern, max_results }) => {
-    const validPath = await validatePath(searchPath);
+    const validPath = await validateReadPath(searchPath);
     const results: string[] = [];
     await searchDirectory(validPath, new RegExp(pattern, "i"), globPattern, results, max_results);
     await audit({ tool: "search_files", action: "search", target: validPath, status: "ok", details: { pattern, results: results.length } });
@@ -562,21 +562,22 @@ export function registerFilesystemTools(server: McpServer): void {
   });
 
   server.registerTool("directory_tree", { title: "Directory Tree", description: "Get recursive directory structure as JSON.", inputSchema: { path: z.string(), max_depth: z.number().optional().default(4) }, annotations: toolAnnotations("read") }, async ({ path: dirPath, max_depth }) => {
-    const validPath = await validatePath(dirPath);
+    const validPath = await validateReadPath(dirPath);
     const tree = await buildTree(validPath, 0, max_depth);
     await audit({ tool: "directory_tree", action: "tree", target: validPath, status: "ok" });
     return toolResult("directory_tree", { path: validPath, tree, max_depth });
   });
 
   server.registerTool("list_allowed_directories", { title: "List Allowed Directories", description: "Show default working directory and machine access scope.", inputSchema: {}, annotations: toolAnnotations("read") }, async () => {
-    const { getDefaultCwd, getMachineRoots } = await import("../lib/path-security.js");
+    const { getDefaultCwd, getActiveSupportRoots } = await import("../lib/path-security.js");
     const { describePermissionProfile } = await import("../lib/permissions.js");
-    const machineRoots = getMachineRoots();
     return toolResult("list_allowed_directories", {
-      full_machine_access: true,
+      full_machine_access: false,
+      workspace_boundary_enforced: true,
+      effective_scope: "confirmed-workspace-only",
       permission: describePermissionProfile(),
       default_cwd: getDefaultCwd(),
-      machine_roots: machineRoots,
+      read_only_support_roots: getActiveSupportRoots(),
     });
   });
 }
