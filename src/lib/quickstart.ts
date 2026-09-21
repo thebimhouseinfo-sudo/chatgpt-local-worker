@@ -334,7 +334,6 @@ All tools return JSON: { ok, tool, summary, data }
 - work_tool operations git_status / git_diff / git_add / git_commit / git_branch / git_restore / git_stash: git
 - work_tool operations project_context / list_skills / load_skill / load_path_rules: active-workspace context
 - work_tool operation rewind: checkpoint/undo
-- work_tool operations mcp_servers / mcp_tools / mcp_call: upstream MCP diagnostics/fallback when enabled by the tool profile
 - when a dedicated operation is unavailable, dispatch run_command through work_tool; node_repl is not the fallback for routine filesystem mutation
 
 ## Paths
