@@ -8,11 +8,6 @@ import {
 } from "@modelcontextprotocol/sdk/types.js";
 import type { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import { createMcpServer } from "../server-factory.js";
-import { getUpstreamManager } from "./mcp-upstream-manager.js";
-import {
-  getCachedCodexSessionStartHooks,
-  primeCodexSessionStartHooks,
-} from "./codex-hooks.js";
 import { logSystemEvent } from "./activity-log.js";
 
 
@@ -197,7 +192,6 @@ export function createSessionManager(config: SessionManagerConfig): SessionManag
     cancelDeleteGrace(sessionId);
     const session = sessions[sessionId];
     if (!session) return;
-    getUpstreamManager().unregisterMcpServer(session.server);
     delete sessions[sessionId];
     delete lastTransportErrors[sessionId];
     sessionOpChains.delete(sessionId);
@@ -214,17 +208,12 @@ export function createSessionManager(config: SessionManagerConfig): SessionManag
   }
 
   async function buildSession(preferredSessionId?: string): Promise<McpSession> {
-    const hookInstructions = getCachedCodexSessionStartHooks();
-    void primeCodexSessionStartHooks().catch((error) => {
-      console.warn("[MCP] Codex SessionStart hook warmup failed:", error);
-    });
     const mcpServer = createMcpServer(
       config.workspaceRoot,
       config.shellTimeout,
       config.workspaceRoots,
       true,
-      getUpstreamManager(),
-      [config.projectMemoryInstructions, hookInstructions].filter(Boolean).join("\n\n")
+      config.projectMemoryInstructions
     );
 
     const transport = new StreamableHTTPServerTransport({
@@ -272,9 +261,6 @@ export function createSessionManager(config: SessionManagerConfig): SessionManag
     };
 
     await mcpServer.connect(transport);
-    // Do not probe/connect/spawn upstream MCPs during session initialization.
-    // Upstream access is deferred to the first explicit mcp_* work_tool call.
-
     const sid = transport.sessionId ?? preferredSessionId ?? randomUUID();
     return (
       sessions[sid] ?? {
@@ -301,7 +287,7 @@ export function createSessionManager(config: SessionManagerConfig): SessionManag
         params: {
           protocolVersion,
           capabilities: {},
-          clientInfo: { name: "codex-mcp-session-recovery", version: "1.0.0" },
+          clientInfo: { name: "gptworker-mcp-session-recovery", version: "1.0.0" },
         },
       },
       staleSessionId
