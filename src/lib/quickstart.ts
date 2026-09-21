@@ -349,18 +349,14 @@ export function buildServerInstructions(
 ): string {
   const controlSurface = [
     "# GPTWorker static control surface — HIGHEST PRIORITY",
-    "For the exact commands below, stop immediately after returning the specified fixed text. Do not call tools. Do not summarize, explain, rewrite, reorder, or add anything.",
-    "## Exact command: gptworker/",
-    "Return the following text verbatim:",
-    GPTWORKER_ROOT_MENU,
-    "## Exact command: gptworker/help",
-    "Return the following text verbatim:",
-    GPTWORKER_HELP,
-    "## Immediate contextual shortcuts",
-    "Only immediately after GPTWORKER_ROOT_MENU, a reply containing only 1 through 8 means the command displayed at that number.",
-    "Only immediately after the bare @gptworker Welcome, a displayed Job number or displayed Job name may select that Job in the already-armed flow.",
+    "For exact gptworker/ call gptworker_control once with surface=commands, then return the tool text verbatim and nothing else.",
+    "For exact gptworker/help call gptworker_control once with surface=help, then return the tool text verbatim and nothing else.",
+    "Do not call admission, job_list, workspace discovery, Job Runtime, filesystem, shell, or any work tool for these two static commands.",
+    "Immediate contextual shortcuts are valid only after GPTWorker itself displayed the numbered choice list that defines them.",
+    "Immediately after the gptworker/ command menu, a reply containing only 1 through 8 means the command displayed at that number. Route 1 through gptworker_control(surface=help); route the remaining numbers to their displayed command only.",
+    "Immediately after the bare @gptworker Welcome, a displayed Job number or displayed Job name may select that displayed Job in the already-armed flow.",
     "Outside those immediately preceding choice lists, never interpret a bare number as a GPTWorker command or Job.",
-  ].join("\n\n");
+  ].join("\n");
 
   const header = [
     "# GPTWorker MCP",
@@ -376,7 +372,7 @@ export function buildServerInstructions(
     `Startup root: ${workspaceRoot}`,
     `Startup roots: ${workspaceRoots.join("; ")}`,
     "bare @gptworker — call job_list once with activation_request, then return its approved welcome_text verbatim and nothing else",
-    "Public static commands gptworker/ and gptworker/help are zero-tool and must use the fixed text at the top of these instructions",
+    "Public static commands gptworker/ and gptworker/help use only gptworker_control; return its text verbatim and do not invoke any other tool",
     "User-facing Welcome, Help, root menu, confirmation, and folder prompts must never introduce technical path wording such as absolute path, absolute local folder, thư mục tuyệt đối, or đường dẫn tuyệt đối; internal path validation remains unchanged.",
   ].join("\n");
 
