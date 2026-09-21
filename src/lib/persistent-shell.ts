@@ -2,6 +2,8 @@ import { spawn } from "child_process";
 import fs from "fs";
 import path from "path";
 import { loadGlobalShellState, saveGlobalShellState } from "./global-shell-state.js";
+import { assertPathInsideWorkspaceSync } from "./path-security.js";
+import { assertShellCommandWorkspaceBound } from "./shell-workspace-guard.js";
 
 export interface ShellExecResult {
   command: string;
@@ -31,15 +33,25 @@ function workspaceKey(workspaceRoot: string): string {
   return process.platform === "win32" ? resolved.toLowerCase() : resolved;
 }
 
+function safeSessionCwd(workspaceRoot: string, cwd: string): string {
+  const root = canonicalWorkspace(workspaceRoot);
+  try {
+    return assertPathInsideWorkspaceSync(path.resolve(cwd), root);
+  } catch {
+    return root;
+  }
+}
+
 function newSession(
   workspaceRoot: string,
   cwd = workspaceRoot,
   initializedAt = new Date().toISOString(),
   history: string[] = []
 ): ShellSessionState {
+  const root = canonicalWorkspace(workspaceRoot);
   return {
-    workspaceRoot: canonicalWorkspace(workspaceRoot),
-    cwd: path.resolve(cwd),
+    workspaceRoot: root,
+    cwd: safeSessionCwd(root, cwd),
     initializedAt,
     history: [...history].slice(-MAX_HISTORY),
   };
@@ -77,7 +89,8 @@ export function getShellCwd(workspaceRoot: string): string {
 
 export function resetShellSession(cwd: string, workspaceRoot = cwd): void {
   const root = canonicalWorkspace(workspaceRoot);
-  const state = newSession(root, cwd);
+  const safeCwd = assertPathInsideWorkspaceSync(path.resolve(cwd), root);
+  const state = newSession(root, safeCwd);
   sessions.set(workspaceKey(root), state);
   void saveGlobalShellState(root, state.cwd, undefined, null);
 }
@@ -97,28 +110,33 @@ function stripQuotes(value: string): string {
   return value.trim().replace(/^['"]|['"]$/g, "");
 }
 
-function resolveCdTarget(_current: string, target: string): string {
+function resolveCdTarget(
+  _current: string,
+  target: string,
+  workspaceRoot: string
+): string {
   const cleaned = stripQuotes(target);
   if (!path.isAbsolute(cleaned)) {
     throw new Error(
       "Shell directory changes require an absolute path. Relative cd/Set-Location/pushd targets are not allowed: " + cleaned
     );
   }
-  return path.resolve(cleaned);
+  return assertPathInsideWorkspaceSync(path.resolve(cleaned), workspaceRoot);
 }
 
 /** Update cwd when cd / Set-Location appears at the start of a command. */
 export function applyCwdDirectives(
   currentCwd: string,
-  command: string
+  command: string,
+  workspaceRoot = currentCwd
 ): { cwd: string; command: string } {
-  let cwd = currentCwd;
+  let cwd = assertPathInsideWorkspaceSync(currentCwd, workspaceRoot);
   let rest = command.trim();
 
   for (let i = 0; i < 8; i++) {
     const psMatch = rest.match(/^(?:Set-Location|sl)\s+(.+?)(?:\s*;\s*|\s*&&\s*|$)/i);
     if (psMatch) {
-      cwd = resolveCdTarget(cwd, psMatch[1]);
+      cwd = resolveCdTarget(cwd, psMatch[1], workspaceRoot);
       rest = rest.slice(psMatch[0].length).trim();
       continue;
     }
@@ -128,14 +146,14 @@ export function applyCwdDirectives(
       if (!cdMatch[1]) {
         throw new Error("Shell cd requires an explicit absolute path.");
       }
-      cwd = resolveCdTarget(cwd, cdMatch[1]);
+      cwd = resolveCdTarget(cwd, cdMatch[1], workspaceRoot);
       rest = rest.slice(cdMatch[0].length).trim();
       continue;
     }
 
     const pushdMatch = rest.match(/^pushd\s+(.+?)(?:\s*;\s*|\s*&&\s*|$)/i);
     if (pushdMatch) {
-      cwd = resolveCdTarget(cwd, pushdMatch[1]);
+      cwd = resolveCdTarget(cwd, pushdMatch[1], workspaceRoot);
       rest = rest.slice(pushdMatch[0].length).trim();
       continue;
     }
@@ -316,9 +334,16 @@ export async function execInShellSession(
 ): Promise<ShellExecResult> {
   const root = canonicalWorkspace(workspaceRoot);
   const state = ensureShellSession(root);
-  const oneOffCwd = workingDirectory ? path.resolve(workingDirectory) : undefined;
-  const startCwd = oneOffCwd ?? state.cwd;
-  const { cwd, command: effective } = applyCwdDirectives(startCwd, command);
+  const oneOffCwd = workingDirectory
+    ? assertPathInsideWorkspaceSync(path.resolve(workingDirectory), root)
+    : undefined;
+  const startCwd = assertPathInsideWorkspaceSync(oneOffCwd ?? state.cwd, root);
+  assertShellCommandWorkspaceBound(command, root);
+  const { cwd, command: effective } = applyCwdDirectives(
+    startCwd,
+    command,
+    root
+  );
 
   state.history.push(effective);
   if (state.history.length > MAX_HISTORY) state.history.shift();
