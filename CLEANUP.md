@@ -90,6 +90,14 @@ Không cố bóc từng nhánh legacy nếu rewrite nhỏ hơn, dễ hiểu hơn
 
 # 3. GROUP A — DELETE DIRECTLY
 
+> **STATUS: QUARANTINED FROM ACTIVE TREE**
+>
+> 21 Group A files have been moved to `legacy/group-a/**`.
+> Active paths are gone; static dependency audit found no remaining Group A references in the checked core runtime files.
+> `scripts/test-group-a-retired.mjs` and `scripts/test-legacy-isolation.mjs` are part of the default test chain.
+> GitHub Actions validation is currently infrastructure-blocked: the latest run and rerun both ended with `steps=null` and job logs unavailable via Azure `BlobNotFound`, so this is not recorded as a runtime PASS yet.
+
+
 Các item dưới đây không chứa capability cần cho target architecture.
 
 ## A1. Admin subsystem
