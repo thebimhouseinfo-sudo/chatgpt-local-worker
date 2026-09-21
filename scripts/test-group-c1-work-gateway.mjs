@@ -22,8 +22,8 @@ async function exists(file) {
 
 assert.equal(
   await exists("legacy/group-c/tools/work-gateway.ts"),
-  true,
-  "old work gateway was not quarantined"
+  false,
+  "retired work gateway unexpectedly exists"
 );
 
 const activeSource = await fs.readFile("src/tools/work-gateway.ts", "utf8");

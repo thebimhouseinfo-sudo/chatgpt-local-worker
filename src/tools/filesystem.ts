@@ -8,7 +8,6 @@ import { requireWriteAllowed } from "../lib/permissions.js";
 import { applyMultiFilePatch, applyUnifiedPatchToText, buildSimpleDiff, isMultiFilePatch, parseMultiFilePatch } from "../lib/patch.js";
 import { checkpointBefore } from "../lib/checkpoint.js";
 import { toolAnnotations } from "../lib/tool-annotations.js";
-import { enrichAfterEdit } from "../lib/edit-enrichment.js";
 import { toolResult } from "../lib/tool-result.js";
 import { globFiles } from "../lib/glob-search.js";
 import { grepSearch } from "../lib/grep-search.js";
@@ -168,11 +167,11 @@ export function registerFilesystemTools(server: McpServer): void {
       await fs.mkdir(path.dirname(validPath), { recursive: true });
       await fs.writeFile(validPath, content, "utf-8");
       await audit({ tool: "write_file", action: "write", target: validPath, status: "ok", details: { bytes: Buffer.byteLength(content) } });
-      const data = await enrichAfterEdit(
-        { path: validPath, bytes: Buffer.byteLength(content), checkpoint_id: checkpointId },
-        [validPath]
-      );
-      return toolResult("write_file", data);
+      return toolResult("write_file", {
+        path: validPath,
+        bytes: Buffer.byteLength(content),
+        checkpoint_id: checkpointId,
+      });
     }
   );
 
@@ -222,8 +221,11 @@ export function registerFilesystemTools(server: McpServer): void {
       const checkpointId = await checkpointBefore("edit_file", [validPath], { dry_run });
       if (!dry_run) await fs.writeFile(validPath, newContent, "utf-8");
       await audit({ tool: "edit_file", action: "edit", target: validPath, status: dry_run ? "dry-run" : "ok" });
-      const data = await enrichAfterEdit({ path: validPath, diff, dry_run, checkpoint_id: checkpointId }, [validPath], dry_run);
-      return toolResult("edit_file", data, { summary: dry_run ? `dry-run ${validPath}` : `edited ${validPath}` });
+      return toolResult(
+        "edit_file",
+        { path: validPath, diff, dry_run, checkpoint_id: checkpointId },
+        { summary: dry_run ? `dry-run ${validPath}` : `edited ${validPath}` }
+      );
     }
   );
 
@@ -253,12 +255,13 @@ export function registerFilesystemTools(server: McpServer): void {
       const checkpointId = await checkpointBefore("multi_edit", [validPath], { dry_run });
       if (!dry_run) await fs.writeFile(validPath, next, "utf-8");
       await audit({ tool: "multi_edit", action: "edit", target: validPath, status: dry_run ? "dry-run" : "ok", details: { edits: edits.length } });
-      const data = await enrichAfterEdit(
-        { path: validPath, diff, edits: edits.length, dry_run, checkpoint_id: checkpointId },
-        [validPath],
-        dry_run
-      );
-      return toolResult("multi_edit", data);
+      return toolResult("multi_edit", {
+        path: validPath,
+        diff,
+        edits: edits.length,
+        dry_run,
+        checkpoint_id: checkpointId,
+      });
     }
   );
 
@@ -323,13 +326,12 @@ export function registerFilesystemTools(server: McpServer): void {
           status: failed.length ? "error" : dry_run ? "dry-run" : "ok",
           details: { files: results.length, failed: failed.length },
         });
-        const okPaths = results.filter((r) => r.ok && r.path).map((r) => r.path as string);
-        const payload = await enrichAfterEdit(
-          { files: results, dry_run, multi_file: true, checkpoint_id: checkpointId },
-          okPaths,
-          dry_run
-        );
-        return toolResult("apply_patch", payload, {
+        return toolResult("apply_patch", {
+          files: results,
+          dry_run,
+          multi_file: true,
+          checkpoint_id: checkpointId,
+        }, {
           ok: failed.length === 0,
           summary: `patched ${results.length} file(s)${failed.length ? `, ${failed.length} failed` : ""}`,
         });
@@ -343,8 +345,12 @@ export function registerFilesystemTools(server: McpServer): void {
       const checkpointId = await checkpointBefore("apply_patch", [validPath], { dry_run });
       if (!dry_run) await fs.writeFile(validPath, next, "utf-8");
       await audit({ tool: "apply_patch", action: "patch", target: validPath, status: dry_run ? "dry-run" : "ok" });
-      const data = await enrichAfterEdit({ path: validPath, diff, dry_run, checkpoint_id: checkpointId }, [validPath], dry_run);
-      return toolResult("apply_patch", data);
+      return toolResult("apply_patch", {
+        path: validPath,
+        diff,
+        dry_run,
+        checkpoint_id: checkpointId,
+      });
     }
   );
 
