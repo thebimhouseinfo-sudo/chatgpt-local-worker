@@ -34,7 +34,6 @@ export const FAMILY_TOOLS = {
   context: [
     "list_skills", "load_skill", "project_context", "agent_status", "remember", "load_path_rules",
   ],
-  rewind: ["rewind"],
   repl: ["node_repl"],
 } as const;
 
@@ -131,9 +130,6 @@ export function createWorkToolResolver(
       } else if (family === "context") {
         const module = await import("./context.js");
         module.registerContextTools(capture.server, workspaceRoot);
-      } else if (family === "rewind") {
-        const module = await import("./rewind.js");
-        module.registerRewindTools(capture.server);
       } else if (family === "repl") {
         const module = await import("./node-repl.js");
         module.registerNodeReplTool(capture.server, workspaceRoot);
