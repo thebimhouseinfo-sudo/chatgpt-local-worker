@@ -4,6 +4,7 @@ import { fileURLToPath } from "node:url";
 import { JobRuntime } from "../dist/jobs/job-runtime.js";
 import { AdmissionRuntime } from "../dist/lib/activation-policy.js";
 import { registerJobTools } from "../dist/tools/jobs.js";
+import { releaseWorkRegistration } from "../dist/lib/work-registration.js";
 
 const repoRoot = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
 const jobsRoot = path.join(repoRoot, "jobs");
@@ -168,6 +169,58 @@ assert.match(
   String(data(staleSameSessionConfirm)?.error || ""),
   /Confirmation token missing\/stale/,
   "superseded confirmation must fail as stale"
+);
+
+
+// Transport rotation must not destroy a valid same-chat authority chain.
+// Admission can be minted by one MCP server instance, nomination handled by a
+// second, and confirmation/activation handled by a third, provided the exact
+// opaque admission + confirmation tokens are carried forward.
+const admissionTransportA = new AdmissionRuntime();
+const admittedAcrossTransport = admissionTransportA.check({
+  userTurn: `@gptworker JOB dev-planing FOLDER ${repoRoot}`,
+  hasConcreteTask: true,
+  workspace: repoRoot,
+});
+assert.equal(admittedAcrossTransport.mode, "ACTIVE");
+assert.equal(typeof admittedAcrossTransport.admission_token, "string");
+
+const nominationTransportB = makeSession();
+const nominatedAcrossTransport = await nominationTransportB.jobSelect({
+  job: "dev-planing",
+  bindings,
+  confirmed: false,
+  admission_token: admittedAcrossTransport.admission_token,
+});
+assert.equal(
+  nominatedAcrossTransport.structuredContent.ok,
+  true,
+  "valid admission token must survive MCP transport rotation before nomination"
+);
+const crossTransportConfirmation =
+  data(nominatedAcrossTransport)?.confirmation_token;
+assert.equal(typeof crossTransportConfirmation, "string");
+
+const activationTransportC = makeSession();
+const activatedAcrossTransport = await activationTransportC.jobSelect({
+  job: "dev-planing",
+  bindings,
+  confirmed: true,
+  admission_token: admittedAcrossTransport.admission_token,
+  confirmation_token: crossTransportConfirmation,
+});
+assert.equal(
+  activatedAcrossTransport.structuredContent.ok,
+  true,
+  "admission + confirmation authority must survive MCP transport rotation"
+);
+const crossTransportHandle = data(activatedAcrossTransport)?.work_handle;
+assert.equal(typeof crossTransportHandle?.execution_id, "string");
+assert.equal(typeof crossTransportHandle?.authority_token, "string");
+
+releaseWorkRegistration(
+  crossTransportHandle.execution_id,
+  crossTransportHandle.authority_token
 );
 
 console.log("test-job-confirmation-isolation: ok");
