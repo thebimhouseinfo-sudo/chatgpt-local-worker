@@ -17,6 +17,11 @@ import type { AdmissionRuntime } from "../lib/activation-policy.js";
 import { toolAnnotations } from "../lib/tool-annotations.js";
 import { toolError, toolResult } from "../lib/tool-result.js";
 import {
+  buildGptworkerWelcome,
+  GPTWORKER_DEFAULT_WELCOME_JOBS,
+  GPTWORKER_HIDDEN_WELCOME_JOB_IDS,
+} from "../lib/quickstart.js";
+import {
   createWorkRegistration,
   getPublicWorkHandle,
   getWorkIdleTimeoutMs,
@@ -44,6 +49,46 @@ const JobFilesSchema = z
   .describe("Additional pack files keyed by relative path, e.g. skills/foo.md or harness/validate.mjs");
 
 const CONFIRMATION_PROOF_TTL_MS = 30 * 60 * 1000;
+
+const WELCOME_DEFAULT_IDS = new Set(
+  GPTWORKER_DEFAULT_WELCOME_JOBS.map((job) => job.id)
+);
+const HIDDEN_WELCOME_IDS = new Set(
+  GPTWORKER_HIDDEN_WELCOME_JOB_IDS.map((id) => id.toLowerCase())
+);
+
+function welcomeJobsFromListing(jobs: any[]): Array<{
+  id: string;
+  name: string;
+  description: string;
+  source: "default" | "custom";
+}> {
+  const customJobs = jobs
+    .filter((job) => {
+      const id = String(job?.id || "").toLowerCase();
+      return (
+        job?.source === "custom" &&
+        job?.status === "ready" &&
+        !WELCOME_DEFAULT_IDS.has(id) &&
+        !HIDDEN_WELCOME_IDS.has(id)
+      );
+    })
+    .map((job) => ({
+      id: String(job.id),
+      name: String(job.name),
+      description: String(job.description),
+      source: "custom" as const,
+    }))
+    .sort((a, b) => a.name.localeCompare(b.name));
+
+  return [
+    ...GPTWORKER_DEFAULT_WELCOME_JOBS.map((job) => ({
+      ...job,
+      source: "default" as const,
+    })),
+    ...customJobs,
+  ];
+}
 
 function stableBindings(bindings: Record<string, string> | undefined): string {
   return JSON.stringify(
@@ -241,7 +286,7 @@ export function registerJobTools(
     {
       title: "Job List",
       description:
-        "List available Job Packs. For a bare @gptworker invocation, pass activation_request with the exact current user text so this MCP session is armed for the following Job+Workspace reply. For explicit gptworker/job list, omit activation_request. Do not call this tool merely because an ordinary chat request resembles a Job. Optional query only suggests matches; it never selects or runs a job.",
+        "List available Job Packs. For bare @gptworker, pass activation_request: the response returns the approved Welcome with fixed Default Jobs 1-3 plus existing eligible Custom Jobs; mto is hidden from Welcome. For explicit gptworker/job list, omit activation_request and return the full Job catalog. Do not call this tool merely because an ordinary chat request resembles a Job.",
       inputSchema: {
         query: z
           .string()
@@ -269,12 +314,27 @@ export function registerJobTools(
           }
         }
         const result = await sessionRuntime.list(query);
-        return {
-          ...result,
-          at_flow_armed: activation_request
-            ? admissionRuntime.isExplicitAtFlowArmed()
-            : undefined,
-        };
+
+        if (activation_request) {
+          const welcomeJobs = welcomeJobsFromListing(result.jobs);
+          return {
+            ...result,
+            jobs: welcomeJobs,
+            suggested_job_ids: [],
+            welcome_text: buildGptworkerWelcome(
+              welcomeJobs
+                .filter((job) => job.source === "custom")
+                .map(({ id, name, description }) => ({
+                  id,
+                  name,
+                  description,
+                }))
+            ),
+            at_flow_armed: admissionRuntime.isExplicitAtFlowArmed(),
+          };
+        }
+
+        return result;
       })
   );
 
