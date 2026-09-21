@@ -278,12 +278,16 @@ FOLDER: <resolved folder>
 
 Xác nhận bắt đầu?
 
-## Absolute path contract
+## Confirmed Workspace path contract
 - Every Job binding whose type is path/file/directory/folder/repo/repository must be an absolute local path.
-- Every filesystem tool path/source/destination and every shell working_directory/shell_reset path must be absolute.
-- Relative cd/Set-Location/pushd targets are rejected.
-- For multi-file apply_patch, supply an absolute base path.
-- node_repl may not access fs/fs-promises directly. Use dedicated filesystem tools with absolute paths.
+- After activation, the confirmed FOLDER is the hard Job execution boundary for every bundled or Custom Job.
+- Every filesystem/context path/source/destination must be absolute **and inside the confirmed FOLDER**.
+- Every shell working_directory/shell_reset path must be absolute and inside the confirmed FOLDER.
+- Relative cd/Set-Location/pushd targets and parent-directory traversal are rejected; normal/obvious shell absolute-path escapes outside the confirmed FOLDER are rejected.
+- For multi-file apply_patch, supply an absolute base path inside the confirmed FOLDER; each patch target is boundary-checked.
+- Git operations use the confirmed Workspace/repository.
+- node_repl may not access fs/fs-promises directly. Use dedicated filesystem tools inside the confirmed Workspace.
+- To work in another local folder, switch/reselect the Workspace and confirm again.
 
 ## Core tool workflow
 For an explicit @gptworker flow with task + Workspace, nomination should happen before any repository reading: admission -> job_select confirmed=false -> user confirmation. A fresh task + Workspace in an unarmed session is not a GPTWorker request. workspace_discover is reserved only for genuine Job ambiguity and requires admission_token.
@@ -335,7 +339,7 @@ All tools return JSON: { ok, tool, summary, data }
 - when a dedicated operation is unavailable, dispatch run_command through work_tool; node_repl is not the fallback for routine filesystem mutation
 
 ## Paths
-Full machine access is intentional, but path-bearing tool arguments are absolute-path-only. The confirmed FOLDER is the work authority, not an implicit base for relative paths.
+The confirmed FOLDER is the active Job's local execution boundary. Structured path-bearing operations are absolute-path-only and must remain inside that Workspace. Host-level Worker capability is not permission for a Job to touch another local folder.
 `.trim();
 
 export function buildServerInstructions(
@@ -357,7 +361,7 @@ export function buildServerInstructions(
 
   const header = [
     "# GPTWorker MCP",
-    "Full machine access: ON.",
+    "Active Job filesystem scope: confirmed Workspace only.",
     "The startup cwd is not project authority. JOB + FOLDER must be resolved from the current chat and explicitly confirmed before job-specific execution.",
     "A work_handle is the only active-work authority. worker-state.json is compatibility/diagnostic state only and must never be used to infer or resume another chat's Job or Workspace.",
   ].join("\n");
