@@ -221,452 +221,213 @@ GPTWorker có thể đọc project-local `CLAUDE.md` như một text context fil
 
 ---
 
-# 4. GROUP B — EXTRACT / REMAP → DELETE OLD
+# 4. GROUP B — EXTRACT / REMAP → QUARANTINE OLD
 
-## B1. Generic execution prompt ra khỏi Codex identity
+## STATUS: ⏳ PENDING
 
-Old:
+Sau Group A, phần lớn Group B cũ đã hoàn tất hoặc trở thành obsolete.
 
-- `src/lib/codex-agent-prompt.ts`
-- `CODEX_AGENT_PROMPT`
+Group B hiện chỉ còn một target kiến trúc thực sự: **retire standalone rewind tool nhưng giữ checkpoint safety engine**.
 
-New:
-
-- `src/lib/worker-execution-prompt.ts`
-- `WORKER_EXECUTION_PROMPT`
-
-Caller remap:
-
-- `src/lib/instruction-context.ts`
-
-Chỉ giữ generic guidance:
-
-- Job gate;
-- gather → act → verify;
-- absolute path;
-- shell/process workflow;
-- validation;
-- project context;
-- local tool reference.
-
-Sau remap, delete old `codex-agent-prompt.ts`.
-
-## B2. Checkpoint safety tách khỏi standalone rewind family
-
-Target architecture không có một runtime family riêng tên `rewind`.
+## B1. Keep checkpoint safety engine
 
 Giữ:
 
-- automatic checkpoint trước file mutation;
-- `checkpoint.ts` nếu nó phục vụ safety cho filesystem edits.
+- `src/lib/checkpoint.ts`;
+- automatic checkpoint trước filesystem mutations;
+- checkpoint retention/pruning;
+- restore engine;
+- `scripts/test-checkpoints.mjs`.
 
-Retire/remap:
+Filesystem tiếp tục gọi `checkpointBefore(...)` trước write/edit/apply_patch/delete/move/copy.
 
-- standalone `src/tools/rewind.ts`;
-- `rewind` runtime family;
-- `rewind` preload behavior.
+## B2. Remove standalone rewind surface
 
-Compatibility:
+Bỏ khỏi active runtime:
 
-- Job Pack hiện có thể vẫn khai báo `rewind`;
-- runtime có thể accept legacy preload token nhưng không coi nó là execution family;
-- không sửa `jobs/**` trong cleanup này.
+- `rewind` family trong `work-gateway.ts`;
+- `rewind` khỏi `LOCAL_TOOL_CATALOG`;
+- `rewind` khỏi `SLIM_CHATGPT_TOOLS`;
+- rewind classification riêng trong `tool-work-policy.ts`;
+- rewind guidance trong `quickstart.ts`;
+- rewind reference trong generic execution prompt cũ.
 
-Nếu cần manual restore về sau, thiết kế nó như filesystem recovery capability, không dựng lại một agent-specific family.
-
-## B3. Admin reference ra khỏi core files
-
-Không cần rewrite toàn file.
-
-Remap:
-
-### `src/index.ts`
-
-Bỏ:
-
-- `ADMIN_PORT`;
-- Admin startup;
-- Admin shutdown;
-- Admin log/banner fields.
-
-### `src/lib/instruction-context.ts`
-
-Bỏ:
-
-- `adminPort` khỏi options.
-
-### `src/lib/git-snapshot.ts`
-
-Bỏ:
-
-- Admin UI URL khỏi environment text.
-
-Sau remap, Admin subsystem Group A có thể delete.
-
-## B4. Upstream references ra khỏi connection core
-
-### `src/index.ts`
-
-Bỏ:
-
-- `initUpstreamManager()`;
-- upstream shutdown.
-
-### `src/lib/mcp-session-manager.ts`
-
-Giữ nguyên các phần stability:
-
-- protocol negotiation;
-- Streamable HTTP;
-- GET/SSE;
-- POST serialization;
-- DELETE grace;
-- stale-session recovery;
-- TTL cleanup;
-- transport error handling.
-
-Chỉ bóc:
-
-- `getUpstreamManager()`;
-- register/unregister upstream server;
-- upstream comments/paths;
-- Codex SessionStart hook warmup.
-
-Đổi recovery client identity:
+Sau khi caller = 0:
 
 ```text
-codex-mcp-session-recovery
-→ gptworker-mcp-session-recovery
+src/tools/rewind.ts
+→ legacy/group-b/tools/rewind.ts
 ```
 
-### `src/server-factory.ts`
+Không quarantine `checkpoint.ts`.
 
-Bỏ:
+## B3. Legacy Job compatibility
 
-- `McpUpstreamManager` type/import;
-- upstreamManager parameter;
-- upstream proxy special-case.
+Không sửa `jobs/**`.
 
-### `src/lib/tool-work-policy.ts`
-
-Hiện có legacy bypass:
-
-```ts
-!toolName.includes("__")
-```
-
-để upstream prefixed tools không đi theo normal work-handle policy.
-
-Sau khi upstream proxy bị retire:
-
-- bỏ special-case `__`;
-- mọi local execution tool đi qua normal work policy.
-
-## B5. Tool profile cleanup
-
-`src/lib/tool-profile.ts` không cần rewrite toàn bộ.
-
-Bỏ khỏi catalog/profile:
-
-- `mcp_servers`;
-- `mcp_tools`;
-- `mcp_call`;
-- `ponytail_turn`;
-- standalone `rewind` nếu Group B2 retire nó.
-
-Giữ:
-
-- GPTWorker control/admission/job tools;
-- workspace discovery;
-- `work_tool`;
-- local filesystem/shell/git/context/node_repl operations.
-
-Nếu Admin bị delete và `saveLocalToolOverrides()` không còn caller:
-
-- delete writer nếu không cần config UI;
-- có thể giữ read-only manual overrides nếu có giá trị thực.
-
-## B6. Job Pack compatibility shim
-
-**Không sửa `jobs/**`.**
-
-Current Job metadata có legacy preload như:
-
-- `mcp`;
-- `rewind`;
-- có thể có custom Job cũ dùng `ponytail`.
-
-Runtime phải tách:
+Job Pack cũ có thể vẫn khai báo:
 
 ```text
-Job-declared preload
-≠
-Runtime-supported family
+mcp
+ponytail
+rewind
 ```
 
-Target:
+Runtime phải accept nhưng ignore an toàn:
 
 ```text
-RUNTIME FAMILIES
-- filesystem
-- shell
-- git
-- context
-- repl
-
-LEGACY ACCEPTED / IGNORED PRELOAD TOKENS
-- mcp
-- ponytail
-- rewind
+legacy preload token
+→ parse OK
+→ no runtime family load
+→ no activation failure
 ```
 
-Legacy token:
+Phần compatibility này sẽ được làm explicit khi rewrite WorkGateway ở Group C1.
 
-- parse được;
-- không throw;
-- không load module;
-- không xuất hiện như loaded runtime family;
-- không block Job confirmation/activation.
+## B4. Validation
 
-`src/jobs/job-runtime.ts` có thể tạm giữ enum legacy để backward compatibility.
+Sau Group B phải xác nhận:
 
-## B7. Root config/docs/reference cleanup
-
-Sau implementation, remap wording/config:
-
-- `.env.example`: bỏ Admin/upstream config;
-- `.gitignore`: bỏ legacy upstream/Codex runtime rules không còn dùng;
-- `README.md`: bỏ Admin/upstream runtime description;
-- `WORKER.md`: không còn mô tả Codex/Admin/upstream là optional core capability;
-- `AGENTS.md`: hard boundary phải phản ánh target architecture mới;
-- `package.json` / `package-lock.json`: sync alias/scripts/keywords đã retire;
-- `src/lib/quickstart.ts`: bỏ `mcp_servers / mcp_tools / mcp_call` guidance;
-- generic wording trong `filesystem.ts`, `patch.ts`, v.v. có thể bỏ tên Codex/Claude khi không cần.
-
-### Secure Tunnel compatibility name
-
-`openai-tunnel.ps1` hiện dùng:
-
-```powershell
-$ProfileName = "codex-local"
-```
-
-Đây chỉ là **legacy profile filename**, không phải Codex runtime dependency.
-
-File này nằm trên core connection path và đã ghi rõ giữ tên để tương thích local install.
-
-**KEEP FOR STABILITY. Không rename trong cleanup này.**
+- filesystem edit vẫn tạo checkpoint;
+- checkpoint tests vẫn pass;
+- Job `dev-coding` vẫn parse và activate dù preload còn `rewind`;
+- `work_tool` không expose rewind;
+- không còn runtime import `./rewind.js`;
+- old rewind adapter nằm trong `legacy/group-b/`.
 
 ---
 
 # 5. GROUP C — REWRITE CLEAN
 
-Các phần dưới đây vẫn cần behavior, nhưng implementation cũ quá dính legacy architecture.
+## STATUS: ⏳ PENDING
+
+Group C là rewrite kiến trúc chính sau khi Group A đã retire subsystem thừa.
 
 ## C1. Rewrite `src/tools/work-gateway.ts`
 
-Không bóc dần implementation hiện tại.
-
-Viết lại theo spec nhỏ:
+Target runtime families:
 
 ```text
-WorkGateway
-├─ filesystem
-├─ shell
-├─ git
-├─ context
-└─ repl
+filesystem
+shell
+git
+context
+repl
 ```
 
-Responsibilities duy nhất:
+Legacy accepted preload tokens:
 
-- map operation → family;
+```text
+mcp
+ponytail
+rewind
+```
+
+WorkGateway mới chỉ chịu trách nhiệm:
+
+- operation → family mapping;
 - lazy-load family;
 - cache loaded family;
-- preload runtime-supported family;
+- preload supported families;
 - ignore legacy preload tokens;
 - dispatch `work_tool`;
 - telemetry đơn giản.
 
-Không có:
+Không có upstream MCP, Ponytail, external proxy, standalone rewind family.
 
-- `McpUpstreamManager`;
-- `mcp` runtime family;
-- `ponytail` family;
-- standalone `rewind` family;
-- external proxy;
-- external tool discovery.
-
-Suggested conceptual split:
+Old implementation:
 
 ```text
-RUNTIME_FAMILY_TOOLS
-LEGACY_PRELOAD_FAMILIES
-resolve(tool)
-prepareJob(jobId, declaredFamilies)
-waitForPreparedJob(jobId)
-clearPreparedJob()
-status()
+src/tools/work-gateway.ts
+→ legacy/group-c/tools/work-gateway.ts
 ```
 
-## C2. Rewrite `src/tools/node-repl.ts`
+Replacement mới vẫn ở `src/tools/work-gateway.ts`.
 
-Viết lại local-only thay vì gỡ từng đoạn Sky/Codex.
+## C2. Evaluate current local-only `node_repl`
 
-Target behavior:
+Group A đã loại Codex Computer Use khỏi `node_repl`.
 
-```text
-node_repl
-├─ workspace-scoped JavaScript VM
-├─ persistent state per MCP server/session scope
-├─ process.cwd() = confirmed workspace
-├─ process.chdir() disabled
-├─ direct fs/fs-promises blocked
-├─ timeout
-├─ captured output
-└─ NO external/Codex Computer Use
-```
+Spec cần giữ:
 
-Không có:
+- workspace-bound JavaScript VM;
+- persistent state;
+- `process.cwd()` = confirmed workspace;
+- `process.chdir()` blocked;
+- direct `fs` blocked;
+- timeout/output capture;
+- no Codex/runtime/plugin dependency.
 
-- `@oai/sky`;
-- `WindowsHelperTransport`;
-- `WindowsComputerUseClient`;
-- `globalThis.sky`;
-- Codex runtime path;
-- Computer Use plugin config;
-- Admin dependency.
+Nếu implementation hiện tại đã sạch và nhỏ thì **mark DONE AS-IS**, không rewrite chỉ để rewrite.
 
-Có thể đổi internal output name:
+Nếu còn legacy complexity thì rewrite clean và quarantine old implementation vào `legacy/group-c/tools/node-repl.ts`.
 
-```text
-__localCoderOutput
-→ __gptWorkerOutput
-```
+## C3. Rewrite local context stack
 
-## C3. Rewrite local `context` stack
-
-Context phải là **workspace/local GPTWorker context**, không phải agent ecosystem bridge.
-
-Các file nên được rewrite/simplify như một unit:
+Review/rewrite như một unit:
 
 - `src/tools/context.ts`;
 - `src/lib/project-memory.ts`;
 - `src/lib/auto-memory.ts`;
-- `src/lib/skills-loader.ts`;
-- phần rich context của `src/lib/instruction-context.ts`.
+- `src/lib/skills-loader.ts`.
 
-### Context target
+Target:
 
 ```text
 confirmed workspace
 ├─ project_context
 ├─ project-local instructions/rules
-├─ project-local skills nếu giữ
+├─ project-local skills
 ├─ GPTWorker-owned memory nếu giữ
-└─ local diagnostic status
+└─ local runtime diagnostics
 ```
 
-Không có:
+Group A đã xử lý trước:
 
-- `getUpstreamManager()`;
-- `upstream_mcp`;
-- `.codex/config.toml`;
-- global `~/.codex/CLAUDE.md`;
-- Codex plugin skills;
-- Computer Use skill injection.
+- upstream status removed;
+- `.codex/config.toml` removed;
+- Codex plugin skill injection removed.
 
-### `agent_status`
+Còn phải xử lý:
 
-Target:
+- không auto-load global `~/.codex` / `~/.claude` làm authority;
+- auto-memory chuyển sang `getWorkerDataRoot()`;
+- diagnostics chỉ local;
+- project-local `AGENTS.md`, `CLAUDE.md`, rules có thể tiếp tục được đọc như project context.
+
+Target auto-memory:
 
 ```text
-agent_status
-├─ permission profile
-├─ confirmed/default workspace
-├─ machine roots
-├─ audit/runtime path
-├─ process/node info
-├─ tool profile
-└─ local checkpoint info nếu còn cần
+%LOCALAPPDATA%\GPTWorker\memory\projects\<workspace-hash>\MEMORY.md
 ```
 
-Không có upstream MCP status.
+## C4. Rewrite instruction/control-plane context
 
-### Project memory
+Không làm rename máy móc `codex-agent-prompt.ts → worker-execution-prompt.ts` ở Group B nữa.
 
-Project-local files có thể được đọc nếu project thực sự có chúng, ví dụ:
-
-- `AGENTS.md`;
-- `CLAUDE.md`;
-- project-local rules.
-
-Nhưng không tự đi đọc global Codex/Claude home như authority.
-
-### Auto memory
-
-Current storage:
-
-```text
-CODEX_HOME || ~/.codex
-└─ projects/<hash>/MEMORY.md
-```
-
-Rewrite thành GPTWorker-owned data:
-
-```text
-getWorkerDataRoot()
-└─ memory/
-   └─ projects/
-      └─ <workspace-hash>/
-         └─ MEMORY.md
-```
-
-Windows default:
-
-```text
-%LOCALAPPDATA%\GPTWorker\memory\projects\...
-```
-
-Không dùng `CODEX_HOME`.
-
-## C4. Rewrite `src/lib/instruction-context.ts` thành control-plane tối thiểu
-
-Startup/initialize không nên kéo toàn bộ rich project context nếu chưa có active Job.
-
-Target:
+Thay vào đó rewrite theo target:
 
 ```text
 initialize instructions
 ├─ GPTWorker identity
 ├─ admission/control rules
-├─ Job lifecycle pointers
+├─ Job lifecycle
 ├─ current tool profile
 └─ minimal environment info
 ```
 
-Rich workspace context chỉ load khi Job/work thực sự cần qua `context` tools.
+Rich workspace context chỉ load khi actual work cần.
 
-Mục tiêu:
+Nếu vẫn cần execution prompt riêng thì tạo mới `worker-execution-prompt.ts` từ clean spec.
 
-- giảm startup I/O;
-- giảm dependency;
-- không load Codex/global memory;
-- không load Admin info;
-- không làm MCP initialize phụ thuộc project skill/memory ecosystem.
+Old prompt:
 
-## C5. Rewrite verification harness theo architecture mới
+```text
+src/lib/codex-agent-prompt.ts
+→ legacy/group-c/lib/codex-agent-prompt.ts
+```
 
-Sau runtime rewrite, validator cũng phải phản ánh target thật.
-
-### Rewrite/replace
-
-- `scripts/run-all-tests.mjs`;
-- `scripts/test-idle-runtime.mjs`;
-- expectations trong `scripts/test-tool-profile.mjs`;
-- `scripts/test-quickstart.mjs`;
-- `scripts/test-project-memory.mjs` nếu module context được rewrite;
-- verification evidence chain nếu nó không thuộc protected artifacts.
+## C5. Rewrite validation harness
 
 Target validation:
 
@@ -677,7 +438,7 @@ Worker boot
 → tools/list
 → stale recovery
 → Job nomination/confirmation
-→ legacy preload ignored safely
+→ legacy preload ignored
 → work_tool filesystem
 → shell
 → git
@@ -686,85 +447,49 @@ Worker boot
 → stop/restart/reconnect
 ```
 
-Không validate:
+Không validate retired features: Admin, upstream MCP, OAuth, Ponytail, Codex hooks, external proxy.
 
-- Admin :3001;
-- upstream MCP;
-- OAuth;
-- Ponytail;
-- Codex hooks;
-- external MCP proxy.
-
-### Protected validation artifacts
-
-Các file mới/protected do recent validation/upgrade **không tự sửa** trong cleanup nếu user chưa cho phép, bao gồm các artifact đã được đánh dấu trước đó như:
-
-- `setup-test.bat`;
-- `start-worker-background.ps1`;
-- `wait-runtime-ready.ps1`;
-- `wait-tray-ready.ps1`;
-- `gptworker-tray.vbs`;
-- `openai-tunnel.ps1`;
-- `docs/plans/gptworker-v2/**`;
-- các validation artifact mới khác nếu xác định được là thuộc cùng đợt.
-
-Nếu protected artifact assert architecture cũ:
-
-```text
-status = PROTECTED-STALE
-```
-
-Nó không được dùng làm lý do phục hồi Codex/Admin/upstream vào runtime.
+Protected validation artifacts nếu còn assert architecture cũ được đánh dấu `PROTECTED-STALE`, không dùng làm lý do bring back retired subsystem.
 
 ---
 
-# 6. Core phải KEEP / SURGICAL DETACH — không rewrite
+# 6. FINAL CLEANUP — sau Group B + Group C
 
-Một số file phức tạp vì chúng giải quyết vấn đề thật của connection stability.
+Không làm sớm để tránh churn.
+
+Review sau cùng:
+
+- `codex-mcp-server` bin alias;
+- matching `package-lock.json` entry;
+- `coding-agent` keyword;
+- orphan package scripts;
+- `saveLocalToolOverrides()` nếu không còn caller;
+- README / WORKER / AGENTS;
+- generic Codex/Claude/Local Coder wording.
+
+Compatibility alias chỉ bỏ khi chắc chắn không ảnh hưởng install/startup hiện có.
+
+---
+
+# 7. KEEP / SURGICAL DETACH ONLY
 
 ## `src/lib/mcp-session-manager.ts`
 
-**Không rewrite toàn bộ.**
+Không rewrite.
 
-Giữ:
+Giữ session IDs, protocol negotiation, Streamable HTTP, raw-header handling, GET/SSE, POST/DELETE serialization, DELETE grace, stale recovery, TTL, transport errors.
 
-- session IDs;
-- protocol negotiation;
-- Streamable HTTP;
-- raw header handling;
-- GET/SSE;
-- POST/DELETE serialization;
-- DELETE grace;
-- stale-session recovery;
-- TTL cleanup;
-- transport error tracking.
-
-Chỉ surgically detach:
-
-- upstream manager;
-- Codex hook warmup;
-- Codex naming.
+Group A đã tháo upstream manager, Codex hook warmup và Codex recovery client name.
 
 ## `src/index.ts`
 
-Không rewrite server transport từ đầu.
+Không rewrite.
 
-Giữ:
+Giữ HTTP/MCP endpoints, health, token path, initialize/recovery routing, startup/shutdown stability.
 
-- Express/MCP endpoints;
-- health;
-- MCP token path behavior;
-- initialize/recovery routing;
-- stale session handling;
-- startup/shutdown stability.
+Group A đã tháo Admin và upstream manager.
 
-Chỉ tháo:
-
-- Admin;
-- upstream manager;
-- related env/log fields.
-
-## OpenAI Secure MCP Tunnel + Windows resident runtime
+## Secure Tunnel / Windows resident runtime
 
 KEEP:
 
@@ -772,177 +497,117 @@ KEEP:
 - `start.ps1`;
 - `stop.ps1`;
 - `reset-runtime.ps1`;
-- tray/resident flow;
-- health/wait scripts được bảo vệ.
+- tray/resident runtime;
+- health/wait scripts.
 
-Không cleanup connection path chỉ vì còn legacy naming không ảnh hưởng behavior.
-
----
-
-# 7. Dependency map cuối
-
-```text
-TARGET
-
-GPT Web
-   ↓
-OpenAI Secure MCP Tunnel
-   ↓
-index.ts
-   ↓
-mcp-session-manager.ts
-   ↓
-server-factory.ts
-   ↓
-admission + workspace + Job lifecycle
-   ↓
-NEW clean work-gateway.ts
-   ├─ filesystem
-   ├─ shell
-   ├─ git
-   ├─ NEW clean context
-   └─ NEW clean node_repl
-```
-
-Delete branches:
-
-```text
-X Admin server/UI
-X Codex hooks
-X Ponytail
-X Codex Computer Use
-X plugin-config
-X upstream MCP manager/config/OAuth/proxy
-X mcp bridge
-X external MCP import/discovery
-```
-
-Legacy Job metadata:
-
-```text
-mcp / ponytail / rewind
-→ accepted as legacy preload token
-→ ignored safely
-→ never loaded as runtime family
-```
+`$ProfileName = "codex-local"` trong tunnel hiện được coi là compatibility filename, không phải Codex dependency. Không rename trong cleanup này.
 
 ---
 
-# 8. Implementation order
+# 8. Legacy quarantine rules
 
-## Phase 0 — baseline
+`legacy/` là cây riêng ở repo root.
 
-Before source mutation:
+Mapping:
 
-- record current main SHA;
-- backup branch already exists;
+```text
+src/lib/example.ts
+→ legacy/group-a/lib/example.ts
+
+src/tools/example.ts
+→ legacy/group-b/tools/example.ts
+
+src/tools/work-gateway.ts
+→ legacy/group-c/tools/work-gateway.ts
+```
+
+Quarantine file không compile, không import, không execute, không fallback tự động.
+
+Restore phải là thao tác chủ động.
+
+---
+
+# 9. Implementation order from current state
+
+## Phase A — ✅ DONE
+
+Group A quarantined.
+
+## Phase B — retire standalone rewind
+
+1. keep checkpoint engine;
+2. remove rewind runtime family;
+3. remove rewind tool/profile/guidance;
+4. keep parser compatibility for legacy preload;
+5. quarantine `src/tools/rewind.ts`;
+6. validate checkpoint safety + Job activation.
+
+## Phase C1 — rewrite WorkGateway
+
+1. define clean runtime family registry;
+2. explicit legacy preload set;
+3. rewrite gateway;
+4. switch callers;
+5. quarantine old gateway;
+6. validate dispatch/preload.
+
+## Phase C2 — evaluate node_repl
+
+Mark done as-is if already clean; otherwise rewrite + quarantine old.
+
+## Phase C3 — rewrite context stack
+
+Project memory → GPTWorker memory → project-local skills → local diagnostics.
+
+## Phase C4 — rewrite instruction context
+
+Minimal initialize/control plane; rich context only during active work.
+
+## Phase C5 — rewrite validation
+
+Validation follows target architecture only.
+
+## Phase Final
+
+Package/docs/dead-code cleanup only after runtime architecture passes.
+
+---
+
+# 10. Test gates
+
+After every batch:
+
 - build;
-- current health;
+- legacy isolation;
+- Worker startup;
+- `:3000/health`;
+- Tunnel readiness;
 - MCP initialize;
 - tools/list;
-- session recovery;
-- Job nomination/confirmation;
-- one filesystem call;
-- shell;
-- git;
-- context;
-- node_repl.
-
-## Phase 1 — rewrite clean modules first
-
-1. rewrite `work-gateway.ts`;
-2. rewrite local-only `node-repl.ts`;
-3. rewrite context stack;
-4. rewrite minimal instruction context;
-5. add legacy preload compatibility.
-
-Goal: new core can operate without Codex/Admin/upstream before deleting old source.
-
-## Phase 2 — remap connection/core callers
-
-1. detach upstream/Codex hooks from session manager;
-2. detach upstream from server factory;
-3. detach Admin/upstream from index;
-4. remove upstream bypass from tool-work-policy;
-5. remap worker execution prompt;
-6. clean tool profile/quickstart.
-
-## Phase 3 — quarantine Group A
-
-Remove leaf subsystems khỏi active tree và move vào `legacy/group-a/` only when import/caller count is zero.
-
-## Phase 4 — config/package/docs cleanup
-
-- `.env.example`;
-- `.gitignore`;
-- `package.json`;
-- `package-lock.json`;
-- README/WORKER/AGENTS;
-- stale non-protected tests/helpers.
-
-## Phase 5 — rewrite validation
-
-Validation must test the target architecture, not retired features.
-
-## Phase 6 — real stability validation
-
-Required:
-
-- Worker starts with no Codex installed;
-- Worker starts with no Admin server;
-- Worker starts with no upstream MCP config;
-- Tunnel ready;
-- MCP initialize;
-- repeated tools/list;
 - stale session recovery;
 - DELETE grace;
-- Job select/confirm/activate;
-- legacy preload `mcp/rewind/ponytail` does not break activation;
+- Job nomination/confirmation/activation;
+- legacy preload compatibility;
 - filesystem;
 - shell;
 - git;
 - context;
 - node_repl local;
-- stop → idle;
-- restart → reconnect.
+- stop/restart/reconnect.
+
+If regression appears:
+
+```text
+stop next phase
+→ restore old implementation from legacy
+→ compare missing behavior
+→ fix remap/rewrite
+→ test again
+```
 
 ---
 
-# 9. Deletion/rewrite gates
-
-## DELETE / QUARANTINE gate
-
-Remove khỏi active tree và quarantine only when:
-
-1. no required behavior inside;
-2. runtime caller/import = 0;
-3. no protected startup path depends on it;
-4. build passes after atomic caller removal.
-
-## EXTRACT/REMAP gate
-
-Delete old file only when:
-
-1. useful logic has new owner/name;
-2. all callers point to new owner;
-3. compatibility behavior is explicit;
-4. old symbol/path has no runtime caller.
-
-## REWRITE CLEAN gate
-
-Switch to new implementation only when:
-
-1. behavior spec is smaller and explicit;
-2. test covers required behavior;
-3. new implementation has no legacy dependency;
-4. fallback/rollback remains possible;
-5. connection/session core is not accidentally rewritten as collateral work.
-
----
-
-# 10. Definition of success
-
-Cleanup hoàn tất khi runtime thực tế gần đúng với:
+# 11. Definition of success
 
 ```text
 GPT Web
@@ -963,185 +628,18 @@ work_tool
    └─ node_repl
 ```
 
-và đồng thời:
+Success means:
 
-- GPTWorker không cần Codex;
-- không đọc `~/.codex` trên normal path;
-- không dùng Codex Computer Use runtime;
-- không chạy Ponytail;
-- không start Admin server;
-- không init upstream MCP hub;
-- không proxy external MCP tools;
-- session manager chỉ lo connection/session stability;
-- context là local workspace/GPTWorker-owned context;
-- auto-memory nếu giữ phải nằm trong GPTWorker data root;
-- Job Pack cũ vẫn parse/activate dù còn legacy preload token;
-- optional/retired subsystem không thể làm core connection fail;
-- Secure MCP Tunnel và Windows resident runtime vẫn ổn định như trước.
-
-
----
-
-# 11. Legacy quarantine / rollback staging
-
-Cleanup không xóa vật lý file ngay trong giai đoạn thử nghiệm.
-
-Mọi file hoặc implementation bị loại khỏi runtime sẽ được **move vào `legacy/` trước**, để có thể test architecture mới mà vẫn phục hồi tức thời nếu scan/remap còn thiếu dependency.
-
-Cấu trúc:
-
-```text
-legacy/
-├─ group-a/   # DELETE DIRECTLY
-├─ group-b/   # EXTRACT / REMAP → quarantine old implementation
-└─ group-c/   # REWRITE CLEAN → quarantine replaced implementation
-```
-
-## 11.1 Nguyên tắc chung
-
-```text
-detach/remap/rewrite
-→ move old file vào legacy group tương ứng
-→ build + test + real Worker validation
-→ nếu fail vì dependency bị bỏ sót: restore file ngay
-→ nếu pass ổn định: giữ quarantine cho tới cuối cleanup
-→ chỉ physical-delete legacy sau một quyết định riêng
-```
-
-Không dùng "delete rồi tìm lại trong Git history" như workflow chính. Git history vẫn là safety net cuối, nhưng `legacy/` là rollback staging chủ động.
-
-### GROUP A
-
-File được đánh giá là không có behavior cần giữ:
-
-```text
-runtime path
-→ detach caller/import/config
-→ move file vào legacy/group-a/
-→ test
-```
-
-Nếu test fail, điều đó chứng minh scan Group A sai hoặc còn dependency ẩn. Restore file từ `legacy/group-a/`, xác định caller còn thiếu rồi phân loại lại sang Group B hoặc Group C nếu cần.
-
-### GROUP B
-
-File có phần chức năng cần giữ:
-
-```text
-extract useful behavior
-→ remap caller sang owner mới
-→ old implementation phải có runtime caller = 0
-→ move old file vào legacy/group-b/
-→ test
-```
-
-Nếu test fail, không "bring back" bằng cách viết lại từ đầu. Lấy implementation cũ ngay từ `legacy/group-b/`, đối chiếu phần behavior/remap còn thiếu, bổ sung rồi test lại.
-
-### GROUP C
-
-Behavior được rewrite sạch:
-
-```text
-write new implementation
-→ switch caller sang implementation mới
-→ move old implementation vào legacy/group-c/
-→ test behavior + integration
-```
-
-Nếu implementation mới thiếu behavior, old implementation trong `legacy/group-c/` là reference trực tiếp để so sánh và phục hồi tạm thời.
-
-## 11.2 Legacy là cây riêng, không chứa `src/`
-
-`legacy/` là **quarantine tree độc lập ở root repo**. File đã quarantine không còn nằm trong active `src/`.
-
-Quy tắc mapping:
-
-- file dưới `src/`: **strip prefix `src/`** khi move vào group;
-- file ngoài `src/` như `scripts/`, `profiles/`, `public/`: giữ path top-level gốc bên dưới group;
-- không tạo `legacy/group-*/src/**`.
-
-Ví dụ:
-
-```text
-src/lib/codex-hooks.ts
-→ legacy/group-a/lib/codex-hooks.ts
-
-src/lib/codex-agent-prompt.ts
-→ legacy/group-b/lib/codex-agent-prompt.ts
-
-src/tools/work-gateway.ts
-→ legacy/group-c/tools/work-gateway.ts
-
-scripts/test-mcp-upstream.mjs
-→ legacy/group-a/scripts/test-mcp-upstream.mjs
-
-profiles/mcp-upstream.json
-→ legacy/group-a/profiles/mcp-upstream.json
-
-public/ui/app.js
-→ legacy/group-a/public/ui/app.js
-```
-
-Ý nghĩa:
-
-```text
-active runtime source
-src/...
-
-quarantined old implementation
-legacy/group-*/...
-```
-
-Một file không được tồn tại đồng thời như implementation active trong `src/` và như fallback được runtime sử dụng từ `legacy/`. Nếu Group C rewrite cùng logical module, `src/` chứa **implementation mới**, còn `legacy/group-c/` chứa **implementation cũ** để reference/rollback thủ công.
-
-## 11.3 Legacy không được tham gia build/runtime
-
-`legacy/**` là archive staging, không phải source fallback tự động.
-
-Isolation này là **hard invariant**, không chỉ là quy ước:
-
-- `tsconfig.json` chỉ compile `src/**/*` và explicit exclude `legacy`;
-- runtime source trong `src/**` bị cấm import/require/dynamic-import từ `legacy/**`;
-- build output không được sinh `dist/legacy` và không được reference ngược vào `legacy/**`;
-- root startup scripts (`.ps1`, `.bat`, `.vbs`) bị cấm reference `legacy/**`;
-- `package.json` main/bin/scripts bị cấm chạy hoặc point vào `legacy/**`;
-- Job Pack bị cấm trỏ vào `legacy/**`;
-- `npm test` chạy `scripts/test-legacy-isolation.mjs` ngay sau compile và fail nếu bất kỳ invariant nào bị phá;
-- restore phải là thao tác chủ động: move file từ legacy về đúng active runtime path (thường là `src/...`) rồi remap lại caller. Không có automatic fallback từ legacy.
-
-Như vậy file quarantine có thể tồn tại trong Git repo để rollback nhưng **không thể tham gia app khi chạy** nếu isolation test đang pass.
-
-## 11.4 Test gate trước khi một quarantine được coi là thành công
-
-Sau mỗi batch move vào legacy phải kiểm tra ít nhất:
-
-- build;
-- Worker startup;
-- `:3000/health`;
-- Secure MCP Tunnel readiness;
-- MCP initialize;
-- tools/list;
-- session stale recovery;
-- Job nomination/confirmation/activation;
-- legacy preload token không làm activation fail;
-- `work_tool` filesystem;
-- shell;
-- git;
-- context;
-- node_repl local nếu còn giữ;
-- stop/restart/reconnect.
-
-Nếu bất kỳ test nào fail, không tiếp tục batch kế tiếp cho tới khi xác định failure là regression hay test stale.
-
-## 11.5 Physical deletion là phase riêng
-
-Kết thúc cleanup không đồng nghĩa phải xóa ngay `legacy/**`.
-
-Physical deletion chỉ được làm khi:
-
-1. architecture mới đã chạy ổn định qua nhiều test/restart;
-2. không còn cần old implementation để đối chiếu;
-3. user chủ động quyết định purge legacy;
-4. backup branch/Git history vẫn còn.
-
-Cho tới lúc đó, `legacy/**` là rollback staging chính thức của cleanup.
+- no Codex dependency;
+- no Codex home required on normal path;
+- no Computer Use runtime;
+- no Ponytail;
+- no Admin server;
+- no upstream MCP hub/external proxy;
+- session manager remains stability-focused;
+- checkpoint safety remains internal filesystem safety;
+- standalone rewind is not an architecture family;
+- context is local workspace/GPTWorker-owned;
+- Job Packs with legacy preload tokens still activate safely;
+- legacy quarantine never participates in runtime;
+- Secure MCP Tunnel and Windows resident runtime remain stable.
