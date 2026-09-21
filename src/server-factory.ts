@@ -1,3 +1,4 @@
+import path from "path";
 import { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import type { RegisteredTool } from "@modelcontextprotocol/sdk/server/mcp.js";
 import { z } from "zod";
@@ -11,7 +12,8 @@ import { AdmissionRuntime } from "./lib/activation-policy.js";
 import { getChatGptToolProfile, shouldExposeTool } from "./lib/tool-profile.js";
 import { TOOL_RESULT_OUTPUT_SCHEMA } from "./lib/tool-result.js";
 import { JobRuntime } from "./jobs/job-runtime.js";
-import { runWithWorkspaceCwd } from "./lib/path-security.js";
+import { runWithWorkspaceScope } from "./lib/path-security.js";
+import { getCustomJobsRoot, getDefaultJobsRoot } from "./lib/worker-home.js";
 import { acquireToolLease, releaseToolLease } from "./lib/work-registration.js";
 import { requiresWorkHandle, toolFamily } from "./lib/tool-work-policy.js";
 
@@ -83,8 +85,14 @@ function configureToolRegistration(server: McpServer): void {
           delete toolArgs.authority_token;
 
           try {
-            const result = await runWithWorkspaceCwd(lease.workspace, () =>
-              (callback as any)(toolArgs, ...rest)
+            const supportRoots = [
+              path.join(getDefaultJobsRoot(), lease.jobId),
+              path.join(getCustomJobsRoot(), lease.jobId),
+            ];
+            const result = await runWithWorkspaceScope(
+              lease.workspace,
+              supportRoots,
+              () => (callback as any)(toolArgs, ...rest)
             );
             releaseToolLease(lease, "ok");
             return result;
