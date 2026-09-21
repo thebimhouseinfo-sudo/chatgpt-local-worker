@@ -48,7 +48,7 @@ const JobPreloadFamiliesSchema = z
   .array(z.enum(JOB_PRELOAD_FAMILIES))
   .optional()
   .describe(
-    "Optional runtime families to warm while awaiting Job confirmation. Legacy mcp/ponytail/rewind tokens are accepted for compatibility and ignored by the active WorkGateway."
+    "Optional active runtime families to warm while awaiting Job confirmation."
   );
 
 const JobFilesSchema = z
