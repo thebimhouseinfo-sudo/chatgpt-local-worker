@@ -883,6 +883,72 @@ This keeps Custom/default Job skills and harnesses usable without reopening arbi
 ---
 
 
+
+# 5.4. RUNTIME ACCEPTANCE FINDING — AUTHORITY MUST SURVIVE MCP TRANSPORT ROTATION
+
+## STATUS: ✅ FIXED / LOCAL RUNTIME RETEST REQUIRED
+
+Observed during real GPT Web → Tunnel → Worker acceptance testing:
+
+```text
+gptworker_admission
+→ ACTIVE + admission_token
+
+next tool call:
+job_select
+→ ADMISSION_REQUIRED
+```
+
+The admission had been granted for the same user request, but authority was stored inside one concrete `McpServer` / transport-session instance.
+
+That assumption is too strict for the real OpenAI connector: the connector may legitimately rotate or recover MCP transport sessions between tool calls while remaining in the same ChatGPT work flow.
+
+Incorrect old model:
+
+```text
+authority
+→ concrete MCP transport session
+```
+
+Correct model:
+
+```text
+authority
+→ opaque admission token
+→ TTL
+→ request / Workspace binding
+
+confirmation authority
+→ opaque confirmation token
+→ exact admission token
+→ exact Job + bindings
+→ TTL
+```
+
+Implementation:
+
+- admission proofs are process-scoped token proofs instead of per-`AdmissionRuntime` transport state;
+- `admission_token` remains required and opaque;
+- Workspace binding remains enforced;
+- consuming the token removes the shared proof;
+- confirmation proofs can survive transport rotation;
+- every confirmation proof is additionally bound to the exact `admission_token`, so a different admission flow cannot reuse another flow's confirmation token;
+- a fresh nomination supersedes only confirmation proofs belonging to the same admission flow, not other concurrent flows.
+
+Regression coverage now includes:
+
+```text
+transport A: gptworker_admission
+transport B: job_select confirmed=false
+transport C: job_select confirmed=true
+→ work_handle
+```
+
+This preserves real connector continuity without turning transport/session identity into work authority.
+
+---
+
+
 # 6. FINAL CLEANUP — ✅ DONE WITH COMPATIBILITY EXCEPTIONS
 
 Đã hoàn tất:
