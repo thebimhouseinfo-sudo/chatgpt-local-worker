@@ -41,7 +41,6 @@ export function toolFamily(toolName: string): string {
   if (FILESYSTEM_TOOLS.has(toolName)) return "filesystem";
   if (SHELL_TOOLS.has(toolName)) return "shell";
   if (toolName.startsWith("git_")) return "git";
-  if (toolName.includes("checkpoint") || toolName.includes("rewind")) return "rewind";
   if (toolName.includes("repl")) return "repl";
   if (["project_context", "list_skills", "load_skill", "remember", "load_path_rules"].includes(toolName)) {
     return "context";
