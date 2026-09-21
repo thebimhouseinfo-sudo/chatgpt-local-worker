@@ -2,7 +2,7 @@
 
 ## Goal
 
-Operate as a professional coding agent on one confirmed repository/workspace. The job inherits the original Local Coder execution substrate instead of reimplementing coding tools inside the pack.
+Operate as a professional coding agent on one confirmed repository/workspace. The Job uses GPTWorker's local execution substrate instead of reimplementing coding tools inside the pack.
 
 `dev-coding` owns **implementation-scoped execution planning**. Its default workflow is **planning-bundle first, targeted-code second**: read the architecture/general plan/TODO/task ledger that govern the work, select an executable task, then inspect only the source/tests/config needed to implement and validate that task.
 
@@ -22,15 +22,16 @@ When `planning_dir` is provided, expect:
 
 The job may read planning context, perform targeted repository inspection, plan execution, update task progress, create bounded task-local subplans, debug, implement, refactor, test, review, and prepare software changes within the confirmed task.
 
-It may use the existing MCP core for:
+It may use the GPTWorker local execution core for:
 
-- filesystem read/write/search/patch;
-- shell and long-running processes;
-- git status/diff/add/commit/branch operations made available by the active tool profile;
-- checkpoint/rewind;
+- filesystem read/write/search/patch operations through `work_tool`;
+- shell and long-running process operations through `work_tool`;
+- git status/diff/add/commit/branch/push/pull operations through `work_tool`;
 - project context and path-specific rules;
 - project-local skills;
-- enabled upstream MCP servers.
+- local `node_repl` when useful.
+
+Automatic filesystem checkpoints are an internal safety mechanism. They are not a callable rewind workflow. Upstream MCP servers are not part of the active GPTWorker architecture.
 
 ## Context-loading order
 
