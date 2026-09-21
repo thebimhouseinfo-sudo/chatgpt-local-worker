@@ -14,8 +14,7 @@
   "type": "module",
   "main": "dist/index.js",
   "bin": {
-    "local-worker-mcp": "dist/index.js",
-    "codex-mcp-server": "dist/index.js"
+    "local-worker-mcp": "dist/index.js"
   },
   "scripts": {
     "build": "tsc",
