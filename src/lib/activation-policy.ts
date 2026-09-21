@@ -56,6 +56,13 @@ interface ArmedAtFlow {
 
 const ADMISSION_TTL_MS = 30 * 60 * 1000;
 
+// Admission authority follows the opaque token, not one concrete MCP transport.
+// The OpenAI connector may legitimately rotate/recover transport sessions
+// between tool calls in the same chat flow. Keeping proofs process-scoped lets
+// the same admission_token survive that transport churn while still requiring
+// possession of the opaque token and honoring TTL/workspace binding.
+const SHARED_ADMISSIONS = new Map<string, AdmissionProof>();
+
 function normalizedPath(value: string): string {
   let normalized = path.resolve(value.trim());
   if (process.platform === "win32") normalized = normalized.toLowerCase();
@@ -84,14 +91,13 @@ function isPublicControlCommand(userTurn: string): boolean {
 }
 
 export class AdmissionRuntime {
-  private readonly admissions = new Map<string, AdmissionProof>();
   private armedAtFlow: ArmedAtFlow | undefined;
 
   private cleanup(): void {
     const now = Date.now();
-    for (const [token, proof] of this.admissions) {
+    for (const [token, proof] of SHARED_ADMISSIONS) {
       if (now - proof.createdAt > ADMISSION_TTL_MS) {
-        this.admissions.delete(token);
+        SHARED_ADMISSIONS.delete(token);
       }
     }
     if (
@@ -179,7 +185,7 @@ export class AdmissionRuntime {
     }
 
     const token = randomUUID();
-    this.admissions.set(token, {
+    SHARED_ADMISSIONS.set(token, {
       token,
       mode: "ACTIVE",
       trigger: "explicit_gptworker",
@@ -216,7 +222,7 @@ export class AdmissionRuntime {
       );
     }
 
-    const proof = this.admissions.get(token);
+    const proof = SHARED_ADMISSIONS.get(token);
     if (!proof) {
       throw new Error(
         "ADMISSION_REQUIRED: admission token is missing, stale, invalid, or belongs to another MCP session. Start again through @gptworker."
@@ -284,11 +290,11 @@ export class AdmissionRuntime {
   consume(token: string | undefined): void {
     this.cleanup();
     if (!token) return;
-    this.admissions.delete(token);
+    SHARED_ADMISSIONS.delete(token);
   }
 
   clear(): void {
-    this.admissions.clear();
+    SHARED_ADMISSIONS.clear();
     this.armedAtFlow = undefined;
   }
 }
