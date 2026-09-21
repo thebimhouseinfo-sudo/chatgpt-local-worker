@@ -6,7 +6,7 @@
 
 </div>
 
-GPTWorker turns ChatGPT into a local worker for coding, planning, document/file work, and other installed Job Packs. The normal user interface is ChatGPT itself.
+GPTWorker turns ChatGPT into a local worker for coding, planning, document/file work, and other installed Job Packs. The normal user interface is ChatGPT itself. GPTWorker is **stability-first**: the reliable Worker lifecycle and local execution path are the product core, while the Secure MCP Tunnel is the transport used to reach that Worker.
 
 The intended UX is deliberately simple:
 
@@ -328,7 +328,7 @@ Generic lifecycle:
 DISCOVER → SELECT → RESOLVE → CONFIRM → EXECUTE → VALIDATE → COMPLETE
 ```
 
-The execution core supplies filesystem, shell, git, checkpoint/rewind, project context, project skills/path rules, and optional upstream MCP tools. A Job Pack supplies the prescribed workflow and validation for its class of work.
+The execution core supplies the capabilities required by active Job Packs, with filesystem, shell, git, project context, and validation as the primary path. Compatibility/optional capabilities such as checkpoint/rewind or upstream MCP integration are not architectural requirements and may be simplified or removed when they do not improve Worker reliability. A Job Pack supplies the prescribed workflow and validation for its class of work.
 
 ### System commands
 
@@ -404,8 +404,12 @@ The PowerShell helpers remain available for development/troubleshooting. Normal 
 | Wrong job | Stop/switch the job and confirm the correct `JOB + FOLDER` again |
 | Git/shell seems to target the wrong place | `job_status` and `agent_status` show the persistent/current workspace state |
 
-## Upstream
+## Origins and acknowledgements
 
-GPTWorker is derived from [`hoangcoderr/chatgpt-local-coder`](https://github.com/hoangcoderr/chatgpt-local-coder). The execution core is preserved and extended with a Job Runtime and ChatGPT-first local-workspace flow.
+GPTWorker is maintained as an independent project. It began by studying and reusing selected MIT-licensed components from [`hoangcoderr/chatgpt-local-coder`](https://github.com/hoangcoderr/chatgpt-local-coder), particularly parts of its MCP/local-execution foundation and Secure MCP Tunnel workflow.
+
+The current GPTWorker architecture and product direction are developed independently around a stability-first general Worker: Job Runtime, explicit admission and work lifecycle, Windows resident/tray operation, validation harnesses, workspace handling, and reusable Job Packs. The Secure MCP Tunnel remains an important transport layer, but coding-agent-specific upstream behavior is not an architectural requirement and may be replaced or removed when it does not improve Worker reliability.
+
+Selected inherited components remain under their original MIT terms and attribution.
 
 MIT License.
