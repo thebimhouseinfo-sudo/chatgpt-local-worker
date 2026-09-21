@@ -13,7 +13,7 @@ import {
   requiresWorkHandle,
   toolFamily,
 } from "../dist/lib/tool-work-policy.js";
-import { JOB_PRELOAD_FAMILIES } from "../dist/jobs/job-authoring.js";
+import { JOB_PRELOAD_FAMILIES } from "../dist/lib/runtime-families.js";
 import { setDefaultCwd } from "../dist/lib/path-security.js";
 
 assert.deepEqual(
