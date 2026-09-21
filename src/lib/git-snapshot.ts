@@ -70,7 +70,6 @@ export function formatEnvironmentForInstructions(opts: {
   workspaceRoot: string;
   workspaceRoots: string[];
   pid: number;
-  adminPort: number;
   nodeVersion: string;
 }): string {
   return [
@@ -79,7 +78,6 @@ export function formatEnvironmentForInstructions(opts: {
     `Node: ${opts.nodeVersion}`,
     `MCP PID: ${opts.pid}`,
     `Default cwd (WORKSPACE_PATH): ${opts.workspaceRoot}`,
-    `Admin UI: http://127.0.0.1:${opts.adminPort}/ui`,
     opts.workspaceRoots.length > 1
       ? `Additional workspace roots:\n${opts.workspaceRoots.slice(1).map((r) => `- ${r}`).join("\n")}`
       : "",
