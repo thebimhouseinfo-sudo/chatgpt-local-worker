@@ -1,6 +1,6 @@
 # Dev Coding — Operating SOP
 
-This file orchestrates the `dev-coding` Job Pack. The MCP core performs filesystem/shell/git/checkpoint/MCP actions. This pack supplies execution discipline, specialist skills, and deterministic gates.
+This file orchestrates the `dev-coding` Job Pack. GPTWorker's local execution core provides filesystem, shell, git, project-context, and node_repl operations through `work_tool`. Automatic checkpoints are internal filesystem safety, not a separate callable tool. This pack supplies execution discipline, specialist skills, and deterministic gates.
 
 `dev-coding` is an **implementation job with implementation-scoped execution planning**. Its normal starting point is the existing planning bundle, not a fresh full-repository review. The separate `dev-planing` Job Pack is for cases where deep repository review, architecture/design, or a durable project-level planning bundle is itself the primary job.
 
@@ -137,7 +137,7 @@ Do not load every skill by default. Use the smallest relevant set so planning ar
 - Preserve public behavior unless the plan/task intentionally changes it.
 - Avoid speculative refactors, unrelated formatting, broad renames, and drive-by dependency upgrades.
 - Re-read each edited area and run the cheapest meaningful check before expanding the change.
-- Use checkpoints/rewind as recovery, not as permission for careless bulk edits.
+- Rely on GPTWorker's automatic filesystem checkpoints as background safety; do not assume a callable rewind tool exists.
 - If current code contradicts a supplied plan, inspect only enough surrounding evidence to determine whether implementation details drifted or the plan is stale; preserve the intended outcome.
 - Revise the execution sequence when implementation evidence changes local scope/order; do not silently redesign the system.
 
