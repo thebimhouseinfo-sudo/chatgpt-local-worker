@@ -48,7 +48,7 @@ const JobMetaSchema = z
     runtime: z
       .object({
         preload_families: z
-          .array(z.enum(["filesystem", "shell", "git", "context", "rewind", "repl", "ponytail", "mcp"]))
+          .array(z.enum(JOB_PRELOAD_FAMILIES))
           .optional()
           .default([]),
       })

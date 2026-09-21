@@ -24,7 +24,7 @@ Development-only tests are not rewrite targets. `scripts/test-*.mjs` and other t
 - [x] Quarantine unused `profiles/chatgpt-connector-description.txt`.
 - [x] Quarantine unused root `.gptworker-driver-epoch`.
 - [x] Retire standalone `stop.ps1`; tray/reset-runtime remains the supported stop/reset path.
-- [x] Remove inert preload tokens `mcp`, `ponytail`, and `rewind` from runtime-family policy and default Job configs.
+- [x] Remove inert preload tokens `mcp`, `ponytail`, and `rewind` from runtime-family policy, Job runtime schema, and default Job configs.
 - [ ] Run local TypeScript build.
 - [ ] Run Job Pack validation.
 - [ ] Run runtime acceptance for filesystem, shell/process, git, context, node_repl, and workspace-boundary behavior.
