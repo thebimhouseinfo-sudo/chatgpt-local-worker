@@ -7,14 +7,19 @@ let defaultCwd = process.cwd();
 const callWorkspace = new AsyncLocalStorage<string>();
 
 function comparablePath(value: string): string {
-  const resolved = path.resolve(value).replace(/[\\/]+$/, "");
-  return process.platform === "win32" ? resolved.toLowerCase() : resolved;
+  const resolved = path.resolve(value);
+  const filesystemRoot = path.parse(resolved).root;
+  const normalized =
+    resolved === filesystemRoot
+      ? resolved
+      : resolved.replace(/[\\/]+$/, "");
+  return process.platform === "win32" ? normalized.toLowerCase() : normalized;
 }
 
 function realpathSyncSafe(value: string): string {
-  const native = (fs.realpathSync as typeof fs.realpathSync & {
-    native?: (path: fs.PathLike) => string;
-  }).native;
+  const native = (fs.realpathSync as any).native as
+    | ((value: string) => string)
+    | undefined;
   return native ? native(value) : fs.realpathSync(value);
 }
 
