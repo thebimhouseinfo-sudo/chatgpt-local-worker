@@ -295,7 +295,6 @@ After confirmation, all actual workspace execution goes through work_tool.
 4. Edit through work_tool with apply_patch (preferred), multi_edit, edit_file, or write_file.
 5. Run builds/tests through work_tool with run_command for short work or start_process + process_output for long-running work.
 6. Dispatch git operations through work_tool without path arguments so they operate on the confirmed active workspace.
-7. Dispatch rewind through work_tool when needed. Shell-created changes are not automatically checkpointed.
 8. Families declared by the nominated Job may already be cached from confirmation-wait preload. Any other family is imported only on its first real work_tool call.
 9. If nomination changes before confirmation, treat the old prepared profile as stale and prepare the replacement Job profile.
 10. End or cancel the session with job_stop when the user is done. Pending/selected state can be cancelled without a work_handle; active work still requires its work_handle. The 10-minute idle timeout is only the safety fallback for abandoned active work.
@@ -333,7 +332,6 @@ All tools return JSON: { ok, tool, summary, data }
 - work_tool operations shell_status / shell_reset: persistent shell state
 - work_tool operations git_status / git_diff / git_add / git_commit / git_branch / git_restore / git_stash: git
 - work_tool operations project_context / list_skills / load_skill / load_path_rules: active-workspace context
-- work_tool operation rewind: checkpoint/undo
 - when a dedicated operation is unavailable, dispatch run_command through work_tool; node_repl is not the fallback for routine filesystem mutation
 
 ## Paths
