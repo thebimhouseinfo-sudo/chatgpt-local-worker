@@ -22,7 +22,7 @@ Development-only tests are not rewrite targets. `scripts/test-*.mjs` and other t
 - [x] Retire the no-op legacy permission abstraction `src/lib/permissions.ts`.
 - [x] Report confirmed-workspace authority directly instead of the obsolete `open/full machine` permission profile.
 - [x] Quarantine unused `profiles/chatgpt-connector-description.txt`.
-- [x] Quarantine unused root `.gptworker-driver-epoch`.
+- [x] Move driver epoch runtime state out of the repository into `getWorkerDataRoot()` and quarantine the obsolete tracked root marker.
 - [x] Retire standalone `stop.ps1`; tray/reset-runtime remains the supported stop/reset path.
 - [x] Remove inert preload tokens `mcp`, `ponytail`, and `rewind` from runtime-family policy, Job runtime schema, and default Job configs.
 - [ ] Run local TypeScript build.

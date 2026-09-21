@@ -2,7 +2,7 @@ import { createHash, randomBytes, timingSafeEqual } from "node:crypto";
 import fs from "node:fs/promises";
 import path from "node:path";
 import { appendActivity } from "./activity-log.js";
-import { getWorkerHome } from "./worker-home.js";
+import { getWorkerDataRoot } from "./worker-home.js";
 
 export interface WorkRegistration {
   executionId: string;
@@ -92,9 +92,9 @@ async function canonicalWorkspace(workspace: string): Promise<string> {
 async function nextDriverEpoch(): Promise<number> {
   if (epochPromise) return epochPromise;
   epochPromise = (async () => {
-    const root = getWorkerHome();
-    const file = path.join(root, ".gptworker-driver-epoch");
-    await fs.mkdir(root, { recursive: true });
+    const dataRoot = getWorkerDataRoot();
+    const file = path.join(dataRoot, ".gptworker-driver-epoch");
+    await fs.mkdir(dataRoot, { recursive: true });
     const previous = await fs
       .readFile(file, "utf8")
       .then((raw) => Number.parseInt(raw.trim(), 10))
