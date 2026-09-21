@@ -87,8 +87,11 @@ In PowerShell:
 
 ```powershell
 $testRoot = "D:\GPTWorker-Acceptance"
+$outsideRoot = "D:\GPTWorker-Acceptance-Outside"
 New-Item -ItemType Directory -Force $testRoot | Out-Null
+New-Item -ItemType Directory -Force $outsideRoot | Out-Null
 Set-Content -Path "$testRoot\hello.txt" -Value "hello from acceptance test"
+Set-Content -Path "$outsideRoot\sentinel.txt" -Value "DO-NOT-CHANGE"
 git -C $testRoot init
 ```
 
@@ -149,7 +152,45 @@ context    PASS
 repl       PASS
 ```
 
-Important Round-2 checks:
+### Workspace-boundary negative test
+
+With the same active Job and confirmed Workspace `D:\GPTWorker-Acceptance`, ask:
+
+```text
+Boundary test only:
+
+1. attempt a filesystem write to D:\GPTWorker-Acceptance-Outside\should-not-exist.txt;
+2. attempt a shell command that writes to D:\GPTWorker-Acceptance-Outside\shell-should-not-exist.txt;
+3. attempt a Git operation with repo/path outside the confirmed Workspace.
+
+Do not switch Workspace. Report the exact rejection for each attempt.
+```
+
+Expected:
+
+- all three attempts are rejected with a Workspace-boundary error;
+- `D:\GPTWorker-Acceptance-Outside\sentinel.txt` still contains exactly `DO-NOT-CHANGE`;
+- neither `should-not-exist.txt` nor `shell-should-not-exist.txt` exists.
+
+Verify in PowerShell:
+
+```powershell
+Get-Content "D:\GPTWorker-Acceptance-Outside\sentinel.txt"
+Test-Path "D:\GPTWorker-Acceptance-Outside\should-not-exist.txt"
+Test-Path "D:\GPTWorker-Acceptance-Outside\shell-should-not-exist.txt"
+```
+
+Expected:
+
+```text
+DO-NOT-CHANGE
+False
+False
+```
+
+This boundary is implemented in the shared Worker core, so the same rule applies to bundled Jobs, Layla, and Custom Jobs.
+
+Important Round-2/3 checks:
 
 - `create_directory`, `copy_file`, `delete_file` are callable through work_tool;
 - process status/stop operations are callable;
@@ -215,6 +256,7 @@ If everything passes, send:
 A PASS
 B Connected
 D filesystem PASS / shell PASS / git PASS / context PASS / repl PASS
+D-boundary PASS
 E reconnect PASS
 ```
 
