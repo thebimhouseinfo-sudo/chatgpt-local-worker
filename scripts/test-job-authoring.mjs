@@ -276,5 +276,5 @@ await assert.rejects(
 
 await removeJobPack("test-job");
 
-await fs.rm(tempRoot, { recursive: true, force: true });
+await fs.rm(tempRoot, { recursive: true, force: true, maxRetries: 5, retryDelay: 100 });
 console.log("test-job-authoring: ok");

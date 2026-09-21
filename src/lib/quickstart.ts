@@ -43,7 +43,7 @@ Hãy chọn Job và đưa tôi **thư mục làm việc** để bắt đầu.
 
 Ví dụ: \`2  C:\\Projects\\my-app\` hoặc  \`Dev Planing C:\\Projects\\my-app\`
 
-Hoặc gõ \`gptworker/\` để xem các system commands.
+Hoặc gõ \`gr/\` để xem các system commands.
 `.trim();
 
 export function buildGptworkerWelcome(
@@ -143,7 +143,7 @@ Thay vì mỗi lần đều giải thích lại quy trình, bạn có thể tạ
 
 Ví dụ, muốn tạo một Job chuyên làm PowerPoint:
 
-\`gptworker/job create\`
+\`gr/job create\`
 
 Sau đó mô tả:
 
@@ -158,36 +158,36 @@ Từ lần sau, Custom Job đó có thể xuất hiện trong danh sách khi g�
 
 Gõ:
 
-\`gptworker/\`
+\`gr/\`
 
 để xem các system commands.
 
 Các command hiện có:
 
-- \`gptworker/help\` — xem hướng dẫn sử dụng.
-- \`gptworker/job list\` — xem các Job hiện có.
-- \`gptworker/job create\` — tạo Custom Job mới.
-- \`gptworker/job update\` — cập nhật một Custom Job.
-- \`gptworker/job remove\` — xóa một Custom Job.
-- \`gptworker/job export\` — xuất Custom Job ra file để lưu hoặc chia sẻ.
-- \`gptworker/job import\` — nhập Custom Job từ file.
-- \`gptworker/job stop\` — dừng công việc hiện tại và đưa GPTWorker về trạng thái idle.
+- \`gr/help\` — xem hướng dẫn sử dụng.
+- \`gr/job list\` — xem các Job hiện có.
+- \`gr/job create\` — tạo Custom Job mới.
+- \`gr/job update\` — cập nhật một Custom Job.
+- \`gr/job remove\` — xóa một Custom Job.
+- \`gr/job export\` — xuất Custom Job ra file để lưu hoặc chia sẻ.
+- \`gr/job import\` — nhập Custom Job từ file.
+- \`gr/job stop\` — dừng công việc hiện tại và đưa GPTWorker về trạng thái idle.
 `.trim();
 
 export const GPTWORKER_ROOT_MENU = `
 Các command hiện có:
 
-1 \`gptworker/help\` — xem hướng dẫn sử dụng.
-2 \`gptworker/job list\` — xem các Job hiện có.
-3 \`gptworker/job create\` — tạo Custom Job mới.
-4 \`gptworker/job update\` — cập nhật một Custom Job.
-5 \`gptworker/job remove\` — xóa một Custom Job.
-6 \`gptworker/job export\` — xuất Custom Job ra file để lưu hoặc chia sẻ.
-7 \`gptworker/job import\` — nhập Custom Job từ file.
-8 \`gptworker/job stop\` — dừng công việc hiện tại và đưa GPTWorker về trạng thái idle.
+1 \`gr/help\` — xem hướng dẫn sử dụng.
+2 \`gr/job list\` — xem các Job hiện có.
+3 \`gr/job create\` — tạo Custom Job mới.
+4 \`gr/job update\` — cập nhật một Custom Job.
+5 \`gr/job remove\` — xóa một Custom Job.
+6 \`gr/job export\` — xuất Custom Job ra file để lưu hoặc chia sẻ.
+7 \`gr/job import\` — nhập Custom Job từ file.
+8 \`gr/job stop\` — dừng công việc hiện tại và đưa GPTWorker về trạng thái idle.
 
-Nhập tiếp \`1\` hoặc \`gptworker/help\` để xem hướng dẫn sử dụng.
-Nhập tiếp \`3\` hoặc \`gptworker/job create\` để bắt đầu tạo custom job
+Nhập tiếp \`1\` hoặc \`gr/help\` để xem hướng dẫn sử dụng.
+Nhập tiếp \`3\` hoặc \`gr/job create\` để bắt đầu tạo custom job
 `.trim();
 
 export const GPTWORKER_IDLE_PROMPT = buildGptworkerWelcome();
@@ -237,7 +237,7 @@ Pass the exact current user turn as \`user_turn\`. Do not reconstruct it from me
 
 The handshake returns exactly one mode:
 - \`ACTIVE\` — either the exact current user turn starts with \`@gptworker\`, or this same MCP session was previously armed by a bare \`@gptworker\` and the current continuation supplies the matching absolute Workspace. Task details may still be incomplete. Carry the returned \`admission_token\` into \`workspace_discover\`, \`job_select\`, and any pre-active Job switch.
-- \`CONTROL\` — the user explicitly requested a public GPTWorker command such as \`gptworker/help\` or \`gptworker/job list\`. Handle only that command; do not activate a Job unless the user separately starts work.
+- \`CONTROL\` — the user explicitly requested a public GPTWorker command such as \`gr/help\` (\`gptworker/help\`) or \`gr/job list\` (\`gptworker/job list\`). Handle only that command; do not activate a Job unless the user separately starts work.
 - \`INACTIVE\` — the user did not invoke GPTWorker for this work. STOP the GPTWorker flow immediately. Do not call discovery, job selection, nomination, or work tools. Do not ask the user to activate GPTWorker, do not ask for a Workspace on GPTWorker's behalf, and do not show an activation error. Continue answering as ordinary ChatGPT, or use another plugin/tool when that is what the user actually requested.
 
 Valid ACTIVE evidence is an explicit \`@gptworker\` flow observed by the server in this MCP session:
@@ -349,11 +349,11 @@ export function buildServerInstructions(
 ): string {
   const controlSurface = [
     "# GPTWorker static control surface — HIGHEST PRIORITY",
-    "For exact gptworker/ call gptworker_control once with surface=commands, then return the tool text verbatim and nothing else.",
-    "For exact gptworker/help call gptworker_control once with surface=help, then return the tool text verbatim and nothing else.",
+    "For exact gr/ or gptworker/ call gptworker_control once with surface=commands, then return the tool text verbatim and nothing else.",
+    "For exact gr/help or gptworker/help call gptworker_control once with surface=help, then return the tool text verbatim and nothing else.",
     "Do not call admission, job_list, workspace discovery, Job Runtime, filesystem, shell, or any work tool for these two static commands.",
     "Immediate contextual shortcuts are valid only after GPTWorker itself displayed the numbered choice list that defines them.",
-    "Immediately after the gptworker/ command menu, a reply containing only 1 through 8 means the command displayed at that number. Route 1 through gptworker_control(surface=help); route the remaining numbers to their displayed command only.",
+    "Immediately after the gr/ (or gptworker/) command menu, a reply containing only 1 through 8 means the command displayed at that number. Route 1 through gptworker_control(surface=help); route the remaining numbers to their displayed command only.",
     "Immediately after the bare @gptworker Welcome, a displayed Job number or displayed Job name may select that displayed Job in the already-armed flow.",
     "Outside those immediately preceding choice lists, never interpret a bare number as a GPTWorker command or Job.",
   ].join("\n");
@@ -372,7 +372,7 @@ export function buildServerInstructions(
     `Startup root: ${workspaceRoot}`,
     `Startup roots: ${workspaceRoots.join("; ")}`,
     "bare @gptworker — call job_list once with activation_request, then return its approved welcome_text verbatim and nothing else",
-    "Public static commands gptworker/ and gptworker/help use only gptworker_control; return its text verbatim and do not invoke any other tool",
+    "Public static commands gr/ (or gptworker/) and gr/help (or gptworker/help) use only gptworker_control; return its text verbatim and do not invoke any other tool",
     "User-facing Welcome, Help, root menu, confirmation, and folder prompts must never introduce technical path wording such as absolute path, absolute local folder, thư mục tuyệt đối, or đường dẫn tuyệt đối; internal path validation remains unchanged.",
   ].join("\n");
 

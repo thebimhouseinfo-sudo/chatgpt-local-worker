@@ -1,4 +1,5 @@
 const CONTROL_TOOLS = new Set([
+  "gptworker_control",
   "gptworker_admission",
   "job_list",
   "job_create",
@@ -25,6 +26,12 @@ const SHELL_TOOLS = new Set([
   "run_command", "shell_status", "shell_reset", "start_process",
   "process_status", "process_output", "stop_process", "clear_processes",
 ]);
+
+export { CONTROL_TOOLS };
+
+export function isControlTool(toolName: string): boolean {
+  return CONTROL_TOOLS.has(toolName);
+}
 
 export function requiresWorkHandle(toolName: string): boolean {
   return !toolName.includes("__") && !CONTROL_TOOLS.has(toolName);

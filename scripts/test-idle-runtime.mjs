@@ -104,14 +104,14 @@ if (!tunnel.includes('$argumentLine = "run --profile-file $quotedProfile"')) {
 }
 
 for (const required of [
-  "Ở Permissions, chọn Restricted.",
-  "Tìm dòng Tunnels, rồi bật CẢ HAI quyền:",
+  "O Permissions, chon Restricted.",
+  "Tim dong Tunnels, roi bat CA HAI quyen:",
   "[x] Read",
   "[x] Use",
-  "KHÔNG chọn Read Only",
-  "KHÔNG cần bật All cho toàn bộ API key.",
-  "Nếu có mục chọn ChatGPT workspace, chọn đúng workspace",
-  "API key giống như chìa khóa",
+  "KHONG chon Read Only",
+  "KHONG can bat All cho toan bo API key.",
+  "Neu co muc chon ChatGPT workspace, chon dung workspace",
+  "API key giong nhu chia khoa",
 ]) {
   if (!tunnel.includes(required)) {
     throw new Error(`setup wizard is missing non-developer guidance: ${required}`);

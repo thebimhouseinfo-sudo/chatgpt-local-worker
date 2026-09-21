@@ -9,6 +9,7 @@ process.env.LOCAL_WORKER_HOME = tempHome;
 
 const repoRoot = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
 const jobsRoot = path.join(repoRoot, "jobs");
+process.env.DEFAULT_JOB_PACKS_PATH = jobsRoot;
 
 const { JobRuntime } = await import("../dist/jobs/job-runtime.js");
 const { AdmissionRuntime } = await import("../dist/lib/activation-policy.js");

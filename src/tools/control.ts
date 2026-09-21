@@ -12,12 +12,12 @@ export function registerGptworkerControlTool(server: McpServer): void {
     {
       title: "GPTWorker Static Control",
       description:
-        "Ultra-light static control surface. Call exactly once for gptworker/ (surface=commands) or gptworker/help (surface=help), including their immediate contextual shortcuts. No Job scan, admission, filesystem, workspace, runtime loading, or state changes. Return the tool text to the user verbatim and nothing else.",
+        "Ultra-light static control surface. Call exactly once for gr/ or gptworker/ (surface=commands) or gr/help or gptworker/help (surface=help), including their immediate contextual shortcuts. No Job scan, admission, filesystem, workspace, runtime loading, or state changes. Return the tool text to the user verbatim and nothing else.",
       inputSchema: {
         surface: z
           .enum(["commands", "help"])
           .describe(
-            "commands for gptworker/; help for gptworker/help"
+            "commands for gr/ or gptworker/; help for gr/help or gptworker/help"
           ),
       },
       outputSchema: {

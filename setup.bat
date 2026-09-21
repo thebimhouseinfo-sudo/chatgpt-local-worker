@@ -143,7 +143,7 @@ if errorlevel 1 goto :failed
 del /q "%LOCALAPPDATA%\GPTWorker\tray-ready.json" >nul 2>nul
 
 echo Starting GPTWorker tray host...
-start "" powershell -NoProfile -STA -WindowStyle Hidden -ExecutionPolicy Bypass -File "%~dp0gptworker-tray.ps1"
+wscript "%~dp0gptworker-tray.vbs"
 
 echo Waiting for tray host...
 powershell -NoProfile -ExecutionPolicy Bypass -File "%~dp0wait-tray-ready.ps1" -TimeoutSeconds 10
@@ -175,7 +175,7 @@ echo   3. Image 4: Name=gptworker, Connection=Tunnel, select the Tunnel from the
 echo   4. Do NOT enter a Server URL and do NOT use "Use tunnel ID instead".
 echo   5. Image 5: after Connect/Create, restart Windows.
 echo   6. After Windows starts again, open ChatGPT and type @gptworker.
-echo   7. Then type gptworker/help and read the usage guide before the first job.
+echo   7. Then type gr/help (or gptworker/help) and read the usage guide before the first job.
 echo.
 echo The guide images live in docs\setup-guide\images\.
 echo.
@@ -185,7 +185,7 @@ echo ========================================
 echo GPTWorker is now registered to start automatically with this Windows user.
 echo Complete the visual guide, then RESTART WINDOWS to verify auto-start.
 echo After Windows starts again, open ChatGPT and type @gptworker.
-echo Then type gptworker/help and read the usage guide before the first job.
+echo Then type gr/help (or gptworker/help) and read the usage guide before the first job.
 echo run.bat remains available only as a source-build fallback/manual restart.
 echo.
 pause
@@ -200,7 +200,7 @@ findstr /B /C:"OPENAI_TUNNEL_ID=tunnel_" ".env" >nul 2>nul
 if not errorlevel 1 (
   findstr /B /C:"OPENAI_TUNNEL_API_KEY=sk-" ".env" >nul 2>nul
   if not errorlevel 1 (
-    start "" powershell -NoProfile -STA -WindowStyle Hidden -ExecutionPolicy Bypass -File "%~dp0gptworker-tray.ps1"
+    wscript "%~dp0gptworker-tray.vbs"
     echo Recovery tray launch requested.
   )
 )

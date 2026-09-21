@@ -7,6 +7,7 @@ import {
   summarizeInstructionContext,
 } from "../dist/lib/instruction-context.js";
 
+process.env.CHATGPT_TOOL_PROFILE = "full";
 const workspaceRoot = process.env.WORKSPACE_PATH || process.cwd();
 let passed = 0;
 let failed = 0;

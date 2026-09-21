@@ -7,19 +7,19 @@ Bare @gptworker:
 - append only existing eligible Custom Jobs after item 3;
 - never show the private mto Job in Welcome.
 
-gptworker/:
+gr/ (or gptworker/):
 - call gptworker_control exactly once with surface=commands;
 - return the tool text verbatim and nothing else;
 - do not call admission, job_list, workspace, filesystem, shell, or work tools.
 
-gptworker/help:
+gr/help (or gptworker/help):
 - call gptworker_control exactly once with surface=help;
 - return the tool text verbatim and nothing else;
 - do not call admission, job_list, workspace, filesystem, shell, or work tools.
 
 Contextual shortcuts:
 - a numeric shortcut is valid only immediately after GPTWorker itself displayed the numbered menu/list that defines it;
-- immediately after gptworker/, 1-8 map only to the command shown at that number;
+- immediately after gr/ (or gptworker/), 1-8 map only to the command shown at that number;
 - immediately after the bare @gptworker Welcome, a displayed Job number/name may select that Job inside the already-armed flow;
 - never interpret bare numbers as GPTWorker shortcuts outside those immediate choice contexts;
 - do not invent other shortcuts.

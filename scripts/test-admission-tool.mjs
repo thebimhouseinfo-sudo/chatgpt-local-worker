@@ -85,4 +85,11 @@ if (!JSON.stringify(control).includes('"mode":"CONTROL"')) {
   throw new Error("explicit GPTWorker public command must be CONTROL");
 }
 
+const controlGr = await admission.callback({
+  user_turn: "gr/job list",
+});
+if (!JSON.stringify(controlGr).includes('"mode":"CONTROL"')) {
+  throw new Error("explicit gr/ public command must be CONTROL");
+}
+
 console.log("test-admission-tool: ok");

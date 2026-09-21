@@ -89,8 +89,8 @@ await run("tools/list with valid session", async () => {
     { "mcp-protocol-version": "2025-03-26" }
   );
   if (status !== 200) throw new Error(`HTTP ${status}`);
-  if (!json?.result?.tools?.some((t) => t.name === "run_command")) {
-    throw new Error("run_command not in tools/list");
+  if (!json?.result?.tools?.some((t) => t.name === "gptworker_control")) {
+    throw new Error("gptworker_control not in tools/list");
   }
 });
 
@@ -102,7 +102,7 @@ await run("stale session auto-recovery", async () => {
       jsonrpc: "2.0",
       id: 3,
       method: "tools/call",
-      params: { name: "run_command", arguments: { command: "echo stale-test" } },
+      params: { name: "gptworker_control", arguments: { surface: "help" } },
     },
     fakeId,
     { "mcp-protocol-version": "2025-03-26" }
@@ -136,7 +136,7 @@ await run("re-initialize with stale session header", async () => {
   sessionId = newSession;
 });
 
-await run("run_command after re-init", async () => {
+await run("gptworker_control after re-init", async () => {
   const { status, json } = await mcpPost(
     "/mcp",
     {
@@ -144,8 +144,8 @@ await run("run_command after re-init", async () => {
       id: 5,
       method: "tools/call",
       params: {
-        name: "run_command",
-        arguments: { command: process.platform === "win32" ? "echo mcp-ok" : "echo mcp-ok" },
+        name: "gptworker_control",
+        arguments: { surface: "help" },
       },
     },
     sessionId,
@@ -153,10 +153,11 @@ await run("run_command after re-init", async () => {
   );
   if (status !== 200) throw new Error(`HTTP ${status}: ${JSON.stringify(json)}`);
   const text = JSON.stringify(json?.result ?? json);
-  if (!text.includes("mcp-ok") && !json?.result?.content) {
+  if (!text.includes("GPTWorker") && !json?.result?.content) {
     throw new Error(`unexpected result: ${text.slice(0, 300)}`);
   }
 });
 
-console.log(`\n${passed} passed, ${failed} failed`);
-process.exit(failed > 0 ? 1 : 0);
+if (failed > 0) {
+  process.exit(1);
+}

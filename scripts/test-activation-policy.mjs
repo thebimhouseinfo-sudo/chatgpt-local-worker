@@ -41,6 +41,18 @@ const control = fresh.check({ userTurn: "gptworker/job list" });
 assert.equal(control.mode, "CONTROL");
 assert.equal(control.claimed, false);
 
+const controlGr = fresh.check({ userTurn: "gr/job list" });
+assert.equal(controlGr.mode, "CONTROL");
+assert.equal(controlGr.claimed, false);
+
+const controlGrHelp = fresh.check({ userTurn: "gr/help" });
+assert.equal(controlGrHelp.mode, "CONTROL");
+assert.equal(controlGrHelp.claimed, false);
+
+const controlGrMenu = fresh.check({ userTurn: "gr/" });
+assert.equal(controlGrMenu.mode, "CONTROL");
+assert.equal(controlGrMenu.claimed, false);
+
 // Current-turn explicit @gptworker works.
 const explicitAdmission = fresh.check({
   userTurn: `@gptworker sửa app ở ${workspace} để thêm nút regenerate`,
@@ -187,7 +199,7 @@ assert.throws(
       activationRequest: `Sửa app ở ${workspace}`,
       bindings: { workspace },
     }),
-  /literal @gptworker/
+  /start with @gptworker/
 );
 
 assert.throws(

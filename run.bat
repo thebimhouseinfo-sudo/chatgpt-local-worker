@@ -48,7 +48,7 @@ if errorlevel 1 (
 del /q "%LOCALAPPDATA%\GPTWorker\tray-ready.json" >nul 2>nul
 
 echo Starting GPTWorker tray host...
-start "" powershell -NoProfile -STA -WindowStyle Hidden -ExecutionPolicy Bypass -File "%~dp0gptworker-tray.ps1"
+wscript "%~dp0gptworker-tray.vbs"
 
 echo Waiting for tray host...
 powershell -NoProfile -ExecutionPolicy Bypass -File "%~dp0wait-tray-ready.ps1" -TimeoutSeconds 10

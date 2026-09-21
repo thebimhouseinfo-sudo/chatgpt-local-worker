@@ -1,7 +1,16 @@
 /**
  * Verify slim tool profile exposes expected tools only.
  */
-import { SLIM_CHATGPT_TOOLS, shouldExposeTool } from "../dist/lib/tool-profile.js";
+import {
+  SLIM_CHATGPT_TOOLS,
+  LOCAL_TOOL_CATALOG,
+  shouldExposeTool,
+} from "../dist/lib/tool-profile.js";
+import {
+  isControlTool,
+  requiresWorkHandle,
+  toolFamily,
+} from "../dist/lib/tool-work-policy.js";
 
 const ALL_KNOWN = [
   "read_text_file", "write_file", "apply_patch", "glob", "grep", "run_command",
@@ -40,11 +49,21 @@ try {
 
   if (shouldExposeTool("mcp_call", "slim")) throw new Error("mcp_call should be hidden in slim");
   if (shouldExposeTool("delete_directory", "slim")) throw new Error("delete_directory hidden");
-  if (shouldExposeTool("help", "slim")) throw new Error("gptworker/help must stay chat-only, not an MCP tool");
+  if (shouldExposeTool("help", "slim")) throw new Error("gr/help (gptworker/help) must stay chat-only, not an MCP tool");
   ok("heavy tools hidden and no generic help tool is exposed");
 
   if (!shouldExposeTool("mcp_call", "full")) throw new Error("full should expose all");
   ok("full profile exposes all");
+
+  // N1: Verify no orphan tools exist in LOCAL_TOOL_CATALOG
+  for (const t of LOCAL_TOOL_CATALOG) {
+    const isControl = isControlTool(t);
+    const needsWorkHandle = requiresWorkHandle(t);
+    if (isControl === needsWorkHandle) {
+      throw new Error(`Tool '${t}' classification conflict: isControl=${isControl}, requiresWorkHandle=${needsWorkHandle}`);
+    }
+  }
+  ok("all tools in LOCAL_TOOL_CATALOG are strictly classified as control or work tools");
 } catch (e) {
   fail("tool profile", e.message || e);
 }

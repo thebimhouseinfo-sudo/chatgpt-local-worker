@@ -286,7 +286,7 @@ export function registerJobTools(
     {
       title: "Job List",
       description:
-        "List available Job Packs. For bare @gptworker, pass activation_request: the response returns the approved Welcome with fixed Default Jobs 1-3 plus existing eligible Custom Jobs; mto is hidden from Welcome. For explicit gptworker/job list, omit activation_request and return the full Job catalog. Do not call this tool merely because an ordinary chat request resembles a Job.",
+        "List available Job Packs. For bare @gptworker, pass activation_request: the response returns the approved Welcome with fixed Default Jobs 1-3 plus existing eligible Custom Jobs; mto is hidden from Welcome. For explicit gr/job list or gptworker/job list, omit activation_request and return the full Job catalog. Do not call this tool merely because an ordinary chat request resembles a Job.",
       inputSchema: {
         query: z
           .string()

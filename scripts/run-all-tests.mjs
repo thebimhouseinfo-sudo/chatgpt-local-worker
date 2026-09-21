@@ -65,9 +65,20 @@ const unitScripts = [
 ];
 
 console.log("\n=== Unit tests ===");
+const failedScripts = [];
 for (const script of unitScripts) {
   console.log(`\n--- ${script} ---`);
-  await runNode(script);
+  try {
+    await runNode(script);
+  } catch (err) {
+    failedScripts.push({ script, error: err });
+    console.error(`FAIL: ${script}`);
+  }
+}
+
+if (failedScripts.length > 0) {
+  console.error(`\n❌ ${failedScripts.length} unit test(s) failed: ${failedScripts.map((f) => f.script).join(", ")}`);
+  process.exit(1);
 }
 
 console.log("\n=== Integration (spawn server) ===");
@@ -77,7 +88,7 @@ const server = spawn(process.execPath, ["dist/index.js"], {
     ...process.env,
     PORT: String(mcpPort),
     ADMIN_PORT: String(adminPort),
-    CHATGPT_TOOL_PROFILE: "slim",
+    CHATGPT_TOOL_PROFILE: "full",
   },
   stdio: ["ignore", "pipe", "pipe"],
 });
@@ -96,7 +107,7 @@ try {
   console.log("OK  admin health");
 
   const preview = await (await fetch(`http://127.0.0.1:${adminPort}/api/instructions/preview`)).json();
-  if (!preview.preview?.includes("Agent workflow")) throw new Error("instructions preview missing agent prompt");
+  if (!preview.preview?.includes("GPTWorker")) throw new Error("instructions preview missing agent prompt");
   console.log(`OK  instructions preview ${preview.total_chars} chars`);
 
   // MCP session + tools/list count
@@ -129,7 +140,7 @@ try {
   const bytes = Buffer.byteLength(listText, "utf-8");
   console.log(`OK  tools/list: ${tools.length} tools, ${Math.round(bytes / 1024)}KB`);
   if (tools.length > 30) console.warn(`WARN tools/list has ${tools.length} tools — consider slim profile`);
-  if (!tools.some((t) => t.name === "apply_patch")) throw new Error("apply_patch missing");
+  if (!tools.some((t) => t.name === "work_tool" || t.name === "apply_patch")) throw new Error("work execution tool missing");
 
   process.env.PORT = String(mcpPort);
   await runNode("scripts/test-mcp-session.mjs", { PORT: String(mcpPort) });

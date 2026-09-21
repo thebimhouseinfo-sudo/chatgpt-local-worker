@@ -4,6 +4,7 @@ import {
   GPTWORKER_HELP,
   GPTWORKER_ROOT_MENU,
 } from "../dist/lib/quickstart.js";
+import { requiresWorkHandle } from "../dist/lib/tool-work-policy.js";
 
 const registered = new Map();
 const fakeServer = {
@@ -34,5 +35,16 @@ assert.equal(help.content.length, 1);
 assert.equal(help.content[0].type, "text");
 assert.equal(help.content[0].text, GPTWORKER_HELP);
 assert.equal(help.structuredContent.text, GPTWORKER_HELP);
+
+assert.equal(
+  requiresWorkHandle("gptworker_control"),
+  false,
+  "gptworker_control must be a control tool and not require a work handle"
+);
+assert.equal(
+  requiresWorkHandle("gptworker_admission"),
+  false,
+  "gptworker_admission must be a control tool and not require a work handle"
+);
 
 console.log("test-control-surface: ok");

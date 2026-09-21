@@ -77,9 +77,9 @@ function isExplicitGptworkerInvocation(userTurn: string): boolean {
 function isPublicControlCommand(userTurn: string): boolean {
   const value = userTurn.trim();
   return (
-    /^gptworker\/$/i.test(value) ||
-    /^gptworker\/help$/i.test(value) ||
-    /^gptworker\/job\s+(list|create|update|remove|export|import|stop)$/i.test(value)
+    /^(?:gptworker|gr)\/$/i.test(value) ||
+    /^(?:gptworker|gr)\/help$/i.test(value) ||
+    /^(?:gptworker|gr)\/job\s+(list|create|update|remove|export|import|stop)$/i.test(value)
   );
 }
 

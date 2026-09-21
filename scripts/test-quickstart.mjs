@@ -31,7 +31,7 @@ Hãy chọn Job và đưa tôi **thư mục làm việc** để bắt đầu.
 
 Ví dụ: \`2  C:\\Projects\\my-app\` hoặc  \`Dev Planing C:\\Projects\\my-app\`
 
-Hoặc gõ \`gptworker/\` để xem các system commands.
+Hoặc gõ \`gr/\` để xem các system commands.
 `.trim();
 
 const expectedHelp = `
@@ -112,7 +112,7 @@ Thay vì mỗi lần đều giải thích lại quy trình, bạn có thể tạ
 
 Ví dụ, muốn tạo một Job chuyên làm PowerPoint:
 
-\`gptworker/job create\`
+\`gr/job create\`
 
 Sau đó mô tả:
 
@@ -127,36 +127,36 @@ Từ lần sau, Custom Job đó có thể xuất hiện trong danh sách khi g�
 
 Gõ:
 
-\`gptworker/\`
+\`gr/\`
 
 để xem các system commands.
 
 Các command hiện có:
 
-- \`gptworker/help\` — xem hướng dẫn sử dụng.
-- \`gptworker/job list\` — xem các Job hiện có.
-- \`gptworker/job create\` — tạo Custom Job mới.
-- \`gptworker/job update\` — cập nhật một Custom Job.
-- \`gptworker/job remove\` — xóa một Custom Job.
-- \`gptworker/job export\` — xuất Custom Job ra file để lưu hoặc chia sẻ.
-- \`gptworker/job import\` — nhập Custom Job từ file.
-- \`gptworker/job stop\` — dừng công việc hiện tại và đưa GPTWorker về trạng thái idle.
+- \`gr/help\` — xem hướng dẫn sử dụng.
+- \`gr/job list\` — xem các Job hiện có.
+- \`gr/job create\` — tạo Custom Job mới.
+- \`gr/job update\` — cập nhật một Custom Job.
+- \`gr/job remove\` — xóa một Custom Job.
+- \`gr/job export\` — xuất Custom Job ra file để lưu hoặc chia sẻ.
+- \`gr/job import\` — nhập Custom Job từ file.
+- \`gr/job stop\` — dừng công việc hiện tại và đưa GPTWorker về trạng thái idle.
 `.trim();
 
 const expectedRootMenu = `
 Các command hiện có:
 
-1 \`gptworker/help\` — xem hướng dẫn sử dụng.
-2 \`gptworker/job list\` — xem các Job hiện có.
-3 \`gptworker/job create\` — tạo Custom Job mới.
-4 \`gptworker/job update\` — cập nhật một Custom Job.
-5 \`gptworker/job remove\` — xóa một Custom Job.
-6 \`gptworker/job export\` — xuất Custom Job ra file để lưu hoặc chia sẻ.
-7 \`gptworker/job import\` — nhập Custom Job từ file.
-8 \`gptworker/job stop\` — dừng công việc hiện tại và đưa GPTWorker về trạng thái idle.
+1 \`gr/help\` — xem hướng dẫn sử dụng.
+2 \`gr/job list\` — xem các Job hiện có.
+3 \`gr/job create\` — tạo Custom Job mới.
+4 \`gr/job update\` — cập nhật một Custom Job.
+5 \`gr/job remove\` — xóa một Custom Job.
+6 \`gr/job export\` — xuất Custom Job ra file để lưu hoặc chia sẻ.
+7 \`gr/job import\` — nhập Custom Job từ file.
+8 \`gr/job stop\` — dừng công việc hiện tại và đưa GPTWorker về trạng thái idle.
 
-Nhập tiếp \`1\` hoặc \`gptworker/help\` để xem hướng dẫn sử dụng.
-Nhập tiếp \`3\` hoặc \`gptworker/job create\` để bắt đầu tạo custom job
+Nhập tiếp \`1\` hoặc \`gr/help\` để xem hướng dẫn sử dụng.
+Nhập tiếp \`3\` hoặc \`gr/job create\` để bắt đầu tạo custom job
 `.trim();
 
 assert.equal(
@@ -172,7 +172,7 @@ assert.equal(
 assert.equal(
   GPTWORKER_ROOT_MENU,
   expectedRootMenu,
-  "gptworker/ must be byte-for-byte equal to the approved command menu"
+  "gr/ must be byte-for-byte equal to the approved command menu"
 );
 
 assert.deepEqual(
@@ -218,7 +218,7 @@ assert.ok(
   !instructions.includes(GPTWORKER_HELP),
   "Help text must not bloat initialize instructions"
 );
-assert.ok(MCP_QUICKSTART.includes("reply with \`welcome_text\` verbatim"));
+assert.ok(MCP_QUICKSTART.includes("Reply with \`welcome_text\` verbatim"));
 assert.ok(MCP_QUICKSTART.includes("call \`job_list\` exactly once"));
 assert.ok(MCP_QUICKSTART.includes("private \`mto\` Job is never shown in Welcome"));
 assert.ok(!MCP_QUICKSTART.includes("## GPTWorker root command surface"));

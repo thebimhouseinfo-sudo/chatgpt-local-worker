@@ -74,7 +74,7 @@ If the activation gate is not satisfied:
 - do not show a JOB/FOLDER confirmation prompt;
 - continue as an ordinary ChatGPT conversation unless the user later supplies a valid activation trigger.
 
-Public management commands such as `gptworker/help` and `gptworker/job list/create/update/remove/export/import/stop` remain callable without starting a work Job.
+Public management commands such as `gr/help` (`gptworker/help`) and `gr/job list/create/update/remove/export/import/stop` (`gptworker/job ...`) remain callable without starting a work Job.
 
 The `job_select` tool must receive explicit current-session activation metadata. `activation_request` must be exact current-session user text proving the trigger. For `explicit_gptworker`, it must literally contain `@gptworker`. For `task_with_workspace`, it must contain the explicit absolute local path supplied by the user, and that path must match both `activation_workspace` and the selected `workspace` binding.
 

@@ -37,7 +37,28 @@ trap {
 Write-TrayLog "Tray host starting. PID=$PID"
 Remove-Item $TrayReadyPath -Force -ErrorAction SilentlyContinue
 
+# Ensure any associated console window is hidden immediately
+try {
+    $hideConsoleDefinition = @'
+    [System.Runtime.InteropServices.DllImport("kernel32.dll")]
+    public static extern System.IntPtr GetConsoleWindow();
+    [System.Runtime.InteropServices.DllImport("user32.dll")]
+    public static extern bool ShowWindow(System.IntPtr hWnd, int nCmdShow);
+'@
+    $win32Console = Add-Type -MemberDefinition $hideConsoleDefinition -Name "Win32ConsoleHider" -Namespace "GPTWorker" -PassThru -ErrorAction SilentlyContinue
+    if ($win32Console) {
+        $hwnd = [GPTWorker.Win32ConsoleHider]::GetConsoleWindow()
+        if ($hwnd -ne [System.IntPtr]::Zero) {
+            [void][GPTWorker.Win32ConsoleHider]::ShowWindow($hwnd, 0)
+        }
+    }
+} catch {}
+
 function Get-StartupCommand {
+    $vbsPath = Join-Path $ScriptDir "gptworker-tray.vbs"
+    if (Test-Path $vbsPath) {
+        return 'wscript.exe "' + $vbsPath + '"'
+    }
     return 'powershell.exe -NoProfile -STA -WindowStyle Hidden -ExecutionPolicy Bypass -File "' + $PSCommandPath + '"'
 }
 
