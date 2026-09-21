@@ -157,7 +157,7 @@ Never add Job Pack ids such as layla, dev-coding, mto, or dynamically discovered
 When the user sends exactly gptworker/help, reply with the prewritten GPTWORKER_HELP guide above. This is chat-only help: do not call an MCP tool, do not create/select a Job, do not infer a Workspace, and do not change Worker state.
 
 ## Bare GPTWorker invocation — dynamic Job list
-When the user invokes bare \`@gptworker\` with no concrete task + Workspace yet, call \`job_list\` exactly once with \`activation_request\` set to the exact current user text that starts with \`@gptworker\`. This arms the current MCP session as an explicit @gptworker flow and returns all currently available Jobs, including custom Jobs.
+When the user invokes bare \`@gptworker\` with no concrete task + Workspace yet, call \`job_list\` exactly once with \`activation_request\` set to the exact current user text containing literal \`@gptworker\`. This arms the current MCP session as an explicit @gptworker flow and returns all currently available Jobs, including custom Jobs.
 
 Do not call gptworker_admission, job_status, workspace_discover, or any work tool for the bare invocation.
 
@@ -167,13 +167,12 @@ Render the returned Jobs as a numbered list, then show exactly:
 Do not include the system command list here.
 
 If the user invoked \`@gptworker\` and already described a clear task but omitted the absolute local Workspace:
-- call \`gptworker_admission\` once on that same @gptworker turn so the explicit invocation is captured and an unbound \`admission_token\` is issued;
+- do not call tools yet;
 - infer the obvious default Job when confidence is high;
 - ask only for the absolute local Workspace;
-- when the user supplies the Workspace, reuse that same admission_token when calling \`job_select\`; do not run a second admission handshake from the path-only reply;
-- if the Job is genuinely ambiguous, keep the admission_token and show the short Job choices while asking for the Workspace.
+- if the Job is genuinely ambiguous, show the short default Job list and ask the user to choose.
 
-Do not call workspace_discover or any work tool merely because required task/workspace information is still incomplete.
+Do not spend a tool round-trip merely to discover that required task/workspace information is missing.
 
 ## Fast Job nomination
 A work request may enter GPTWorker only through an explicit @gptworker flow:

@@ -113,6 +113,8 @@ assert.ok(instructions.includes("Render the returned available Jobs as a numbere
 assert.ok(GPTWORKER_HELP.includes("**Job + Workspace local**"));
 assert.ok(!GPTWORKER_HELP.includes("## Kích hoạt GPTWorker"));
 assert.ok(MCP_QUICKSTART.includes("## GPTWorker internal admission handshake"));
+assert.ok(MCP_QUICKSTART.includes("When the user sends exactly gptworker/help"));
+assert.ok(!MCP_QUICKSTART.includes("gptworker/ help"));
 assert.ok(MCP_QUICKSTART.includes("Valid ACTIVE evidence is an explicit"));
 assert.ok(MCP_QUICKSTART.includes("fresh/unarmed session are NOT activation evidence"));
 assert.ok(MCP_QUICKSTART.includes("A fresh task + Workspace with no prior @gptworker must remain outside GPTWorker"));
@@ -125,8 +127,7 @@ assert.ok(MCP_QUICKSTART.includes("Continue answering as ordinary ChatGPT"));
 assert.ok(MCP_QUICKSTART.includes("another plugin/tool"));
 assert.ok(MCP_QUICKSTART.includes("admission_token"));
 assert.ok(MCP_QUICKSTART.includes("The @-flow arm is one-shot"));
-assert.ok(MCP_QUICKSTART.includes("starts with \`@gptworker\`"));
-assert.ok(!MCP_QUICKSTART.includes("current user turn literally contains \`@gptworker\`"));
+assert.ok(MCP_QUICKSTART.includes("exact current user text containing literal \`@gptworker\`"));
 assert.ok(MCP_QUICKSTART.includes("keep reusing that same admission_token"));
 assert.ok(MCP_QUICKSTART.includes("the admission_token is consumed"));
 assert.ok(MCP_QUICKSTART.includes("work_handle is the only work authority"));

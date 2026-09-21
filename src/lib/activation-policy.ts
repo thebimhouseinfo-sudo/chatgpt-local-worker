@@ -105,7 +105,7 @@ export class AdmissionRuntime {
   armExplicitAt(userTurn: string): boolean {
     this.cleanup();
     const request = userTurn?.trim();
-    if (!request || !isExplicitGptworkerInvocation(request)) return false;
+    if (!request || !/@gptworker\b/i.test(request)) return false;
     this.armedAtFlow = {
       invocationRequest: request,
       createdAt: Date.now(),

@@ -29,6 +29,14 @@ assert.equal(
   "@gptworker mentioned mid-sentence must not count as explicit invocation"
 );
 
+const connectorArmRuntime = new AdmissionRuntime();
+assert.equal(
+  connectorArmRuntime.armExplicitAt("connector mention: @gptworker"),
+  true,
+  "bare connector/job-list arming must preserve the previously working mention behavior"
+);
+assert.equal(connectorArmRuntime.isExplicitAtFlowArmed(), true);
+
 const control = fresh.check({ userTurn: "gptworker/job list" });
 assert.equal(control.mode, "CONTROL");
 assert.equal(control.claimed, false);
