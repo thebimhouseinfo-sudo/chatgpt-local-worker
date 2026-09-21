@@ -2,6 +2,7 @@ import { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import type { RegisteredTool } from "@modelcontextprotocol/sdk/server/mcp.js";
 import { z } from "zod";
 import { registerJobTools } from "./tools/jobs.js";
+import { registerGptworkerControlTool } from "./tools/control.js";
 import { registerAdmissionTool } from "./tools/admission.js";
 import { registerWorkGateway } from "./tools/work-gateway.js";
 import { registerWorkspaceDiscoveryTool } from "./tools/workspace-discovery.js";
@@ -115,7 +116,7 @@ export function createMcpServer(
   const server = new McpServer(
     {
       name: "local-worker-mcp-server",
-      version: "2.5.2",
+      version: "2.5.3",
     },
     {
       capabilities: {
@@ -132,6 +133,10 @@ export function createMcpServer(
   );
 
   configureToolRegistration(server);
+
+  // Static command/help response. This is intentionally registered before
+  // admission and Job Runtime because it does not need either of them.
+  registerGptworkerControlTool(server);
 
   // Admission authority is scoped to this MCP server/session so tokens cannot
   // authorize another chat/session.
