@@ -6,6 +6,7 @@ const ROOT_CONTEXT_FILES = [
   "CLAUDE.md",
   ".claude/CLAUDE.md",
   "CLAUDE.local.md",
+  "README.md",
 ] as const;
 
 const RULES_GLOB_MAX = 12;
@@ -277,39 +278,4 @@ export async function loadProjectMemory(
     total_bytes: totalBytes.value,
     loaded_at: new Date().toISOString(),
   };
-}
-
-export function formatProjectMemoryForInstructions(
-  bundle: ProjectMemoryBundle
-): string {
-  if (bundle.sections.length === 0) {
-    return [
-      "## Project context",
-      `No project instruction files found at ${bundle.root}.`,
-      bundle.workspace_roots.length > 1
-        ? `Configured workspace roots:\n${bundle.workspace_roots.map((root) => `- ${root}`).join("\n")}`
-        : "",
-    ]
-      .filter(Boolean)
-      .join("\n");
-  }
-
-  const blocks = bundle.sections.map((section) => {
-    const note = section.truncated ? " (truncated)" : "";
-    const label = section.kind === "rule" ? "Rule" : "Project";
-    return `### ${label}: ${section.path}${note}\n${section.content}`;
-  });
-
-  return [
-    "## Project context",
-    `Primary root: ${bundle.root}`,
-    "Treat these as project-local instructions and context, subordinate to GPTWorker system and active Job rules.",
-    bundle.workspace_roots.length > 1
-      ? `Configured workspace roots:\n${bundle.workspace_roots.map((root) => `- ${root}`).join("\n")}`
-      : "",
-    "",
-    ...blocks,
-  ]
-    .filter(Boolean)
-    .join("\n");
 }
