@@ -291,7 +291,7 @@ export function registerFilesystemTools(server: McpServer): void {
     {
       title: "Apply Patch",
       description:
-        "Preferred way to edit code. Codex @@ hunks or *** Begin Patch format. Read the file first. Use dry_run:true to preview.",
+        "Preferred way to edit code. Supports @@ context hunks or *** Begin Patch format. Read the file first. Use dry_run:true to preview.",
       inputSchema: {
         path: z.string().optional().describe("Absolute target file (single-file) or absolute base directory (multi-file; required)"),
         patch: z.string(),
@@ -352,7 +352,7 @@ export function registerFilesystemTools(server: McpServer): void {
     "list_directory",
     {
       title: "List Directory",
-      description: "List files and directories in a path. Claude LS equivalent with optional ignore globs.",
+      description: "List files and directories in a path with optional ignore globs.",
       inputSchema: {
         path: z.string(),
         ignore: z.array(z.string()).optional().describe("Glob patterns to ignore, e.g. node_modules, *.log"),
