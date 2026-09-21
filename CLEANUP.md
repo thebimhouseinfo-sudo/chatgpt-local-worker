@@ -223,11 +223,23 @@ GPTWorker có thể đọc project-local `CLAUDE.md` như một text context fil
 
 # 4. GROUP B — EXTRACT / REMAP → QUARANTINE OLD
 
-## STATUS: ⏳ PENDING
+## STATUS: ✅ DONE / QUARANTINED / STATIC VERIFIED
 
-Sau Group A, phần lớn Group B cũ đã hoàn tất hoặc trở thành obsolete.
+Group B đã hoàn tất theo target hiện tại:
 
-Group B hiện chỉ còn một target kiến trúc thực sự: **retire standalone rewind tool nhưng giữ checkpoint safety engine**.
+- standalone `rewind` tool/family đã bị loại khỏi active runtime;
+- `src/tools/rewind.ts` đã move sang `legacy/group-b/tools/rewind.ts`;
+- `src/lib/checkpoint.ts` vẫn active;
+- filesystem vẫn gọi `checkpointBefore(...)` trước các mutation;
+- Job parser vẫn accept legacy preload tokens `rewind`, `mcp`, `ponytail`;
+- WorkGateway hiện ignore các token không còn là runtime family thay vì load module;
+- `scripts/test-group-b-retired.mjs` đã được thêm vào default test chain.
+
+Static audit xác nhận active rewind path đã biến mất và checkpoint safety engine vẫn còn.
+
+GitHub Actions của Group B hiện vẫn infrastructure-blocked giống Group A: latest `test` và `windows-worker-smoke` jobs kết thúc với `steps=null`, nên chưa ghi nhận runtime CI PASS.
+
+Group B có một target kiến trúc: **retire standalone rewind tool nhưng giữ checkpoint safety engine**.
 
 ## B1. Keep checkpoint safety engine
 
@@ -533,14 +545,14 @@ Restore phải là thao tác chủ động.
 
 Group A quarantined.
 
-## Phase B — retire standalone rewind
+## Phase B — ✅ DONE
 
-1. keep checkpoint engine;
-2. remove rewind runtime family;
-3. remove rewind tool/profile/guidance;
-4. keep parser compatibility for legacy preload;
-5. quarantine `src/tools/rewind.ts`;
-6. validate checkpoint safety + Job activation.
+- checkpoint engine retained;
+- standalone rewind runtime family removed;
+- rewind tool/profile/guidance removed;
+- legacy preload compatibility retained;
+- old adapter quarantined at `legacy/group-b/tools/rewind.ts`;
+- Group B static guard added.
 
 ## Phase C1 — rewrite WorkGateway
 
