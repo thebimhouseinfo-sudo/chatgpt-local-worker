@@ -104,11 +104,15 @@ async function evaluateReplCode(
     const value = vm.runInContext(code, context, { timeout: timeoutMs });
     return value instanceof Promise ? await value : value;
   } catch (error) {
-    // vm.runInContext() intentionally runs like a normal Node REPL so the
-    // value of the final expression is observable. Top-level await is the one
-    // common REPL case that Script syntax cannot parse, so retry an expression
-    // form inside an async function.
-    if (!(error instanceof SyntaxError)) throw error;
+    // Errors created inside vm.Context belong to that VM realm, so
+    // `error instanceof SyntaxError` is not reliable in the host realm.
+    // Match by error.name instead before attempting the top-level-await
+    // expression fallback.
+    const errorName =
+      error && typeof error === "object" && "name" in error
+        ? String((error as { name?: unknown }).name)
+        : "";
+    if (errorName !== "SyntaxError") throw error;
 
     const trimmed = code.trim().replace(/;\s*$/, "");
     const asyncExpression = `(async () => (${trimmed}))()`;
