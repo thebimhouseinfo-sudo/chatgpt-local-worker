@@ -1,24 +1,5 @@
-import { CODEX_AGENT_PROMPT } from "./codex-agent-prompt.js";
-import {
-  collectGitSnapshot,
-  formatEnvironmentForInstructions,
-  formatGitSnapshotForInstructions,
-  type GitSnapshot,
-} from "./git-snapshot.js";
-import {
-  formatProjectMemoryForInstructions,
-  loadProjectMemory,
-  type ProjectMemoryBundle,
-} from "./project-memory.js";
-import { appendAutoMemory, formatAutoMemoryForInstructions, loadAutoMemory } from "./auto-memory.js";
-import { formatSkillsForInstructions, loadProjectSkills } from "./skills-loader.js";
 import { getChatGptToolProfile } from "./tool-profile.js";
 import { buildServerInstructions } from "./quickstart.js";
-import {
-  formatWorkerPolicyForInstructions,
-  loadWorkerPolicy,
-  type WorkerPolicyBundle,
-} from "./worker-policy.js";
 
 export interface InstructionContextOptions {
   workspaceRoot: string;
@@ -27,9 +8,9 @@ export interface InstructionContextOptions {
 }
 
 export interface InstructionContext {
-  workerPolicy: WorkerPolicyBundle;
-  projectMemory: ProjectMemoryBundle;
-  git: GitSnapshot;
+  workspaceRoot: string;
+  workspaceRoots: string[];
+  toolProfile: "full" | "slim";
   contextText: string;
   instructionsText: string;
   instructionBytes: number;
@@ -38,47 +19,26 @@ export interface InstructionContext {
 export async function buildInstructionContext(
   opts: InstructionContextOptions
 ): Promise<InstructionContext> {
-  const [workerPolicy, projectMemory, git, skills, autoMemory] = await Promise.all([
-    loadWorkerPolicy(),
-    loadProjectMemory(opts.workspaceRoot, { workspaceRoots: opts.workspaceRoots }),
-    collectGitSnapshot(opts.workspaceRoot),
-    loadProjectSkills(opts.workspaceRoot),
-    loadAutoMemory(opts.workspaceRoot),
-  ]);
+  const toolProfile = getChatGptToolProfile();
 
-  const profile = getChatGptToolProfile();
+  const contextText = [
+    "## GPTWorker control plane",
+    "GPTWorker starts idle. Startup folders are environment context only; they are not Job/work authority.",
+    "Project files, project memory, skills, and Git state are loaded only after an explicit GPTWorker Job flow requires them.",
+    `Tool profile: **${toolProfile}**.`,
+    "",
+    "## Runtime environment",
+    `Platform: ${process.platform}`,
+    `Node: ${process.version}`,
+    `MCP PID: ${opts.pid}`,
+    `Startup root: ${opts.workspaceRoot}`,
+    opts.workspaceRoots.length > 1
+      ? `Configured startup roots:\n${opts.workspaceRoots.map((root) => `- ${root}`).join("\n")}`
+      : "",
+  ]
+    .filter(Boolean)
+    .join("\n");
 
-  const baseBlocks = [
-    CODEX_AGENT_PROMPT,
-    `Tool profile: **${profile}** (${profile === "slim" ? "core tools only — optimal for ChatGPT web" : "all tools exposed"}).`,
-    formatEnvironmentForInstructions({
-      workspaceRoot: opts.workspaceRoot,
-      workspaceRoots: opts.workspaceRoots,
-      pid: opts.pid,
-      nodeVersion: process.version,
-    }),
-  ];
-
-  // ChatGPT web uses the slim profile by default. Keep its initialize
-  // instructions small and control-plane focused: project memory, git state,
-  // skills, auto-memory, and the full WORKER.md are only useful after a Job
-  // starts and otherwise slow/confuse zero-tool commands.
-  const richContextBlocks =
-    profile === "full"
-      ? [
-          formatGitSnapshotForInstructions(git),
-          formatAutoMemoryForInstructions(autoMemory),
-          formatProjectMemoryForInstructions(projectMemory),
-          formatSkillsForInstructions(skills),
-          formatWorkerPolicyForInstructions(workerPolicy),
-        ]
-      : [
-          "Slim control plane: do not use repository/project memory as authority before a Job is selected and confirmed. Runtime gates and the selected Job Pack provide work authority.",
-        ];
-
-  const blocks = [...baseBlocks, ...richContextBlocks].filter(Boolean);
-
-  const contextText = blocks.join("\n\n");
   const instructionsText = buildServerInstructions(
     opts.workspaceRoot,
     opts.workspaceRoots,
@@ -87,38 +47,23 @@ export async function buildInstructionContext(
   );
 
   return {
-    workerPolicy,
-    projectMemory,
-    git,
+    workspaceRoot: opts.workspaceRoot,
+    workspaceRoots: [...opts.workspaceRoots],
+    toolProfile,
     contextText,
     instructionsText,
     instructionBytes: Buffer.byteLength(instructionsText, "utf-8"),
   };
 }
 
-export function summarizeInstructionContext(ctx: InstructionContext): Record<string, unknown> {
+export function summarizeInstructionContext(
+  ctx: InstructionContext
+): Record<string, unknown> {
   return {
-    worker_policy: {
-      path: ctx.workerPolicy.path,
-      loaded: ctx.workerPolicy.loaded,
-      truncated: ctx.workerPolicy.truncated,
-      bytes: ctx.workerPolicy.bytes,
-    },
-    root: ctx.projectMemory.root,
-    workspace_roots: ctx.projectMemory.workspace_roots,
-    memory_files: ctx.projectMemory.sections.map((s) => ({
-      path: s.path,
-      kind: s.kind,
-      truncated: s.truncated,
-    })),
-    memory_bytes: ctx.projectMemory.total_bytes,
+    mode: "control-plane",
+    root: ctx.workspaceRoot,
+    workspace_roots: ctx.workspaceRoots,
     instruction_bytes: ctx.instructionBytes,
-    git: ctx.git.is_repo
-      ? { branch: ctx.git.branch, commits: ctx.git.recent_commits?.length ?? 0 }
-      : { is_repo: false },
-    loaded_at: ctx.projectMemory.loaded_at,
-    tool_profile: getChatGptToolProfile(),
+    tool_profile: ctx.toolProfile,
   };
 }
-
-export { appendAutoMemory };

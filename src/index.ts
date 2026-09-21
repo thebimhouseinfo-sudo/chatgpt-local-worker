@@ -67,20 +67,8 @@ const instructionContext: InstructionContext = await buildInstructionContext({
   pid: process.pid,
 });
 
-if (instructionContext.projectMemory.sections.length > 0) {
-  console.log(
-    `[MCP] Project memory: ${instructionContext.projectMemory.sections.length} file(s) from ${workspaceRoot} (${instructionContext.projectMemory.total_bytes} bytes)`
-  );
-} else {
-  console.log(
-    `[MCP] Project memory: no CLAUDE.md/AGENTS.md at ${workspaceRoot} — set WORKSPACE_PATH to your project root`
-  );
-}
-if (instructionContext.git.is_repo) {
-  console.log(`[MCP] Git: branch ${instructionContext.git.branch}`);
-}
 console.log(
-  `[MCP] MCP instructions: ${Math.round(instructionContext.instructionBytes / 1024)}KB (agent prompt + env + git + memory)`
+  `[MCP] MCP instructions: ${Math.round(instructionContext.instructionBytes / 1024)}KB (control plane)`
 );
 console.log(`[MCP] Tool profile: ${getChatGptToolProfile()} (CHATGPT_TOOL_PROFILE)`);
 
