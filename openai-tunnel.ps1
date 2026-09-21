@@ -20,8 +20,8 @@ Set-Location $ScriptDir
 $TUNNEL_VERSION = "v0.0.14"
 $BinDir = Join-Path $ScriptDir "bin"
 $TunnelExe = Join-Path $BinDir "tunnel-client.exe"
-# Keep profile filename for compatibility with existing local installs.
-$ProfileName = "codex-local"
+# GPTWorker-owned tunnel profile.
+$ProfileName = "gptworker"
 $ProfileDir = Join-Path $ScriptDir "profiles"
 $ProfileFile = Join-Path $ProfileDir "$ProfileName.yaml"
 $ZipName = "tunnel-client-$TUNNEL_VERSION-windows-amd64.zip"
