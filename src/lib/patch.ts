@@ -1,5 +1,6 @@
 import fs from "fs/promises";
 import path from "path";
+import { validatePath } from "./path-security.js";
 
 /**
  * Apply unified diff and context-hunk patches to text.
@@ -266,6 +267,10 @@ export async function applyMultiFilePatch(
   const dryRun = options?.dry_run ?? false;
   const ops = parseMultiFilePatch(patchText, baseDir);
   if (ops.length === 0) throw new Error("No file operations found in patch");
+
+  for (const op of ops) {
+    op.path = await validatePath(op.path);
+  }
 
   const results: MultiPatchResult[] = [];
 
