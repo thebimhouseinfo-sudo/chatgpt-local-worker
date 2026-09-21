@@ -40,13 +40,14 @@ Do not use stale compatibility wording to override current Worker policy.
 
 ## Current Job catalog
 
-Canonical ready Job Packs:
+Ready Job Packs:
 
 - `dev-coding`
 - `dev-planing`
-- `mto`
+- `layla`
+- `mto` — private/domain-specific pack; intentionally omitted from the bare `@gptworker` Welcome.
 
-Compatibility aliases may remain, but do not introduce new canonical names casually.
+The default user-facing Welcome uses `dev-coding`, `dev-planing`, and `layla`, followed only by eligible Custom Jobs. Compatibility aliases may remain, but do not introduce new canonical names casually.
 
 The mandatory runtime lifecycle is:
 
@@ -162,6 +163,6 @@ Avoid exact tool-count claims in prose; the exposed catalog changes over time. U
 
 ## Branding and compatibility
 
-User-facing product name is **ChatGPT Local Worker** / **Local Worker**.
+User-facing product name is **GPTWorker**.
 
-Legacy names may remain when they are compatibility surfaces or explicitly refer to inherited Codex interoperability, for example a legacy binary alias or Codex hook support. Do not let legacy names become the primary user-facing identity again.
+Repository/package/internal identifiers such as `chatgpt-local-worker`, `Local Worker`, and inherited Codex-compatible aliases may remain where they are technical or compatibility surfaces. Do not let those internal/legacy identifiers replace GPTWorker in operator-facing UX.

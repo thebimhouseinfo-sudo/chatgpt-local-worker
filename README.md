@@ -6,7 +6,7 @@
 
 </div>
 
-GPTWorker turns ChatGPT into a local worker for coding, planning, MTO, and other installed jobs. The normal user interface is ChatGPT itself.
+GPTWorker turns ChatGPT into a local worker for coding, planning, document/file work, and other installed Job Packs. The normal user interface is ChatGPT itself.
 
 The intended UX is deliberately simple:
 
@@ -117,7 +117,7 @@ Use **ChatGPT on the web** for this one-time connection step. Keep the local gui
 6. Tick the confirmation checkbox shown in the dialog and press **Connect/Create**.
 7. Follow screenshot `5.png`: **restart Windows**. This verifies that GPTWorker really starts automatically with the current Windows user.
 8. After Windows starts again, open ChatGPT and invoke `@gptworker`.
-9. Then type `gptworker/help` and read the usage guide before starting the first Job.
+9. Then type `gr/help` (or the compatibility alias `gptworker/help`) and read the usage guide before starting the first Job.
 
 The visual guide uses the screenshots in:
 
@@ -160,7 +160,7 @@ Then open ChatGPT and invoke:
 For the first use, continue with:
 
 ```text
-gptworker/help
+gr/help
 ```
 
 Read the built-in guide before starting the first Job. After that, `@gptworker` is the normal entry point. During source development, `run.bat` remains available only as a fallback/manual launcher.
@@ -314,11 +314,13 @@ The Admin API exposes recent persisted events at `/api/activity/history`. The ac
 
 Job Packs live under `jobs/`.
 
-Current ready jobs:
+Default user-facing jobs:
 
 - `dev-coding` — coding/debug/refactor/test/build work (`coding` alias);
 - `dev-planing` — architecture/repository/system planning (`planning` alias);
-- `mto` — HVAC quantity takeoff/update work.
+- `layla` — universal ad-hoc work across documents, spreadsheets, presentations, PDFs, and mixed local file sets.
+
+The repository also contains `mto` as a private/domain-specific Job Pack. It remains available when explicitly selected, but it is intentionally omitted from the bare `@gptworker` Welcome.
 
 Generic lifecycle:
 
@@ -327,6 +329,24 @@ DISCOVER → SELECT → RESOLVE → CONFIRM → EXECUTE → VALIDATE → COMPLET
 ```
 
 The execution core supplies filesystem, shell, git, checkpoint/rewind, project context, project skills/path rules, and optional upstream MCP tools. A Job Pack supplies the prescribed workflow and validation for its class of work.
+
+### System commands
+
+Use the short control surface for management commands:
+
+```text
+gr/
+gr/help
+gr/job list
+gr/job create
+gr/job update
+gr/job remove
+gr/job export
+gr/job import
+gr/job stop
+```
+
+The longer `gptworker/...` forms remain compatibility aliases. Public control commands do not start a work Job and do not require JOB/FOLDER confirmation.
 
 ## Full local access
 
@@ -343,6 +363,7 @@ setup.bat                # real first-time setup + Windows auto-start registrati
 setup-test.bat           # combined fake onboarding + real source tray test
 run.bat                  # source build + manual tray launcher/fallback
 gptworker-tray.ps1       # Windows tray supervisor / resident source host
+gptworker-tray.vbs        # silent Windows launcher used by auto-start/run.bat
 gptworker icon.png        # GPTWorker system-tray icon asset
 worker-state.json        # local current job/workspace (created locally, git-ignored)
 WORKER.md                # authoritative runtime policy
@@ -353,6 +374,8 @@ openai-tunnel.ps1        # Secure MCP Tunnel helper
 ```
 
 ## Manual development commands
+
+This repository uses **npm** as the canonical package manager; `package-lock.json` is the authoritative lockfile.
 
 For repository development:
 

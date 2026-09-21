@@ -16,14 +16,18 @@ setup.bat
 → create ChatGPT connection named gptworker
 
 EVERYDAY
-run.bat
-→ either call @gptworker, or send a concrete work request that includes an absolute local Workspace
+Windows sign-in
+→ GPTWorker tray + Worker + Secure MCP Tunnel auto-start
+→ open ChatGPT
+→ start work through @gptworker
 → resolve JOB + local FOLDER
 → explicit confirmation
 → work
 ```
 
 The local folder is the equivalent of **Open Folder** in an IDE. It is not configured permanently in `.env`.
+
+During source development, `run.bat` remains a manual rebuild/restart fallback; it is not the normal daily launcher.
 
 After confirmation, root `worker-state.json` is the persistent source of the current job/workspace:
 
@@ -42,27 +46,20 @@ After confirmation, root `worker-state.json` is the persistent source of the cur
 
 A new chat starts **idle and unclaimed**. Activation authority never carries across chats. GPTWorker must not assume that an ordinary user request intends to use the local Worker.
 
-GPTWorker may enter the Job-selection flow only when at least one activation condition is present:
+A work request may enter GPTWorker only through an explicit `@gptworker` flow:
 
-1. current-session user text explicitly invokes `@gptworker`; or
-2. a current-session user work request contains both:
-   - a concrete work request; and
-   - an explicit absolute local Workspace path that will be used as the selected Workspace.
+1. the current user turn starts with `@gptworker`; or
+2. a prior bare `@gptworker` in the same MCP session armed the flow, and the immediate continuation supplies the selected Job/Workspace information needed to continue.
 
-Examples that qualify without an `@gptworker` mention:
-
-```text
-Sửa app ở D:\Projects\MyApp để thêm nút regenerate.
-Tổng hợp các file trong D:\Reports thành presentation.
-```
+A fresh task plus an absolute local path **without** that explicit `@gptworker` flow is not activation evidence and must remain ordinary ChatGPT work.
 
 The following do **not** qualify as activation evidence:
 
 - an `@gptworker` invocation, Job, or Workspace remembered from another chat, Memory, or project history;
 - `worker-state.json` or the most recently active Workspace;
 - a repo/project path that GPT happens to know;
-- a GitHub/Drive/web URL without an explicit local Workspace path;
-- a generic task request with no `@gptworker` and no absolute local Workspace;
+- a GitHub/Drive/web URL;
+- a fresh task request with an absolute local Workspace but no explicit `@gptworker` flow;
 - the mere fact that the GPTWorker connector is installed or available.
 
 If the activation gate is not satisfied:
@@ -72,11 +69,11 @@ If the activation gate is not satisfied:
 - do not nominate a Job or FOLDER;
 - do not ask for JOB/FOLDER solely to activate GPTWorker;
 - do not show a JOB/FOLDER confirmation prompt;
-- continue as an ordinary ChatGPT conversation unless the user later supplies a valid activation trigger.
+- continue as an ordinary ChatGPT conversation unless the user later explicitly enters the `@gptworker` flow.
 
 Public management commands such as `gr/help` (`gptworker/help`) and `gr/job list/create/update/remove/export/import/stop` (`gptworker/job ...`) remain callable without starting a work Job.
 
-The `job_select` tool must receive explicit current-session activation metadata. `activation_request` must be exact current-session user text proving the trigger. For `explicit_gptworker`, it must literally contain `@gptworker`. For `task_with_workspace`, it must contain the explicit absolute local path supplied by the user, and that path must match both `activation_workspace` and the selected `workspace` binding.
+The admission handshake is session-local. `gptworker_admission` must observe the explicit `@gptworker` flow and issue an admission token before new work can be nominated. `job_select` / pre-active switching must use that token; a task, path, remembered state, or previous chat is never a substitute.
 
 ## Mandatory preflight
 
@@ -113,7 +110,7 @@ FOLDER: D:\Projects\CAD-Agent
 Xác nhận bắt đầu?
 ```
 
-Equivalent labels are used for other jobs (`planning`, `mto`).
+Equivalent labels are used for other jobs (`planning`, `layla`, `mto`).
 
 Only after the user explicitly confirms may GPT call `job_select` again with `confirmed=true` and the returned confirmation token.
 
@@ -132,14 +129,14 @@ If the user intentionally changes JOB or FOLDER during the same session, use `jo
 
 ## Current Job catalog
 
-Canonical ready Job Packs:
+Ready Job Packs:
 
-- `layla` — universal ad-hoc work across documents, spreadsheets, presentations, file/folder operations, and mixed local file sets.
 - `dev-coding` — implementation/debug/refactor/test/build work. Common alias: `coding`.
 - `dev-planing` — repository/system planning and durable planning bundles. Common alias: `planning`.
-- `mto` — local HVAC quantity takeoff/update workflows.
+- `layla` — universal ad-hoc work across documents, spreadsheets, presentations, file/folder operations, and mixed local file sets.
+- `mto` — private/domain-specific local HVAC quantity takeoff/update workflows.
 
-Only ready packs are runnable.
+The bare `@gptworker` Welcome shows the three default user-facing Jobs (`dev-coding`, `dev-planing`, `layla`) and eligible Custom Jobs; the private `mto` pack is intentionally not shown there. Only ready packs are runnable.
 
 ## Runtime lifecycle
 
@@ -151,7 +148,7 @@ DISCOVER → SELECT → RESOLVE → CONFIRM → EXECUTE → VALIDATE → COMPLET
 
 ### DISCOVER
 
-Call `job_status`. Inspect the conversation before asking questions. Use `job_list` only when the job is unclear or the catalog is needed.
+For new work, do **not** call `job_status` as a preflight. Enter only through the explicit `@gptworker` admission flow. Use `job_list` for bare `@gptworker`, an explicit catalog request, or genuine Job ambiguity. Use `job_status` only to inspect work that is already active in the current chat.
 
 ### SELECT
 
@@ -305,7 +302,7 @@ Do not:
 - require a GUI for normal GPTWorker setup or operation;
 - require `WORKSPACE_PATH` for the project being worked on;
 - ask again for JOB/FOLDER already clear from the current chat;
-- auto-activate GPTWorker from an ordinary request that lacks both `@gptworker` and an explicit absolute local Workspace;
+- auto-activate GPTWorker from a fresh ordinary request that did not explicitly enter the `@gptworker` flow, even if that request includes an absolute local Workspace;
 - infer an activation Workspace from memory, previous chats, recent Worker state, or project familiarity;
 - execute before explicit JOB/FOLDER confirmation;
 - infer missing domain policy;
