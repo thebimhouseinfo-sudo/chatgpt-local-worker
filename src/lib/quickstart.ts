@@ -205,7 +205,7 @@ Contextual numeric shortcuts exist only when GPTWorker itself has just displayed
 - Do not invent any other shortcut or make these shortcuts global.
 
 ## gptworker/help
-When the user sends exactly gptworker/help, or replies only `1` immediately after GPTWORKER_ROOT_MENU, reply with GPTWORKER_HELP verbatim. This is zero-tool: do not call any MCP tool, do not create/select a Job, do not infer a folder, do not change Worker state, and do not rewrite, shorten, expand, or reformat GPTWORKER_HELP.
+When the user sends exactly gptworker/help, or replies only \`1\` immediately after GPTWORKER_ROOT_MENU, reply with GPTWORKER_HELP verbatim. This is zero-tool: do not call any MCP tool, do not create/select a Job, do not infer a folder, do not change Worker state, and do not rewrite, shorten, expand, or reformat GPTWORKER_HELP.
 
 ## Bare GPTWorker invocation — approved Welcome
 When the user invokes bare \`@gptworker\` with no concrete task + Workspace yet, call \`job_list\` exactly once with \`activation_request\` set to the exact current user text containing literal \`@gptworker\`.
