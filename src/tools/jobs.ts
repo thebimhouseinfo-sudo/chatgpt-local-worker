@@ -318,9 +318,6 @@ export function registerJobTools(
         if (activation_request) {
           const welcomeJobs = welcomeJobsFromListing(result.jobs);
           return {
-            ...result,
-            jobs: welcomeJobs,
-            suggested_job_ids: [],
             welcome_text: buildGptworkerWelcome(
               welcomeJobs
                 .filter((job) => job.source === "custom")

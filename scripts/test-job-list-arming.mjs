@@ -35,6 +35,8 @@ const payload = JSON.stringify(bareAtResult);
 assert.ok(payload.includes('"at_flow_armed":true'));
 assert.equal(admissionRuntime.isExplicitAtFlowArmed(), true);
 assert.ok(payload.includes('"welcome_text"'));
+assert.ok(!payload.includes('"jobs":'), "bare @ must not expose the catalog payload to ChatGPT");
+assert.ok(!payload.includes('"suggested_job_ids":'), "bare @ must return only the completed Welcome surface");
 assert.ok(payload.includes("Dev Coding"));
 assert.ok(payload.includes("Dev Planing"));
 assert.ok(payload.includes("Layla"));

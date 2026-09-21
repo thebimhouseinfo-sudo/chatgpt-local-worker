@@ -26,31 +26,43 @@ export const GPTWORKER_DEFAULT_WELCOME_JOBS: GptworkerWelcomeJob[] = [
 
 export const GPTWORKER_HIDDEN_WELCOME_JOB_IDS = ["mto"];
 
-export function buildGptworkerWelcome(
-  customJobs: GptworkerWelcomeJob[] = []
-): string {
-  const jobs = [...GPTWORKER_DEFAULT_WELCOME_JOBS, ...customJobs];
-  const jobLines = jobs
-    .map(
-      (job, index) =>
-        `**${index + 1}. ${job.name}** — ${job.description}`
-    )
-    .join("\n");
-
-  return `
+const GPTWORKER_WELCOME_BEFORE_CUSTOM = `
 **GPTWorker**
 
 Chọn Job bạn muốn sử dụng:
 
-${jobLines}
+**1. Dev Coding** — sửa code, debug, refactor, build/test project.
 
-**Hãy chọn Job và đưa tôi thư mục làm việc để bắt đầu.**
+**2. Dev Planing** — đọc repo, phân tích, review kiến trúc và lập implementation plan / task list.
 
-Ví dụ:  
-\`2  C:\\Projects\\my-app\`
+**3. Layla** — trợ lý đa năng cho file, tài liệu, Word, Excel, PowerPoint, PDF và các công việc linh hoạt.
+`.trim();
+
+const GPTWORKER_WELCOME_AFTER_CUSTOM = `
+Hãy chọn Job và đưa tôi **thư mục làm việc** để bắt đầu.
+
+Ví dụ: \`2  C:\\Projects\\my-app\` hoặc  \`Dev Planing C:\\Projects\\my-app\`
 
 Hoặc gõ \`gptworker/\` để xem các system commands.
 `.trim();
+
+export function buildGptworkerWelcome(
+  customJobs: GptworkerWelcomeJob[] = []
+): string {
+  const customBlock = customJobs
+    .map(
+      (job, index) =>
+        `**${index + 4}. ${job.name}** — ${job.description}`
+    )
+    .join("\n\n");
+
+  return [
+    GPTWORKER_WELCOME_BEFORE_CUSTOM,
+    customBlock || null,
+    GPTWORKER_WELCOME_AFTER_CUSTOM,
+  ]
+    .filter(Boolean)
+    .join("\n\n");
 }
 
 export const GPTWORKER_HELP = `
@@ -79,7 +91,7 @@ Mỗi công việc sẽ dùng một **Job** phù hợp và một **thư mục l�
 
 GPTWorker sẽ tự chọn Job phù hợp và hiển thị:
 
-\`JOB: Dev Planing\`  
+\`JOB: Dev Planing\`
 \`FOLDER: C:\\Projects\\SchoolApp\`
 
 **Xác nhận bắt đầu?**
@@ -96,11 +108,11 @@ Sau đó bạn có thể giao việc bình thường:
 
 hoặc tự chọn Job:
 
-\`Dev Coding  C:\\Projects\\MyApp sửa lỗi nút đăng nhập\`
+\`Dev Coding C:\\Projects\\MyApp sửa lỗi nút đăng nhập\`
 
 GPTWorker sẽ hiển thị:
 
-\`JOB: Dev Coding\`  
+\`JOB: Dev Coding\`
 \`FOLDER: C:\\Projects\\MyApp\`
 
 **Xác nhận bắt đầu?**
@@ -135,7 +147,7 @@ Ví dụ, muốn tạo một Job chuyên làm PowerPoint:
 
 Sau đó mô tả:
 
-> Tạo một Job chuyên làm PowerPoint.  
+> Tạo một Job chuyên làm PowerPoint.
 > Khi tôi đưa một thư mục tài liệu, hãy đọc nội dung, lập dàn ý, tạo slide ngắn gọn, thêm hình minh họa phù hợp và xuất file PowerPoint hoàn chỉnh.
 
 Từ lần sau, Custom Job đó có thể xuất hiện trong danh sách khi gọi \`@gptworker\`.
@@ -163,38 +175,37 @@ Các command hiện có:
 `.trim();
 
 export const GPTWORKER_ROOT_MENU = `
-gptworker/help
-gptworker/job list
-gptworker/job create
-gptworker/job update
-gptworker/job remove
-gptworker/job export
-gptworker/job import
-gptworker/job stop
+Các command hiện có:
+
+1 \`gptworker/help\` — xem hướng dẫn sử dụng.
+2 \`gptworker/job list\` — xem các Job hiện có.
+3 \`gptworker/job create\` — tạo Custom Job mới.
+4 \`gptworker/job update\` — cập nhật một Custom Job.
+5 \`gptworker/job remove\` — xóa một Custom Job.
+6 \`gptworker/job export\` — xuất Custom Job ra file để lưu hoặc chia sẻ.
+7 \`gptworker/job import\` — nhập Custom Job từ file.
+8 \`gptworker/job stop\` — dừng công việc hiện tại và đưa GPTWorker về trạng thái idle.
+
+Nhập tiếp \`1\` hoặc \`gptworker/help\` để xem hướng dẫn sử dụng.
+Nhập tiếp \`3\` hoặc \`gptworker/job create\` để bắt đầu tạo custom job
 `.trim();
 
 export const GPTWORKER_IDLE_PROMPT = buildGptworkerWelcome();
 
 export const MCP_QUICKSTART = `
 ## GPTWorker root command surface
-When the user sends exactly gptworker/ (or asks what GPTWorker system commands are available), reply with the prewritten GPTWORKER_ROOT_MENU above.
+When the user sends exactly gptworker/, reply with GPTWORKER_ROOT_MENU verbatim.
 
-This is chat-only and zero-tool: do not call job_list, gptworker_admission, job_status, or any MCP tool.
+This is zero-tool. Do not call job_list, gptworker_admission, job_status, or any MCP tool. Do not rewrite, shorten, expand, reorder, or reformat GPTWORKER_ROOT_MENU.
 
-The root menu contains exactly these eight system commands and no Job ids:
-- gptworker/help
-- gptworker/job list
-- gptworker/job create
-- gptworker/job update
-- gptworker/job remove
-- gptworker/job export
-- gptworker/job import
-- gptworker/job stop
-
-Never add Job Pack ids such as layla, dev-coding, mto, or dynamically discovered custom Jobs to this root command menu. Job Pack ids belong only in job_list results or the bare @gptworker Job greeting.
+Contextual numeric shortcuts exist only when GPTWorker itself has just displayed a numbered choice list:
+- Immediately after GPTWORKER_ROOT_MENU, a reply consisting only of 1 through 8 means the command shown at that number.
+- Immediately after the bare @gptworker Welcome, a reply using a displayed Job number or displayed Job name may select that displayed Job within the already-armed @gptworker flow.
+- Outside the immediately preceding displayed choice list, never interpret a bare number as a GPTWorker command or Job.
+- Do not invent any other shortcut or make these shortcuts global.
 
 ## gptworker/help
-When the user sends exactly gptworker/help, reply with the prewritten GPTWORKER_HELP guide above verbatim. This is chat-only help: do not call an MCP tool, do not create/select a Job, do not infer a Workspace, do not change Worker state, and do not rewrite or shorten the approved help text.
+When the user sends exactly gptworker/help, or replies only \`1\` immediately after GPTWORKER_ROOT_MENU, reply with GPTWORKER_HELP verbatim. This is zero-tool: do not call any MCP tool, do not create/select a Job, do not infer a folder, do not change Worker state, and do not rewrite, shorten, expand, or reformat GPTWORKER_HELP.
 
 ## Bare GPTWorker invocation — approved Welcome
 When the user invokes bare \`@gptworker\` with no concrete task + Workspace yet, call \`job_list\` exactly once with \`activation_request\` set to the exact current user text containing literal \`@gptworker\`.
@@ -205,10 +216,10 @@ The Welcome always contains the three fixed default Jobs in positions 1–3. Onl
 
 Do not call gptworker_admission, job_status, workspace_discover, or any work tool for the bare invocation. Do not include the system command list here.
 
-If the user invoked \`@gptworker\` and already described a clear task but omitted the absolute local Workspace:
+If the user invoked \`@gptworker\` and already described a clear task but omitted the required folder:
 - do not call tools yet;
 - infer the obvious default Job when confidence is high;
-- ask only for the absolute local Workspace;
+- ask only for the folder;
 - if the Job is genuinely ambiguous, show the short default Job list and ask the user to choose.
 
 Do not spend a tool round-trip merely to discover that required task/workspace information is missing.
@@ -256,7 +267,7 @@ A concrete task, an absolute local Workspace path, or both together in a fresh/u
 2. For a new work request, do not call job_status. Enter GPTWorker work only through an explicit @gptworker flow. If the current turn starts with @gptworker and includes task + absolute Workspace, or it is the Job/Workspace continuation after a prior bare @gptworker in this same session, call gptworker_admission and then job_select confirmed=false. Missing Job inputs may be collected afterward by the selected Job runtime. A fresh task + Workspace with no prior @gptworker must remain outside GPTWorker. job_status is only for inspecting an already-active work_handle in the same chat.
 3. Resolve the absolute local FOLDER from the current conversation only. Do not reuse worker-state.json, startup cwd, the most recent Job, or the most recent Workspace as authority.
 4. Use workspace_discover only when JOB remains genuinely ambiguous after reading the user's request. For obvious coding/planning/layla/mto requests, skip discovery and nominate immediately.
-5. Use job_list in exactly three cases: bare @gptworker (pass activation_request to arm/list this session), an explicit Job catalog request, or genuine Job ambiguity after minimal discovery. If FOLDER is missing after the @ flow has started, ask only for the absolute local folder path without calling more tools.
+5. Use job_list in exactly three cases: bare @gptworker (pass activation_request to arm/list this session), an explicit Job catalog request, or genuine Job ambiguity after minimal discovery. If FOLDER is missing after the @ flow has started, ask only for the folder without calling more tools.
 6. Resolve any other required Job Pack bindings from the user's request.
 7. Call job_select with confirmed=false + admission_token. This is the Job nomination step. The @-flow arm is one-shot and is consumed when admission_token is issued; if the selected Job still needs more bindings, keep reusing that same admission_token for this pending flow instead of trying to admit a new direct request.
 8. Immediately after nomination, GPTWorker begins warming that Job's declared runtime.preload_families in the background while the user reads the JOB + FOLDER confirmation. Preloading is preparation only: do not execute workspace mutations or shell commands before confirmation.
@@ -277,7 +288,7 @@ A concrete task, an absolute local Workspace path, or both together in a fresh/u
 For a high-confidence task + Workspace nomination, the next user-visible message should be only this compact confirmation block. Do not add progress narration before or after it.
 
 JOB: <resolved job>
-FOLDER: <resolved absolute local folder>
+FOLDER: <resolved folder>
 
 Xác nhận bắt đầu?
 
@@ -379,17 +390,18 @@ export function buildServerInstructions(
     "if the nomination changes, invalidate the prior preload generation and prepare the replacement Job profile",
     "work_tool — confirmed-work execution gateway; use the warmed Job profile and lazy-load only unexpected families",
     "project_context / agent_status and all other confirmed workspace operations are dispatched through work_tool",
+    "User-facing Welcome, Help, root menu, confirmation, and folder prompts must never introduce technical path wording such as absolute path, absolute local folder, thư mục tuyệt đối, or đường dẫn tuyệt đối; internal path validation remains unchanged.",
   ].join("\n");
 
   const body = contextBlock?.trim();
   const commandContract = [
     "## Prewritten gptworker/ root menu",
-    "When the user sends exactly gptworker/, return this immediately and do not call tools:",
+    "When the user sends exactly gptworker/, return this verbatim and do not call tools. If the immediately following user reply is only a number 1-8, treat it as the corresponding displayed command; never use that numeric shortcut outside this menu context:",
     GPTWORKER_ROOT_MENU,
     "## Bare @gptworker response",
     "When the user invokes bare @gptworker, call job_list once with activation_request set to the exact current user turn. Return the tool's welcome_text verbatim. Do not rewrite it, expose hidden Jobs, or add extra guidance.",
     "## Prewritten gptworker/help response",
-    "When the user sends exactly gptworker/help, return the following approved guide verbatim and do not call tools:",
+    "When the user sends exactly gptworker/help, or only 1 immediately after the root menu, return the following approved guide verbatim and do not call tools:",
     GPTWORKER_HELP,
     MCP_QUICKSTART,
   ].join("\n\n");
