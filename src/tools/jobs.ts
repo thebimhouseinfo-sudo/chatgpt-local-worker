@@ -58,6 +58,18 @@ const JobFilesSchema = z
 
 const CONFIRMATION_PROOF_TTL_MS = 30 * 60 * 1000;
 
+interface SharedConfirmationProof {
+  jobId: string;
+  bindings: Record<string, string>;
+  admissionToken: string;
+  createdAt: number;
+}
+
+// Confirmation authority follows the opaque admission+confirmation token pair,
+// not one transport session. This survives legitimate MCP transport rotation
+// while preventing another admission flow from reusing a confirmation proof.
+const SHARED_PENDING_CONFIRMATIONS = new Map<string, SharedConfirmationProof>();
+
 const WELCOME_DEFAULT_IDS = new Set(
   GPTWORKER_DEFAULT_WELCOME_JOBS.map((job) => job.id)
 );
@@ -208,12 +220,6 @@ export function registerJobTools(
 ): void {
   let sessionRuntime = runtime;
 
-  // Confirmation authority is scoped to this MCP server/session.
-  // Never share user-confirmation proofs between ChatGPT sessions.
-  const pendingConfirmations = new Map<
-    string,
-    { jobId: string; bindings: Record<string, string>; createdAt: number }
-  >();
   const pendingRemovalConfirmations = new Map<
     string,
     { jobId: string; mode: "remove" | "interrupt_remove"; createdAt: number }
@@ -230,32 +236,46 @@ export function registerJobTools(
     return pendingRemovalConfirmations.get(token);
   }
 
-  function rememberConfirmation(result: any): void {
-    // One MCP session has only one current nomination state.
-    // Any successful re-selection supersedes every prior confirmation proof,
-    // even when the new state still has missing bindings and emits no token yet.
-    pendingConfirmations.clear();
+  function rememberConfirmation(
+    result: any,
+    admissionToken: string
+  ): void {
+    // A fresh nomination supersedes only proofs that belong to the same
+    // admission flow. Other chats/admissions remain independent.
+    for (const [key, proof] of SHARED_PENDING_CONFIRMATIONS) {
+      if (proof.admissionToken === admissionToken) {
+        SHARED_PENDING_CONFIRMATIONS.delete(key);
+      }
+    }
 
     const token = result?.confirmation_token;
     const jobId = result?.job?.id;
     const bindings = result?.state?.bindings;
     if (!token || !jobId || !bindings) return;
-    pendingConfirmations.set(token, {
+
+    SHARED_PENDING_CONFIRMATIONS.set(token, {
       jobId,
       bindings: { ...bindings },
+      admissionToken,
       createdAt: Date.now(),
     });
   }
 
-  function getConfirmationProof(token: string | undefined) {
+  function getConfirmationProof(
+    token: string | undefined,
+    admissionToken: string | undefined
+  ) {
     const now = Date.now();
-    for (const [key, proof] of pendingConfirmations) {
+    for (const [key, proof] of SHARED_PENDING_CONFIRMATIONS) {
       if (now - proof.createdAt > CONFIRMATION_PROOF_TTL_MS) {
-        pendingConfirmations.delete(key);
+        SHARED_PENDING_CONFIRMATIONS.delete(key);
       }
     }
-    if (!token) return undefined;
-    return pendingConfirmations.get(token);
+
+    if (!token || !admissionToken) return undefined;
+    const proof = SHARED_PENDING_CONFIRMATIONS.get(token);
+    if (!proof || proof.admissionToken !== admissionToken) return undefined;
+    return proof;
   }
 
   async function bindRuntimeToWorkspace(
@@ -723,7 +743,7 @@ export function registerJobTools(
             });
           }
 
-          rememberConfirmation(selected);
+          rememberConfirmation(selected, admission_token);
           await validateResolvedWorkspace(selected);
 
           if (
@@ -757,7 +777,7 @@ export function registerJobTools(
           return prepared;
         }
 
-        const proof = getConfirmationProof(confirmation_token);
+        const proof = getConfirmationProof(confirmation_token, admission_token);
         if (!proof) {
           throw new Error(
             "Confirmation token missing/stale. Run job_select with confirmed=false, show the returned prompt, then retry after explicit user confirmation."
@@ -842,7 +862,7 @@ export function registerJobTools(
           throw error;
         }
 
-        pendingConfirmations.delete(confirmation_token!);
+        SHARED_PENDING_CONFIRMATIONS.delete(confirmation_token!);
         admissionRuntime.consume(admission_token);
 
         return {
