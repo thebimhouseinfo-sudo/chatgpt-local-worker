@@ -6,10 +6,12 @@ import path from "node:path";
 const root = await fs.mkdtemp(path.join(os.tmpdir(), "gptworker-boundary-"));
 const workspace = path.join(root, "workspace");
 const outside = path.join(root, "outside");
+const supportRoot = path.join(root, "job-support");
 const stateDir = path.join(root, "shell-state");
 
 await fs.mkdir(workspace, { recursive: true });
 await fs.mkdir(outside, { recursive: true });
+await fs.mkdir(path.join(supportRoot, "harness"), { recursive: true });
 process.env.MCP_SHELL_STATE_DIR = stateDir;
 
 const pathSecurity = await import("../dist/lib/path-security.js");
@@ -30,9 +32,13 @@ const {
 
 const insideFile = path.join(workspace, "inside.txt");
 const outsideFile = path.join(outside, "outside.txt");
+const supportSkill = path.join(supportRoot, "skill.md");
+const supportHarness = path.join(supportRoot, "harness", "validate.mjs");
 
 await fs.writeFile(insideFile, "inside\n", "utf8");
 await fs.writeFile(outsideFile, "outside\n", "utf8");
+await fs.writeFile(supportSkill, "# support skill\n", "utf8");
+await fs.writeFile(supportHarness, "console.log('support harness');\n", "utf8");
 
 // Pre-confirm/control-plane absolute path validation remains possible without
 // granting active Job authority.
@@ -76,6 +82,48 @@ await pathSecurity.runWithWorkspaceCwd(workspace, async () => {
     /WORKSPACE_BOUNDARY/
   );
 });
+
+
+await pathSecurity.runWithWorkspaceScope(
+  workspace,
+  [supportRoot],
+  async () => {
+    assert.equal(
+      await pathSecurity.validateReadPath(supportSkill),
+      path.resolve(supportSkill)
+    );
+    assert.equal(
+      await pathSecurity.validateReadPath(supportHarness),
+      path.resolve(supportHarness)
+    );
+
+    await assert.rejects(
+      () => pathSecurity.validatePath(supportSkill),
+      /WORKSPACE_BOUNDARY/
+    );
+
+    await assert.rejects(
+      () => pathSecurity.validateReadPath(outsideFile),
+      /WORKSPACE_BOUNDARY/
+    );
+
+    assert.doesNotThrow(() =>
+      assertShellCommandWorkspaceBound(
+        `node "${supportHarness}" --cwd "${workspace}"`,
+        workspace
+      )
+    );
+
+    assert.throws(
+      () =>
+        assertShellCommandWorkspaceBound(
+          `echo bad > "${supportHarness}"`,
+          workspace
+        ),
+      /WORKSPACE_BOUNDARY/
+    );
+  }
+);
 
 // A symlink/junction inside the Workspace must not create an escape route.
 const linkPath = path.join(workspace, "outside-link");
@@ -130,6 +178,18 @@ await bootstrapShellSession(workspace);
 assert.equal(
   path.resolve(getShellStatus(workspace).cwd),
   path.resolve(workspace)
+);
+
+const gitSource = await fs.readFile("src/tools/git.ts", "utf8");
+assert.equal(
+  gitSource.includes("safeRepoPathspec"),
+  true,
+  "Git file/pathspec boundary guard is missing"
+);
+assert.equal(
+  gitSource.includes('args.push("--", ...files.map'),
+  true,
+  "git_add must separate validated file pathspecs from options"
 );
 
 await fs.rm(root, {
