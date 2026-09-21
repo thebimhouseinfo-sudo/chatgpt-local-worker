@@ -278,6 +278,15 @@ export function registerJobTools(
     return proof;
   }
 
+  function cancelConfirmationProof(token: string | undefined): void {
+    if (!token) return;
+    const proof = SHARED_PENDING_CONFIRMATIONS.get(token);
+    SHARED_PENDING_CONFIRMATIONS.delete(token);
+    if (proof) {
+      admissionRuntime.consume(proof.admissionToken);
+    }
+  }
+
   async function bindRuntimeToWorkspace(
     bindings?: Record<string, string>,
     allowReplace = false
@@ -1009,7 +1018,6 @@ export function registerJobTools(
           const stopped = sessionRuntime.stop();
           lifecycle?.clear();
           admissionRuntime.clear();
-          pendingConfirmations.clear();
           pendingRemovalConfirmations.clear();
 
           return {
@@ -1031,13 +1039,14 @@ export function registerJobTools(
           );
         }
 
-        // Pending/selected/idle state is local to this MCP session and has no
-        // work registration to authorize. Cancel it without touching global
-        // persistent worker state that may belong to another chat.
+        // Pending/selected/idle state has no work registration. If this state
+        // owns a confirmation proof, cancel exactly that proof/admission flow;
+        // never clear authority belonging to another concurrent chat.
+        cancelConfirmationProof(status?.state?.confirmation_token);
+
         const stopped = sessionRuntime.stop();
         lifecycle?.clear();
         admissionRuntime.clear();
-        pendingConfirmations.clear();
         pendingRemovalConfirmations.clear();
 
         return {
