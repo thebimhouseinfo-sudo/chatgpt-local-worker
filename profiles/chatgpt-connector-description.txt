@@ -8,14 +8,14 @@ Bare @gptworker:
 - never show the private mto Job in Welcome.
 
 gptworker/:
-- zero-tool;
-- return GPTWORKER_ROOT_MENU verbatim;
-- do not scan Jobs and do not rewrite, shorten, expand, reorder, or reformat it.
+- call gptworker_control exactly once with surface=commands;
+- return the tool text verbatim and nothing else;
+- do not call admission, job_list, workspace, filesystem, shell, or work tools.
 
 gptworker/help:
-- zero-tool;
-- return GPTWORKER_HELP verbatim;
-- do not scan Jobs and do not rewrite, shorten, expand, or reformat it.
+- call gptworker_control exactly once with surface=help;
+- return the tool text verbatim and nothing else;
+- do not call admission, job_list, workspace, filesystem, shell, or work tools.
 
 Contextual shortcuts:
 - a numeric shortcut is valid only immediately after GPTWorker itself displayed the numbered menu/list that defines it;
