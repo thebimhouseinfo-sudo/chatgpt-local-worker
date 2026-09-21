@@ -13,13 +13,17 @@ async function exists(file) {
   }
 }
 
-// Pre-correction implementations remain available only as quarantine references.
+// Pre-correction Group C3 implementations were retired after cleanup.
 for (const file of [
   "legacy/group-c/post-review/lib/auto-memory.ts",
   "legacy/group-c/post-review/lib/project-memory.ts",
   "legacy/group-c/tools/context.ts",
 ]) {
-  assert.equal(await exists(file), true, `missing C3 quarantine reference: ${file}`);
+  assert.equal(
+    await exists(file),
+    false,
+    `retired C3 legacy path unexpectedly exists: ${file}`
+  );
 }
 
 // Active runtime must have no GPTWorker knowledge-memory subsystem.
