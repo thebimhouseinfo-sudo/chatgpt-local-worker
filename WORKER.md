@@ -1,6 +1,6 @@
 # GPTWorker — Worker Policy
 
-GPTWorker is a **general-purpose local worker controlled from ChatGPT**. The Worker core provides full local execution capabilities; Job Packs provide the workflow/policy for a particular class of work.
+GPTWorker is a **stability-first general-purpose local worker controlled from ChatGPT**. The Worker core provides reliable local execution capabilities; Job Packs provide the workflow/policy for a particular class of work. Secure MCP Tunnel is transport, not the product architecture.
 
 The normal user interface is ChatGPT. There is no required configuration UI in the everyday workflow.
 
@@ -284,14 +284,15 @@ Persistent `worker-state.json` exists to keep the current job/workspace anchored
 
 ## Core vs Job Packs
 
-The Worker core owns generic execution capabilities:
+The Worker core owns the generic execution path required by Job Packs:
 
 - filesystem/search/edit;
 - shell/processes;
 - git;
-- checkpoint/rewind;
-- project context/memory/skills/path rules;
-- upstream MCP bridge.
+- workspace and project context;
+- deterministic validation and runtime lifecycle.
+
+Checkpoint/rewind, project-memory helpers, Codex compatibility hooks, Admin UI, and upstream MCP bridging are optional compatibility capabilities rather than architectural requirements. Keep, replace, or remove them based on demonstrated Job needs and Worker stability.
 
 Job Packs own domain workflow, policy, specialist skills/rules, deterministic harnesses, and completion criteria. Do not build a multi-agent hierarchy or duplicate core tools inside Job Packs.
 
