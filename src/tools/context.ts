@@ -1,11 +1,10 @@
-import fs from "fs/promises";
-import path from "path";
 import { z } from "zod";
 import type { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import { audit, getAuditPath } from "../lib/audit.js";
 import { appendAutoMemory } from "../lib/auto-memory.js";
 import { getCheckpointConfig } from "../lib/checkpoint.js";
 import { loadPathRulesForFile } from "../lib/path-rules.js";
+import { loadProjectMemory } from "../lib/project-memory.js";
 import {
   describePermissionProfile,
   getPermissionProfile,
@@ -24,67 +23,6 @@ import {
 import { toolAnnotations } from "../lib/tool-annotations.js";
 import { toolResult } from "../lib/tool-result.js";
 import { getWorkerDataRoot } from "../lib/worker-home.js";
-
-const CONTEXT_FILE_NAMES = [
-  "AGENTS.md",
-  "CLAUDE.md",
-  "README.md",
-  ".claude/CLAUDE.md",
-  ".claude/settings.json",
-  ".cursor/rules",
-] as const;
-
-async function exists(filePath: string): Promise<boolean> {
-  try {
-    await fs.access(filePath);
-    return true;
-  } catch {
-    return false;
-  }
-}
-
-async function findContextFiles(
-  root: string,
-  maxDepth: number
-): Promise<string[]> {
-  const found: string[] = [];
-
-  async function walk(dir: string, depth: number): Promise<void> {
-    if (depth > maxDepth) return;
-
-    for (const name of CONTEXT_FILE_NAMES) {
-      const candidate = path.join(dir, name);
-      if (await exists(candidate)) found.push(candidate);
-    }
-
-    if (depth === maxDepth) return;
-
-    let entries;
-    try {
-      entries = await fs.readdir(dir, { withFileTypes: true });
-    } catch {
-      return;
-    }
-
-    for (const entry of entries) {
-      if (!entry.isDirectory()) continue;
-      if (
-        entry.name.startsWith(".") ||
-        entry.name === "node_modules" ||
-        entry.name === "dist" ||
-        entry.name === "build" ||
-        entry.name === "legacy"
-      ) {
-        continue;
-      }
-
-      await walk(path.join(dir, entry.name), depth + 1);
-    }
-  }
-
-  await walk(root, 0);
-  return [...new Set(found)];
-}
 
 export function registerContextTools(
   server: McpServer,
@@ -164,41 +102,38 @@ export function registerContextTools(
       },
       annotations: toolAnnotations("read"),
     },
-    async ({ path: projectPath, max_depth, max_bytes_per_file }) => {
+    async ({ path: projectPath, max_bytes_per_file }) => {
       const root = projectPath
         ? await validatePath(projectPath)
         : getDefaultCwd();
 
-      const files = await findContextFiles(root, max_depth);
-      const fileContents: Array<{
-        path: string;
-        content: string;
-        truncated: boolean;
-      }> = [];
+      const bundle = await loadProjectMemory(root, {
+        maxBytes: Math.max(max_bytes_per_file, 25000),
+        maxLines: 1000,
+        workspaceRoots: [root],
+      });
 
-      for (const file of files) {
-        try {
-          const buffer = await fs.readFile(file);
-          fileContents.push({
-            path: file,
-            content: buffer.subarray(0, max_bytes_per_file).toString("utf-8"),
-            truncated: buffer.length > max_bytes_per_file,
-          });
-        } catch {}
-      }
+      const files = bundle.sections.map((section) => ({
+        path: section.path,
+        content: section.content,
+        truncated: section.truncated,
+        kind: section.kind,
+      }));
 
       await audit({
         tool: "project_context",
         action: "read",
         target: root,
         status: "ok",
-        details: { files: fileContents.length },
+        details: { files: files.length, bytes: bundle.total_bytes },
       });
 
       return toolResult("project_context", {
         root,
-        files: fileContents,
-        count: fileContents.length,
+        files,
+        count: files.length,
+        total_bytes: bundle.total_bytes,
+        loaded_at: bundle.loaded_at,
       });
     }
   );
