@@ -223,8 +223,8 @@ Delete stale config/reference when caller = 0:
 
 - `.codex-remote-attachments/` ignore rule nếu không còn subsystem nào dùng;
 - `CODEX_HOME` runtime ownership trong GPTWorker;
-- `codex-mcp-server` bin alias nếu không cần compatibility install cũ;
-- matching alias trong `package-lock.json`;
+- ~~`codex-mcp-server` bin alias nếu không cần compatibility install cũ;~~ ✅ removed;
+- ~~matching alias trong `package-lock.json`;~~ ✅ removed;
 - `coding-agent` package keyword nếu chỉ còn legacy metadata.
 
 ## A4. Optional legacy helper không thuộc core
@@ -1053,7 +1053,7 @@ No known failing acceptance test remains at this cleanup checkpoint.
 
 ---
 
-# 6. FINAL CLEANUP — ✅ DONE WITH COMPATIBILITY EXCEPTIONS
+# 6. FINAL CLEANUP — ✅ DONE
 
 Đã hoàn tất:
 
@@ -1064,12 +1064,20 @@ No known failing acceptance test remains at this cleanup checkpoint.
 - retired subsystems không còn được mô tả như optional runtime capability;
 - obsolete startup-context helpers đã quarantine.
 
-Compatibility exceptions cố ý giữ:
+~~Compatibility exceptions cố ý giữ:~~
 
-- `codex-mcp-server` bin alias + matching package-lock entry: KEEP cho install compatibility cho tới khi có migration riêng;
-- `openai-tunnel.ps1` profile filename `codex-local`: KEEP cho local-install compatibility.
+- ~~`codex-mcp-server` bin alias + matching package-lock entry: KEEP cho install compatibility cho tới khi có migration riêng;~~
+- ~~`openai-tunnel.ps1` profile filename `codex-local`: KEEP cho local-install compatibility.~~
 
-Hai tên compatibility này không kéo Codex runtime vào GPTWorker và không được coi là active architecture.
+**RESOLVED:**
+
+- removed `codex-mcp-server` from `package.json`;
+- removed matching alias from root `package-lock.json`;
+- active Secure MCP Tunnel profile renamed to `gptworker.yaml` via `$ProfileName = "gptworker"`;
+- active tunnel/runtime code no longer uses the `codex-local` identity;
+- idle-runtime regression guard now rejects reintroduction of either compatibility name.
+
+A previously generated local `profiles/codex-local.yaml` may remain as an ignored orphan file on an existing machine. It is no longer referenced or loaded by GPTWorker; the next tunnel run creates/uses `profiles/gptworker.yaml`.
 
 ---
 
@@ -1102,7 +1110,9 @@ KEEP:
 - tray/resident runtime;
 - health/wait scripts.
 
-`$ProfileName = "codex-local"` trong tunnel hiện được coi là compatibility filename, không phải Codex dependency. Không rename trong cleanup này.
+~~`$ProfileName = "codex-local"` trong tunnel hiện được coi là compatibility filename, không phải Codex dependency. Không rename trong cleanup này.~~
+
+**RESOLVED:** active profile is now `$ProfileName = "gptworker"`.
 
 ---
 
