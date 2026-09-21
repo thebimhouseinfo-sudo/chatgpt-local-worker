@@ -1,5 +1,9 @@
 import path from "node:path";
-import { assertPathInsideWorkspaceSync } from "./path-security.js";
+import {
+  assertPathInsideWorkspaceSync,
+  getActiveSupportRoots,
+  isPathInsideAnyRootSync,
+} from "./path-security.js";
 
 function stripTokenPunctuation(value: string): string {
   return value
@@ -36,6 +40,39 @@ function extractPathLiterals(command: string): string[] {
   return [...found];
 }
 
+const SUPPORT_SCRIPT_EXTENSIONS = new Set([
+  ".mjs",
+  ".js",
+  ".cjs",
+  ".ts",
+  ".py",
+  ".ps1",
+  ".cmd",
+  ".bat",
+  ".exe",
+]);
+
+function isTrustedSupportScriptReference(
+  command: string,
+  candidate: string
+): boolean {
+  const supportRoots = getActiveSupportRoots();
+  if (!supportRoots.length) return false;
+  if (!isPathInsideAnyRootSync(candidate, supportRoots)) return false;
+
+  const ext = path.extname(candidate).toLowerCase();
+  if (!SUPPORT_SCRIPT_EXTENSIONS.has(ext)) return false;
+
+  const lower = command.toLowerCase();
+  const interpreter =
+    /(^|[;&|]\s*|\s)(node|tsx|python|python3|py|pwsh|powershell|bash|sh|cmd)(?:\.exe)?\s/.test(
+      lower
+    );
+  const directPowerShellCall = /^\s*&\s*["']/.test(command);
+
+  return interpreter || directPowerShellCall;
+}
+
 export function assertShellCommandWorkspaceBound(
   command: string,
   workspaceRoot: string
@@ -52,13 +89,18 @@ export function assertShellCommandWorkspaceBound(
   for (const candidate of extractPathLiterals(command)) {
     try {
       assertPathInsideWorkspaceSync(candidate, workspaceRoot);
-    } catch (error) {
-      throw new Error(
-        "WORKSPACE_BOUNDARY: shell command references an absolute path outside the confirmed Workspace: " +
-          candidate +
-          ". Invoke installed tools by command name and keep file arguments inside the confirmed Workspace."
-      );
+      continue;
+    } catch {}
+
+    if (isTrustedSupportScriptReference(command, candidate)) {
+      continue;
     }
+
+    throw new Error(
+      "WORKSPACE_BOUNDARY: shell command references an absolute path outside the confirmed Workspace: " +
+        candidate +
+        ". Only declared Job support scripts may be read/executed outside the Workspace; project file arguments must stay inside the confirmed Workspace."
+    );
   }
 }
 
