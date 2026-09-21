@@ -603,6 +603,120 @@ Validation after correction:
 
 ---
 
+
+# 5.2. POST-REVIEW ROUND 2 — CALLER / MAPPING AUDIT
+
+## STATUS: ⏳ IN PROGRESS
+
+Review này kiểm tra theo chuỗi:
+
+```text
+caller
+→ registry/profile
+→ work_tool schema
+→ family mapping
+→ lazy loader
+→ registerTool implementation
+→ Job preload
+→ Job skill/harness/validator paths
+→ runtime policy / tests
+```
+
+Static audit result:
+
+- 45/45 work-family operations có implementation tương ứng;
+- 14/14 top-level control/Job/workspace/work gateway tools có registration;
+- 45/45 default Job skill/harness/validator references tồn tại;
+- legacy preload `mcp` / `ponytail` / `rewind` vẫn parse-safe và được ignore;
+- C3 rename sang `project-context-loader.ts` không còn active caller trỏ vào project-memory/auto-memory.
+
+Các correction phát hiện trong Round 2:
+
+### R2.1 — P0: inner work_tool operations bị slim profile cắt nhầm
+
+Current behavior:
+
+- default profile = `slim`;
+- `work_tool` dùng `shouldExposeTool(..., slim)` để tạo enum operation;
+- 21 local operations có implementation nhưng biến mất khỏi schema mặc định.
+
+Các operation bị ảnh hưởng gồm một phần filesystem/shell/git như:
+
+`delete_file`, `create_directory`, `copy_file`, `process_status`, `stop_process`, `git_branch`, `git_push`, `git_pull`, `git_stash`, `git_reset`, base64/search/tree helpers, v.v.
+
+Correct architecture:
+
+```text
+slim/full profile
+→ controls top-level MCP surface only
+
+work_tool
+→ exposes the complete local operation set
+→ local explicit disabled overrides may still remove a specific operation
+```
+
+### R2.2 — P1: agent_status classification drift
+
+Current mismatch:
+
+- WorkGateway maps `agent_status` to context family;
+- `tool-work-policy.ts` marks `agent_status` as CONTROL;
+- `toolFamily(agent_status)` therefore falls back to `core`.
+
+Correct target:
+
+- `agent_status` is an active-work context operation;
+- remove it from `CONTROL_TOOLS`;
+- include it in context family classification;
+- lease/telemetry records family = `context`.
+
+### R2.3 — P1: stale Job Pack instructions
+
+Default Job asset mapping is complete, but `jobs/dev-coding/JOB.md` still references retired capability text such as checkpoint/rewind and upstream MCP.
+
+`jobs/**` remains frozen. This Round 2 records the stale text but does **not** modify Job Pack files without explicit unfreeze.
+
+### R2.4 — P2: Custom Job authoring cannot declare preload families
+
+Job Runtime supports `runtime.preload_families`, but `job_create` / `job_update` authoring schema does not expose it for new custom Jobs.
+
+Behavior still works through lazy loading, but custom Jobs cannot opt into the same warm-up path as bundled Jobs.
+
+Correction target:
+
+- add optional `preload_families` to Job authoring draft/patch + public tools;
+- validate against runtime + accepted legacy family tokens;
+- create/update writes `runtime.preload_families`;
+- clone preserves existing runtime when not explicitly overridden.
+
+### R2.5 — P2: stale projectMemoryInstructions naming in connection path
+
+Behavior is control-plane instruction text, not memory.
+
+Rename only:
+
+```text
+projectMemoryInstructions
+→ controlPlaneInstructions
+```
+
+across `index.ts`, `mcp-session-manager.ts`, and `server-factory.ts`.
+
+No transport/session behavior change.
+
+### R2.6 — architecture note: Job permissions and Layla Gate 2 are behavioral policy, not hard runtime enforcement
+
+Current facts:
+
+- Job `permissions` is surfaced metadata;
+- global runtime permission layer is currently open;
+- Layla Gate 2 is enforced by `JOB.md` / `SKILL.md` behavioral instructions, not by a second server-side authority token.
+
+This is **not treated as a mapping bug in Round 2**. Hard Job-level permission enforcement / second-gate authority would be a separate architecture decision because it changes execution semantics and risks breaking stable workflows.
+
+---
+
+
 # 6. FINAL CLEANUP — ✅ DONE WITH COMPATIBILITY EXCEPTIONS
 
 Đã hoàn tất:
