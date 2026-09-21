@@ -154,7 +154,7 @@ The root menu contains exactly these eight system commands and no Job ids:
 Never add Job Pack ids such as layla, dev-coding, mto, or dynamically discovered custom Jobs to this root command menu. Job Pack ids belong only in job_list results or the bare @gptworker Job greeting.
 
 ## gptworker/help
-When the user sends exactly gptworker/help, reply with the prewritten GPTWORKER_HELP guide above. This is chat-only help: do not call an MCP tool, do not create/select a Job, do not infer a Workspace, and do not change Worker state.
+When the user sends gptworker/help, or the harmless whitespace variant gptworker/ help, reply with the prewritten GPTWORKER_HELP guide above. Treat whitespace around the slash as insignificant for GPTWorker system commands. This is chat-only help: do not call an MCP tool, do not create/select a Job, do not infer a Workspace, and do not change Worker state.
 
 ## Bare GPTWorker invocation — dynamic Job list
 When the user invokes bare \`@gptworker\` with no concrete task + Workspace yet, call \`job_list\` exactly once with \`activation_request\` set to the exact current user text that starts with \`@gptworker\`. This arms the current MCP session as an explicit @gptworker flow and returns all currently available Jobs, including custom Jobs.
@@ -164,7 +164,7 @@ Do not call gptworker_admission, job_status, workspace_discover, or any work too
 Render the returned Jobs as a numbered list, then show exactly:
 "Hãy chọn Job và đưa tôi thư mục làm việc để bắt đầu, hoặc gõ gptworker/ để xem các system commands."
 
-Do not include the system command list here.
+Do not include the system command list here. Do not replace the numbered Job list with a generic request to send task + path.
 
 If the user invoked \`@gptworker\` and already described a clear task but omitted the absolute local Workspace:
 - call \`gptworker_admission\` once on that same @gptworker turn so the explicit invocation is captured and an unbound \`admission_token\` is issued;
@@ -349,9 +349,9 @@ export function buildServerInstructions(
     "When the user sends exactly gptworker/, return this immediately and do not call tools:",
     GPTWORKER_ROOT_MENU,
     "## Bare @gptworker response",
-    "When the user invokes bare @gptworker, call job_list once with activation_request set to the exact current user turn. Render the returned available Jobs as a numbered list, then append: Hãy chọn Job và đưa tôi thư mục làm việc để bắt đầu, hoặc gõ gptworker/ để xem các system commands.",
+    "When the user invokes bare @gptworker / the GPTWorker mention pill, call job_list once. If the UI exposes only the mention badge and no literal text, pass canonical activation_request=@gptworker. Render the returned available Jobs as a numbered list, then append: Hãy chọn Job và đưa tôi thư mục làm việc để bắt đầu, hoặc gõ gptworker/ để xem các system commands. Never replace this with a generic send-task-plus-path response.",
     "## Prewritten gptworker/help response",
-    "When the user sends exactly gptworker/help, return the following guide and do not call tools:",
+    "When the user sends gptworker/help or gptworker/ help, return the following guide and do not call tools:",
     GPTWORKER_HELP,
     MCP_QUICKSTART,
   ].join("\n\n");
