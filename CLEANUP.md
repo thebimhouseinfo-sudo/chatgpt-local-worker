@@ -963,6 +963,63 @@ Real acceptance retest passed after this correction: the admission → Job nomin
 ---
 
 
+
+# 5.5. RUNTIME ACCEPTANCE — 5 WORK FAMILIES
+
+## STATUS: 🟡 4/5 PASS / NODE_REPL FIXED / RETEST PENDING
+
+Real 12-step runtime acceptance was executed against:
+
+```text
+Workspace: D:\GPTWorker-Acceptance
+Job: dev-coding
+```
+
+Observed result:
+
+- `filesystem` — ✅ PASS
+  - read existing file;
+  - create directory;
+  - write/copy/delete files;
+  - final file verification correct.
+- `shell` — ✅ PASS
+  - command output visible;
+  - short-lived process start/status/output/cleanup worked.
+- `git` — ✅ PASS
+  - status/branch inspection worked against the confirmed Workspace.
+- `context` — ✅ PASS
+  - `project_context` and `agent_status` worked;
+  - runtime reported `workspace_boundary_enforced: true`;
+  - effective scope reported `confirmed-workspace-only`.
+- `repl` — ❌ FAIL in first live acceptance
+  - JavaScript executed, but expression result was not surfaced through the tool response.
+
+Root cause:
+
+`node_repl` wrapped user code as an async function body:
+
+```js
+(async () => { 2 + 3 })()
+```
+
+The expression executed but was not returned, so both observable output and value could be empty/undefined.
+
+Correction:
+
+- normal REPL code now runs directly through `vm.runInContext()`, preserving the value of the final expression;
+- top-level await receives an async-expression fallback;
+- when no explicit `console.log` / `nodeRepl.write` output exists, `output` falls back to the inspected expression value;
+- regression coverage now requires:
+  - `2 + 3` → `output: "5"`, `value: "5"`;
+  - persistent `globalThis` state across calls;
+  - explicit console output;
+  - top-level await result.
+
+Runtime retest required only for `node_repl` after pulling the fix.
+
+---
+
+
 # 6. FINAL CLEANUP — ✅ DONE WITH COMPATIBILITY EXCEPTIONS
 
 Đã hoàn tất:
