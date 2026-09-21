@@ -292,7 +292,7 @@ The Worker core owns the generic execution path required by Job Packs:
 - workspace and project context;
 - deterministic validation and runtime lifecycle.
 
-Checkpoint/rewind, project-memory helpers, Codex compatibility hooks, Admin UI, and upstream MCP bridging are optional compatibility capabilities rather than architectural requirements. Keep, replace, or remove them based on demonstrated Job needs and Worker stability.
+Automatic checkpoints are an internal filesystem safety mechanism. Standalone rewind, Codex compatibility hooks/Computer Use, Admin UI, Ponytail, and upstream MCP bridging are retired from the active architecture. Do not reintroduce them as optional runtime capabilities without a new explicit architecture decision.
 
 Job Packs own domain workflow, policy, specialist skills/rules, deterministic harnesses, and completion criteria. Do not build a multi-agent hierarchy or duplicate core tools inside Job Packs.
 
