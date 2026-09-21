@@ -11,8 +11,8 @@ import {
   inspectJobPackForRemoval,
   exportJobPack,
   importJobPack,
-  JOB_PRELOAD_FAMILIES,
 } from "../jobs/job-authoring.js";
+import { JOB_PRELOAD_FAMILIES } from "../lib/runtime-families.js";
 import { clearWorkerState } from "../lib/worker-state.js";
 import type { AdmissionRuntime } from "../lib/activation-policy.js";
 import { toolAnnotations } from "../lib/tool-annotations.js";
