@@ -13,7 +13,6 @@ import {
 for (const tool of [
   "apply_patch",
   "glob",
-  "remember",
   "load_path_rules",
   "job_create",
   "job_update",
@@ -36,6 +35,7 @@ for (const retired of [
   "mcp_call",
   "ponytail_turn",
   "rewind",
+  "remember",
 ]) {
   assert.equal(LOCAL_TOOL_CATALOG.includes(retired), false, `${retired} remains in catalog`);
   assert.equal(SLIM_CHATGPT_TOOLS.has(retired), false, `${retired} remains in slim profile`);

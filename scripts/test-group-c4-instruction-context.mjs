@@ -21,7 +21,7 @@ assert.deepEqual(ctx.workspaceRoots, [repoRoot]);
 
 assert.equal(ctx.contextText.includes("## GPTWorker control plane"), true);
 assert.equal(ctx.contextText.includes("Startup root:"), true);
-assert.equal(ctx.contextText.includes("Project files, project memory, skills, and Git state are loaded only after"), true);
+assert.equal(ctx.contextText.includes("Project files, project-local context, skills, and Git state are loaded only after"), true);
 
 for (const forbidden of [
   "Core execution workflow",
@@ -59,7 +59,6 @@ const source = await (await import("node:fs/promises")).readFile(
 );
 for (const forbidden of [
   "codex-agent-prompt",
-  "loadProjectMemory",
   "loadAutoMemory",
   "loadProjectSkills",
   "collectGitSnapshot",

@@ -2,11 +2,7 @@ import assert from "node:assert/strict";
 import fs from "node:fs/promises";
 import os from "node:os";
 import path from "node:path";
-import {
-  appendAutoMemory,
-  loadAutoMemory,
-} from "../dist/lib/auto-memory.js";
-import { loadProjectMemory } from "../dist/lib/project-memory.js";
+import { loadProjectContext } from "../dist/lib/project-context-loader.js";
 
 async function exists(file) {
   try {
@@ -17,95 +13,101 @@ async function exists(file) {
   }
 }
 
+// Pre-correction implementations remain available only as quarantine references.
 for (const file of [
-  "legacy/group-c/lib/project-memory.ts",
-  "legacy/group-c/lib/auto-memory.ts",
+  "legacy/group-c/post-review/lib/auto-memory.ts",
+  "legacy/group-c/post-review/lib/project-memory.ts",
   "legacy/group-c/tools/context.ts",
 ]) {
-  assert.equal(await exists(file), true, `missing quarantined C3 file: ${file}`);
+  assert.equal(await exists(file), true, `missing C3 quarantine reference: ${file}`);
 }
 
-const activeProjectMemory = await fs.readFile("src/lib/project-memory.ts", "utf8");
+// Active runtime must have no GPTWorker knowledge-memory subsystem.
+assert.equal(await exists("src/lib/auto-memory.ts"), false, "auto-memory must not remain active");
+assert.equal(await exists("src/lib/project-memory.ts"), false, "project-memory naming must not remain active");
+assert.equal(
+  await exists("src/lib/project-context-loader.ts"),
+  true,
+  "project context loader is missing"
+);
+
+const loaderSource = await fs.readFile("src/lib/project-context-loader.ts", "utf8");
 for (const forbidden of [
-  "USER_MEMORY_CANDIDATES",
+  "ProjectMemory",
+  "PROJECT_MEMORY",
+  "loadProjectMemory",
+  "auto-memory",
+  "MEMORY.md",
+  "memory/projects",
+  "CODEX_HOME",
   'path.join(os.homedir(), ".codex"',
   'path.join(os.homedir(), ".claude"',
-  "run /init in Claude Code",
-  "auto-loaded like Claude Code",
 ]) {
   assert.equal(
-    activeProjectMemory.includes(forbidden),
+    loaderSource.includes(forbidden),
     false,
-    `project-memory contains retired global dependency: ${forbidden}`
+    `project context loader contains retired memory identifier: ${forbidden}`
   );
 }
-
-const activeAutoMemory = await fs.readFile("src/lib/auto-memory.ts", "utf8");
-for (const forbidden of ["CODEX_HOME", '".codex"', "os.homedir"]) {
+for (const required of [
+  "ProjectContextSection",
+  "ProjectContextBundle",
+  "PROJECT_CONTEXT_MAX_BYTES",
+  "PROJECT_CONTEXT_MAX_LINES",
+  "loadProjectContext",
+]) {
   assert.equal(
-    activeAutoMemory.includes(forbidden),
-    false,
-    `auto-memory contains retired storage dependency: ${forbidden}`
+    loaderSource.includes(required),
+    true,
+    `project context loader missing renamed identifier: ${required}`
   );
 }
-assert.equal(
-  activeAutoMemory.includes("getWorkerDataRoot"),
-  true,
-  "auto-memory must use GPTWorker data root"
-);
 
 const contextSource = await fs.readFile("src/tools/context.ts", "utf8");
 for (const forbidden of [
-  "getUpstreamManager",
-  "upstream_mcp",
-  "mcp-upstream",
-  "rewind:",
-  "plugin-config",
+  "appendAutoMemory",
+  "auto-memory",
+  '"remember"',
+  "loadProjectMemory",
+  "project-memory",
 ]) {
   assert.equal(
     contextSource.includes(forbidden),
     false,
-    `context contains retired dependency: ${forbidden}`
+    `context tool contains retired memory surface: ${forbidden}`
   );
 }
+assert.equal(
+  contextSource.includes("loadProjectContext"),
+  true,
+  "project_context must use the context loader"
+);
 assert.equal(
   contextSource.includes("worker_data_root"),
   true,
-  "agent_status must expose GPTWorker data root"
+  "agent_status should keep Worker operational data root"
 );
+
+const gatewaySource = await fs.readFile("src/tools/work-gateway.ts", "utf8");
+assert.equal(gatewaySource.includes('"remember"'), false, "WorkGateway still exposes remember");
+
+const profileSource = await fs.readFile("src/lib/tool-profile.ts", "utf8");
+assert.equal(profileSource.includes('"remember"'), false, "tool profile still exposes remember");
+
+const policySource = await fs.readFile("src/lib/tool-work-policy.ts", "utf8");
+assert.equal(policySource.includes('"remember"'), false, "tool policy still classifies remember");
+
+const instructionSource = await fs.readFile("src/lib/instruction-context.ts", "utf8");
 assert.equal(
-  contextSource.includes("checkpoint:"),
-  true,
-  "agent_status must expose checkpoint safety as checkpoint"
+  instructionSource.includes("project memory"),
+  false,
+  "initialize text still describes a project-memory subsystem"
 );
 
-const skillsSource = await fs.readFile("src/lib/skills-loader.ts", "utf8");
-for (const forbidden of ["plugin-config", "resolveComputerUseSkillPath", "@oai/sky"]) {
-  assert.equal(
-    skillsSource.includes(forbidden),
-    false,
-    `skills loader contains retired dependency: ${forbidden}`
-  );
-}
-
-const tmp = await fs.mkdtemp(path.join(os.tmpdir(), "gptworker-c3-"));
+// Project-local context remains on-demand and bounded to the workspace.
+const tmp = await fs.mkdtemp(path.join(os.tmpdir(), "gptworker-c3-context-"));
 const workspace = path.join(tmp, "workspace");
-const dataRoot = path.join(tmp, "worker-data");
 await fs.mkdir(workspace, { recursive: true });
-
-process.env.GPTWORKER_DATA_ROOT = dataRoot;
-
-const memoryFile = await appendAutoMemory(workspace, "local-memory-test");
-assert.equal(
-  path.resolve(memoryFile).startsWith(path.resolve(dataRoot) + path.sep),
-  true,
-  "auto memory must live under GPTWORKER_DATA_ROOT"
-);
-assert.equal(memoryFile.includes(".codex"), false);
-assert.match(memoryFile, /memory[\\/]projects[\\/][a-f0-9]{12}[\\/]MEMORY\.md$/);
-
-const loadedMemory = await loadAutoMemory(workspace);
-assert.equal(loadedMemory?.includes("local-memory-test"), true);
 
 await fs.writeFile(
   path.join(workspace, "AGENTS.md"),
@@ -116,18 +118,22 @@ await fs.writeFile(
   ].join("\n"),
   "utf8"
 );
-await fs.writeFile(path.join(workspace, "local-note.md"), "LOCAL_PROJECT_NOTE", "utf8");
-
-const bundle = await loadProjectMemory(workspace);
-const combined = bundle.sections.map((section) => section.content).join("\n");
-assert.equal(combined.includes("LOCAL_PROJECT_NOTE"), true);
-assert.equal(combined.includes("skipped non-project import"), true);
-assert.equal(
-  bundle.sections.some((section) => section.path.includes(".codex")),
-  false,
-  "project memory must not load global Codex home"
+await fs.writeFile(
+  path.join(workspace, "local-note.md"),
+  "LOCAL_PROJECT_CONTEXT",
+  "utf8"
 );
+
+const bundle = await loadProjectContext(workspace);
+const combined = bundle.sections.map((section) => section.content).join("\n");
+
+assert.equal(combined.includes("LOCAL_PROJECT_CONTEXT"), true);
+assert.equal(combined.includes("skipped non-project import"), true);
+assert.equal(bundle.root, path.resolve(workspace));
+assert.equal(bundle.workspace_roots.includes(path.resolve(workspace)), true);
 
 await fs.rm(tmp, { recursive: true, force: true });
 
-console.log("test-group-c3-context: ok — context is workspace-local and GPTWorker-owned");
+console.log(
+  "test-group-c3-context: ok — no GPTWorker memory; project context remains on-demand"
+);
