@@ -62,7 +62,7 @@ const created = await createJobPack({
   skills: ["skills/example.md"],
   harness_entrypoints: ["harness/validate.mjs"],
   validators: ["harness/validate.mjs"],
-  preload_families: ["filesystem", "context", "mcp"],
+  preload_families: ["filesystem", "context"],
   files: {
     "skills/example.md": "# Example skill\n",
     "harness/validate.mjs": "console.log('validate test-job');\n",
@@ -82,7 +82,7 @@ const defaultJob = listing.jobs.find((job) => job.id === "dev-coding");
 const customJob = listing.jobs.find((job) => job.id === "test-job");
 assert.equal(defaultJob?.source, "default");
 assert.equal(customJob?.source, "custom");
-assert.deepEqual(customJob?.preload_families, ["filesystem", "context", "mcp"]);
+assert.deepEqual(customJob?.preload_families, ["filesystem", "context"]);
 assert.equal(listing.jobs.length, 2);
 
 await assert.rejects(
