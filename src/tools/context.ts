@@ -8,7 +8,6 @@ import { getDefaultCwd, getFullDiskAccess, getMachineRoots, validatePath } from 
 import { toolAnnotations } from "../lib/tool-annotations.js";
 import { MCP_QUICKSTART } from "../lib/quickstart.js";
 import { getCheckpointConfig } from "../lib/checkpoint.js";
-import { getUpstreamManager } from "../lib/mcp-upstream-manager.js";
 import { appendAutoMemory } from "../lib/auto-memory.js";
 import { loadPathRulesForFile } from "../lib/path-rules.js";
 import { toolResult } from "../lib/tool-result.js";
@@ -19,7 +18,6 @@ const contextFileNames = [
   "AGENTS.md",
   "README.md",
   ".claude/settings.json",
-  ".codex/config.toml",
   ".cursor/rules",
 ];
 
@@ -135,16 +133,11 @@ export function registerContextTools(server: McpServer, _startupWorkspaceRoot: s
     {
       title: "Agent Status",
       description:
-        "Optional diagnostic: permissions, active default cwd, tool cheat sheet, rewind and upstream MCP status.",
+        "Optional diagnostic: permissions, active default cwd, tool cheat sheet, rewind and local runtime status.",
       inputSchema: {},
       annotations: toolAnnotations("read"),
     },
     async () => {
-      const upstreamManager = getUpstreamManager();
-      let upstream: Awaited<ReturnType<typeof upstreamManager.listStatuses>> = [];
-      try {
-        upstream = await upstreamManager.listStatuses();
-      } catch {}
       return toolResult("agent_status", {
         permission_profile: getPermissionProfile(),
         permission_description: describePermissionProfile(),
@@ -156,10 +149,6 @@ export function registerContextTools(server: McpServer, _startupWorkspaceRoot: s
         node: process.version,
         quickstart: MCP_QUICKSTART,
         rewind: getCheckpointConfig(),
-        upstream_mcp: {
-          config_path: upstreamManager.getConfigPath(),
-          servers: upstream,
-        },
         tool_profile: process.env.CHATGPT_TOOL_PROFILE || "slim",
       });
     }
