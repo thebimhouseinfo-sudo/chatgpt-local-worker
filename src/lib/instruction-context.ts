@@ -24,7 +24,7 @@ export async function buildInstructionContext(
   const contextText = [
     "## GPTWorker control plane",
     "GPTWorker starts idle. Startup folders are environment context only; they are not Job/work authority.",
-    "Project files, project memory, skills, and Git state are loaded only after an explicit GPTWorker Job flow requires them.",
+    "Project files, project-local context, skills, and Git state are loaded only after an explicit GPTWorker Job flow requires them.",
     `Tool profile: **${toolProfile}**.`,
     "",
     "## Runtime environment",

@@ -1,10 +1,9 @@
 import { z } from "zod";
 import type { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import { audit, getAuditPath } from "../lib/audit.js";
-import { appendAutoMemory } from "../lib/auto-memory.js";
 import { getCheckpointConfig } from "../lib/checkpoint.js";
 import { loadPathRulesForFile } from "../lib/path-rules.js";
-import { loadProjectMemory } from "../lib/project-memory.js";
+import { loadProjectContext } from "../lib/project-context-loader.js";
 import {
   describePermissionProfile,
   getPermissionProfile,
@@ -91,7 +90,6 @@ export function registerContextTools(
           .string()
           .optional()
           .describe("Absolute project directory; defaults to confirmed active workspace"),
-        max_depth: z.number().int().min(0).max(5).optional().default(3),
         max_bytes_per_file: z
           .number()
           .int()
@@ -107,7 +105,7 @@ export function registerContextTools(
         ? await validatePath(projectPath)
         : getDefaultCwd();
 
-      const bundle = await loadProjectMemory(root, {
+      const bundle = await loadProjectContext(root, {
         maxBytes: Math.max(max_bytes_per_file, 25000),
         maxLines: 1000,
         workspaceRoots: [root],
@@ -162,39 +160,6 @@ export function registerContextTools(
         tool_profile: process.env.CHATGPT_TOOL_PROFILE || "slim",
         quickstart: MCP_QUICKSTART,
       });
-    }
-  );
-
-  server.registerTool(
-    "remember",
-    {
-      title: "Remember",
-      description:
-        "Save a durable project note in GPTWorker-owned memory for the confirmed active workspace.",
-      inputSchema: {
-        note: z
-          .string()
-          .min(1)
-          .describe("Short durable project fact: build command, convention, or gotcha"),
-      },
-      annotations: toolAnnotations("edit"),
-    },
-    async ({ note }) => {
-      const root = getDefaultCwd();
-      const file = await appendAutoMemory(root, note);
-
-      await audit({
-        tool: "remember",
-        action: "append",
-        target: file,
-        status: "ok",
-      });
-
-      return toolResult(
-        "remember",
-        { saved_to: file, note },
-        { summary: "saved to GPTWorker memory" }
-      );
     }
   );
 
