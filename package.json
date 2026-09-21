@@ -1,7 +1,7 @@
 {
   "name": "chatgpt-local-worker",
   "version": "1.1.0",
-  "description": "Turn ChatGPT web into a controlled general local worker via MCP — Job Packs over the existing filesystem, shell, git, checkpoint, and MCP bridge core",
+  "description": "Stability-first ChatGPT-controlled local worker for Windows with Job Packs, reliable local execution, and OpenAI Secure MCP Tunnel transport",
   "repository": {
     "type": "git",
     "url": "https://github.com/thebimhouseinfo-sudo/chatgpt-local-worker.git"
@@ -10,7 +10,7 @@
   "bugs": {
     "url": "https://github.com/thebimhouseinfo-sudo/chatgpt-local-worker/issues"
   },
-  "author": "hoangcoderr (upstream core); thebimhouseinfo-sudo (Local Worker fork)",
+  "author": "thebimhouseinfo-sudo (GPTWorker); portions derived from MIT-licensed work by hoangcoderr",
   "type": "module",
   "main": "dist/index.js",
   "bin": {
