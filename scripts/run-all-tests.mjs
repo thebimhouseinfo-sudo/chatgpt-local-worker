@@ -32,10 +32,29 @@ async function waitForHealth(url, timeoutMs = 25000) {
   throw new Error(`timeout waiting for ${url}`);
 }
 
-const npm = process.platform === "win32" ? "npm.cmd" : "npm";
+async function runNpmScript(scriptName) {
+  const npmExecPath = process.env.npm_execpath?.trim();
+
+  // When invoked through npm, npm_execpath normally points at npm-cli.js.
+  // Running that JS entrypoint through the current node.exe avoids Windows
+  // Node 24 spawn(EINVAL) behavior for .cmd shims with shell:false.
+  if (npmExecPath && /npm(?:-cli)?\.(?:js|cjs|mjs)$/i.test(npmExecPath)) {
+    return run(process.execPath, [npmExecPath, "run", scriptName]);
+  }
+
+  if (process.platform === "win32") {
+    const command = `npm run ${scriptName}`;
+    return run(
+      process.env.ComSpec || "cmd.exe",
+      ["/d", "/s", "/c", command]
+    );
+  }
+
+  return run("npm", ["run", scriptName]);
+}
 
 console.log("=== Default test suite ===");
-await run(npm, ["test"]);
+await runNpmScript("test");
 
 console.log("\n=== Runtime integration ===");
 const server = spawn(process.execPath, ["dist/index.js"], {
