@@ -65,7 +65,7 @@ Keyword matches may suggest a job; they are never permission to activate one.
 2. Read `WORKER.md` when the change affects Job Runtime behavior, lifecycle, permissions, Job Packs, or cross-job policy.
 3. For a Job Pack change, read that pack's `JOB.md`, `SKILL.md`, `job.yaml`, relevant rules/skills, and harness/tests.
 4. Prefer focused changes over broad rewrites.
-5. Preserve compatibility only where it protects a real active workflow. Legacy names or preload tokens may remain as inert compatibility surfaces, but retired `codex-*`, coding-agent runtime, Admin UI, Ponytail, Computer Use, and upstream-MCP behavior must not be reintroduced into execution.
+5. Preserve compatibility only where it protects a verified active workflow. Do not retain inert legacy preload tokens merely for compatibility. Retired `codex-*`, coding-agent runtime, Admin UI, Ponytail, Computer Use, and upstream-MCP behavior must not be reintroduced into execution.
 
 The normal repository workflow is:
 
