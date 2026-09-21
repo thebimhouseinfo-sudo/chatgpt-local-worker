@@ -2,7 +2,7 @@
 
 # GPTWorker
 
-**A ChatGPT-controlled local worker with full machine access and Job Packs.**
+**A ChatGPT-controlled local worker with confirmed-Workspace execution and Job Packs.**
 
 </div>
 
@@ -348,11 +348,22 @@ gr/job stop
 
 The longer `gptworker/...` forms remain compatibility aliases. Public control commands do not start a work Job and do not require JOB/FOLDER confirmation.
 
-## Full local access
+## Confirmed Workspace boundary
 
-GPTWorker intentionally runs as a trusted local agent with full machine access. It can read/write files, run shell commands, use Git, test/build projects, and call installed local tooling.
+GPTWorker runs as a trusted local Worker process and can invoke installed local tooling, but an **active Job is constrained to the explicitly confirmed `FOLDER`**.
 
-The confirmed `FOLDER` is the default work context, not a security sandbox. Absolute paths remain available when the active job genuinely needs them.
+For every bundled or Custom Job:
+
+- structured filesystem/context paths must be absolute;
+- those absolute paths must stay inside the confirmed Workspace;
+- Git runs against the confirmed Workspace/repository;
+- `node_repl` has no direct filesystem access;
+- shell cwd and normal/obvious path references are checked against the same Workspace boundary;
+- moving to another Workspace requires an explicit Job switch/reconfirmation.
+
+This is designed so an incorrect Job decision is contained inside the authorized Workspace instead of affecting an unrelated local project.
+
+Arbitrary shell code is not an OS security sandbox; deliberately obfuscated shell programs require a separate Windows isolation architecture.
 
 The MCP server binds to localhost by default and ChatGPT reaches it through the OpenAI Secure MCP Tunnel.
 
