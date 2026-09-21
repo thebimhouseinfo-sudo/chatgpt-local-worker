@@ -23,6 +23,8 @@ The execution core owns only the local capabilities required by Job Packs: files
 
 Job Packs own workflow/policy/SOP, specialist skills or business rules, deterministic harnesses, and completion criteria.
 
+All active Jobs share one non-negotiable authority invariant: the confirmed Workspace is the local execution boundary. Core structured path APIs must reject absolute paths outside that Workspace, and Custom Jobs must not weaken or bypass this rule. A different local folder requires an explicit switch/reconfirmation.
+
 Do not create a multi-agent hierarchy and do not duplicate the core filesystem/shell/git framework inside Job Packs.
 
 ## Authority and document roles
