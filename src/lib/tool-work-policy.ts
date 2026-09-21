@@ -34,7 +34,7 @@ export function isControlTool(toolName: string): boolean {
 }
 
 export function requiresWorkHandle(toolName: string): boolean {
-  return !toolName.includes("__") && !CONTROL_TOOLS.has(toolName);
+  return !CONTROL_TOOLS.has(toolName);
 }
 
 export function toolFamily(toolName: string): string {
