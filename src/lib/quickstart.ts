@@ -335,7 +335,7 @@ All tools return JSON: { ok, tool, summary, data }
 - work_tool operations run_command / start_process / process_output / process_status / stop_process: execute
 - work_tool operations shell_status / shell_reset: persistent shell state
 - work_tool operations git_status / git_diff / git_add / git_commit / git_branch / git_restore / git_stash: git
-- work_tool operations project_context / list_skills / load_skill / load_path_rules: active-workspace context
+- work_tool operations project_context / agent_status: active-workspace context
 - when a dedicated operation is unavailable, dispatch run_command through work_tool; node_repl is not the fallback for routine filesystem mutation
 
 ## Paths
