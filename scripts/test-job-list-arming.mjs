@@ -34,6 +34,12 @@ const bareAtResult = await jobList.callback({
 const payload = JSON.stringify(bareAtResult);
 assert.ok(payload.includes('"at_flow_armed":true'));
 assert.equal(admissionRuntime.isExplicitAtFlowArmed(), true);
+assert.ok(payload.includes('"welcome_text"'));
+assert.ok(payload.includes("Dev Coding"));
+assert.ok(payload.includes("Dev Planing"));
+assert.ok(payload.includes("Layla"));
+assert.ok(!payload.toLowerCase().includes('"id":"mto"'));
+assert.ok(!payload.includes("HVAC quantity takeoff"));
 
 // The following work request can now continue without repeating @.
 const workspace = repoRoot;
@@ -53,5 +59,72 @@ const direct = otherAdmission.check({
   workspace,
 });
 assert.equal(direct.mode, "INACTIVE");
+
+
+// Custom Jobs are scanned dynamically for Welcome. Only ready custom Jobs
+// appear after the three fixed defaults; mto and non-custom packs stay hidden.
+const customRegistered = new Map();
+const customServer = {
+  registerTool(name, config, callback) {
+    customRegistered.set(name, { config, callback });
+    return {
+      remove() {},
+      update() {},
+      enable() {},
+      disable() {},
+      enabled: true,
+    };
+  },
+};
+const customRuntime = {
+  async list() {
+    return {
+      jobs: [
+        {
+          id: "rename",
+          name: "Rename",
+          description: "đổi tên file hàng loạt.",
+          status: "ready",
+          source: "custom",
+        },
+        {
+          id: "mto",
+          name: "MTO",
+          description: "private custom workflow",
+          status: "ready",
+          source: "custom",
+        },
+        {
+          id: "draft-job",
+          name: "Draft Job",
+          description: "not ready yet",
+          status: "placeholder",
+          source: "custom",
+        },
+        {
+          id: "another-default",
+          name: "Another Default",
+          description: "must not enter Welcome",
+          status: "ready",
+          source: "default",
+        },
+      ],
+      suggested_job_ids: [],
+      job_roots: {},
+      note: "test",
+    };
+  },
+};
+const customAdmission = new AdmissionRuntime();
+registerJobTools(customServer, customRuntime, undefined, customAdmission);
+const customJobList = customRegistered.get("job_list");
+const customWelcome = await customJobList.callback({
+  activation_request: "@gptworker",
+});
+const customPayload = JSON.stringify(customWelcome);
+assert.ok(customPayload.includes("**4. Rename** — đổi tên file hàng loạt."));
+assert.ok(!customPayload.includes("private custom workflow"));
+assert.ok(!customPayload.includes("Draft Job"));
+assert.ok(!customPayload.includes("Another Default"));
 
 console.log("test-job-list-arming: ok");
