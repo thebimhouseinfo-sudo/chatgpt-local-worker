@@ -3,8 +3,13 @@ import path from "path";
 import os from "os";
 import { AsyncLocalStorage } from "node:async_hooks";
 
+interface ExecutionScope {
+  workspace: string;
+  supportRoots: string[];
+}
+
 let defaultCwd = process.cwd();
-const callWorkspace = new AsyncLocalStorage<string>();
+const callScope = new AsyncLocalStorage<ExecutionScope>();
 
 function comparablePath(value: string): string {
   const resolved = path.resolve(value);
@@ -25,8 +30,8 @@ function realpathSyncSafe(value: string): string {
 
 /**
  * Canonicalize the nearest existing ancestor so a path that passes through
- * a symlink/junction cannot escape the confirmed Workspace simply because
- * the final file does not exist yet.
+ * a symlink/junction cannot escape an authority root merely because the final
+ * file does not exist yet.
  */
 function canonicalPotentialPathSync(value: string): string {
   const resolved = path.resolve(value);
@@ -52,10 +57,22 @@ function canonicalPotentialPathSync(value: string): string {
 function pathIsInside(root: string, candidate: string): boolean {
   const rootComparable = comparablePath(root);
   const candidateComparable = comparablePath(candidate);
-  return (
-    candidateComparable === rootComparable ||
-    candidateComparable.startsWith(rootComparable + path.sep)
-  );
+  if (candidateComparable === rootComparable) return true;
+
+  const separator = rootComparable.endsWith(path.sep) ? "" : path.sep;
+  return candidateComparable.startsWith(rootComparable + separator);
+}
+
+function requireAbsolute(inputPath: string): string {
+  const trimmed = inputPath.trim();
+  if (!trimmed) throw new Error("Path is empty");
+  if (!path.isAbsolute(trimmed)) {
+    throw new Error(
+      "Absolute path required. Relative paths are not allowed for GPTWorker operations: " +
+        trimmed
+    );
+  }
+  return path.resolve(trimmed);
 }
 
 export function setDefaultCwd(cwd: string): void {
@@ -63,22 +80,38 @@ export function setDefaultCwd(cwd: string): void {
 }
 
 export function getDefaultCwd(): string {
-  return callWorkspace.getStore() ?? defaultCwd;
+  return callScope.getStore()?.workspace ?? defaultCwd;
 }
 
 export function getActiveWorkspaceBoundary(): string | null {
-  return callWorkspace.getStore() ?? null;
+  return callScope.getStore()?.workspace ?? null;
+}
+
+export function getActiveSupportRoots(): string[] {
+  return [...(callScope.getStore()?.supportRoots ?? [])];
 }
 
 export function isWorkspaceBoundaryActive(): boolean {
-  return Boolean(callWorkspace.getStore());
+  return Boolean(callScope.getStore());
+}
+
+export function runWithWorkspaceScope<T>(
+  cwd: string,
+  supportRoots: readonly string[],
+  fn: () => T
+): T {
+  const scope: ExecutionScope = {
+    workspace: path.resolve(cwd),
+    supportRoots: [...new Set(supportRoots.map((root) => path.resolve(root)))],
+  };
+  return callScope.run(scope, fn);
 }
 
 export function runWithWorkspaceCwd<T>(
   cwd: string,
   fn: () => T
 ): T {
-  return callWorkspace.run(path.resolve(cwd), fn);
+  return runWithWorkspaceScope(cwd, [], fn);
 }
 
 /** @deprecated use getDefaultCwd — kept for compatibility */
@@ -94,8 +127,9 @@ export function getAllowedRoots(): string[] {
 export function setFullDiskAccess(_enabled: boolean): void {}
 
 /**
- * Host process capability only. Active Job path APIs are separately restricted
- * to the confirmed Workspace by validatePath().
+ * Host process capability only. Active Job structured path APIs are separately
+ * restricted to the confirmed Workspace. Job Pack support roots are read-only
+ * inputs for declared skills/harness resources.
  */
 export function getFullDiskAccess(): boolean {
   return true;
@@ -121,16 +155,7 @@ export function assertPathInsideWorkspaceSync(
   inputPath: string,
   workspaceRoot: string
 ): string {
-  const trimmed = inputPath.trim();
-  if (!trimmed) throw new Error("Path is empty");
-  if (!path.isAbsolute(trimmed)) {
-    throw new Error(
-      "Absolute path required. Relative paths are not allowed for GPTWorker operations: " +
-        trimmed
-    );
-  }
-
-  const resolved = path.resolve(trimmed);
+  const resolved = requireAbsolute(inputPath);
   const root = path.resolve(workspaceRoot);
   const canonicalRoot = canonicalPotentialPathSync(root);
   const canonicalCandidate = canonicalPotentialPathSync(resolved);
@@ -145,21 +170,51 @@ export function assertPathInsideWorkspaceSync(
   return resolved;
 }
 
-export async function validatePath(inputPath: string): Promise<string> {
-  const trimmed = inputPath.trim();
-  if (!trimmed) throw new Error("Path is empty");
+export function isPathInsideAnyRootSync(
+  inputPath: string,
+  roots: readonly string[]
+): boolean {
+  return roots.some((root) =>
+    isPathInsideWorkspaceSync(inputPath, path.resolve(root))
+  );
+}
 
-  if (!path.isAbsolute(trimmed)) {
-    throw new Error(
-      "Absolute path required. Relative paths are not allowed for GPTWorker filesystem operations: " +
-        trimmed
-    );
+/**
+ * Structured read access for active work.
+ *
+ * Project/user data remains Workspace-bound. The only extra readable roots are
+ * the active Job Pack support roots so GPTWorker can load declared skills and
+ * harness files without granting write authority there.
+ */
+export async function validateReadPath(inputPath: string): Promise<string> {
+  const resolved = requireAbsolute(inputPath);
+  const scope = callScope.getStore();
+  if (!scope) return resolved;
+
+  if (isPathInsideWorkspaceSync(resolved, scope.workspace)) {
+    return resolved;
   }
 
-  const resolved = path.resolve(trimmed);
-  const activeWorkspace = callWorkspace.getStore();
-  if (activeWorkspace) {
-    return assertPathInsideWorkspaceSync(resolved, activeWorkspace);
+  if (isPathInsideAnyRootSync(resolved, scope.supportRoots)) {
+    return resolved;
+  }
+
+  throw new Error(
+    "WORKSPACE_BOUNDARY: read path is outside the confirmed Workspace and active Job support roots. " +
+      `Workspace=${scope.workspace}; path=${resolved}`
+  );
+}
+
+/**
+ * Structured write/mutation access for active work. No support-root exception:
+ * Job Pack resources are read/execute support only and must not become output
+ * locations.
+ */
+export async function validatePath(inputPath: string): Promise<string> {
+  const resolved = requireAbsolute(inputPath);
+  const scope = callScope.getStore();
+  if (scope) {
+    return assertPathInsideWorkspaceSync(resolved, scope.workspace);
   }
 
   // Pre-confirm/control-plane tools may validate a user-supplied absolute path,
