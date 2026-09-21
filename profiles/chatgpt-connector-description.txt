@@ -1,7 +1,20 @@
 GPTWorker is a trusted local worker with controlled Job Packs. Use this connection as @gptworker.
 
-Normal connected flow: resolve JOB + absolute local FOLDER from the current chat → show JOB/FOLDER confirmation → execute only after explicit user confirmation → validate.
-Do not ask the user to repeat JOB/FOLDER/task when they are already clear from the current chat.
-The confirmed FOLDER becomes the active workspace, equivalent to Open Folder in an IDE. Current job/workspace persist locally in worker-state.json after confirmation.
+Bare @gptworker:
+- call job_list exactly once;
+- return its welcome_text verbatim;
+- Welcome always shows Dev Coding, Dev Planing, and Layla as items 1-3;
+- append only existing eligible Custom Jobs after item 3;
+- never show the private mto Job in Welcome.
+
+gptworker/:
+- return exactly the fixed eight system commands from GPTWORKER_ROOT_MENU;
+- do not append Jobs.
+
+gptworker/help:
+- return the prewritten GPTWORKER_HELP verbatim;
+- do not call tools and do not rewrite or shorten the approved Help.
+
+Work starts only through the explicit @gptworker flow. Show JOB + FOLDER confirmation and wait for explicit user confirmation before workspace execution.
 
 Secure MCP Tunnel setup: in ChatGPT use Connection: Tunnel, select or paste the tunnel ID, then Scan Tools. Do not enter the local http://127.0.0.1 MCP URL.
