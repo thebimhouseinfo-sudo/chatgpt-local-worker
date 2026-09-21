@@ -10,6 +10,8 @@ const tray = await fs.readFile("gptworker-tray.ps1", "utf8");
 const start = await fs.readFile("start.ps1", "utf8");
 const tunnel = await fs.readFile("openai-tunnel.ps1", "utf8");
 const setupTest = await fs.readFile("setup-test.bat", "utf8");
+const packageJson = JSON.parse(await fs.readFile("package.json", "utf8"));
+const packageLock = JSON.parse(await fs.readFile("package-lock.json", "utf8"));
 
 if (/[^\x00-\x7F]/.test(tunnel)) {
   throw new Error("openai-tunnel.ps1 must remain ASCII-safe for Windows PowerShell 5.1");
@@ -102,6 +104,30 @@ assert.equal(tunnel.includes("[switch]$Detach"), true);
 assert.equal(tunnel.includes("Start-Process -FilePath $bin"), true);
 assert.equal(tunnel.includes("Quote-ProcessArgument $ProfileFile"), true);
 assert.equal(tunnel.includes('$argumentLine = "run --profile-file $quotedProfile"'), true);
+
+assert.equal(
+  tunnel.includes('$ProfileName = "gptworker"'),
+  true,
+  "tunnel profile must use GPTWorker identity"
+);
+assert.equal(
+  tunnel.includes("codex-local"),
+  false,
+  "legacy codex-local tunnel profile name must not remain active"
+);
+assert.equal(
+  Object.prototype.hasOwnProperty.call(packageJson.bin ?? {}, "codex-mcp-server"),
+  false,
+  "legacy codex-mcp-server bin alias must not remain in package.json"
+);
+assert.equal(
+  Object.prototype.hasOwnProperty.call(
+    packageLock.packages?.[""]?.bin ?? {},
+    "codex-mcp-server"
+  ),
+  false,
+  "legacy codex-mcp-server bin alias must not remain in package-lock.json"
+);
 
 for (const required of [
   "O Permissions, chon Restricted.",
