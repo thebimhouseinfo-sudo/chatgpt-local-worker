@@ -2,6 +2,8 @@ import fs from "fs/promises";
 import path from "path";
 import { spawn } from "child_process";
 import { fileURLToPath } from "url";
+import { getDefaultCwd } from "./path-security.js";
+import { assertShellCommandWorkspaceBound } from "./shell-workspace-guard.js";
 
 export interface PostEditHook {
   glob: string;
@@ -39,8 +41,14 @@ async function loadHooksConfig(): Promise<HooksConfig> {
   }
 }
 
-function runHook(command: string, filePath: string, timeoutMs: number): Promise<{ stdout: string; stderr: string; exit_code: number | null }> {
+function runHook(
+  command: string,
+  filePath: string,
+  workspaceRoot: string,
+  timeoutMs: number
+): Promise<{ stdout: string; stderr: string; exit_code: number | null }> {
   const expanded = command.replace(/\{path\}/g, filePath).replace(/\{file\}/g, filePath);
+  assertShellCommandWorkspaceBound(expanded, workspaceRoot);
   const shell = process.platform === "win32" ? "powershell.exe" : "bash";
   const args = process.platform === "win32" ? ["-NoProfile", "-Command", expanded] : ["-lc", expanded];
 
@@ -71,13 +79,14 @@ export async function runPostEditHooks(filePaths: string[]): Promise<Record<stri
   if (config.enabled === false || !config.hooks?.length) return undefined;
 
   const results: Array<Record<string, unknown>> = [];
+  const workspaceRoot = getDefaultCwd();
 
   for (const filePath of filePaths) {
     const base = path.basename(filePath);
     const rel = filePath.replace(/\\/g, "/");
     for (const hook of config.hooks) {
       if (!globMatch(base, hook.glob) && !globMatch(rel, hook.glob)) continue;
-      const out = await runHook(hook.command, filePath, hook.timeout_ms ?? 15000);
+      const out = await runHook(hook.command, filePath, workspaceRoot, hook.timeout_ms ?? 15000);
       results.push({
         file: filePath,
         glob: hook.glob,
