@@ -24,7 +24,6 @@ export interface InstructionContextOptions {
   workspaceRoot: string;
   workspaceRoots: string[];
   pid: number;
-  adminPort: number;
 }
 
 export interface InstructionContext {
@@ -56,7 +55,6 @@ export async function buildInstructionContext(
       workspaceRoot: opts.workspaceRoot,
       workspaceRoots: opts.workspaceRoots,
       pid: opts.pid,
-      adminPort: opts.adminPort,
       nodeVersion: process.version,
     }),
   ];
