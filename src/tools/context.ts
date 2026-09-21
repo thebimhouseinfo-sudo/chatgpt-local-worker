@@ -2,7 +2,6 @@ import { z } from "zod";
 import type { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import { audit, getAuditPath } from "../lib/audit.js";
 import { getCheckpointConfig } from "../lib/checkpoint.js";
-import { loadPathRulesForFile } from "../lib/path-rules.js";
 import { loadProjectContext } from "../lib/project-context-loader.js";
 import {
   describePermissionProfile,
@@ -15,10 +14,6 @@ import {
   validatePath,
 } from "../lib/path-security.js";
 import { MCP_QUICKSTART } from "../lib/quickstart.js";
-import {
-  loadProjectSkill,
-  loadProjectSkills,
-} from "../lib/skills-loader.js";
 import { toolAnnotations } from "../lib/tool-annotations.js";
 import { toolResult } from "../lib/tool-result.js";
 import { getWorkerDataRoot } from "../lib/worker-home.js";
@@ -27,58 +22,6 @@ export function registerContextTools(
   server: McpServer,
   _startupWorkspaceRoot: string
 ): void {
-  server.registerTool(
-    "list_skills",
-    {
-      title: "List Skills",
-      description: "List project-local skills from the confirmed active workspace.",
-      inputSchema: {},
-      annotations: toolAnnotations("read"),
-    },
-    async () => {
-      const root = getDefaultCwd();
-      const skills = await loadProjectSkills(root);
-
-      return toolResult("list_skills", {
-        root,
-        skills,
-        count: skills.length,
-      });
-    }
-  );
-
-  server.registerTool(
-    "load_skill",
-    {
-      title: "Load Skill",
-      description: "Load one project-local skill from the confirmed active workspace.",
-      inputSchema: {
-        name: z.string().min(1).describe("Exact skill name returned by list_skills"),
-        max_bytes: z
-          .number()
-          .int()
-          .positive()
-          .max(500000)
-          .optional()
-          .default(200000),
-      },
-      annotations: toolAnnotations("read"),
-    },
-    async ({ name, max_bytes }) => {
-      const root = getDefaultCwd();
-      const loaded = await loadProjectSkill(root, name, max_bytes);
-
-      await audit({
-        tool: "load_skill",
-        action: "read",
-        target: loaded.skill.path,
-        status: "ok",
-      });
-
-      return toolResult("load_skill", loaded);
-    }
-  );
-
   server.registerTool(
     "project_context",
     {
@@ -166,37 +109,5 @@ export function registerContextTools(
     }
   );
 
-  server.registerTool(
-    "load_path_rules",
-    {
-      title: "Load Path Rules",
-      description:
-        "Load project-local .claude/rules/*.md entries scoped to a file inside the confirmed active workspace.",
-      inputSchema: {
-        path: z
-          .string()
-          .describe("Absolute file path to match against project rule paths"),
-      },
-      annotations: toolAnnotations("read"),
-    },
-    async ({ path: filePath }) => {
-      const root = getDefaultCwd();
-      const validPath = await validatePath(filePath);
-      const rules = await loadPathRulesForFile(root, validPath);
 
-      await audit({
-        tool: "load_path_rules",
-        action: "read",
-        target: validPath,
-        status: "ok",
-        details: { rules: rules.length },
-      });
-
-      return toolResult("load_path_rules", {
-        path: validPath,
-        rules,
-        count: rules.length,
-      });
-    }
-  );
 }

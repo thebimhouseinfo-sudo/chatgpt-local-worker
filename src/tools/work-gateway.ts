@@ -34,9 +34,7 @@ export const FAMILY_TOOLS = {
     "git_status", "git_diff", "git_log", "git_add", "git_commit", "git_branch",
     "git_checkout", "git_restore", "git_push", "git_pull", "git_stash", "git_reset",
   ],
-  context: [
-    "list_skills", "load_skill", "project_context", "agent_status", "load_path_rules",
-  ],
+  context: ["project_context", "agent_status"],
   repl: ["node_repl"],
 } as const;
 

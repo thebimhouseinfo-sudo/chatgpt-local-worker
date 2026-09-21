@@ -8,7 +8,6 @@ export const LOCAL_TOOL_CATALOG = [
   "read_text_file", "write_file", "edit_file", "multi_edit", "apply_patch", "glob", "grep", "list_directory", "move_file",
   "run_command", "shell_status", "shell_reset", "start_process", "process_output", "node_repl",
   "git_status", "git_diff", "git_add", "git_commit", "git_restore", "agent_status", "project_context",
-  "load_path_rules", "list_skills", "load_skill",
 ];
 
 interface LocalToolOverrides {
