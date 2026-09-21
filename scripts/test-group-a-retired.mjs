@@ -77,10 +77,6 @@ const checks = {
     "globalThis.sky",
     "OpenAI/Codex",
   ],
-  "src/lib/skills-loader.ts": [
-    "plugin-config",
-    "resolveComputerUseSkillPath",
-  ],
   "src/lib/quickstart.ts": ["mcp_servers", "mcp_tools", "mcp_call"],
   ".env.example": ["ADMIN_PORT", "ADMIN_TOKEN", "MCP_UPSTREAM_CONFIG"],
 };
