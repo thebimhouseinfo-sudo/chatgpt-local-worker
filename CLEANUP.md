@@ -606,7 +606,7 @@ Validation after correction:
 
 # 5.2. POST-REVIEW ROUND 2 — CALLER / MAPPING AUDIT
 
-## STATUS: ⏳ IN PROGRESS
+## STATUS: ✅ CODE CORRECTIONS DONE / STATIC VERIFIED / RUNTIME CI PENDING
 
 Review này kiểm tra theo chuỗi:
 
@@ -632,7 +632,7 @@ Static audit result:
 
 Các correction phát hiện trong Round 2:
 
-### R2.1 — P0: inner work_tool operations bị slim profile cắt nhầm
+### R2.1 — P0: inner work_tool operations bị slim profile cắt nhầm — ✅ FIXED
 
 Current behavior:
 
@@ -655,7 +655,15 @@ work_tool
 → local explicit disabled overrides may still remove a specific operation
 ```
 
-### R2.2 — P1: agent_status classification drift
+Implementation result:
+
+- `SLIM_CHATGPT_TOOLS` now represents the top-level MCP surface;
+- WorkGateway no longer uses slim/full filtering for inner operations;
+- `shouldExposeWorkOperation()` exposes all local operations by default;
+- explicit local disabled overrides can still remove a specific operation;
+- mapping tests assert the complete inner operation enum.
+
+### R2.2 — P1: agent_status classification drift — ✅ FIXED
 
 Current mismatch:
 
@@ -670,13 +678,19 @@ Correct target:
 - include it in context family classification;
 - lease/telemetry records family = `context`.
 
-### R2.3 — P1: stale Job Pack instructions
+Implementation result:
+
+- `agent_status` removed from `CONTROL_TOOLS`;
+- `toolFamily(agent_status) = context`;
+- `agent_status` now requires active work authority like other context operations.
+
+### R2.3 — P1: stale Job Pack instructions — ⚠️ FROZEN-STALE
 
 Default Job asset mapping is complete, but `jobs/dev-coding/JOB.md` still references retired capability text such as checkpoint/rewind and upstream MCP.
 
 `jobs/**` remains frozen. This Round 2 records the stale text but does **not** modify Job Pack files without explicit unfreeze.
 
-### R2.4 — P2: Custom Job authoring cannot declare preload families
+### R2.4 — P2: Custom Job authoring cannot declare preload families — ✅ FIXED
 
 Job Runtime supports `runtime.preload_families`, but `job_create` / `job_update` authoring schema does not expose it for new custom Jobs.
 
@@ -689,7 +703,15 @@ Correction target:
 - create/update writes `runtime.preload_families`;
 - clone preserves existing runtime when not explicitly overridden.
 
-### R2.5 — P2: stale projectMemoryInstructions naming in connection path
+Implementation result:
+
+- `job_create` / `job_update` accept `preload_families`;
+- authoring validates allowed family names;
+- new manifests write `runtime.preload_families`;
+- clone/update preserve current runtime when preload is omitted;
+- Job authoring tests cover create/update/invalid preload.
+
+### R2.5 — P2: stale projectMemoryInstructions naming in connection path — ✅ FIXED
 
 Behavior is control-plane instruction text, not memory.
 
@@ -704,7 +726,12 @@ across `index.ts`, `mcp-session-manager.ts`, and `server-factory.ts`.
 
 No transport/session behavior change.
 
-### R2.6 — architecture note: Job permissions and Layla Gate 2 are behavioral policy, not hard runtime enforcement
+Implementation result:
+
+- `index.ts`, `mcp-session-manager.ts`, and `server-factory.ts` now use `controlPlaneInstructions`;
+- no active `projectMemoryInstructions` caller remains.
+
+### R2.6 — architecture note: Job permissions and Layla Gate 2 are behavioral policy, not hard runtime enforcement — ⏸ SEPARATE DECISION
 
 Current facts:
 
@@ -713,6 +740,39 @@ Current facts:
 - Layla Gate 2 is enforced by `JOB.md` / `SKILL.md` behavioral instructions, not by a second server-side authority token.
 
 This is **not treated as a mapping bug in Round 2**. Hard Job-level permission enforcement / second-gate authority would be a separate architecture decision because it changes execution semantics and risks breaking stable workflows.
+
+
+### R2.7 — duplicated runtime/preload family registries — ✅ FIXED
+
+During implementation review, runtime/preload family names were found duplicated across WorkGateway, JobRuntime and Job authoring.
+
+Correction:
+
+```text
+src/lib/runtime-families.ts
+├─ RUNTIME_FAMILIES
+├─ LEGACY_PRELOAD_FAMILY_NAMES
+└─ JOB_PRELOAD_FAMILIES
+```
+
+WorkGateway, JobRuntime, Job authoring, public Job tools and Round-2 tests now consume the same shared registry.
+
+This removes a future drift path where a family could be accepted by one layer but rejected or ignored by another.
+
+### Round-2 guard
+
+Added `scripts/test-post-review-round2-mapping.mjs` to the default test chain.
+
+The guard checks:
+
+- every registered work operation resolves through registry → lazy loader → actual `registerTool`;
+- `agent_status` maps to context and requires work authority;
+- bundled Job preload families are active or legacy-compatible;
+- bundled Job skill/harness/validator paths exist;
+- stale `projectMemoryInstructions` naming is absent.
+
+Latest GitHub Actions still fails before any test step with `steps=null`, so this round is static-verified but runtime CI remains pending.
+
 
 ---
 
