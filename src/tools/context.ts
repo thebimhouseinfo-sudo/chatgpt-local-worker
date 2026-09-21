@@ -3,23 +3,36 @@ import path from "path";
 import { z } from "zod";
 import type { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import { audit, getAuditPath } from "../lib/audit.js";
-import { describePermissionProfile, getPermissionProfile } from "../lib/permissions.js";
-import { getDefaultCwd, getFullDiskAccess, getMachineRoots, validatePath } from "../lib/path-security.js";
-import { toolAnnotations } from "../lib/tool-annotations.js";
-import { MCP_QUICKSTART } from "../lib/quickstart.js";
-import { getCheckpointConfig } from "../lib/checkpoint.js";
 import { appendAutoMemory } from "../lib/auto-memory.js";
+import { getCheckpointConfig } from "../lib/checkpoint.js";
 import { loadPathRulesForFile } from "../lib/path-rules.js";
+import {
+  describePermissionProfile,
+  getPermissionProfile,
+} from "../lib/permissions.js";
+import {
+  getDefaultCwd,
+  getFullDiskAccess,
+  getMachineRoots,
+  validatePath,
+} from "../lib/path-security.js";
+import { MCP_QUICKSTART } from "../lib/quickstart.js";
+import {
+  loadProjectSkill,
+  loadProjectSkills,
+} from "../lib/skills-loader.js";
+import { toolAnnotations } from "../lib/tool-annotations.js";
 import { toolResult } from "../lib/tool-result.js";
-import { loadProjectSkill, loadProjectSkills } from "../lib/skills-loader.js";
+import { getWorkerDataRoot } from "../lib/worker-home.js";
 
-const contextFileNames = [
-  "CLAUDE.md",
+const CONTEXT_FILE_NAMES = [
   "AGENTS.md",
+  "CLAUDE.md",
   "README.md",
+  ".claude/CLAUDE.md",
   ".claude/settings.json",
   ".cursor/rules",
-];
+] as const;
 
 async function exists(filePath: string): Promise<boolean> {
   try {
@@ -30,13 +43,16 @@ async function exists(filePath: string): Promise<boolean> {
   }
 }
 
-async function findContextFiles(root: string, maxDepth: number): Promise<string[]> {
+async function findContextFiles(
+  root: string,
+  maxDepth: number
+): Promise<string[]> {
   const found: string[] = [];
 
   async function walk(dir: string, depth: number): Promise<void> {
     if (depth > maxDepth) return;
 
-    for (const name of contextFileNames) {
+    for (const name of CONTEXT_FILE_NAMES) {
       const candidate = path.join(dir, name);
       if (await exists(candidate)) found.push(candidate);
     }
@@ -52,7 +68,16 @@ async function findContextFiles(root: string, maxDepth: number): Promise<string[
 
     for (const entry of entries) {
       if (!entry.isDirectory()) continue;
-      if (entry.name.startsWith(".") || entry.name === "node_modules" || entry.name === "dist" || entry.name === "build") continue;
+      if (
+        entry.name.startsWith(".") ||
+        entry.name === "node_modules" ||
+        entry.name === "dist" ||
+        entry.name === "build" ||
+        entry.name === "legacy"
+      ) {
+        continue;
+      }
+
       await walk(path.join(dir, entry.name), depth + 1);
     }
   }
@@ -61,19 +86,27 @@ async function findContextFiles(root: string, maxDepth: number): Promise<string[
   return [...new Set(found)];
 }
 
-export function registerContextTools(server: McpServer, _startupWorkspaceRoot: string): void {
+export function registerContextTools(
+  server: McpServer,
+  _startupWorkspaceRoot: string
+): void {
   server.registerTool(
     "list_skills",
     {
       title: "List Skills",
-      description: "List project skills from the confirmed active workspace.",
+      description: "List project-local skills from the confirmed active workspace.",
       inputSchema: {},
       annotations: toolAnnotations("read"),
     },
     async () => {
       const root = getDefaultCwd();
       const skills = await loadProjectSkills(root);
-      return toolResult("list_skills", { root, skills, count: skills.length });
+
+      return toolResult("list_skills", {
+        root,
+        skills,
+        count: skills.length,
+      });
     }
   );
 
@@ -81,17 +114,30 @@ export function registerContextTools(server: McpServer, _startupWorkspaceRoot: s
     "load_skill",
     {
       title: "Load Skill",
-      description: "Load one skill from the confirmed active workspace.",
+      description: "Load one project-local skill from the confirmed active workspace.",
       inputSchema: {
         name: z.string().min(1).describe("Exact skill name returned by list_skills"),
-        max_bytes: z.number().int().positive().max(500000).optional().default(200000),
+        max_bytes: z
+          .number()
+          .int()
+          .positive()
+          .max(500000)
+          .optional()
+          .default(200000),
       },
       annotations: toolAnnotations("read"),
     },
     async ({ name, max_bytes }) => {
       const root = getDefaultCwd();
       const loaded = await loadProjectSkill(root, name, max_bytes);
-      await audit({ tool: "load_skill", action: "read", target: loaded.skill.path, status: "ok" });
+
+      await audit({
+        tool: "load_skill",
+        action: "read",
+        target: loaded.skill.path,
+        status: "ok",
+      });
+
       return toolResult("load_skill", loaded);
     }
   );
@@ -101,30 +147,59 @@ export function registerContextTools(server: McpServer, _startupWorkspaceRoot: s
     {
       title: "Project Context",
       description:
-        "Load project instructions/context. Without an explicit path it uses the confirmed active workspace, like Open Folder in an IDE.",
+        "Load project-local instructions and context. Without an explicit path, uses the confirmed active workspace.",
       inputSchema: {
-        path: z.string().optional().describe("Project directory; defaults to confirmed active workspace"),
+        path: z
+          .string()
+          .optional()
+          .describe("Absolute project directory; defaults to confirmed active workspace"),
         max_depth: z.number().int().min(0).max(5).optional().default(3),
-        max_bytes_per_file: z.number().int().positive().max(200000).optional().default(60000),
+        max_bytes_per_file: z
+          .number()
+          .int()
+          .positive()
+          .max(200000)
+          .optional()
+          .default(60000),
       },
       annotations: toolAnnotations("read"),
     },
     async ({ path: projectPath, max_depth, max_bytes_per_file }) => {
-      const root = projectPath ? await validatePath(projectPath) : getDefaultCwd();
+      const root = projectPath
+        ? await validatePath(projectPath)
+        : getDefaultCwd();
+
       const files = await findContextFiles(root, max_depth);
-      const fileContents: Array<{ path: string; content: string; truncated: boolean }> = [];
+      const fileContents: Array<{
+        path: string;
+        content: string;
+        truncated: boolean;
+      }> = [];
 
       for (const file of files) {
         try {
-          const buf = await fs.readFile(file);
-          const truncated = buf.length > max_bytes_per_file;
-          const text = buf.subarray(0, max_bytes_per_file).toString("utf-8");
-          fileContents.push({ path: file, content: text, truncated });
+          const buffer = await fs.readFile(file);
+          fileContents.push({
+            path: file,
+            content: buffer.subarray(0, max_bytes_per_file).toString("utf-8"),
+            truncated: buffer.length > max_bytes_per_file,
+          });
         } catch {}
       }
 
-      await audit({ tool: "project_context", action: "read", target: root, status: "ok", details: { files: files.length } });
-      return toolResult("project_context", { root, files: fileContents, count: fileContents.length });
+      await audit({
+        tool: "project_context",
+        action: "read",
+        target: root,
+        status: "ok",
+        details: { files: fileContents.length },
+      });
+
+      return toolResult("project_context", {
+        root,
+        files: fileContents,
+        count: fileContents.length,
+      });
     }
   );
 
@@ -133,7 +208,7 @@ export function registerContextTools(server: McpServer, _startupWorkspaceRoot: s
     {
       title: "Agent Status",
       description:
-        "Optional diagnostic: permissions, active default cwd, tool cheat sheet, rewind and local runtime status.",
+        "Local GPTWorker diagnostic: permissions, active workspace, machine roots, checkpoint safety, and tool profile.",
       inputSchema: {},
       annotations: toolAnnotations("read"),
     },
@@ -144,12 +219,13 @@ export function registerContextTools(server: McpServer, _startupWorkspaceRoot: s
         full_machine_access: getFullDiskAccess(),
         default_cwd: getDefaultCwd(),
         machine_roots: getMachineRoots(),
+        worker_data_root: getWorkerDataRoot(),
         audit_log: getAuditPath(),
         pid: process.pid,
         node: process.version,
-        quickstart: MCP_QUICKSTART,
-        rewind: getCheckpointConfig(),
+        checkpoint: getCheckpointConfig(),
         tool_profile: process.env.CHATGPT_TOOL_PROFILE || "slim",
+        quickstart: MCP_QUICKSTART,
       });
     }
   );
@@ -158,17 +234,32 @@ export function registerContextTools(server: McpServer, _startupWorkspaceRoot: s
     "remember",
     {
       title: "Remember",
-      description: "Save a note to auto memory for the confirmed active workspace.",
+      description:
+        "Save a durable project note in GPTWorker-owned memory for the confirmed active workspace.",
       inputSchema: {
-        note: z.string().describe("Short fact to remember: build command, convention, gotcha"),
+        note: z
+          .string()
+          .min(1)
+          .describe("Short durable project fact: build command, convention, or gotcha"),
       },
       annotations: toolAnnotations("edit"),
     },
     async ({ note }) => {
       const root = getDefaultCwd();
       const file = await appendAutoMemory(root, note);
-      await audit({ tool: "remember", action: "append", target: file, status: "ok" });
-      return toolResult("remember", { saved_to: file, note }, { summary: "saved to auto memory" });
+
+      await audit({
+        tool: "remember",
+        action: "append",
+        target: file,
+        status: "ok",
+      });
+
+      return toolResult(
+        "remember",
+        { saved_to: file, note },
+        { summary: "saved to GPTWorker memory" }
+      );
     }
   );
 
@@ -177,9 +268,11 @@ export function registerContextTools(server: McpServer, _startupWorkspaceRoot: s
     {
       title: "Load Path Rules",
       description:
-        "Load .claude/rules/*.md scoped to a file path inside the confirmed active workspace.",
+        "Load project-local .claude/rules/*.md entries scoped to a file inside the confirmed active workspace.",
       inputSchema: {
-        path: z.string().describe("File path to match against rule paths: frontmatter"),
+        path: z
+          .string()
+          .describe("Absolute file path to match against project rule paths"),
       },
       annotations: toolAnnotations("read"),
     },
@@ -187,8 +280,20 @@ export function registerContextTools(server: McpServer, _startupWorkspaceRoot: s
       const root = getDefaultCwd();
       const validPath = await validatePath(filePath);
       const rules = await loadPathRulesForFile(root, validPath);
-      await audit({ tool: "load_path_rules", action: "read", target: validPath, status: "ok", details: { rules: rules.length } });
-      return toolResult("load_path_rules", { path: validPath, rules, count: rules.length });
+
+      await audit({
+        tool: "load_path_rules",
+        action: "read",
+        target: validPath,
+        status: "ok",
+        details: { rules: rules.length },
+      });
+
+      return toolResult("load_path_rules", {
+        path: validPath,
+        rules,
+        count: rules.length,
+      });
     }
   );
 }
