@@ -966,7 +966,7 @@ Real acceptance retest passed after this correction: the admission → Job nomin
 
 # 5.5. RUNTIME ACCEPTANCE — 5 WORK FAMILIES
 
-## STATUS: ✅ LOCAL REGRESSION PASS / LIVE REPL RETEST OPTIONAL
+## STATUS: ✅ FULL PASS — LOCAL + LIVE RUNTIME
 
 Real 12-step runtime acceptance was executed against:
 
@@ -991,8 +991,9 @@ Observed result:
   - `project_context` and `agent_status` worked;
   - runtime reported `workspace_boundary_enforced: true`;
   - effective scope reported `confirmed-workspace-only`.
-- `repl` — ❌ FAIL in first live acceptance
-  - JavaScript executed, but expression result was not surfaced through the tool response.
+- `repl` — ✅ PASS after correction
+  - expression result is surfaced correctly;
+  - arithmetic result, persistent state, console output, and top-level await all pass.
 
 Root cause:
 
@@ -1015,12 +1016,42 @@ Correction:
   - explicit console output;
   - top-level await result.
 
-After the fixes, the full local Windows `npm run test:all` suite passes, including the `node_repl` regression cases for arithmetic result surfacing, persistent state, console output, and top-level await.
+After the fixes:
 
-The original live GPT Web 12-step run recorded 4/5 before the REPL fix. A one-line live `node_repl: 2 + 3` retest can close that historical live-only gap, but the corrected implementation is now covered by the passing local suite.
+- the full local Windows `npm run test:all` suite passes;
+- the corrected `node_repl` behavior passes its regression cases;
+- live runtime retest also passes;
+- all five work families now pass acceptance: filesystem, shell, git, context, repl.
+
+The historical first live run remains documented above because it exposed the REPL output bug, but that failure is now closed.
 
 ---
 
+
+# 5.6. ACCEPTANCE CLOSURE
+
+## STATUS: ✅ ALL PLANNED TESTS PASS
+
+Final acceptance state:
+
+```text
+Local automated suite     PASS
+Admission/confirmation    PASS
+MCP transport rotation    PASS
+Workspace binding         PASS
+Filesystem                PASS
+Shell                     PASS
+Git                       PASS
+Context                   PASS
+node_repl                 PASS
+Outside-workspace reject  PASS
+Job stop / idle           PASS
+Remaining live checks     PASS
+```
+
+No known failing acceptance test remains at this cleanup checkpoint.
+
+---
 
 # 6. FINAL CLEANUP — ✅ DONE WITH COMPATIBILITY EXCEPTIONS
 
@@ -1209,8 +1240,9 @@ Current validation status:
 - C3 post-review memory correction is implemented;
 - GPTWorker has no active knowledge-memory subsystem;
 - full local Windows `npm run test:all` passes;
-- live GPT Web acceptance has passed activation, Workspace binding, filesystem, shell, git, context, boundary rejection, and stop-to-idle;
-- GitHub Actions remains infrastructure-unreliable because runs may fail before steps execute.
+- all five runtime work families pass;
+- live GPT Web acceptance passes admission, confirmation, activation, Workspace binding, filesystem, shell, git, context, repl, outside-Workspace rejection, Job stop/idle lifecycle, and the remaining acceptance checks;
+- GitHub Actions remains infrastructure-unreliable because runs may fail before steps execute, but this no longer blocks runtime confidence because the complete local/live acceptance suite has passed.
 
 Success means:
 
