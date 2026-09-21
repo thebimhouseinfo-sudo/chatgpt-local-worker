@@ -75,7 +75,15 @@ function createState(workspaceRoot: string): ReplState {
     require: createWorkspaceRequire(workspaceRoot),
     console: {
       log: (...values: unknown[]) =>
-        output.push(values.map((value) => util.inspect(value, { depth: 4 })).join(" ")),
+        output.push(
+          values
+            .map((value) =>
+              typeof value === "string"
+                ? value
+                : util.inspect(value, { depth: 4 })
+            )
+            .join(" ")
+        ),
     },
     nodeRepl,
     __gptWorkerOutput: output,
