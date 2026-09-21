@@ -19,7 +19,7 @@ ChatGPT
   → actual project work
 ```
 
-The execution core owns the generic capabilities required by Job Packs. Filesystem/search/edit, shell/processes, git, workspace/context handling, and deterministic validation are primary. Inherited compatibility features such as checkpoint/rewind, Codex-specific hooks, or upstream MCP bridging are optional and should remain only when they improve GPTWorker reliability or a real Job requires them.
+The execution core owns only the local capabilities required by Job Packs: filesystem/search/edit, shell/processes, git, workspace/context handling, node_repl, and deterministic validation. Automatic checkpoints are internal filesystem safety. Standalone rewind, Codex-specific hooks/Computer Use, Admin UI, Ponytail, and upstream MCP bridging are retired and must not be treated as optional runtime families.
 
 Job Packs own workflow/policy/SOP, specialist skills or business rules, deterministic harnesses, and completion criteria.
 
@@ -63,7 +63,7 @@ Keyword matches may suggest a job; they are never permission to activate one.
 2. Read `WORKER.md` when the change affects Job Runtime behavior, lifecycle, permissions, Job Packs, or cross-job policy.
 3. For a Job Pack change, read that pack's `JOB.md`, `SKILL.md`, `job.yaml`, relevant rules/skills, and harness/tests.
 4. Prefer focused changes over broad rewrites.
-5. Preserve compatibility deliberately when it protects real workflows. Do not retain inherited `codex-*`, coding-agent, Admin UI, or upstream-MCP behavior solely because it existed upstream; simplify or replace it when the GPTWorker path is more stable.
+5. Preserve compatibility only where it protects a real active workflow. Legacy names or preload tokens may remain as inert compatibility surfaces, but retired `codex-*`, coding-agent runtime, Admin UI, Ponytail, Computer Use, and upstream-MCP behavior must not be reintroduced into execution.
 
 The normal repository workflow is:
 
