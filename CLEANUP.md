@@ -1063,13 +1063,18 @@ Không gom tất cả file vào một thư mục phẳng vì sẽ mất context 
 
 `legacy/**` là archive staging, không phải source fallback tự động.
 
-Yêu cầu:
+Isolation này là **hard invariant**, không chỉ là quy ước:
 
-- TypeScript build không compile `legacy/**`;
-- runtime không import từ `legacy/**`;
-- package scripts không chạy implementation trong `legacy/**`;
-- Job Pack không trỏ vào `legacy/**`;
-- restore phải là thao tác chủ động khi test cho thấy scan/remap/rewrite sai.
+- `tsconfig.json` chỉ compile `src/**/*` và explicit exclude `legacy`;
+- runtime source trong `src/**` bị cấm import/require/dynamic-import từ `legacy/**`;
+- build output không được sinh `dist/legacy` và không được reference ngược vào `legacy/**`;
+- root startup scripts (`.ps1`, `.bat`, `.vbs`) bị cấm reference `legacy/**`;
+- `package.json` main/bin/scripts bị cấm chạy hoặc point vào `legacy/**`;
+- Job Pack bị cấm trỏ vào `legacy/**`;
+- `npm test` chạy `scripts/test-legacy-isolation.mjs` ngay sau compile và fail nếu bất kỳ invariant nào bị phá;
+- restore phải là thao tác chủ động: move file từ legacy về runtime path rồi remap lại caller. Không có automatic fallback từ legacy.
+
+Như vậy file quarantine có thể tồn tại trong Git repo để rollback nhưng **không thể tham gia app khi chạy** nếu isolation test đang pass.
 
 ## 11.4 Test gate trước khi một quarantine được coi là thành công
 
