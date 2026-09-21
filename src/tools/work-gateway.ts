@@ -1,6 +1,5 @@
 import { z } from "zod";
 import type { McpServer, RegisteredTool } from "@modelcontextprotocol/sdk/server/mcp.js";
-import type { McpUpstreamManager } from "../lib/mcp-upstream-manager.js";
 import { getChatGptToolProfile, shouldExposeTool } from "../lib/tool-profile.js";
 import { toolAnnotations } from "../lib/tool-annotations.js";
 
@@ -37,8 +36,6 @@ export const FAMILY_TOOLS = {
   ],
   rewind: ["rewind"],
   repl: ["node_repl"],
-  ponytail: ["ponytail_turn"],
-  mcp: ["mcp_servers", "mcp_tools", "mcp_call"],
 } as const;
 
 export type ToolFamily = keyof typeof FAMILY_TOOLS;
@@ -103,8 +100,7 @@ export interface WorkToolResolver {
 
 export function createWorkToolResolver(
   workspaceRoot: string,
-  shellTimeout: number,
-  upstreamManager?: McpUpstreamManager
+  shellTimeout: number
 ): WorkToolResolver {
   const loaded = new Map<ToolFamily, FamilyCache>();
   const pending = new Map<ToolFamily, Promise<FamilyCache>>();
@@ -141,15 +137,6 @@ export function createWorkToolResolver(
       } else if (family === "repl") {
         const module = await import("./node-repl.js");
         module.registerNodeReplTool(capture.server, workspaceRoot);
-      } else if (family === "ponytail") {
-        const module = await import("./ponytail.js");
-        module.registerPonytailTurnTool(capture.server);
-      } else if (family === "mcp") {
-        if (!upstreamManager) {
-          throw new Error("Upstream MCP manager is unavailable.");
-        }
-        const module = await import("./mcp-bridge.js");
-        module.registerMcpBridgeTools(capture.server, upstreamManager);
       }
 
       loaded.set(family, capture);
@@ -264,13 +251,11 @@ export function getWorkGatewayTelemetry() {
 export function registerWorkGateway(
   server: McpServer,
   workspaceRoot: string,
-  shellTimeout: number,
-  upstreamManager?: McpUpstreamManager
+  shellTimeout: number
 ): WorkToolResolver {
   const resolver = createWorkToolResolver(
     workspaceRoot,
-    shellTimeout,
-    upstreamManager
+    shellTimeout
   );
   const profile = getChatGptToolProfile();
   const exposed = WORK_TOOL_OPERATIONS.filter((name) =>
