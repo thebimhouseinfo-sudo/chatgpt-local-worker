@@ -337,6 +337,7 @@ Group C đã hoàn tất theo target architecture:
 - C2 node_repl được review và giữ implementation local-only hiện tại, không rewrite thừa;
 - ~~C3 project memory, auto-memory và context stack đã rewrite theo workspace-local / GPTWorker-owned model;~~ **SUPERSEDED:** GPTWorker không được sở hữu knowledge memory; auto-memory phải retire hoàn toàn.
 - ~~old project-memory, auto-memory và context implementations đã quarantine;~~ **CORRECTION:** behavior đọc project-local context vẫn cần, nhưng phải được đổi owner/name thành project context loader; auto-memory cũ chỉ còn là legacy/quarantine reference.
+- **C3 POST-REVIEW CORRECTION DONE:** `remember` và active `auto-memory.ts` đã bị loại; `project-memory.ts` đã remap thành `project-context-loader.ts`; pre-correction implementations được giữ tại `legacy/group-c/post-review/**`.
 - project-local skills loader được giữ vì đã local-only từ Group A;
 - project_context hiện load rich project context on-demand thay vì startup;
 - C4 initialize context đã rewrite thành minimal control plane;
@@ -540,7 +541,7 @@ Protected validation artifacts nếu còn assert architecture cũ được đán
 
 # 5.1. POST-REVIEW CORRECTION — REMOVE GPTWORKER MEMORY
 
-## STATUS: ⏳ REQUIRED
+## STATUS: ✅ DONE / CORRECTED / STATIC VERIFIED
 
 Review sau Group C phát hiện một quyết định C3 trước đó là sai với kiến trúc đã thống nhất.
 
@@ -576,15 +577,29 @@ Required source correction:
 9. rewrite C3 tests so they assert **absence of GPTWorker memory** while preserving project-context loading;
 10. keep `getWorkerDataRoot()` only for operational Worker-owned data such as Custom Job authoring/staging/backups.
 
+Implementation result:
+
+- `src/lib/auto-memory.ts` removed from active tree;
+- pre-correction auto-memory quarantined at `legacy/group-c/post-review/lib/auto-memory.ts`;
+- `src/lib/project-memory.ts` removed from active tree;
+- pre-correction project-memory quarantined at `legacy/group-c/post-review/lib/project-memory.ts`;
+- new active loader: `src/lib/project-context-loader.ts`;
+- `ProjectMemory*` → `ProjectContext*`;
+- `PROJECT_MEMORY_*` → `PROJECT_CONTEXT_*`;
+- `loadProjectMemory` → `loadProjectContext`;
+- `remember` removed from context tool, WorkGateway, tool profiles and work policy;
+- initialize wording no longer describes project memory;
+- C3 tests now assert absence of GPTWorker knowledge memory while preserving on-demand project context.
+
 Validation after correction:
 
 - no active `src/lib/auto-memory.ts`;
 - no tool named `remember`;
-- no `memory/projects` path;
+- no `memory/projects` runtime path;
 - no generated `MEMORY.md`;
 - no active `ProjectMemory*` naming;
 - `project_context` still loads project-local files/rules correctly;
-- Job/session/runtime behavior unchanged.
+- Job/session/runtime architecture otherwise unchanged.
 
 ---
 
@@ -687,17 +702,17 @@ Clean WorkGateway active; old implementation quarantined.
 
 Current node_repl passed local-only architecture review; guard added.
 
-## Phase C3 — ⚠️ POST-REVIEW CORRECTION REQUIRED
+## Phase C3 — ✅ DONE / POST-REVIEW CORRECTED
 
 ~~Context stack is workspace-local / GPTWorker-owned and rich context loads on demand.~~
 
-Corrected architecture:
+Corrected architecture implemented:
 
-- rich project context vẫn load on-demand;
-- GPTWorker-owned knowledge memory bị retire;
-- `remember` + `auto-memory` phải bị loại khỏi active runtime;
-- `project-memory.ts` phải được remap/rename thành project context loader;
-- context family chỉ còn read/on-demand project context + local diagnostics/skills/rules.
+- rich project context loads on-demand;
+- GPTWorker-owned knowledge memory retired;
+- `remember` + active `auto-memory` removed;
+- `project-memory.ts` remapped/renamed to `project-context-loader.ts`;
+- context family now contains only on-demand project context + local diagnostics/skills/rules.
 
 ## Phase C4 — ✅ DONE
 
@@ -772,6 +787,8 @@ Current static architecture status:
 
 - target source boundary is implemented;
 - Group A/B/C quarantine guards are active;
+- C3 post-review memory correction is implemented;
+- GPTWorker has no active knowledge-memory subsystem;
 - runtime CI PASS is still pending because GitHub Actions currently fails before steps execute.
 
 Success means:
