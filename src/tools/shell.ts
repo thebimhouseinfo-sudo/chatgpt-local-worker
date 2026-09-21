@@ -4,7 +4,6 @@ import { z } from "zod";
 import type { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import { getDefaultCwd, validatePath } from "../lib/path-security.js";
 import { assertShellCommandWorkspaceBound } from "../lib/shell-workspace-guard.js";
-import { requireCommandAllowed } from "../lib/permissions.js";
 import { audit } from "../lib/audit.js";
 import { toolAnnotations } from "../lib/tool-annotations.js";
 import { toolResult } from "../lib/tool-result.js";
@@ -78,7 +77,6 @@ export function registerShellTools(
       annotations: toolAnnotations("command"),
     },
     async ({ command, working_directory }) => {
-      requireCommandAllowed(command);
       const workspaceRoot = getDefaultCwd();
       const cwdOverride = working_directory
         ? await validatePath(working_directory)
@@ -155,7 +153,6 @@ export function registerShellTools(
       annotations: toolAnnotations("command"),
     },
     async ({ command, working_directory }) => {
-      requireCommandAllowed(command);
       const workspaceRoot = getDefaultCwd();
       assertShellCommandWorkspaceBound(command, workspaceRoot);
       const shellStatus = getShellStatus(workspaceRoot);

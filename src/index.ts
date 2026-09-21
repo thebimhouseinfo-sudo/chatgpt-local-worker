@@ -377,7 +377,7 @@ server.on("error", async (err: NodeJS.ErrnoException) => {
     console.error(`\n[LOI] Port ${PORT} da co server khac dang chay!`);
     console.error("Chay lenh sau de tim process:");
     console.error(`  netstat -ano | findstr ":${PORT}"`);
-    console.error("Hoac dung: .\\stop.ps1 de tat server cu\n");
+    console.error("Dung GPTWorker tray hoac .\\reset-runtime.ps1 de reset runtime cu\n");
   } else {
     console.error("\n[LOI] Khong the khoi dong server:", err.message, "\n");
   }

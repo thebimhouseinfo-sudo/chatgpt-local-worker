@@ -4,7 +4,6 @@ import { z } from "zod";
 import type { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import { validatePath, validateReadPath } from "../lib/path-security.js";
 import { audit } from "../lib/audit.js";
-import { requireWriteAllowed } from "../lib/permissions.js";
 import { applyMultiFilePatch, applyUnifiedPatchToText, buildSimpleDiff, isMultiFilePatch, parseMultiFilePatch } from "../lib/patch.js";
 import { checkpointBefore } from "../lib/checkpoint.js";
 import { toolAnnotations } from "../lib/tool-annotations.js";
@@ -161,7 +160,6 @@ export function registerFilesystemTools(server: McpServer): void {
       annotations: toolAnnotations("edit"),
     },
     async ({ path: filePath, content }) => {
-      requireWriteAllowed();
       const validPath = await validatePath(filePath);
       const checkpointId = await checkpointBefore("write_file", [validPath]);
       await fs.mkdir(path.dirname(validPath), { recursive: true });
@@ -185,7 +183,6 @@ export function registerFilesystemTools(server: McpServer): void {
       annotations: toolAnnotations("edit"),
     },
     async ({ path: filePath, content }) => {
-      requireWriteAllowed();
       const validPath = await validatePath(filePath);
       const checkpointId = await checkpointBefore("write_file_base64", [validPath]);
       const buffer = Buffer.from(content, "base64");
@@ -212,7 +209,6 @@ export function registerFilesystemTools(server: McpServer): void {
       annotations: toolAnnotations("edit"),
     },
     async ({ path: filePath, old_text, new_text, replace_all, dry_run }) => {
-      requireWriteAllowed();
       const validPath = await validatePath(filePath);
       const content = await fs.readFile(validPath, "utf-8");
       if (!content.includes(old_text)) throw new Error("old_text not found in file. Ensure exact match.");
@@ -243,7 +239,6 @@ export function registerFilesystemTools(server: McpServer): void {
       annotations: toolAnnotations("edit"),
     },
     async ({ path: filePath, edits, dry_run }) => {
-      requireWriteAllowed();
       const validPath = await validatePath(filePath);
       const original = await fs.readFile(validPath, "utf-8");
       let next = original;
@@ -275,7 +270,6 @@ export function registerFilesystemTools(server: McpServer): void {
       annotations: toolAnnotations("edit"),
     },
     async ({ path: filePath, pattern, replacement, flags, dry_run }) => {
-      requireWriteAllowed();
       const validPath = await validatePath(filePath);
       const original = await fs.readFile(validPath, "utf-8");
       const regex = new RegExp(pattern, flags);
@@ -304,7 +298,6 @@ export function registerFilesystemTools(server: McpServer): void {
       annotations: toolAnnotations("edit"),
     },
     async ({ path: filePath, patch, dry_run }) => {
-      requireWriteAllowed();
 
       if (isMultiFilePatch(patch)) {
         if (!filePath) {
@@ -460,7 +453,6 @@ export function registerFilesystemTools(server: McpServer): void {
       annotations: toolAnnotations("edit"),
     },
     async ({ path: filePath }) => {
-      requireWriteAllowed();
       const validPath = await validatePath(filePath);
       const stat = await fs.stat(validPath);
       if (!stat.isFile()) throw new Error("Path is not a file");
@@ -481,7 +473,6 @@ export function registerFilesystemTools(server: McpServer): void {
       annotations: toolAnnotations("edit"),
     },
     async ({ path: dirPath }) => {
-      requireWriteAllowed();
       const validPath = await validatePath(dirPath);
       await fs.mkdir(validPath, { recursive: true });
       await audit({ tool: "create_directory", action: "mkdir", target: validPath, status: "ok" });
@@ -500,7 +491,6 @@ export function registerFilesystemTools(server: McpServer): void {
       annotations: toolAnnotations("edit"),
     },
     async ({ path: dirPath }) => {
-      requireWriteAllowed();
       const validPath = await validatePath(dirPath);
       const stat = await fs.stat(validPath);
       if (!stat.isDirectory()) throw new Error("Path is not a directory");
@@ -525,7 +515,6 @@ export function registerFilesystemTools(server: McpServer): void {
       annotations: toolAnnotations("edit"),
     },
     async ({ source, destination }) => {
-      requireWriteAllowed();
       const src = await validatePath(source);
       const dest = await validatePath(destination);
       const stat = await fs.stat(src);
@@ -548,7 +537,6 @@ export function registerFilesystemTools(server: McpServer): void {
       annotations: toolAnnotations("edit"),
     },
     async ({ source, destination }) => {
-      requireWriteAllowed();
       const src = await validatePath(source);
       const dest = await validatePath(destination);
       const checkpointId = await checkpointBefore("move_file", [src, dest]);
@@ -576,12 +564,11 @@ export function registerFilesystemTools(server: McpServer): void {
 
   server.registerTool("list_allowed_directories", { title: "List Allowed Directories", description: "Show default working directory and machine access scope.", inputSchema: {}, annotations: toolAnnotations("read") }, async () => {
     const { getDefaultCwd, getActiveSupportRoots } = await import("../lib/path-security.js");
-    const { describePermissionProfile } = await import("../lib/permissions.js");
     return toolResult("list_allowed_directories", {
       full_machine_access: false,
       workspace_boundary_enforced: true,
       effective_scope: "confirmed-workspace-only",
-      permission: describePermissionProfile(),
+      permission: "confirmed-workspace-only",
       default_cwd: getDefaultCwd(),
       read_only_support_roots: getActiveSupportRoots(),
     });

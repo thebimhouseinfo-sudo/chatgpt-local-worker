@@ -4,10 +4,6 @@ import { audit, getAuditPath } from "../lib/audit.js";
 import { getCheckpointConfig } from "../lib/checkpoint.js";
 import { loadProjectContext } from "../lib/project-context-loader.js";
 import {
-  describePermissionProfile,
-  getPermissionProfile,
-} from "../lib/permissions.js";
-import {
   getDefaultCwd,
   getFullDiskAccess,
   getMachineRoots,
@@ -90,8 +86,9 @@ export function registerContextTools(
     },
     async () => {
       return toolResult("agent_status", {
-        permission_profile: getPermissionProfile(),
-        permission_description: describePermissionProfile(),
+        permission_profile: "workspace-bound",
+        permission_description:
+          "confirmed-workspace-only: execution requires active work authority and structured paths remain inside the confirmed workspace",
         full_machine_access: false,
         host_full_disk_access: getFullDiskAccess(),
         workspace_boundary_enforced: true,

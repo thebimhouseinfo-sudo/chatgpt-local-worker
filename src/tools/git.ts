@@ -4,7 +4,6 @@ import { z } from "zod";
 import type { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import { assertPathInsideWorkspaceSync, getDefaultCwd, validatePath } from "../lib/path-security.js";
 import { audit } from "../lib/audit.js";
-import { requireWriteAllowed } from "../lib/permissions.js";
 import { toolAnnotations } from "../lib/tool-annotations.js";
 import { toolResult } from "../lib/tool-result.js";
 
@@ -101,7 +100,6 @@ export function registerGitTools(server: McpServer, _startupCwd: string): void {
 
     annotations: toolAnnotations("edit"),
   }, async ({ path: repoPath, files, all }) => {
-    requireWriteAllowed();
     const cwd = await repo(repoPath);
     const args = ["add"];
     if (all && (!files || files.length === 0)) {
@@ -123,7 +121,6 @@ export function registerGitTools(server: McpServer, _startupCwd: string): void {
 
     annotations: toolAnnotations("edit"),
   }, async ({ message, path: repoPath, stage_all }) => {
-    requireWriteAllowed();
     const cwd = await repo(repoPath);
     if (stage_all) await gitOrThrow(["add", "-A"], cwd);
     const r = await gitOrThrow(["commit", "-m", message], cwd);
@@ -145,7 +142,6 @@ export function registerGitTools(server: McpServer, _startupCwd: string): void {
     let args: string[];
     if (action === "list") args = ["branch", "--all"];
     else {
-      requireWriteAllowed();
       if (!name) throw new Error("name is required");
       args = action === "create" ? ["branch", name] : action === "switch" ? ["switch", name] : ["switch", "-c", name];
     }
@@ -164,7 +160,6 @@ export function registerGitTools(server: McpServer, _startupCwd: string): void {
 
     annotations: toolAnnotations("edit"),
   }, async ({ path: repoPath, branch }) => {
-    requireWriteAllowed();
     const cwd = await repo(repoPath);
     const r = await gitOrThrow(["switch", branch], cwd);
     return toolResult("git_checkout", {
@@ -191,7 +186,6 @@ export function registerGitTools(server: McpServer, _startupCwd: string): void {
 
     annotations: toolAnnotations("edit"),
   }, async ({ path: repoPath, files, source }) => {
-    requireWriteAllowed();
     const cwd = await repo(repoPath);
     const safeFiles = files.map((file) => safeRepoPathspec(cwd, file));
     let r: GitRunResult;
@@ -223,7 +217,6 @@ export function registerGitTools(server: McpServer, _startupCwd: string): void {
 
     annotations: toolAnnotations("edit"),
   }, async ({ path: repoPath, remote, branch, set_upstream }) => {
-    requireWriteAllowed();
     const cwd = await repo(repoPath);
     const args = ["push"];
     if (set_upstream) args.push("-u");
@@ -250,7 +243,6 @@ export function registerGitTools(server: McpServer, _startupCwd: string): void {
 
     annotations: toolAnnotations("edit"),
   }, async ({ path: repoPath, remote, branch }) => {
-    requireWriteAllowed();
     const cwd = await repo(repoPath);
     const args = ["pull", remote];
     if (branch) args.push(branch);
@@ -272,7 +264,6 @@ export function registerGitTools(server: McpServer, _startupCwd: string): void {
     const args = ["stash"];
     if (action === "list") args.push("list");
     else {
-      requireWriteAllowed();
       if (action === "push") {
         args.push("push");
         if (message) args.push("-m", message);
@@ -294,7 +285,6 @@ export function registerGitTools(server: McpServer, _startupCwd: string): void {
 
     annotations: toolAnnotations("edit"),
   }, async ({ path: repoPath, mode, ref }) => {
-    requireWriteAllowed();
     const cwd = await repo(repoPath);
     const r = await gitOrThrow(["reset", `--${mode}`, ref], cwd);
     return toolResult("git_reset", { path: cwd, mode, ref, output: r.stdout || r.stderr });
