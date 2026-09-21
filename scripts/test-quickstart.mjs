@@ -2,6 +2,9 @@
  * Lock user-approved GPTWorker UI copy and routing rules.
  */
 import assert from "node:assert/strict";
+import path from "node:path";
+import { fileURLToPath } from "node:url";
+import { buildInstructionContext } from "../dist/lib/instruction-context.js";
 import {
   GPTWORKER_HELP,
   GPTWORKER_IDLE_PROMPT,
@@ -233,5 +236,29 @@ for (const text of [GPTWORKER_IDLE_PROMPT, GPTWORKER_HELP, GPTWORKER_ROOT_MENU])
   assert.ok(!text.includes("admission_token"));
   assert.ok(!text.includes("work_handle"));
 }
+
+// ChatGPT web defaults to slim. Its initialize prompt must stay control-plane
+// focused instead of injecting the whole repository/policy context before work.
+process.env.CHATGPT_TOOL_PROFILE = "slim";
+const repoRoot = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
+const slimContext = await buildInstructionContext({
+  workspaceRoot: repoRoot,
+  workspaceRoots: [repoRoot],
+  pid: process.pid,
+  adminPort: 3001,
+});
+assert.ok(slimContext.contextText.includes("Slim control plane:"));
+assert.ok(!slimContext.contextText.includes("# GPTWorker — Worker Policy"));
+assert.ok(!slimContext.contextText.includes("# ChatGPT Local Worker — Repository Agent Instructions"));
+assert.equal(
+  slimContext.instructionsText.split(GPTWORKER_ROOT_MENU).length - 1,
+  1,
+  "slim instructions must contain the fixed root menu exactly once"
+);
+assert.equal(
+  slimContext.instructionsText.split(GPTWORKER_HELP).length - 1,
+  1,
+  "slim instructions must contain the fixed Help exactly once"
+);
 
 console.log("test-quickstart: ok");
