@@ -87,6 +87,41 @@ function createState(workspaceRoot: string): ReplState {
   };
 }
 
+async function evaluateReplCode(
+  code: string,
+  context: vm.Context,
+  timeoutMs: number
+): Promise<unknown> {
+  try {
+    const value = vm.runInContext(code, context, { timeout: timeoutMs });
+    return value instanceof Promise ? await value : value;
+  } catch (error) {
+    // vm.runInContext() intentionally runs like a normal Node REPL so the
+    // value of the final expression is observable. Top-level await is the one
+    // common REPL case that Script syntax cannot parse, so retry an expression
+    // form inside an async function.
+    if (!(error instanceof SyntaxError)) throw error;
+
+    const trimmed = code.trim().replace(/;\s*$/, "");
+    const asyncExpression = `(async () => (${trimmed}))()`;
+    try {
+      return await vm.runInContext(asyncExpression, context, {
+        timeout: timeoutMs,
+      });
+    } catch {
+      // Preserve the original SyntaxError for multi-statement invalid input
+      // instead of hiding it behind a less useful fallback error.
+      throw error;
+    }
+  }
+}
+
+function inspectReplValue(value: unknown): string | undefined {
+  return value === undefined
+    ? undefined
+    : util.inspect(value, { depth: 5, maxArrayLength: 100 });
+}
+
 export function registerNodeReplTool(server: McpServer, _startupWorkspaceRoot: string): void {
   server.registerTool(
     "node_repl",
@@ -129,19 +164,19 @@ export function registerNodeReplTool(server: McpServer, _startupWorkspaceRoot: s
 
       const output = state.context.__gptWorkerOutput as string[];
       output.length = 0;
-      const value = (await vm.runInContext(
-        `(async () => { ${code}\n})()`,
+
+      const value = await evaluateReplCode(
+        code,
         state.context,
-        { timeout: timeout_ms }
-      )) as unknown;
+        timeout_ms
+      );
+      const inspectedValue = inspectReplValue(value);
+      const explicitOutput = output.join("\n");
 
       return toolResult("node_repl", {
         workspace: state.workspaceRoot,
-        output: output.join("\n"),
-        value:
-          value === undefined
-            ? undefined
-            : util.inspect(value, { depth: 5, maxArrayLength: 100 }),
+        output: explicitOutput || inspectedValue || "",
+        value: inspectedValue,
       });
     }
   );
