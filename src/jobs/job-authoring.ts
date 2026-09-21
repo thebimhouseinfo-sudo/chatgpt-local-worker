@@ -10,21 +10,12 @@ import {
   hasActiveWorkForJob,
 } from "../lib/work-registration.js";
 import { extractJobZip, writeJobZip } from "../lib/zip-archive.js";
+import {
+  JOB_PRELOAD_FAMILIES,
+  type JobPreloadFamily,
+} from "../lib/runtime-families.js";
 
 export type JobPackStatus = "ready" | "placeholder";
-
-export const JOB_PRELOAD_FAMILIES = [
-  "filesystem",
-  "shell",
-  "git",
-  "context",
-  "repl",
-  "rewind",
-  "ponytail",
-  "mcp",
-] as const;
-
-export type JobPreloadFamily = (typeof JOB_PRELOAD_FAMILIES)[number];
 
 const JOB_PRELOAD_FAMILY_SET = new Set<string>(JOB_PRELOAD_FAMILIES);
 
