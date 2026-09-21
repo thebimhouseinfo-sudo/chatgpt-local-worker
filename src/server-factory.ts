@@ -108,7 +108,7 @@ export function createMcpServer(
   shellTimeout: number,
   workspaceRoots: string[] = [workspaceRoot],
   fullDiskAccess = false,
-  projectMemoryInstructions?: string
+  controlPlaneInstructions?: string
 ): McpServer {
   const server = new McpServer(
     {
@@ -124,7 +124,7 @@ export function createMcpServer(
         workspaceRoot,
         workspaceRoots,
         fullDiskAccess,
-        projectMemoryInstructions
+        controlPlaneInstructions
       ),
     }
   );

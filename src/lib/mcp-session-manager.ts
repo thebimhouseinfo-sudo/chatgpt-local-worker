@@ -78,7 +78,7 @@ export interface SessionManagerConfig {
   shellTimeout: number;
   workspaceRoots: string[];
   port: number;
-  projectMemoryInstructions?: string;
+  controlPlaneInstructions?: string;
 }
 
 export interface SessionManager {
@@ -213,7 +213,7 @@ export function createSessionManager(config: SessionManagerConfig): SessionManag
       config.shellTimeout,
       config.workspaceRoots,
       true,
-      config.projectMemoryInstructions
+      config.controlPlaneInstructions
     );
 
     const transport = new StreamableHTTPServerTransport({
