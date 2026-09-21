@@ -1,7 +1,8 @@
 import { spawn } from "child_process";
+import path from "path";
 import { z } from "zod";
 import type { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
-import { getDefaultCwd, validatePath } from "../lib/path-security.js";
+import { assertPathInsideWorkspaceSync, getDefaultCwd, validatePath } from "../lib/path-security.js";
 import { audit } from "../lib/audit.js";
 import { requireWriteAllowed } from "../lib/permissions.js";
 import { toolAnnotations } from "../lib/tool-annotations.js";
@@ -35,6 +36,25 @@ async function gitOrThrow(args: string[], cwd: string): Promise<GitRunResult> {
   return result;
 }
 
+function safeRepoPathspec(cwd: string, value: string): string {
+  const trimmed = value.trim();
+  if (!trimmed) throw new Error("Git file path is empty.");
+  if (trimmed.startsWith("-")) {
+    throw new Error("Git file path must not be an option: " + trimmed);
+  }
+
+  const absolute = path.isAbsolute(trimmed)
+    ? path.resolve(trimmed)
+    : path.resolve(cwd, trimmed);
+  assertPathInsideWorkspaceSync(absolute, cwd);
+  const relative = path.relative(cwd, absolute);
+  if (!relative || relative === ".") return ".";
+  if (relative.startsWith("..") || path.isAbsolute(relative)) {
+    throw new Error("WORKSPACE_BOUNDARY: Git path escapes confirmed Workspace: " + trimmed);
+  }
+  return relative;
+}
+
 export function registerGitTools(server: McpServer, _startupCwd: string): void {
   const repo = async (p?: string) => (p ? validatePath(p) : getDefaultCwd());
 
@@ -59,7 +79,7 @@ export function registerGitTools(server: McpServer, _startupCwd: string): void {
     const cwd = await repo(repoPath);
     const args = ["diff"];
     if (staged) args.push("--staged");
-    if (file) args.push("--", file);
+    if (file) args.push("--", safeRepoPathspec(cwd, file));
     const r = await gitOrThrow(args, cwd);
     return toolResult("git_diff", { path: cwd, staged, file, output: r.stdout || "No changes" });
   });
@@ -84,8 +104,11 @@ export function registerGitTools(server: McpServer, _startupCwd: string): void {
     requireWriteAllowed();
     const cwd = await repo(repoPath);
     const args = ["add"];
-    if (all && (!files || files.length === 0)) args.push("-A");
-    else if (files?.length) args.push(...files);
+    if (all && (!files || files.length === 0)) {
+      args.push("-A");
+    } else if (files?.length) {
+      args.push("--", ...files.map((file) => safeRepoPathspec(cwd, file)));
+    }
     const r = await gitOrThrow(args, cwd);
     return toolResult("git_add", { path: cwd, files: files || ["-A"], output: r.stdout });
   });
@@ -170,19 +193,20 @@ export function registerGitTools(server: McpServer, _startupCwd: string): void {
   }, async ({ path: repoPath, files, source }) => {
     requireWriteAllowed();
     const cwd = await repo(repoPath);
+    const safeFiles = files.map((file) => safeRepoPathspec(cwd, file));
     let r: GitRunResult;
-    const restore = await runGit(["restore", "--source", source, "--", ...files], cwd);
+    const restore = await runGit(["restore", "--source", source, "--", ...safeFiles], cwd);
     if (restore.exit_code === 0) {
       r = restore;
     } else {
-      r = await gitOrThrow(["checkout", source, "--", ...files], cwd);
+      r = await gitOrThrow(["checkout", source, "--", ...safeFiles], cwd);
     }
     return toolResult("git_restore", {
       path: cwd,
-      files,
+      files: safeFiles,
       source,
       output: r.stdout || r.stderr || "Restored",
-      run_command_fallback: `git restore --source ${source} -- ${files.join(" ")}`,
+      run_command_fallback: `git restore --source ${source} -- ${safeFiles.join(" ")}`,
     });
   });
 
