@@ -118,10 +118,11 @@ Activation then:
 
 1. sets the Job Runtime active;
 2. writes `worker-state.json`;
-3. makes the confirmed folder the default cwd;
-4. resets the persistent shell to that folder;
-5. makes git/project-context tools default to that folder;
-6. loads the Job Pack execution context and begins work.
+3. binds the active work_handle to the confirmed Workspace;
+4. makes that Workspace the execution cwd;
+5. constrains structured Job paths and shell cwd/path usage to that Workspace;
+6. binds git/project-context tools to that Workspace;
+7. loads the Job Pack execution context and begins work.
 
 No **project** filesystem mutation, command execution, project git mutation, or job-specific execution should occur before this confirmation gate. Internal Worker state may be prepared/cleared as part of selection/switching.
 
@@ -137,6 +138,21 @@ Ready Job Packs:
 - `mto` — private/domain-specific local HVAC quantity takeoff/update workflows.
 
 The bare `@gptworker` Welcome shows the three default user-facing Jobs (`dev-coding`, `dev-planing`, `layla`) and eligible Custom Jobs; the private `mto` pack is intentionally not shown there. Only ready packs are runnable.
+
+## Workspace authority invariant
+
+For every active Job, including Custom Jobs:
+
+```text
+work_handle
+→ exact confirmed Workspace
+→ absolute path
+→ must remain inside confirmed Workspace
+```
+
+A Job must not write/read project files through another workspace, startup cwd, remembered paths, or previous Worker state. Filesystem, context, git, shell cwd and normal shell path references must remain bound to the active Workspace. If the Job needs a different Workspace, switch/reselect it and confirm again.
+
+The shell guard is designed to prevent accidental/normal path escapes; it is not an adversarial OS sandbox for deliberately obfuscated arbitrary code.
 
 ## Runtime lifecycle
 
@@ -164,7 +180,7 @@ Use the two-phase `job_select` flow. Always show JOB + FOLDER and wait for expli
 
 ### EXECUTE
 
-After activation, follow the selected Job Pack's `JOB.md` and `SKILL.md`. Full-machine access is intentional for this trusted local-agent use case, while the confirmed FOLDER is the default working context.
+After activation, follow the selected Job Pack's `JOB.md` and `SKILL.md`. The confirmed FOLDER is the hard Job execution boundary: all structured local paths must be absolute and remain inside it. This applies to bundled and Custom Jobs, including Layla. Another Workspace requires explicit switch/reconfirmation.
 
 ### VALIDATE
 
