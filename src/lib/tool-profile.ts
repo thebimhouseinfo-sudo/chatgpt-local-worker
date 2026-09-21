@@ -6,9 +6,9 @@ export type ToolProfileName = "full" | "slim";
 export const LOCAL_TOOL_CATALOG = [
   "gptworker_control", "gptworker_admission", "job_list", "job_create", "job_update", "job_remove", "job_export", "job_import", "job_select", "job_status", "job_stop", "job_switch", "workspace_discover", "work_tool",
   "read_text_file", "write_file", "edit_file", "multi_edit", "apply_patch", "glob", "grep", "list_directory", "move_file",
-  "run_command", "shell_status", "shell_reset", "start_process", "process_output", "node_repl", "ponytail_turn",
+  "run_command", "shell_status", "shell_reset", "start_process", "process_output", "node_repl",
   "git_status", "git_diff", "git_add", "git_commit", "git_restore", "agent_status", "project_context",
-  "remember", "load_path_rules", "list_skills", "load_skill", "rewind", "mcp_servers", "mcp_tools", "mcp_call",
+  "remember", "load_path_rules", "list_skills", "load_skill", "rewind",
 ];
 
 interface LocalToolOverrides {
@@ -78,9 +78,7 @@ export const SLIM_CHATGPT_TOOLS = new Set([
   "list_skills",
   "load_skill",
   "node_repl",
-  "ponytail_turn",
   "rewind",
-  "mcp_servers",
 ]);
 
 export function getChatGptToolProfile(): ToolProfileName {
