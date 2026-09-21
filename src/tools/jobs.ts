@@ -11,6 +11,7 @@ import {
   inspectJobPackForRemoval,
   exportJobPack,
   importJobPack,
+  JOB_PRELOAD_FAMILIES,
 } from "../jobs/job-authoring.js";
 import { clearWorkerState } from "../lib/worker-state.js";
 import type { AdmissionRuntime } from "../lib/activation-policy.js";
@@ -42,6 +43,13 @@ const JobConfirmationSchema = z.object({
   required: z.boolean().optional(),
   template: z.string().min(1).optional(),
 });
+
+const JobPreloadFamiliesSchema = z
+  .array(z.enum(JOB_PRELOAD_FAMILIES))
+  .optional()
+  .describe(
+    "Optional runtime families to warm while awaiting Job confirmation. Legacy mcp/ponytail/rewind tokens are accepted for compatibility and ignored by the active WorkGateway."
+  );
 
 const JobFilesSchema = z
   .record(z.string(), z.string())
@@ -358,6 +366,7 @@ export function registerJobTools(
         skills: z.array(z.string()).optional(),
         harness_entrypoints: z.array(z.string()).optional(),
         validators: z.array(z.string()).optional(),
+        preload_families: JobPreloadFamiliesSchema,
         job_md: z.string().optional(),
         skill_md: z.string().optional(),
         files: JobFilesSchema,
@@ -382,6 +391,7 @@ export function registerJobTools(
           skills: args.skills,
           harness_entrypoints: args.harness_entrypoints,
           validators: args.validators,
+          preload_families: args.preload_families,
           job_md: args.job_md,
           skill_md: args.skill_md,
           files: args.files,
@@ -410,6 +420,7 @@ export function registerJobTools(
         skills: z.array(z.string()).optional(),
         harness_entrypoints: z.array(z.string()).optional(),
         validators: z.array(z.string()).optional(),
+        preload_families: JobPreloadFamiliesSchema,
         job_md: z.string().optional(),
         skill_md: z.string().optional(),
         files: JobFilesSchema,

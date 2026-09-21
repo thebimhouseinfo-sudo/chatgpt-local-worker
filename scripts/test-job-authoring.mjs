@@ -62,6 +62,7 @@ const created = await createJobPack({
   skills: ["skills/example.md"],
   harness_entrypoints: ["harness/validate.mjs"],
   validators: ["harness/validate.mjs"],
+  preload_families: ["filesystem", "context", "mcp"],
   files: {
     "skills/example.md": "# Example skill\n",
     "harness/validate.mjs": "console.log('validate test-job');\n",
@@ -81,6 +82,7 @@ const defaultJob = listing.jobs.find((job) => job.id === "dev-coding");
 const customJob = listing.jobs.find((job) => job.id === "test-job");
 assert.equal(defaultJob?.source, "default");
 assert.equal(customJob?.source, "custom");
+assert.deepEqual(customJob?.preload_families, ["filesystem", "context", "mcp"]);
 assert.equal(listing.jobs.length, 2);
 
 await assert.rejects(
@@ -147,6 +149,7 @@ const updated = await updateJobPack("test-job", {
     "skills/second.md": "# Second skill\n",
   },
   skills: ["skills/example.md", "skills/second.md"],
+  preload_families: ["filesystem", "context"],
 });
 assert.equal(updated.validation.ok, true);
 
@@ -155,6 +158,7 @@ const manifest = JSON.parse(
 );
 assert.equal(manifest.version, "0.2.0");
 assert.deepEqual(manifest.skills, ["skills/example.md", "skills/second.md"]);
+assert.deepEqual(manifest.runtime?.preload_families, ["filesystem", "context"]);
 assert.match(
   await fs.readFile(path.join(customJobsRoot, "test-job", "JOB.md"), "utf8"),
   /Updated contract/
@@ -228,6 +232,17 @@ await assert.rejects(
 await assert.rejects(
   fs.stat(path.join(customJobsRoot, "broken-job")),
   (error) => error && error.code === "ENOENT"
+);
+
+await assert.rejects(
+  () =>
+    createJobPack({
+      id: "bad-preload",
+      name: "Bad Preload",
+      description: "Invalid preload family should be rejected.",
+      preload_families: ["filesystem", "not-a-family"],
+    }),
+  /Unknown Job preload family/
 );
 
 await assert.rejects(

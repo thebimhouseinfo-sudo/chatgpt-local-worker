@@ -13,6 +13,34 @@ import { extractJobZip, writeJobZip } from "../lib/zip-archive.js";
 
 export type JobPackStatus = "ready" | "placeholder";
 
+export const JOB_PRELOAD_FAMILIES = [
+  "filesystem",
+  "shell",
+  "git",
+  "context",
+  "repl",
+  "rewind",
+  "ponytail",
+  "mcp",
+] as const;
+
+export type JobPreloadFamily = (typeof JOB_PRELOAD_FAMILIES)[number];
+
+const JOB_PRELOAD_FAMILY_SET = new Set<string>(JOB_PRELOAD_FAMILIES);
+
+function normalizePreloadFamilies(
+  families: readonly string[] | undefined
+): JobPreloadFamily[] {
+  if (!families) return [];
+  const invalid = families.filter((family) => !JOB_PRELOAD_FAMILY_SET.has(family));
+  if (invalid.length > 0) {
+    throw new Error(
+      "Unknown Job preload family: " + [...new Set(invalid)].join(", ")
+    );
+  }
+  return [...new Set(families)] as JobPreloadFamily[];
+}
+
 export interface JobFieldDefinition {
   key: string;
   type?: string;
@@ -41,6 +69,7 @@ export interface JobPackDraft {
   skills?: string[];
   harness_entrypoints?: string[];
   validators?: string[];
+  preload_families?: JobPreloadFamily[];
   job_md?: string;
   skill_md?: string;
   files?: Record<string, string>;
@@ -60,6 +89,7 @@ export interface JobPackPatch {
   skills?: string[];
   harness_entrypoints?: string[];
   validators?: string[];
+  preload_families?: JobPreloadFamily[];
   job_md?: string;
   skill_md?: string;
   files?: Record<string, string>;
@@ -222,6 +252,9 @@ function buildManifest(draft: JobPackDraft) {
     skills: draft.skills || [],
     harness: { entrypoints: draft.harness_entrypoints || [] },
     validators: draft.validators || [],
+    runtime: {
+      preload_families: normalizePreloadFamilies(draft.preload_families),
+    },
   };
 }
 
@@ -295,6 +328,25 @@ export async function validateJobPack(packDir: string): Promise<JobPackValidatio
     if (!meta.description || typeof meta.description !== "string") {
       errors.push("job.yaml description must be non-empty");
     }
+
+    const preloadFamilies = meta.runtime?.preload_families;
+    if (preloadFamilies !== undefined) {
+      if (!Array.isArray(preloadFamilies)) {
+        errors.push("job.yaml runtime.preload_families must be an array");
+      } else {
+        const invalidPreloadFamilies = preloadFamilies.filter(
+          (family: unknown) =>
+            typeof family !== "string" || !JOB_PRELOAD_FAMILY_SET.has(family)
+        );
+        if (invalidPreloadFamilies.length > 0) {
+          errors.push(
+            "job.yaml runtime.preload_families contains invalid value(s): " +
+              invalidPreloadFamilies.map(String).join(", ")
+          );
+        }
+      }
+    }
+
     const workspaceInput = Array.isArray(meta.inputs)
       ? meta.inputs.find((item: any) => item?.key === "workspace")
       : undefined;
@@ -416,6 +468,14 @@ async function createClonedJobPack(draft: JobPackDraft, liveDir: string) {
         ? { harness: { entrypoints: draft.harness_entrypoints } }
         : {}),
       ...(draft.validators !== undefined ? { validators: draft.validators } : {}),
+      ...(draft.preload_families !== undefined
+        ? {
+            runtime: {
+              ...(current.runtime || {}),
+              preload_families: normalizePreloadFamilies(draft.preload_families),
+            },
+          }
+        : {}),
       cloned_from: {
         job_id: source.id,
         source: source.source,
@@ -578,6 +638,14 @@ export async function updateJobPack(idInput: string, patch: JobPackPatch) {
         ? { harness: { entrypoints: patch.harness_entrypoints } }
         : {}),
       ...(patch.validators !== undefined ? { validators: patch.validators } : {}),
+      ...(patch.preload_families !== undefined
+        ? {
+            runtime: {
+              ...(current.runtime || {}),
+              preload_families: normalizePreloadFamilies(patch.preload_families),
+            },
+          }
+        : {}),
       id,
     };
 
