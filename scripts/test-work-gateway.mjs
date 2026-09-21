@@ -4,6 +4,7 @@ import path from "node:path";
 import {
   createWorkToolResolver,
   registerWorkGateway,
+  WORK_TOOL_OPERATIONS,
 } from "../dist/tools/work-gateway.js";
 import { setDefaultCwd } from "../dist/lib/path-security.js";
 
@@ -89,6 +90,18 @@ try {
   }
   const gateway = registered.get("work_tool");
   if (!gateway) throw new Error("work_tool was not registered");
+
+  const exposedOperations = gateway.config.inputSchema.tool.options;
+  if (exposedOperations.length !== WORK_TOOL_OPERATIONS.length) {
+    throw new Error(
+      `work_tool schema lost operations: expected ${WORK_TOOL_OPERATIONS.length}, got ${exposedOperations.length}`
+    );
+  }
+  for (const operation of WORK_TOOL_OPERATIONS) {
+    if (!exposedOperations.includes(operation)) {
+      throw new Error(`work_tool schema is missing operation: ${operation}`);
+    }
+  }
 
   const result = await gateway.callback({
     tool: "read_text_file",

@@ -12,7 +12,6 @@ const CONTROL_TOOLS = new Set([
   "job_switch",
   "job_stop",
   "workspace_discover",
-  "agent_status",
 ]);
 
 const FILESYSTEM_TOOLS = new Set([
@@ -42,7 +41,7 @@ export function toolFamily(toolName: string): string {
   if (SHELL_TOOLS.has(toolName)) return "shell";
   if (toolName.startsWith("git_")) return "git";
   if (toolName.includes("repl")) return "repl";
-  if (["project_context", "list_skills", "load_skill", "load_path_rules"].includes(toolName)) {
+  if (["project_context", "agent_status", "list_skills", "load_skill", "load_path_rules"].includes(toolName)) {
     return "context";
   }
   return "core";

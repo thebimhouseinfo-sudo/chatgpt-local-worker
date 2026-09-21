@@ -47,30 +47,6 @@ export const SLIM_CHATGPT_TOOLS = new Set([
   "job_switch",
   "workspace_discover",
   "work_tool",
-  "read_text_file",
-  "write_file",
-  "edit_file",
-  "multi_edit",
-  "apply_patch",
-  "glob",
-  "grep",
-  "list_directory",
-  "move_file",
-  "run_command",
-  "shell_status",
-  "start_process",
-  "process_output",
-  "git_status",
-  "git_diff",
-  "git_add",
-  "git_commit",
-  "git_restore",
-  "agent_status",
-  "project_context",
-  "load_path_rules",
-  "list_skills",
-  "load_skill",
-  "node_repl",
 ]);
 
 export function getChatGptToolProfile(): ToolProfileName {
@@ -83,4 +59,14 @@ export function shouldExposeTool(name: string, profile: ToolProfileName = getCha
   if ((overrides.disabled ?? []).includes(name)) return false;
   if (profile === "full") return true;
   return SLIM_CHATGPT_TOOLS.has(name) || (overrides.enabled ?? []).includes(name);
+}
+
+/**
+ * work_tool is the slim top-level execution surface. Its inner local operations
+ * are all available by default; only an explicit local disabled override may
+ * remove one operation.
+ */
+export function shouldExposeWorkOperation(name: string): boolean {
+  const overrides = getLocalToolOverrides();
+  return !(overrides.disabled ?? []).includes(name);
 }

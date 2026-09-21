@@ -1,6 +1,6 @@
 import { z } from "zod";
 import type { McpServer, RegisteredTool } from "@modelcontextprotocol/sdk/server/mcp.js";
-import { getChatGptToolProfile, shouldExposeTool } from "../lib/tool-profile.js";
+import { shouldExposeWorkOperation } from "../lib/tool-profile.js";
 import { toolAnnotations } from "../lib/tool-annotations.js";
 
 type ToolCallback = (args?: Record<string, unknown>, ...rest: unknown[]) => any;
@@ -308,9 +308,8 @@ export function registerWorkGateway(
   shellTimeout: number
 ): WorkToolResolver {
   const resolver = createWorkToolResolver(workspaceRoot, shellTimeout);
-  const profile = getChatGptToolProfile();
   const exposed = WORK_TOOL_OPERATIONS.filter((name) =>
-    shouldExposeTool(name, profile)
+    shouldExposeWorkOperation(name)
   );
 
   if (exposed.length === 0) {
