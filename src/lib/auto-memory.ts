@@ -58,10 +58,3 @@ export async function appendAutoMemory(
   await fs.writeFile(file, header + existing + line, "utf-8");
   return file;
 }
-
-export function formatAutoMemoryForInstructions(
-  content: string | null
-): string {
-  if (!content) return "";
-  return ["## GPTWorker memory", content].join("\n");
-}
