@@ -795,7 +795,7 @@ Latest GitHub Actions still fails before any test step with `steps=null`, so thi
 
 # 5.3. POST-REVIEW ROUND 3 — HARD WORKSPACE BOUNDARY
 
-## STATUS: ⏳ IN PROGRESS
+## STATUS: ✅ CORE ENFORCEMENT DONE / STATIC VERIFIED / RUNTIME ACCEPTANCE PENDING
 
 Reason:
 
@@ -847,6 +847,38 @@ Required corrections:
 - reject shell cwd/path escapes;
 - update README / WORKER / quickstart from “full machine access / not a sandbox” wording to the confirmed-Workspace authority model;
 - add a dedicated workspace-boundary regression test.
+
+Implementation result:
+
+- active `work_handle` now runs inside an AsyncLocal execution scope bound to its exact confirmed Workspace;
+- structured write/mutation paths use `validatePath()` and are rejected outside that Workspace;
+- structured read paths use `validateReadPath()`: project/user data remains Workspace-bound, while the active Job Pack directory is a read-only support root so declared skills/harness resources remain loadable;
+- Job Pack support roots are derived from the active `job_id` and are never accepted as structured write destinations;
+- multi-file patch targets are individually boundary-validated before mutation;
+- symlink/junction escapes are checked using the nearest existing canonical ancestor;
+- persisted shell cwd is clamped back to its owning Workspace if stale/bad state points elsewhere;
+- shell cwd and normal/obvious absolute-path / parent-traversal escapes are rejected;
+- declared Job support scripts may be invoked from their support root without widening structured write authority;
+- Git repo/pathspec handling is bound to the confirmed Workspace and validates file pathspecs;
+- post-edit hook commands inherit the same shell Workspace guard;
+- `node_repl` remains direct-filesystem-disabled;
+- health / `agent_status` now distinguish host process capability from effective active-Job scope;
+- README / WORKER / AGENTS / quickstart now describe the confirmed-Workspace authority model;
+- `scripts/test-workspace-boundary.mjs` was added to the default test chain;
+- runtime acceptance documentation now includes negative outside-Workspace write/shell/Git tests.
+
+System-owned Job resources are a deliberate exception only for **read/execute support**:
+
+```text
+confirmed Workspace
+→ Job project read/write authority
+
+active Job Pack directory
+→ trusted Job support read/execute input
+→ not a structured write/output authority
+```
+
+This keeps Custom/default Job skills and harnesses usable without reopening arbitrary project paths outside the confirmed Workspace.
 
 ---
 
