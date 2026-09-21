@@ -2,9 +2,9 @@ import fs from "fs/promises";
 import path from "path";
 
 /**
- * Apply unified diff / Codex-style patches to text.
+ * Apply unified diff and context-hunk patches to text.
  * Supports:
- * - Codex/OpenAI format: hunk header "@@" without line numbers
+ * - Context-hunk format: hunk header "@@" without line numbers
  * - Standard unified diff: "@@ -1,3 +1,4 @@"
  * - Mixed CRLF/LF input (normalized to LF for matching, preserves original EOL when possible)
  */
