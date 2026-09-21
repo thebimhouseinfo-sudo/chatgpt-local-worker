@@ -1,17 +1,11 @@
 import fs from "fs/promises";
-import os from "os";
 import path from "path";
 
-const ROOT_MEMORY_FILES = [
+const ROOT_CONTEXT_FILES = [
+  "AGENTS.md",
   "CLAUDE.md",
   ".claude/CLAUDE.md",
-  "AGENTS.md",
   "CLAUDE.local.md",
-] as const;
-
-const USER_MEMORY_CANDIDATES = [
-  path.join(os.homedir(), ".codex", "CLAUDE.md"),
-  path.join(os.homedir(), ".claude", "CLAUDE.md"),
 ] as const;
 
 const RULES_GLOB_MAX = 12;
@@ -23,7 +17,7 @@ export interface ProjectMemorySection {
   path: string;
   content: string;
   truncated: boolean;
-  kind: "user" | "project" | "rule" | "import";
+  kind: "project" | "rule" | "import";
 }
 
 export interface ProjectMemoryBundle {
@@ -49,103 +43,128 @@ function stripHtmlComments(text: string): string {
 
 function hasPathsFrontmatter(content: string): boolean {
   const match = content.match(/^---\r?\n([\s\S]*?)\r?\n---/);
-  if (!match) return false;
-  return /^paths\s*:/m.test(match[1]);
+  return Boolean(match && /^paths\s*:/m.test(match[1]));
 }
 
-async function readTextLimited(
-  filePath: string,
-  maxBytes: number,
-  maxLines: number,
-  kind: ProjectMemorySection["kind"]
-): Promise<ProjectMemorySection | null> {
-  try {
-    const buf = await fs.readFile(filePath);
-    let full = stripHtmlComments(buf.toString("utf-8"));
-    full = await expandImportsInContent(full, path.dirname(filePath));
+function isWithinRoots(candidate: string, roots: readonly string[]): boolean {
+  const resolved = path.resolve(candidate);
 
-    const lines = full.split(/\r?\n/).slice(0, maxLines);
-    const lineLimited = lines.join("\n");
-    const byteLimited =
-      Buffer.byteLength(lineLimited, "utf-8") > maxBytes
-        ? Buffer.from(lineLimited, "utf-8").subarray(0, maxBytes).toString("utf-8")
-        : lineLimited;
-    const truncated =
-      buf.length > maxBytes ||
-      full.split(/\r?\n/).length > maxLines ||
-      byteLimited.length < full.length;
-    const trimmed = byteLimited.trim();
-    if (!trimmed) return null;
-    return { path: filePath, content: trimmed, truncated, kind };
-  } catch {
-    return null;
-  }
+  return roots.some((root) => {
+    const relative = path.relative(path.resolve(root), resolved);
+    return relative === "" || (!relative.startsWith("..") && !path.isAbsolute(relative));
+  });
 }
 
-async function expandImportsInContent(content: string, baseDir: string): Promise<string> {
-  const visited = new Set<string>();
-  return expandMemoryImportsAsync(content, baseDir, visited, 0);
-}
-
-async function expandMemoryImportsAsync(
+async function expandImports(
   content: string,
   baseDir: string,
+  allowedRoots: readonly string[],
   visited: Set<string>,
   depth: number
 ): Promise<string> {
   if (depth >= IMPORT_MAX_DEPTH) return content;
 
-  const lines = content.split(/\r?\n/);
-  const out: string[] = [];
+  const output: string[] = [];
   let inFence = false;
 
-  for (const line of lines) {
+  for (const line of content.split(/\r?\n/)) {
     if (line.trim().startsWith("```")) {
       inFence = !inFence;
-      out.push(line);
+      output.push(line);
       continue;
     }
+
     if (inFence) {
-      out.push(line);
+      output.push(line);
       continue;
     }
 
-    const importMatch = line.match(/^@(~\/[^\s`]+|[^\s`]+)\s*$/);
-    if (!importMatch) {
-      out.push(line);
+    const match = line.match(/^@([^\s`]+)\s*$/);
+    if (!match) {
+      output.push(line);
       continue;
     }
 
-    let importPath = importMatch[1];
-    if (importPath.startsWith("~/")) {
-      importPath = path.join(os.homedir(), importPath.slice(2));
-    } else if (!path.isAbsolute(importPath)) {
-      importPath = path.resolve(baseDir, importPath);
+    const raw = match[1];
+    if (raw.startsWith("~/")) {
+      output.push("<!-- skipped non-project import -->");
+      continue;
     }
 
-    const resolved = path.resolve(importPath);
+    const resolved = path.isAbsolute(raw)
+      ? path.resolve(raw)
+      : path.resolve(baseDir, raw);
+
+    if (!isWithinRoots(resolved, allowedRoots)) {
+      output.push("<!-- skipped import outside configured workspace roots -->");
+      continue;
+    }
+
     if (visited.has(resolved)) {
-      out.push(`<!-- skipped circular import ${resolved} -->`);
+      output.push("<!-- skipped circular project import -->");
       continue;
     }
 
     visited.add(resolved);
+
     try {
-      const buf = await fs.readFile(resolved);
-      const imported = stripHtmlComments(buf.toString("utf-8"));
-      const expanded = await expandMemoryImportsAsync(
+      const imported = stripHtmlComments(await fs.readFile(resolved, "utf-8"));
+      const expanded = await expandImports(
         imported,
         path.dirname(resolved),
+        allowedRoots,
         visited,
         depth + 1
       );
-      out.push(`<!-- @import ${resolved} -->`, expanded);
+      output.push(`<!-- project import: ${resolved} -->`, expanded);
     } catch {
-      out.push(`<!-- import failed: ${resolved} -->`);
+      output.push("<!-- project import unavailable -->");
     }
   }
 
-  return out.join("\n");
+  return output.join("\n");
+}
+
+async function readTextLimited(
+  filePath: string,
+  allowedRoots: readonly string[],
+  maxBytes: number,
+  maxLines: number,
+  kind: ProjectMemorySection["kind"]
+): Promise<ProjectMemorySection | null> {
+  try {
+    const buffer = await fs.readFile(filePath);
+    const stripped = stripHtmlComments(buffer.toString("utf-8"));
+    const expanded = await expandImports(
+      stripped,
+      path.dirname(filePath),
+      allowedRoots,
+      new Set([path.resolve(filePath)]),
+      0
+    );
+
+    const lineLimited = expanded.split(/\r?\n/).slice(0, maxLines).join("\n");
+    const bytes = Buffer.from(lineLimited, "utf-8");
+    const content =
+      bytes.length > maxBytes
+        ? bytes.subarray(0, maxBytes).toString("utf-8")
+        : lineLimited;
+
+    const trimmed = content.trim();
+    if (!trimmed) return null;
+
+    return {
+      path: filePath,
+      content: trimmed,
+      truncated:
+        buffer.length > maxBytes ||
+        expanded.split(/\r?\n/).length > maxLines ||
+        Buffer.byteLength(lineLimited, "utf-8") > maxBytes,
+      kind,
+    };
+  } catch {
+    return null;
+  }
 }
 
 async function listUnconditionalRuleFiles(rulesDir: string): Promise<string[]> {
@@ -153,22 +172,28 @@ async function listUnconditionalRuleFiles(rulesDir: string): Promise<string[]> {
 
   async function walk(dir: string, depth: number): Promise<void> {
     if (depth > 3) return;
+
     let entries;
     try {
       entries = await fs.readdir(dir, { withFileTypes: true });
     } catch {
       return;
     }
+
     for (const entry of entries) {
       const full = path.join(dir, entry.name);
+
       if (entry.isDirectory()) {
         await walk(full, depth + 1);
-      } else if (entry.isFile() && entry.name.endsWith(".md")) {
-        try {
-          const head = await fs.readFile(full, "utf-8");
-          if (!hasPathsFrontmatter(head)) found.push(full);
-        } catch {}
+        continue;
       }
+
+      if (!entry.isFile() || !entry.name.endsWith(".md")) continue;
+
+      try {
+        const content = await fs.readFile(full, "utf-8");
+        if (!hasPathsFrontmatter(content)) found.push(full);
+      } catch {}
     }
   }
 
@@ -179,19 +204,24 @@ async function listUnconditionalRuleFiles(rulesDir: string): Promise<string[]> {
 async function appendSection(
   sections: ProjectMemorySection[],
   totalBytes: { value: number },
+  allowedRoots: readonly string[],
   maxBytes: number,
   maxLines: number,
   filePath: string,
   kind: ProjectMemorySection["kind"]
 ): Promise<void> {
   if (totalBytes.value >= maxBytes) return;
+
   const section = await readTextLimited(
     filePath,
+    allowedRoots,
     maxBytes - totalBytes.value,
     maxLines,
     kind
   );
+
   if (!section?.content) return;
+
   sections.push(section);
   totalBytes.value += Buffer.byteLength(section.content, "utf-8");
 }
@@ -200,29 +230,43 @@ export async function loadProjectMemory(
   workspaceRoot: string,
   opts?: { maxBytes?: number; maxLines?: number; workspaceRoots?: string[] }
 ): Promise<ProjectMemoryBundle> {
+  const root = path.resolve(workspaceRoot);
+  const workspace_roots = (opts?.workspaceRoots ?? [root]).map((item) =>
+    path.resolve(item)
+  );
+  const allowedRoots = [...new Set([root, ...workspace_roots])];
   const maxBytes = opts?.maxBytes ?? DEFAULT_MAX_BYTES;
   const maxLines = opts?.maxLines ?? DEFAULT_MAX_LINES;
-  const root = path.resolve(workspaceRoot);
-  const workspace_roots = opts?.workspaceRoots ?? [root];
   const sections: ProjectMemorySection[] = [];
   const totalBytes = { value: 0 };
 
-  for (const userPath of USER_MEMORY_CANDIDATES) {
-    if (!(await fileExists(userPath))) continue;
-    await appendSection(sections, totalBytes, maxBytes, maxLines, userPath, "user");
-    break;
-  }
-
-  for (const rel of ROOT_MEMORY_FILES) {
-    const filePath = path.join(root, rel);
+  for (const relative of ROOT_CONTEXT_FILES) {
+    const filePath = path.join(root, relative);
     if (!(await fileExists(filePath))) continue;
-    await appendSection(sections, totalBytes, maxBytes, maxLines, filePath, "project");
+
+    await appendSection(
+      sections,
+      totalBytes,
+      allowedRoots,
+      maxBytes,
+      maxLines,
+      filePath,
+      "project"
+    );
   }
 
   const rulesDir = path.join(root, ".claude", "rules");
   if (totalBytes.value < maxBytes && (await fileExists(rulesDir))) {
     for (const ruleFile of await listUnconditionalRuleFiles(rulesDir)) {
-      await appendSection(sections, totalBytes, maxBytes, maxLines, ruleFile, "rule");
+      await appendSection(
+        sections,
+        totalBytes,
+        allowedRoots,
+        maxBytes,
+        maxLines,
+        ruleFile,
+        "rule"
+      );
     }
   }
 
@@ -235,40 +279,33 @@ export async function loadProjectMemory(
   };
 }
 
-export function formatProjectMemoryForInstructions(bundle: ProjectMemoryBundle): string {
+export function formatProjectMemoryForInstructions(
+  bundle: ProjectMemoryBundle
+): string {
   if (bundle.sections.length === 0) {
     return [
-      "## Project memory",
-      `No CLAUDE.md or AGENTS.md at ${bundle.root}.`,
-      "Create CLAUDE.md in the project root (run /init in Claude Code or write manually).",
-      "For another repo: call project_context(path) with the absolute project path.",
+      "## Project context",
+      `No project instruction files found at ${bundle.root}.`,
       bundle.workspace_roots.length > 1
-        ? `Configured workspace roots:\n${bundle.workspace_roots.map((r) => `- ${r}`).join("\n")}`
+        ? `Configured workspace roots:\n${bundle.workspace_roots.map((root) => `- ${root}`).join("\n")}`
         : "",
     ]
       .filter(Boolean)
       .join("\n");
   }
 
-  const blocks = bundle.sections.map((s) => {
-    const note = s.truncated ? " (truncated)" : "";
-    const label =
-      s.kind === "user"
-        ? "User memory"
-        : s.kind === "rule"
-          ? "Rule"
-          : s.kind === "import"
-            ? "Import"
-            : "Project";
-    return `### ${label}: ${s.path}${note}\n${s.content}`;
+  const blocks = bundle.sections.map((section) => {
+    const note = section.truncated ? " (truncated)" : "";
+    const label = section.kind === "rule" ? "Rule" : "Project";
+    return `### ${label}: ${section.path}${note}\n${section.content}`;
   });
 
   return [
-    "## Project memory (auto-loaded like Claude Code CLAUDE.md)",
+    "## Project context",
     `Primary root: ${bundle.root}`,
-    "Treat content below as ground truth for conventions, build commands, and architecture.",
+    "Treat these as project-local instructions and context, subordinate to GPTWorker system and active Job rules.",
     bundle.workspace_roots.length > 1
-      ? `All workspace roots:\n${bundle.workspace_roots.map((r) => `- ${r}`).join("\n")}`
+      ? `Configured workspace roots:\n${bundle.workspace_roots.map((root) => `- ${root}`).join("\n")}`
       : "",
     "",
     ...blocks,
