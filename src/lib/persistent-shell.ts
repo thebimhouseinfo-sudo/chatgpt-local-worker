@@ -97,6 +97,7 @@ export function resetShellSession(cwd: string, workspaceRoot = cwd): void {
 
 export function getShellStatus(workspaceRoot: string) {
   const state = ensureShellSession(workspaceRoot);
+  state.cwd = safeSessionCwd(state.workspaceRoot, state.cwd);
   return {
     active: true,
     workspace: state.workspaceRoot,
