@@ -792,6 +792,65 @@ Latest GitHub Actions still fails before any test step with `steps=null`, so thi
 ---
 
 
+
+# 5.3. POST-REVIEW ROUND 3 — HARD WORKSPACE BOUNDARY
+
+## STATUS: ⏳ IN PROGRESS
+
+Reason:
+
+A Custom Job was observed performing work in the wrong location and later detecting/undoing it. Undo is useful recovery, but it is not sufficient authority control.
+
+New system invariant:
+
+> Every active Job — bundled or custom — may use broad local capabilities, but all Job-controlled local filesystem effects must remain inside the explicitly confirmed Workspace. If a Job makes a mistake, the mistake must stay inside the authorized Workspace.
+
+Target:
+
+```text
+confirmed Job + Workspace
+        ↓
+work_handle
+        ↓
+execution context bound to exact Workspace
+        ↓
+all Job operations
+        ↓
+absolute path required
+        ↓
+path must remain inside confirmed Workspace
+```
+
+Rules:
+
+1. applies to **all Jobs**, including Custom Jobs and Layla;
+2. no Job may treat startup cwd, previous Job state, remembered paths, or another workspace as authority;
+3. relative filesystem paths remain rejected;
+4. absolute filesystem paths outside confirmed Workspace are rejected;
+5. symlink/junction escape through a path inside Workspace must also be rejected where resolvable;
+6. Git operations remain bound to the confirmed repository/workspace;
+7. node_repl keeps direct filesystem access disabled;
+8. shell working directory must stay inside confirmed Workspace;
+9. shell commands must reject obvious absolute-path and `..\` / `../` escapes outside Workspace;
+10. switching to another Workspace requires explicit Job switch/reconfirmation.
+
+Important limitation:
+
+Arbitrary shell code is not an OS sandbox. A deliberately obfuscated program can construct paths dynamically. Round 3 therefore hard-enforces all structured GPTWorker path APIs and blocks normal/obvious shell path escapes. Strong adversarial shell isolation would require a separate Windows sandbox/restricted-token architecture.
+
+Required corrections:
+
+- make active-work path validation Workspace-bounded in `path-security.ts`;
+- preserve public/pre-confirm tools that need absolute local paths but have no active work_handle;
+- validate multi-file patch targets individually;
+- prevent persisted shell cwd from restoring outside its owning Workspace;
+- reject shell cwd/path escapes;
+- update README / WORKER / quickstart from “full machine access / not a sandbox” wording to the confirmed-Workspace authority model;
+- add a dedicated workspace-boundary regression test.
+
+---
+
+
 # 6. FINAL CLEANUP — ✅ DONE WITH COMPATIBILITY EXCEPTIONS
 
 Đã hoàn tất:
