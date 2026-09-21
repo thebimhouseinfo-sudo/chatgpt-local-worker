@@ -92,13 +92,13 @@ assert.equal(
   "explicit admission must consume the temporary @ arm"
 );
 
-// Bare @gptworker can arm the same MCP session for the next Job+Workspace reply.
+// Bare @gptworker can arm the current transport/runtime for the next Job+Workspace reply.
 const continuationRuntime = new AdmissionRuntime();
 assert.equal(continuationRuntime.isExplicitAtFlowArmed(), false);
 assert.equal(
   continuationRuntime.armExplicitAt("@gptworker"),
   true,
-  "literal @gptworker must arm the current MCP session"
+  "literal @gptworker must arm the current transport/runtime"
 );
 assert.equal(continuationRuntime.isExplicitAtFlowArmed(), true);
 
@@ -113,7 +113,7 @@ assert.equal(continuationAdmission.workspace, workspace);
 assert.equal(typeof continuationAdmission.admission_token, "string");
 
 // The @ arm is one-shot. After the first admitted continuation, a later
-// direct task+path in the same MCP session must NOT inherit GPTWorker authority.
+// direct task+path in the same runtime must NOT inherit GPTWorker authority.
 const secondDirectAfterContinuation = continuationRuntime.check({
   userTurn: `Sửa tiếp repo ở ${workspace}`,
   hasConcreteTask: true,
@@ -172,18 +172,54 @@ assert.throws(
   /ADMISSION_REQUIRED/
 );
 
-// @ authorization never crosses MCP sessions.
-const otherSession = new AdmissionRuntime();
-assert.equal(otherSession.isExplicitAtFlowArmed(), false);
-const crossSessionDirect = otherSession.check({
+// A fresh runtime/transport does not inherit the temporary bare-@ arm.
+const otherTransport = new AdmissionRuntime();
+assert.equal(otherTransport.isExplicitAtFlowArmed(), false);
+const crossTransportDirect = otherTransport.check({
   userTurn: `Đọc repo ${workspace} và lên kế hoạch`,
   hasConcreteTask: true,
   workspace,
 });
-assert.equal(crossSessionDirect.mode, "INACTIVE");
+assert.equal(crossTransportDirect.mode, "INACTIVE");
+
+// But once an opaque admission token has been minted, that token is the
+// authority carrier and must survive legitimate MCP transport rotation.
+const rotatingSource = new AdmissionRuntime();
+const rotatingAdmission = rotatingSource.check({
+  userTurn: `@gptworker đọc repo ${workspace} và lên kế hoạch`,
+  hasConcreteTask: true,
+  workspace,
+});
+assert.equal(rotatingAdmission.mode, "ACTIVE");
+assert.equal(typeof rotatingAdmission.admission_token, "string");
+
+const rotatedTransport = new AdmissionRuntime();
+assert.equal(
+  rotatedTransport.validate(rotatingAdmission.admission_token, workspace).trigger,
+  "explicit_gptworker",
+  "opaque admission token must survive MCP transport rotation"
+);
+
+// Once consumed, the token is invalid from every runtime/transport.
+rotatedTransport.consume(rotatingAdmission.admission_token);
 assert.throws(
-  () => otherSession.validate(continuationAdmission.admission_token, workspace),
-  /another MCP session/
+  () =>
+    rotatingSource.validate(
+      rotatingAdmission.admission_token,
+      workspace
+    ),
+  /ADMISSION_REQUIRED/,
+  "consumed admission token must be invalid across all transports"
+);
+
+// The earlier consumed continuation token must likewise stay invalid.
+assert.throws(
+  () =>
+    otherTransport.validate(
+      continuationAdmission.admission_token,
+      workspace
+    ),
+  /ADMISSION_REQUIRED/
 );
 
 // Lower-level activation proof remains literal-@ based.
