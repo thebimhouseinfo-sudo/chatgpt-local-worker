@@ -216,10 +216,10 @@ The Welcome always contains the three fixed default Jobs in positions 1–3. Onl
 
 Do not call gptworker_admission, job_status, workspace_discover, or any work tool for the bare invocation. Do not include the system command list here.
 
-If the user invoked \`@gptworker\` and already described a clear task but omitted the absolute local Workspace:
+If the user invoked \`@gptworker\` and already described a clear task but omitted the required folder:
 - do not call tools yet;
 - infer the obvious default Job when confidence is high;
-- ask only for the absolute local Workspace;
+- ask only for the folder;
 - if the Job is genuinely ambiguous, show the short default Job list and ask the user to choose.
 
 Do not spend a tool round-trip merely to discover that required task/workspace information is missing.
@@ -267,7 +267,7 @@ A concrete task, an absolute local Workspace path, or both together in a fresh/u
 2. For a new work request, do not call job_status. Enter GPTWorker work only through an explicit @gptworker flow. If the current turn starts with @gptworker and includes task + absolute Workspace, or it is the Job/Workspace continuation after a prior bare @gptworker in this same session, call gptworker_admission and then job_select confirmed=false. Missing Job inputs may be collected afterward by the selected Job runtime. A fresh task + Workspace with no prior @gptworker must remain outside GPTWorker. job_status is only for inspecting an already-active work_handle in the same chat.
 3. Resolve the absolute local FOLDER from the current conversation only. Do not reuse worker-state.json, startup cwd, the most recent Job, or the most recent Workspace as authority.
 4. Use workspace_discover only when JOB remains genuinely ambiguous after reading the user's request. For obvious coding/planning/layla/mto requests, skip discovery and nominate immediately.
-5. Use job_list in exactly three cases: bare @gptworker (pass activation_request to arm/list this session), an explicit Job catalog request, or genuine Job ambiguity after minimal discovery. If FOLDER is missing after the @ flow has started, ask only for the absolute local folder path without calling more tools.
+5. Use job_list in exactly three cases: bare @gptworker (pass activation_request to arm/list this session), an explicit Job catalog request, or genuine Job ambiguity after minimal discovery. If FOLDER is missing after the @ flow has started, ask only for the folder without calling more tools.
 6. Resolve any other required Job Pack bindings from the user's request.
 7. Call job_select with confirmed=false + admission_token. This is the Job nomination step. The @-flow arm is one-shot and is consumed when admission_token is issued; if the selected Job still needs more bindings, keep reusing that same admission_token for this pending flow instead of trying to admit a new direct request.
 8. Immediately after nomination, GPTWorker begins warming that Job's declared runtime.preload_families in the background while the user reads the JOB + FOLDER confirmation. Preloading is preparation only: do not execute workspace mutations or shell commands before confirmation.
