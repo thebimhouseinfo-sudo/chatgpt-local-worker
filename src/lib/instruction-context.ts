@@ -49,7 +49,7 @@ export async function buildInstructionContext(
 
   const profile = getChatGptToolProfile();
 
-  const blocks = [
+  const baseBlocks = [
     CODEX_AGENT_PROMPT,
     `Tool profile: **${profile}** (${profile === "slim" ? "core tools only — optimal for ChatGPT web" : "all tools exposed"}).`,
     formatEnvironmentForInstructions({
@@ -59,14 +59,26 @@ export async function buildInstructionContext(
       adminPort: opts.adminPort,
       nodeVersion: process.version,
     }),
-    formatGitSnapshotForInstructions(git),
-    formatAutoMemoryForInstructions(autoMemory),
-    formatProjectMemoryForInstructions(projectMemory),
-    formatSkillsForInstructions(skills),
-    // Keep Worker policy last so cross-job Worker/runtime policy remains authoritative
-    // over project-local memory while still allowing project conventions underneath it.
-    formatWorkerPolicyForInstructions(workerPolicy),
-  ].filter(Boolean);
+  ];
+
+  // ChatGPT web uses the slim profile by default. Keep its initialize
+  // instructions small and control-plane focused: project memory, git state,
+  // skills, auto-memory, and the full WORKER.md are only useful after a Job
+  // starts and otherwise slow/confuse zero-tool commands.
+  const richContextBlocks =
+    profile === "full"
+      ? [
+          formatGitSnapshotForInstructions(git),
+          formatAutoMemoryForInstructions(autoMemory),
+          formatProjectMemoryForInstructions(projectMemory),
+          formatSkillsForInstructions(skills),
+          formatWorkerPolicyForInstructions(workerPolicy),
+        ]
+      : [
+          "Slim control plane: do not use repository/project memory as authority before a Job is selected and confirmed. Runtime gates and the selected Job Pack provide work authority.",
+        ];
+
+  const blocks = [...baseBlocks, ...richContextBlocks].filter(Boolean);
 
   const contextText = blocks.join("\n\n");
   const instructionsText = buildServerInstructions(
