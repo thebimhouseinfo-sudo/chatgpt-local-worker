@@ -28,11 +28,6 @@ assert.equal(
   "standalone rewind adapter must not remain in active src/"
 );
 assert.equal(
-  await exists("legacy/group-b/tools/rewind.ts"),
-  true,
-  "quarantined rewind adapter is missing"
-);
-assert.equal(
   await exists("src/lib/checkpoint.ts"),
   true,
   "checkpoint safety engine must remain active"
@@ -70,7 +65,7 @@ try {
   setDefaultCwd(tmpDir);
   const resolver = createWorkToolResolver(tmpDir, 30);
 
-  const prepared = await resolver.prepareJob("legacy-job", [
+  const prepared = await resolver.prepareJob("compat-job", [
     "filesystem",
     "rewind",
     "mcp",

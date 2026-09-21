@@ -12,5 +12,5 @@
     "declaration": true
   },
   "include": ["src/**/*"],
-  "exclude": ["node_modules", "dist", "legacy"]
+  "exclude": ["node_modules", "dist"]
 }

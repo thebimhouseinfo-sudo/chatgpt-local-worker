@@ -40,7 +40,6 @@ if (!fs.existsSync(tsc)) {
 await runNode([tsc], "typescript");
 
 const tests = [
-  "scripts/test-legacy-isolation.mjs",
   "scripts/test-group-a-retired.mjs",
   "scripts/test-group-b-retired.mjs",
   "scripts/test-group-c1-work-gateway.mjs",

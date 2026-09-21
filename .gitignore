@@ -5,7 +5,6 @@ dist/
 .mcp-activity.jsonl.1
 .mcp-checkpoints/
 .tool-test-tmp/
-bin/
 profiles/*
 !profiles/post-edit-hooks.json
 !profiles/chatgpt-connector-description.txt
