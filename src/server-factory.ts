@@ -8,7 +8,6 @@ import { registerWorkGateway } from "./tools/work-gateway.js";
 import { registerWorkspaceDiscoveryTool } from "./tools/workspace-discovery.js";
 import { buildServerInstructions } from "./lib/quickstart.js";
 import { AdmissionRuntime } from "./lib/activation-policy.js";
-import type { McpUpstreamManager } from "./lib/mcp-upstream-manager.js";
 import { getChatGptToolProfile, shouldExposeTool } from "./lib/tool-profile.js";
 import { TOOL_RESULT_OUTPUT_SCHEMA } from "./lib/tool-result.js";
 import { JobRuntime } from "./jobs/job-runtime.js";
@@ -30,10 +29,9 @@ function configureToolRegistration(server: McpServer): void {
   const original = server.registerTool.bind(server);
   server.registerTool = ((name, config, callback) => {
     const toolName = String(name);
-    const isUpstreamProxy = toolName.includes("__");
     const requiresWork = requiresWorkHandle(toolName);
 
-    if (!isUpstreamProxy && profile !== "full" && !shouldExposeTool(toolName, profile)) {
+    if (profile !== "full" && !shouldExposeTool(toolName, profile)) {
       return NOOP_TOOL;
     }
 
@@ -59,7 +57,7 @@ function configureToolRegistration(server: McpServer): void {
     const nextConfig = {
       ...config,
       ...(requiresWork ? { inputSchema, description } : {}),
-      ...(!isUpstreamProxy && !config.outputSchema
+      ...(!config.outputSchema
         ? { outputSchema: TOOL_RESULT_OUTPUT_SCHEMA }
         : {}),
     };
@@ -110,7 +108,6 @@ export function createMcpServer(
   shellTimeout: number,
   workspaceRoots: string[] = [workspaceRoot],
   fullDiskAccess = false,
-  upstreamManager?: McpUpstreamManager,
   projectMemoryInstructions?: string
 ): McpServer {
   const server = new McpServer(
@@ -150,8 +147,7 @@ export function createMcpServer(
   const workResolver = registerWorkGateway(
     server,
     workspaceRoot,
-    shellTimeout,
-    upstreamManager
+    shellTimeout
   );
 
   // workspace_discover is the minimal read-only pre-confirmation probe used
