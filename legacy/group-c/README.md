@@ -1,16 +1,30 @@
-# Group C — Rewrite Clean
+# Group C — Rewrite Clean / Quarantine Old
 
-Quarantine cho implementation cũ sau khi đã có replacement viết mới theo target architecture.
+Nơi chứa **implementation cũ đã được thay bằng implementation viết mới** theo target architecture.
+
+`legacy/group-c/` là cây riêng ở root repo, **không phải `src/`**.
+
+Mapping:
+
+```text
+src/tools/work-gateway.ts   # implementation cũ
+→ legacy/group-c/tools/work-gateway.ts
+
+src/tools/work-gateway.ts   # implementation mới
+→ vẫn nằm trong active src/
+```
+
+Không tạo `legacy/group-c/src/**`.
 
 Workflow:
 
 ```text
-write clean replacement
-→ switch callers
+write clean replacement trong active tree
+→ switch callers sang replacement
 → move old implementation vào đây
-→ behavior + integration test
+→ build + behavior/integration test
 ```
 
-Nếu replacement thiếu behavior, old implementation ở đây là reference/rollback trực tiếp.
+Nếu replacement thiếu behavior, file cũ ở đây là reference/rollback thủ công.
 
-Không import/runtime từ thư mục này.
+File trong thư mục này không được import, compile hoặc chạy bởi GPTWorker.

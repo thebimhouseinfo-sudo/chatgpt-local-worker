@@ -52,7 +52,9 @@ Mọi candidate phải rơi vào đúng một trong ba nhóm:
 
 Dùng khi toàn bộ chức năng không thuộc target và **không có logic cần cứu**.
 
-"Delete directly" nghĩa là không cần extract chức năng từ file đó. Caller/import/config liên quan được tháo trong cùng atomic change trước khi build.
+Trong cleanup này, **DELETE DIRECTLY = remove khỏi active runtime tree rồi quarantine vào `legacy/group-a/`**, không phải physical-delete khỏi Git repo.
+
+Caller/import/config liên quan được tháo trong cùng atomic change; file cũ được move ra khỏi active tree trước khi build/test.
 
 ### GROUP B — EXTRACT / REMAP → DELETE OLD
 
@@ -65,7 +67,7 @@ extract phần cần giữ
 → đặt tên/home mới
 → remap caller
 → xác nhận old caller = 0
-→ delete old file/surface
+→ move old file ra khỏi active tree vào legacy/group-b/
 ```
 
 ### GROUP C — REWRITE CLEAN
@@ -79,7 +81,7 @@ viết spec nhỏ theo target
 → implement module mới sạch
 → test behavior cần giữ
 → switch caller sang implementation mới
-→ delete implementation cũ
+→ move implementation cũ ra khỏi active tree vào legacy/group-c/
 ```
 
 Không cố bóc từng nhánh legacy nếu rewrite nhỏ hơn, dễ hiểu hơn và ít dependency hơn.
@@ -857,9 +859,9 @@ Goal: new core can operate without Codex/Admin/upstream before deleting old sour
 5. remap worker execution prompt;
 6. clean tool profile/quickstart.
 
-## Phase 3 — delete Group A
+## Phase 3 — quarantine Group A
 
-Delete leaf subsystems only when import/caller count is zero.
+Remove leaf subsystems khỏi active tree và move vào `legacy/group-a/` only when import/caller count is zero.
 
 ## Phase 4 — config/package/docs cleanup
 
@@ -900,9 +902,9 @@ Required:
 
 # 9. Deletion/rewrite gates
 
-## DELETE gate
+## DELETE / QUARANTINE gate
 
-Delete only when:
+Remove khỏi active tree và quarantine only when:
 
 1. no required behavior inside;
 2. runtime caller/import = 0;
@@ -1040,24 +1042,49 @@ write new implementation
 
 Nếu implementation mới thiếu behavior, old implementation trong `legacy/group-c/` là reference trực tiếp để so sánh và phục hồi tạm thời.
 
-## 11.2 Giữ nguyên relative source structure khi quarantine
+## 11.2 Legacy là cây riêng, không chứa `src/`
 
-Khi move file, giữ path gốc bên dưới group để truy vết dễ dàng.
+`legacy/` là **quarantine tree độc lập ở root repo**. File đã quarantine không còn nằm trong active `src/`.
+
+Quy tắc mapping:
+
+- file dưới `src/`: **strip prefix `src/`** khi move vào group;
+- file ngoài `src/` như `scripts/`, `profiles/`, `public/`: giữ path top-level gốc bên dưới group;
+- không tạo `legacy/group-*/src/**`.
 
 Ví dụ:
 
 ```text
 src/lib/codex-hooks.ts
-→ legacy/group-a/src/lib/codex-hooks.ts
+→ legacy/group-a/lib/codex-hooks.ts
 
 src/lib/codex-agent-prompt.ts
-→ legacy/group-b/src/lib/codex-agent-prompt.ts
+→ legacy/group-b/lib/codex-agent-prompt.ts
 
 src/tools/work-gateway.ts
-→ legacy/group-c/src/tools/work-gateway.ts
+→ legacy/group-c/tools/work-gateway.ts
+
+scripts/test-mcp-upstream.mjs
+→ legacy/group-a/scripts/test-mcp-upstream.mjs
+
+profiles/mcp-upstream.json
+→ legacy/group-a/profiles/mcp-upstream.json
+
+public/ui/app.js
+→ legacy/group-a/public/ui/app.js
 ```
 
-Không gom tất cả file vào một thư mục phẳng vì sẽ mất context import/path.
+Ý nghĩa:
+
+```text
+active runtime source
+src/...
+
+quarantined old implementation
+legacy/group-*/...
+```
+
+Một file không được tồn tại đồng thời như implementation active trong `src/` và như fallback được runtime sử dụng từ `legacy/`. Nếu Group C rewrite cùng logical module, `src/` chứa **implementation mới**, còn `legacy/group-c/` chứa **implementation cũ** để reference/rollback thủ công.
 
 ## 11.3 Legacy không được tham gia build/runtime
 
@@ -1072,7 +1099,7 @@ Isolation này là **hard invariant**, không chỉ là quy ước:
 - `package.json` main/bin/scripts bị cấm chạy hoặc point vào `legacy/**`;
 - Job Pack bị cấm trỏ vào `legacy/**`;
 - `npm test` chạy `scripts/test-legacy-isolation.mjs` ngay sau compile và fail nếu bất kỳ invariant nào bị phá;
-- restore phải là thao tác chủ động: move file từ legacy về runtime path rồi remap lại caller. Không có automatic fallback từ legacy.
+- restore phải là thao tác chủ động: move file từ legacy về đúng active runtime path (thường là `src/...`) rồi remap lại caller. Không có automatic fallback từ legacy.
 
 Như vậy file quarantine có thể tồn tại trong Git repo để rollback nhưng **không thể tham gia app khi chạy** nếu isolation test đang pass.
 
