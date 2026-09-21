@@ -52,6 +52,5 @@ Coding is only one possible Job Pack.
 - Edit: apply_patch, multi_edit, write_file, edit_file
 - Run: run_command, start_process, process_output
 - Git: git_status, git_diff, git_add, git_commit, git_restore
-- Undo file edits: rewind (list → preview → restore)
 - Full core cheat sheet: agent_status
 `.trim();
