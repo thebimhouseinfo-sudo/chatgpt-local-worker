@@ -7,7 +7,10 @@ import {
   GPTWORKER_HELP,
   GPTWORKER_IDLE_PROMPT,
   GPTWORKER_ROOT_MENU,
+  GPTWORKER_DEFAULT_WELCOME_JOBS,
+  GPTWORKER_HIDDEN_WELCOME_JOB_IDS,
   MCP_QUICKSTART,
+  buildGptworkerWelcome,
   buildServerInstructions,
 } from "../dist/lib/quickstart.js";
 
@@ -72,20 +75,47 @@ assert.equal(
   "help response contract duplicated"
 );
 
-assert.ok(GPTWORKER_IDLE_PROMPT.includes("Bạn muốn tôi giúp bạn làm gì?"));
-assert.ok(GPTWORKER_IDLE_PROMPT.includes("1. coding"));
-assert.ok(GPTWORKER_IDLE_PROMPT.includes("2. planning"));
-assert.ok(GPTWORKER_IDLE_PROMPT.includes("3. layla"));
-assert.ok(GPTWORKER_IDLE_PROMPT.includes("4. mto"));
+assert.deepEqual(
+  GPTWORKER_DEFAULT_WELCOME_JOBS.map((job) => job.id),
+  ["dev-coding", "dev-planing", "layla"],
+  "Welcome must keep exactly the three approved Default Jobs in positions 1-3"
+);
+assert.deepEqual(
+  GPTWORKER_HIDDEN_WELCOME_JOB_IDS,
+  ["mto"],
+  "mto must stay hidden from bare @gptworker Welcome"
+);
+assert.ok(GPTWORKER_IDLE_PROMPT.includes("**GPTWorker**"));
+assert.ok(GPTWORKER_IDLE_PROMPT.includes("Chọn Job bạn muốn sử dụng:"));
+assert.ok(GPTWORKER_IDLE_PROMPT.includes("**1. Dev Coding**"));
+assert.ok(GPTWORKER_IDLE_PROMPT.includes("**2. Dev Planing**"));
+assert.ok(GPTWORKER_IDLE_PROMPT.includes("**3. Layla**"));
+assert.ok(!GPTWORKER_IDLE_PROMPT.toLowerCase().includes("mto"));
 assert.ok(
   GPTWORKER_IDLE_PROMPT.includes(
-    "Hãy chọn Job và đưa tôi thư mục làm việc để bắt đầu, hoặc gõ gptworker/ để xem các system commands."
+    "**Hãy chọn Job và đưa tôi thư mục làm việc để bắt đầu.**"
   )
 );
+assert.ok(
+  GPTWORKER_IDLE_PROMPT.includes(
+    "Hoặc gõ `gptworker/` để xem các system commands."
+  )
+);
+
+const welcomeWithCustom = buildGptworkerWelcome([
+  {
+    id: "rename",
+    name: "Rename",
+    description: "đổi tên file hàng loạt.",
+  },
+]);
+assert.ok(welcomeWithCustom.includes("**4. Rename** — đổi tên file hàng loạt."));
+assert.ok(!welcomeWithCustom.toLowerCase().includes("mto"));
+
 for (const command of expectedRootCommands) {
   assert.ok(
     !GPTWORKER_IDLE_PROMPT.includes(command),
-    `bare @gptworker greeting must not include system command: ${command}`
+    `bare @gptworker Welcome must not include system command: ${command}`
   );
 }
 assert.deepEqual(
@@ -93,7 +123,7 @@ assert.deepEqual(
   expectedRootCommands,
   "gptworker/ must render exactly the eight fixed system commands"
 );
-assert.ok(MCP_QUICKSTART.includes("## Bare GPTWorker invocation — dynamic Job list"));
+assert.ok(MCP_QUICKSTART.includes("## Bare GPTWorker invocation — approved Welcome"));
 assert.ok(instructions.includes("gptworker/ — ZERO tools"));
 assert.ok(MCP_QUICKSTART.includes("reply with the prewritten GPTWORKER_ROOT_MENU"));
 assert.ok(MCP_QUICKSTART.includes("call \`job_list\` exactly once"));
@@ -108,67 +138,62 @@ assert.ok(instructions.includes("## Prewritten gptworker/ root menu"));
 assert.ok(instructions.includes(GPTWORKER_ROOT_MENU));
 assert.ok(instructions.includes("## Bare @gptworker response"));
 assert.ok(instructions.includes("activation_request"));
-assert.ok(instructions.includes("Render the returned available Jobs as a numbered list"));
+assert.ok(instructions.includes("Return the tool's welcome_text verbatim"));
 
-assert.ok(GPTWORKER_HELP.includes("**Job + Workspace local**"));
-assert.ok(!GPTWORKER_HELP.includes("## Kích hoạt GPTWorker"));
+assert.ok(GPTWORKER_HELP.startsWith("# GPTWorker Help\n\n## 1. GPTWorker làm được gì?"));
+assert.ok(GPTWORKER_HELP.includes("## 2. Cách sử dụng"));
+assert.ok(GPTWORKER_HELP.includes("### Ví dụ 1 — Để GPTWorker tự chọn Job"));
+assert.ok(
+  GPTWORKER_HELP.includes(
+    "@gptworker đọc project trong C:\\Projects\\SchoolApp và lập kế hoạch thêm chức năng bài tập"
+  )
+);
+assert.ok(GPTWORKER_HELP.includes("### Ví dụ 2 — Gọi GPTWorker trước"));
+assert.ok(
+  GPTWORKER_HELP.includes(
+    "Dev Coding  C:\\Projects\\MyApp sửa lỗi nút đăng nhập"
+  )
+);
+assert.ok(GPTWORKER_HELP.includes("## 3. Job List"));
+assert.ok(GPTWORKER_HELP.includes("GPTWorker luôn có 3 Job mặc định:"));
+assert.ok(GPTWORKER_HELP.includes("**1. Dev Coding**"));
+assert.ok(GPTWORKER_HELP.includes("**2. Dev Planing**"));
+assert.ok(GPTWORKER_HELP.includes("**3. Layla**"));
+assert.ok(GPTWORKER_HELP.includes("## 4. Custom Job"));
+assert.ok(
+  GPTWORKER_HELP.includes(
+    "**Custom Job là cách bạn “train” GPTWorker làm việc theo đúng cách mình muốn.**"
+  )
+);
+assert.ok(GPTWORKER_HELP.includes("Tạo một Job chuyên làm PowerPoint."));
+assert.ok(GPTWORKER_HELP.includes("## 5. System Commands"));
+for (const command of expectedRootCommands) {
+  assert.ok(
+    GPTWORKER_HELP.includes(command),
+    `approved Help missing system command: ${command}`
+  );
+}
+assert.ok(!GPTWORKER_HELP.includes("D:\\00 Other Works"));
+assert.ok(!GPTWORKER_HELP.includes("absolute local"));
+assert.ok(!GPTWORKER_HELP.includes("thư mục tuyệt đối"));
+assert.ok(!GPTWORKER_HELP.includes("admission_token"));
+assert.ok(!GPTWORKER_HELP.includes("work_handle"));
+assert.ok(!GPTWORKER_HELP.includes("MCP session"));
+
 assert.ok(MCP_QUICKSTART.includes("## GPTWorker internal admission handshake"));
 assert.ok(MCP_QUICKSTART.includes("When the user sends exactly gptworker/help"));
-assert.ok(!MCP_QUICKSTART.includes("gptworker/ help"));
-assert.ok(MCP_QUICKSTART.includes("Valid ACTIVE evidence is an explicit"));
+assert.ok(MCP_QUICKSTART.includes("approved Welcome"));
+assert.ok(MCP_QUICKSTART.includes("welcome_text"));
+assert.ok(MCP_QUICKSTART.includes("three fixed default Jobs"));
+assert.ok(MCP_QUICKSTART.includes("private \`mto\` Job is never shown in Welcome"));
 assert.ok(MCP_QUICKSTART.includes("fresh/unarmed session are NOT activation evidence"));
-assert.ok(MCP_QUICKSTART.includes("A fresh task + Workspace with no prior @gptworker must remain outside GPTWorker"));
-assert.ok(GPTWORKER_HELP.includes("@gptworker sửa app ở D:\\Projects\\my-app"));
-assert.ok(GPTWORKER_HELP.includes("@gptworker tổng hợp các file trong D:\\Reports"));
-assert.ok(!GPTWORKER_HELP.includes("Thông thường không cần chọn Job thủ công. Chỉ cần nói"));
 assert.ok(MCP_QUICKSTART.includes("gptworker_admission"));
 assert.ok(MCP_QUICKSTART.includes("INACTIVE"));
-assert.ok(MCP_QUICKSTART.includes("Continue answering as ordinary ChatGPT"));
-assert.ok(MCP_QUICKSTART.includes("another plugin/tool"));
 assert.ok(MCP_QUICKSTART.includes("admission_token"));
 assert.ok(MCP_QUICKSTART.includes("The @-flow arm is one-shot"));
-assert.ok(MCP_QUICKSTART.includes("exact current user text containing literal \`@gptworker\`"));
-assert.ok(MCP_QUICKSTART.includes("keep reusing that same admission_token"));
-assert.ok(MCP_QUICKSTART.includes("the admission_token is consumed"));
 assert.ok(MCP_QUICKSTART.includes("work_handle is the only work authority"));
-assert.ok(MCP_QUICKSTART.includes("job_stop can cancel pending/selected state without a work_handle"));
-assert.ok(MCP_QUICKSTART.includes("active work still requires its work_handle"));
-assert.ok(MCP_QUICKSTART.includes("task but omitted the absolute local Workspace"));
-assert.ok(MCP_QUICKSTART.includes("call \`gptworker_admission\` once on that same @gptworker turn"));
-assert.ok(MCP_QUICKSTART.includes("reuse that same admission_token when the user supplies the Workspace"));
 assert.ok(MCP_QUICKSTART.includes("workspace_discover"));
 assert.ok(MCP_QUICKSTART.includes("work_tool"));
 assert.ok(MCP_QUICKSTART.includes("runtime.preload_families"));
-assert.ok(MCP_QUICKSTART.includes("in the background while the user reads"));
-assert.ok(MCP_QUICKSTART.includes("prior preload generation becomes stale"));
-assert.ok(MCP_QUICKSTART.includes("Do not ask the user to activate GPTWorker"));
-assert.ok(MCP_QUICKSTART.includes("do not ask for a Workspace on GPTWorker's behalf"));
-assert.ok(GPTWORKER_HELP.includes("## Layla"));
-assert.ok(GPTWORKER_HELP.includes("TXT, Markdown, Word, Excel, PowerPoint, PDF"));
-assert.ok(GPTWORKER_HELP.includes("## Tạo Job mới"));
-assert.ok(GPTWORKER_HELP.includes("## Quản lý Job"));
-assert.ok(GPTWORKER_HELP.includes("## Cách dùng"));
-assert.ok(GPTWORKER_HELP.includes("gptworker/job list"));
-assert.ok(GPTWORKER_HELP.includes("gptworker/job create"));
-assert.ok(GPTWORKER_HELP.includes("gptworker/job update"));
-assert.ok(GPTWORKER_HELP.includes("gptworker/job remove"));
-assert.ok(GPTWORKER_HELP.includes("gptworker/job export"));
-assert.ok(GPTWORKER_HELP.includes("import"));
-assert.ok(GPTWORKER_HELP.includes("gptworker/job stop"));
-assert.equal(
-  GPTWORKER_HELP.split("Từ tài liệu trong D:\\Meeting tạo một presentation.").length - 1,
-  2,
-  "the fixed help text must preserve the user-approved duplicate example exactly"
-);
-assert.equal(
-  GPTWORKER_HELP.startsWith("# GPTWorker Help\n\nGPTWorker làm việc theo **Job + Workspace local**."),
-  true,
-  "fixed help header changed"
-);
-assert.equal(
-  GPTWORKER_HELP.endsWith("Chỉ sau khi user xác nhận, GPTWorker mới bắt đầu thao tác với Workspace."),
-  true,
-  "fixed help footer changed"
-);
 
 console.log("test-quickstart: ok");
