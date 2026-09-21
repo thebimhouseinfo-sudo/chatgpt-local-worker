@@ -60,6 +60,7 @@ const unitScripts = [
   "scripts/test-activity-log.mjs",
   "scripts/test-project-memory.mjs",
   "scripts/test-tool-profile.mjs",
+  "scripts/test-control-surface.mjs",
   "scripts/test-shell-persist.mjs",
 ];
 
