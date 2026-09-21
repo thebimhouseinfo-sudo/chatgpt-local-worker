@@ -253,7 +253,7 @@ export function registerJobTools(
           .string()
           .optional()
           .describe(
-            "Bare @gptworker only: exact current user text that starts with @gptworker. Arms this MCP session for the following Job+Workspace continuation."
+            "Bare @gptworker only: exact current user text containing literal @gptworker. Arms this MCP session for the following Job+Workspace continuation."
           ),
       },
       annotations: toolAnnotations("read"),
@@ -264,7 +264,7 @@ export function registerJobTools(
           const armed = admissionRuntime.armExplicitAt(activation_request);
           if (!armed) {
             throw new Error(
-              "ACTIVATION_REQUIRED: activation_request for bare Job listing must start with @gptworker."
+              "ACTIVATION_REQUIRED: activation_request for bare Job listing must contain literal @gptworker."
             );
           }
         }
