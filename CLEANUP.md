@@ -90,7 +90,7 @@ Không cố bóc từng nhánh legacy nếu rewrite nhỏ hơn, dễ hiểu hơn
 
 # 3. GROUP A — DELETE DIRECTLY
 
-> **STATUS: QUARANTINED FROM ACTIVE TREE**
+> **STATUS: ✅ DONE / QUARANTINED / STATIC VERIFIED**
 >
 > 21 Group A files have been moved to `legacy/group-a/**`.
 > Active paths are gone; static dependency audit found no remaining Group A references in the checked core runtime files.
