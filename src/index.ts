@@ -17,8 +17,6 @@ import {
   extractRequestId,
   isInitializeRequest,
 } from "./lib/mcp-session-manager.js";
-import { initUpstreamManager } from "./lib/mcp-upstream-manager.js";
-import { startAdminServer } from "./admin/server.js";
 import { logMcpHttpEvent, logMcpRequest, logSystemEvent } from "./lib/activity-log.js";
 import {
   buildInstructionContext,
@@ -34,7 +32,6 @@ import { getWorkGatewayTelemetry } from "./tools/work-gateway.js";
 const PORT = parseInt(process.env.PORT || "3000", 10);
 const HOST = process.env.HOST || "127.0.0.1";
 const MCP_TOKEN = (process.env.MCP_TOKEN || "").trim();
-const ADMIN_PORT = parseInt(process.env.ADMIN_PORT || "3001", 10);
 const SHELL_TIMEOUT = parseInt(process.env.SHELL_TIMEOUT || "120", 10);
 const SESSION_RECOVERY =
   (process.env.MCP_SESSION_RECOVERY || "true").toLowerCase() !== "false";
@@ -63,13 +60,11 @@ const workspaceRoots = resolveWorkspaceRoots();
 const workspaceRoot = workspaceRoots[0] || process.cwd();
 setDefaultCwd(workspaceRoot);
 
-const upstreamManager = await initUpstreamManager();
 
 const instructionContext: InstructionContext = await buildInstructionContext({
   workspaceRoot,
   workspaceRoots,
   pid: process.pid,
-  adminPort: ADMIN_PORT,
 });
 
 if (instructionContext.projectMemory.sections.length > 0) {
@@ -354,16 +349,6 @@ for (const mcpPath of MCP_PATHS) {
 
 sessionManager.startCleanup();
 
-const adminServer = startAdminServer({
-  port: ADMIN_PORT,
-  host: "127.0.0.1",
-  mcpPort: PORT,
-  pid: process.pid,
-  manager: upstreamManager,
-  sessionCount: () => sessionManager.count(),
-  instructionSummary: () => summarizeInstructionContext(instructionContext),
-  instructionsPreview: () => instructionContext.instructionsText,
-});
 
 const server = app.listen(PORT, HOST, () => {
   logSystemEvent("worker_start", {
@@ -371,7 +356,6 @@ const server = app.listen(PORT, HOST, () => {
       pid: process.pid,
       host: HOST,
       port: PORT,
-      admin_port: ADMIN_PORT,
       workspace: workspaceRoot,
       tool_profile: getChatGptToolProfile(),
     },
@@ -384,7 +368,6 @@ const server = app.listen(PORT, HOST, () => {
   console.log(`  MCP:       http://${HOST}:${PORT}${MCP_PATHS[0]}`);
   console.log(`  MCP alt:   http://${HOST}:${PORT}${MCP_PATHS[1]}`);
   console.log(`  Health:    http://${HOST}:${PORT}/health`);
-  console.log(`  Admin UI:  http://127.0.0.1:${ADMIN_PORT}/ui`);
   console.log(`  Default cwd: ${workspaceRoot}`);
   console.log(`  Full machine access: ON (no path restrictions)`);
   console.log(`  Session recovery: ${SESSION_RECOVERY ? "ON" : "OFF"}`);
@@ -418,8 +401,6 @@ process.on("SIGINT", () => {
   console.log("\n[DUNG] Server dang tat...");
   logSystemEvent("worker_stop", { summary: "SIGINT" });
   sessionManager.stopCleanup();
-  void upstreamManager.shutdown();
-  adminServer.close();
   const runtimeLogFlushed = flushRuntimeLog();
   server.close(() => {
     void runtimeLogFlushed.finally(() => process.exit(0));
