@@ -1,116 +1,165 @@
+export interface GptworkerWelcomeJob {
+  id: string;
+  name: string;
+  description: string;
+}
+
+export const GPTWORKER_DEFAULT_WELCOME_JOBS: GptworkerWelcomeJob[] = [
+  {
+    id: "dev-coding",
+    name: "Dev Coding",
+    description: "sửa code, debug, refactor, build/test project.",
+  },
+  {
+    id: "dev-planing",
+    name: "Dev Planing",
+    description:
+      "đọc repo, phân tích, review kiến trúc và lập implementation plan / task list.",
+  },
+  {
+    id: "layla",
+    name: "Layla",
+    description:
+      "trợ lý đa năng cho file, tài liệu, Word, Excel, PowerPoint, PDF và các công việc linh hoạt.",
+  },
+];
+
+export const GPTWORKER_HIDDEN_WELCOME_JOB_IDS = ["mto"];
+
+export function buildGptworkerWelcome(
+  customJobs: GptworkerWelcomeJob[] = []
+): string {
+  const jobs = [...GPTWORKER_DEFAULT_WELCOME_JOBS, ...customJobs];
+  const jobLines = jobs
+    .map(
+      (job, index) =>
+        `**${index + 1}. ${job.name}** — ${job.description}`
+    )
+    .join("\n");
+
+  return `
+**GPTWorker**
+
+Chọn Job bạn muốn sử dụng:
+
+${jobLines}
+
+**Hãy chọn Job và đưa tôi thư mục làm việc để bắt đầu.**
+
+Ví dụ:  
+\`2  C:\\Projects\\my-app\`
+
+Hoặc gõ \`gptworker/\` để xem các system commands.
+`.trim();
+}
+
 export const GPTWORKER_HELP = `
 # GPTWorker Help
 
-GPTWorker làm việc theo **Job + Workspace local**.
+## 1. GPTWorker làm được gì?
 
-**Job** là một bộ hướng dẫn và năng lực được chuẩn bị sẵn cho một loại công việc. Job quy định GPTWorker có thể làm gì, cần đầu vào nào và được phép sử dụng những công cụ nào.
+GPTWorker giúp ChatGPT làm việc trực tiếp với file và project trên máy của bạn.
 
-Ví dụ:
+GPTWorker có thể:
 
-- \`coding\` — sửa code, debug, build/test project.
-- \`planning\` — đọc repo, phân tích kiến trúc và lập kế hoạch.
-- \`layla\` — trợ lý đa năng cho tài liệu, file và các công việc do user yêu cầu.
+- sửa code, debug, refactor, build và test project;
+- đọc project, phân tích và lập kế hoạch;
+- làm việc với tài liệu, Excel, PowerPoint, PDF và nhiều loại file khác;
+- sử dụng **Custom Job** để làm việc theo cách riêng mà bạn đã dạy cho GPTWorker.
 
-**Workspace** là thư mục local mà Job sẽ làm việc trên đó.
+Mỗi công việc sẽ dùng một **Job** phù hợp và một **thư mục làm việc** do bạn chọn.
 
-Ví dụ:
+---
 
-\`\`\`text
-JOB: coding
-FOLDER: D:\\Projects\\my-app
-\`\`\`
+## 2. Cách sử dụng
 
-Mỗi chat mới bắt đầu ở trạng thái **idle**. GPTWorker không tự kế thừa Job hoặc Workspace từ chat trước.
+### Ví dụ 1 — Để GPTWorker tự chọn Job
 
-## Layla
+\`@gptworker đọc project trong C:\\Projects\\SchoolApp và lập kế hoạch thêm chức năng bài tập\`
 
-\`layla\` là trợ lý đa năng dành cho những công việc không có workflow cố định.
+GPTWorker sẽ tự chọn Job phù hợp và hiển thị:
 
-Layla có thể làm việc với nhiều loại file như TXT, Markdown, Word, Excel, PowerPoint, PDF và các tài liệu khác.
+\`JOB: Dev Planing\`  
+\`FOLDER: C:\\Projects\\SchoolApp\`
 
-User chỉ cần mô tả **việc muốn làm + file hoặc thư mục cần xử lý**. Layla sẽ tự xác định cách thực hiện phù hợp với nhiệm vụ.
+**Xác nhận bắt đầu?**
 
-Ví dụ:
+### Ví dụ 2 — Gọi GPTWorker trước
 
-\`\`\`text
-Tổng hợp các tài liệu trong D:\\Reports thành một báo cáo Word.
+\`@gptworker\`
 
-Đọc các file Excel trong D:\\Sales và tạo bảng tổng hợp.
+GPTWorker sẽ hiển thị danh sách Job hiện có.
 
-Từ tài liệu trong D:\\Meeting tạo một presentation.
+Sau đó bạn có thể giao việc bình thường:
 
-Từ tài liệu trong D:\\Meeting tạo một presentation.
-\`\`\`
+\`C:\\Projects\\MyApp sửa lỗi nút đăng nhập\`
 
-Công việc cụ thể của Layla không cần được định nghĩa trước trong Job. User có thể nghĩ ra nhiệm vụ mới khi sử dụng và GPTWorker sẽ ứng biến để thực hiện.
+hoặc tự chọn Job:
 
-## Tạo Job mới
+\`Dev Coding  C:\\Projects\\MyApp sửa lỗi nút đăng nhập\`
 
-Khi có một loại công việc chuyên biệt muốn sử dụng nhiều lần, có thể tạo Job riêng:
+GPTWorker sẽ hiển thị:
 
-\`\`\`text
-gptworker/job create
-\`\`\`
+\`JOB: Dev Coding\`  
+\`FOLDER: C:\\Projects\\MyApp\`
 
-Sau đó mô tả Job muốn tạo, mục đích sử dụng và workflow mong muốn.
+**Xác nhận bắt đầu?**
 
-Ví dụ:
+---
 
-\`\`\`text
-Tạo Job chuyên kiểm tra và xử lý bản vẽ AutoCAD.
+## 3. Job List
 
-Job cần:
-- đọc các file liên quan;
-- kiểm tra layer;
-- chạy script;
-- kiểm tra kết quả;
-- báo cáo các lỗi còn lại.
-\`\`\`
+GPTWorker luôn có 3 Job mặc định:
 
-Sau khi tạo, Job có thể được sử dụng lại ở các chat sau.
+**1. Dev Coding** — sửa code, debug, refactor, thêm tính năng, build và test project.
 
-## Quản lý Job
+**2. Dev Planing** — đọc project, phân tích kiến trúc và lập implementation plan / task list, không sửa source code.
 
+**3. Layla** — trợ lý đa năng cho file, tài liệu, Excel, PowerPoint, PDF và các công việc linh hoạt.
+
+Nếu có thêm **Custom Job**, các Job đó sẽ được liệt kê tiếp bên dưới.
+
+Chỉ những Custom Job đang tồn tại và được phép hiển thị mới xuất hiện trong danh sách.
+
+---
+
+## 4. Custom Job
+
+**Custom Job là cách bạn “train” GPTWorker làm việc theo đúng cách mình muốn.**
+
+Thay vì mỗi lần đều giải thích lại quy trình, bạn có thể tạo một Job riêng chứa sẵn cách làm, các bước cần thực hiện và những công cụ được sử dụng.
+
+Ví dụ, muốn tạo một Job chuyên làm PowerPoint:
+
+\`gptworker/job create\`
+
+Sau đó mô tả:
+
+> Tạo một Job chuyên làm PowerPoint.  
+> Khi tôi đưa một thư mục tài liệu, hãy đọc nội dung, lập dàn ý, tạo slide ngắn gọn, thêm hình minh họa phù hợp và xuất file PowerPoint hoàn chỉnh.
+
+Từ lần sau, Custom Job đó có thể xuất hiện trong danh sách khi gọi \`@gptworker\`.
+
+---
+
+## 5. System Commands
+
+Gõ:
+
+\`gptworker/\`
+
+để xem các system commands.
+
+Các command hiện có:
+
+- \`gptworker/help\` — xem hướng dẫn sử dụng.
 - \`gptworker/job list\` — xem các Job hiện có.
-- \`gptworker/job create\` — tạo Job mới.
-- \`gptworker/job update\` — sửa Job.
-- \`gptworker/job remove\` — xóa Job.
-- \`gptworker/job export\` / \`import\` — xuất hoặc nhập Job \`.zip\`.
-- \`gptworker/job stop\` — dừng công việc hiện tại và về \`idle\`.
-
-## Cách dùng
-
-Để bắt đầu công việc, hãy gọi **@gptworker**. Có thể gọi @gptworker kèm luôn việc cần làm và thư mục local, ví dụ:
-
-\`\`\`text
-@gptworker sửa app ở D:\\Projects\\my-app để thêm nút regenerate.
-\`\`\`
-
-GPTWorker sẽ tự xác định:
-
-\`\`\`text
-JOB: coding
-FOLDER: D:\\Projects\\my-app
-
-Xác nhận bắt đầu?
-\`\`\`
-
-Hoặc với công việc tài liệu:
-
-\`\`\`text
-@gptworker tổng hợp các file trong D:\\Reports thành presentation.
-\`\`\`
-
-GPTWorker có thể xác định:
-
-\`\`\`text
-JOB: layla
-FOLDER: D:\\Reports
-
-Xác nhận bắt đầu?
-\`\`\`
-
-Chỉ sau khi user xác nhận, GPTWorker mới bắt đầu thao tác với Workspace.
+- \`gptworker/job create\` — tạo Custom Job mới.
+- \`gptworker/job update\` — cập nhật một Custom Job.
+- \`gptworker/job remove\` — xóa một Custom Job.
+- \`gptworker/job export\` — xuất Custom Job ra file để lưu hoặc chia sẻ.
+- \`gptworker/job import\` — nhập Custom Job từ file.
+- \`gptworker/job stop\` — dừng công việc hiện tại và đưa GPTWorker về trạng thái idle.
 `.trim();
 
 export const GPTWORKER_ROOT_MENU = `
@@ -124,17 +173,8 @@ gptworker/job import
 gptworker/job stop
 `.trim();
 
-export const GPTWORKER_IDLE_PROMPT = `
-Bạn muốn tôi giúp bạn làm gì?
+export const GPTWORKER_IDLE_PROMPT = buildGptworkerWelcome();
 
-Job có sẵn:
-1. coding — sửa code, debug, build/test project.
-2. planning — đọc repo, phân tích và lập kế hoạch; không sửa source code.
-3. layla — tài liệu, file, Word/Excel/PowerPoint/PDF và công việc tổng hợp.
-4. mto — HVAC quantity takeoff / bóc khối lượng.
-
-Hãy chọn Job và đưa tôi thư mục làm việc để bắt đầu, hoặc gõ gptworker/ để xem các system commands.
-`.trim();
 export const MCP_QUICKSTART = `
 ## GPTWorker root command surface
 When the user sends exactly gptworker/ (or asks what GPTWorker system commands are available), reply with the prewritten GPTWORKER_ROOT_MENU above.
@@ -154,17 +194,16 @@ The root menu contains exactly these eight system commands and no Job ids:
 Never add Job Pack ids such as layla, dev-coding, mto, or dynamically discovered custom Jobs to this root command menu. Job Pack ids belong only in job_list results or the bare @gptworker Job greeting.
 
 ## gptworker/help
-When the user sends exactly gptworker/help, reply with the prewritten GPTWORKER_HELP guide above. This is chat-only help: do not call an MCP tool, do not create/select a Job, do not infer a Workspace, and do not change Worker state.
+When the user sends exactly gptworker/help, reply with the prewritten GPTWORKER_HELP guide above verbatim. This is chat-only help: do not call an MCP tool, do not create/select a Job, do not infer a Workspace, do not change Worker state, and do not rewrite or shorten the approved help text.
 
-## Bare GPTWorker invocation — dynamic Job list
-When the user invokes bare \`@gptworker\` with no concrete task + Workspace yet, call \`job_list\` exactly once with \`activation_request\` set to the exact current user text containing literal \`@gptworker\`. This arms the current MCP session as an explicit @gptworker flow and returns all currently available Jobs, including custom Jobs.
+## Bare GPTWorker invocation — approved Welcome
+When the user invokes bare \`@gptworker\` with no concrete task + Workspace yet, call \`job_list\` exactly once with \`activation_request\` set to the exact current user text containing literal \`@gptworker\`.
 
-Do not call gptworker_admission, job_status, workspace_discover, or any work tool for the bare invocation.
+For this bare @ flow, \`job_list\` returns \`welcome_text\`. Reply with \`welcome_text\` verbatim. Do not rewrite it, add extra guidance, expose hidden Jobs, or substitute a generic "send task + path" message.
 
-Render the returned Jobs as a numbered list, then show exactly:
-"Hãy chọn Job và đưa tôi thư mục làm việc để bắt đầu, hoặc gõ gptworker/ để xem các system commands."
+The Welcome always contains the three fixed default Jobs in positions 1–3. Only existing eligible Custom Jobs are appended from position 4 onward. The private \`mto\` Job is never shown in Welcome.
 
-Do not include the system command list here.
+Do not call gptworker_admission, job_status, workspace_discover, or any work tool for the bare invocation. Do not include the system command list here.
 
 If the user invoked \`@gptworker\` and already described a clear task but omitted the absolute local Workspace:
 - do not call tools yet;
