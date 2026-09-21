@@ -938,7 +938,9 @@ export function registerJobTools(
 
         lifecycle?.clear();
         const selected = await sessionRuntime.switch(job, bindings);
-        rememberConfirmation(selected?.current);
+        if (admission_token) {
+          rememberConfirmation(selected?.current, admission_token);
+        }
         await validateResolvedWorkspace(selected?.current);
 
         const current = await persistActiveSelection(
