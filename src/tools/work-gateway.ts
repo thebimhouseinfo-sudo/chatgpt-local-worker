@@ -2,6 +2,10 @@ import { z } from "zod";
 import type { McpServer, RegisteredTool } from "@modelcontextprotocol/sdk/server/mcp.js";
 import { shouldExposeWorkOperation } from "../lib/tool-profile.js";
 import { toolAnnotations } from "../lib/tool-annotations.js";
+import {
+  LEGACY_PRELOAD_FAMILY_NAMES,
+  RUNTIME_FAMILIES,
+} from "../lib/runtime-families.js";
 
 type ToolCallback = (args?: Record<string, unknown>, ...rest: unknown[]) => any;
 
@@ -38,13 +42,9 @@ export const FAMILY_TOOLS = {
 
 export type ToolFamily = keyof typeof FAMILY_TOOLS;
 
-export const TOOL_FAMILIES = Object.keys(FAMILY_TOOLS) as ToolFamily[];
+export const TOOL_FAMILIES = [...RUNTIME_FAMILIES] as ToolFamily[];
 
-export const LEGACY_PRELOAD_FAMILIES = new Set([
-  "mcp",
-  "ponytail",
-  "rewind",
-]);
+export const LEGACY_PRELOAD_FAMILIES = new Set(LEGACY_PRELOAD_FAMILY_NAMES);
 
 export const WORK_TOOL_OPERATIONS = Object.values(FAMILY_TOOLS).flat();
 
