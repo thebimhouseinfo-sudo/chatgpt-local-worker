@@ -968,3 +968,140 @@ và đồng thời:
 - Job Pack cũ vẫn parse/activate dù còn legacy preload token;
 - optional/retired subsystem không thể làm core connection fail;
 - Secure MCP Tunnel và Windows resident runtime vẫn ổn định như trước.
+
+
+---
+
+# 11. Legacy quarantine / rollback staging
+
+Cleanup không xóa vật lý file ngay trong giai đoạn thử nghiệm.
+
+Mọi file hoặc implementation bị loại khỏi runtime sẽ được **move vào `legacy/` trước**, để có thể test architecture mới mà vẫn phục hồi tức thời nếu scan/remap còn thiếu dependency.
+
+Cấu trúc:
+
+```text
+legacy/
+├─ group-a/   # DELETE DIRECTLY
+├─ group-b/   # EXTRACT / REMAP → quarantine old implementation
+└─ group-c/   # REWRITE CLEAN → quarantine replaced implementation
+```
+
+## 11.1 Nguyên tắc chung
+
+```text
+detach/remap/rewrite
+→ move old file vào legacy group tương ứng
+→ build + test + real Worker validation
+→ nếu fail vì dependency bị bỏ sót: restore file ngay
+→ nếu pass ổn định: giữ quarantine cho tới cuối cleanup
+→ chỉ physical-delete legacy sau một quyết định riêng
+```
+
+Không dùng "delete rồi tìm lại trong Git history" như workflow chính. Git history vẫn là safety net cuối, nhưng `legacy/` là rollback staging chủ động.
+
+### GROUP A
+
+File được đánh giá là không có behavior cần giữ:
+
+```text
+runtime path
+→ detach caller/import/config
+→ move file vào legacy/group-a/
+→ test
+```
+
+Nếu test fail, điều đó chứng minh scan Group A sai hoặc còn dependency ẩn. Restore file từ `legacy/group-a/`, xác định caller còn thiếu rồi phân loại lại sang Group B hoặc Group C nếu cần.
+
+### GROUP B
+
+File có phần chức năng cần giữ:
+
+```text
+extract useful behavior
+→ remap caller sang owner mới
+→ old implementation phải có runtime caller = 0
+→ move old file vào legacy/group-b/
+→ test
+```
+
+Nếu test fail, không "bring back" bằng cách viết lại từ đầu. Lấy implementation cũ ngay từ `legacy/group-b/`, đối chiếu phần behavior/remap còn thiếu, bổ sung rồi test lại.
+
+### GROUP C
+
+Behavior được rewrite sạch:
+
+```text
+write new implementation
+→ switch caller sang implementation mới
+→ move old implementation vào legacy/group-c/
+→ test behavior + integration
+```
+
+Nếu implementation mới thiếu behavior, old implementation trong `legacy/group-c/` là reference trực tiếp để so sánh và phục hồi tạm thời.
+
+## 11.2 Giữ nguyên relative source structure khi quarantine
+
+Khi move file, giữ path gốc bên dưới group để truy vết dễ dàng.
+
+Ví dụ:
+
+```text
+src/lib/codex-hooks.ts
+→ legacy/group-a/src/lib/codex-hooks.ts
+
+src/lib/codex-agent-prompt.ts
+→ legacy/group-b/src/lib/codex-agent-prompt.ts
+
+src/tools/work-gateway.ts
+→ legacy/group-c/src/tools/work-gateway.ts
+```
+
+Không gom tất cả file vào một thư mục phẳng vì sẽ mất context import/path.
+
+## 11.3 Legacy không được tham gia build/runtime
+
+`legacy/**` là archive staging, không phải source fallback tự động.
+
+Yêu cầu:
+
+- TypeScript build không compile `legacy/**`;
+- runtime không import từ `legacy/**`;
+- package scripts không chạy implementation trong `legacy/**`;
+- Job Pack không trỏ vào `legacy/**`;
+- restore phải là thao tác chủ động khi test cho thấy scan/remap/rewrite sai.
+
+## 11.4 Test gate trước khi một quarantine được coi là thành công
+
+Sau mỗi batch move vào legacy phải kiểm tra ít nhất:
+
+- build;
+- Worker startup;
+- `:3000/health`;
+- Secure MCP Tunnel readiness;
+- MCP initialize;
+- tools/list;
+- session stale recovery;
+- Job nomination/confirmation/activation;
+- legacy preload token không làm activation fail;
+- `work_tool` filesystem;
+- shell;
+- git;
+- context;
+- node_repl local nếu còn giữ;
+- stop/restart/reconnect.
+
+Nếu bất kỳ test nào fail, không tiếp tục batch kế tiếp cho tới khi xác định failure là regression hay test stale.
+
+## 11.5 Physical deletion là phase riêng
+
+Kết thúc cleanup không đồng nghĩa phải xóa ngay `legacy/**`.
+
+Physical deletion chỉ được làm khi:
+
+1. architecture mới đã chạy ổn định qua nhiều test/restart;
+2. không còn cần old implementation để đối chiếu;
+3. user chủ động quyết định purge legacy;
+4. backup branch/Git history vẫn còn.
+
+Cho tới lúc đó, `legacy/**` là rollback staging chính thức của cleanup.
