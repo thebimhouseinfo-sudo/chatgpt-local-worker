@@ -1,10 +1,10 @@
-# GPTWorker Cleanup Review
+# GPTWorker Cleanup Plan
 
-## 1. Target architecture
+## 1. Hard boundary
 
-GPTWorker được chốt là một **stability-first bridge từ GPT Web tới local tools**.
+GPTWorker được chốt là một **stability-first local Windows worker** cho GPT Web.
 
-Target architecture chính thức của cleanup:
+Target architecture duy nhất của đợt cleanup:
 
 ```text
 GPT Web
@@ -25,379 +25,211 @@ work_tool
    └─ node_repl (local thuần, nếu giữ)
 ```
 
-Mọi thành phần được đánh giá bằng câu hỏi:
+GPTWorker **không** là:
 
-> Thành phần này có phục vụ trực tiếp target architecture trên không?
+- Codex bridge;
+- Codex plugin host;
+- Computer Use host dựa trên Codex runtime;
+- Ponytail host;
+- upstream MCP hub;
+- proxy tới MCP server bên ngoài;
+- Admin web application;
+- tool ecosystem aggregator.
 
-Nếu **có**: giữ và ưu tiên stability.
+Rule quyết định:
 
-Nếu **không**: bóc dependency khỏi core, remap phần còn cần sang đúng module, sau đó mới xoá file/subsystem cũ.
+> Nếu một dependency không phục vụ trực tiếp GPT Web → Secure MCP Tunnel → GPTWorker → local Windows tools, nó phải được delete, remap ra khỏi core, hoặc rewrite sạch.
 
-Cleanup không nhằm làm repo nhỏ bằng mọi giá. **Stability quan trọng hơn số file xoá.**
-
----
-
-## 2. Boundary
-
-### Được cleanup trong đợt này
-
-- GPT Web ↔ local connection;
-- OpenAI Secure MCP Tunnel integration;
-- MCP session/recovery;
-- admission/workspace wiring;
-- `work_tool` và local tool runtime;
-- inherited Admin/UI surface;
-- inherited upstream MCP hub;
-- inherited Codex runtime/plugin integration nằm trong Worker core;
-- legacy naming/module boundary khi việc rename giúp tách core rõ ràng.
-
-### Không sửa nội dung trong đợt này
-
-- `jobs/**`;
-- Job Pack definitions;
-- Job Pack skills/harness/templates;
-- các file mới do validation/upgrade gần đây tạo ra;
-- các capability như checkpoint/rewind nếu chúng vẫn đang được filesystem/tool path dùng trực tiếp.
-
-Nếu một file validation mới đang assert hành vi legacy, **không tự sửa file đó**. Ghi nhận nó là blocker/compatibility constraint và xử lý ở lượt riêng khi được phép.
+Cleanup ưu tiên stability. Không rewrite phần connection/session phức tạp chỉ để source trông đẹp hơn.
 
 ---
 
-## 3. Core cần giữ — không phải cleanup candidate
+## 2. Ba chiến lược cleanup
 
-Các phần dưới đây phục vụ trực tiếp target architecture nên không nằm trong danh sách xoá:
+Mọi candidate phải rơi vào đúng một trong ba nhóm:
 
-- `openai-tunnel.ps1`;
-- tray/start/stop/health/restart flow;
-- MCP Streamable HTTP endpoint;
-- `mcp-session-manager.ts` phần session ID, protocol negotiation, GET/SSE, POST serialization, DELETE grace, stale recovery, TTL, transport error handling;
-- admission;
-- workspace discovery/binding;
-- work registration/work handle;
-- `work_tool` gateway;
-- filesystem;
-- shell;
-- git;
-- context tool family;
-- activity/runtime logging cần cho diagnosis;
-- absolute-path enforcement;
-- `node_repl` nếu giữ ở dạng **local JavaScript REPL thuần GPTWorker**.
+### GROUP A — DELETE DIRECTLY
 
----
+Dùng khi toàn bộ chức năng không thuộc target và **không có logic cần cứu**.
 
-## 4. Đánh giá subsystem không còn thuộc target
+"Delete directly" nghĩa là không cần extract chức năng từ file đó. Caller/import/config liên quan được tháo trong cùng atomic change trước khi build.
 
-### 4.1 Codex integration — retire khỏi Worker core
+### GROUP B — EXTRACT / REMAP → DELETE OLD
 
-User không kết nối GPTWorker với Codex và không cần Codex runtime/plugin.
+Dùng khi file cũ chứa một phần logic còn hữu ích hoặc tên/module boundary cũ vẫn đang được caller dùng.
 
-| Item | Hiện đang làm gì | Dính vào đâu | Quyết định | Cách bóc trước khi xoá |
-|---|---|---|---|---|
-| `src/lib/codex-hooks.ts` | Đọc `~/.codex`, plugin cache, chạy Codex hooks | `mcp-session-manager.ts`, Admin, Ponytail | **Retire** | Gỡ hook warmup khỏi session; gỡ Admin/Ponytail caller |
-| `src/tools/ponytail.ts` | Điều khiển Ponytail plugin từ Codex hook | WorkGateway/tool profile, Codex hooks | **Retire** | Bỏ runtime family/tool; giữ legacy preload token nếu cần compatibility |
-| Codex Computer Use trong `src/tools/node-repl.ts` | Tìm `@oai/sky`, `codex-computer-use.exe`, expose `globalThis.sky` | `node_repl`, plugin-config | **Retire phần Codex, giữ REPL local** | Xoá `loadSky`, `sky*` state/status, Codex paths/imports |
-| `src/lib/plugin-config.ts` | Bật/tắt Computer Use và tìm skill trong `~/.codex/plugins` | `node-repl.ts`, `skills-loader.ts`, Admin | **Retire** | Gỡ Computer Use khỏi REPL và skill loader |
-| Computer Use plugin injection trong `src/lib/skills-loader.ts` | Tự thêm Codex Computer Use skill vào project skills | `context` / skill list | **Retire phần plugin**, giữ project skill loader | Chỉ load project-local skills |
-| Codex hook Admin routes | Bật/tắt hooks/plugin từ Admin | `admin/routes.ts` | **Retire** | Không replacement |
-| Codex-specific filesystem paths | `~/.codex`, `AppData/.../OpenAI/Codex` | hooks, plugin config, REPL | **Retire** | Không còn caller sau cleanup |
-
-### 4.2 `codex-agent-prompt.ts` — giữ nội dung hữu ích, bỏ identity Codex
-
-File này hiện đã chứa workflow generic của GPTWorker, không còn thực sự cần Codex.
-
-**Không nên xoá nội dung có ích. Nên remap/rename.**
-
-| Old | New đề xuất | Caller cần remap |
-|---|---|---|
-| `src/lib/codex-agent-prompt.ts` | `src/lib/worker-execution-prompt.ts` | `instruction-context.ts` |
-| `CODEX_AGENT_PROMPT` | `WORKER_EXECUTION_PROMPT` | `instruction-context.ts` |
-
-Sau remap, file `codex-agent-prompt.ts` cũ có thể xoá.
-
-Mục tiêu là giữ **general worker execution guidance**, không giữ Codex integration.
-
----
-
-## 5. Admin subsystem — retire sau khi bóc dependency
-
-Admin UI không nằm trên normal path:
+Flow:
 
 ```text
-GPT Web → Tunnel → Worker :3000 → MCP → tools
+extract phần cần giữ
+→ đặt tên/home mới
+→ remap caller
+→ xác nhận old caller = 0
+→ delete old file/surface
 ```
 
-Worker hiện vẫn khởi động Admin server riêng ở port 3001, tạo failure surface không cần thiết.
+### GROUP C — REWRITE CLEAN
 
-### 5.1 Chức năng trong Admin và nơi thật sự sở hữu logic
+Dùng khi behavior còn cần nhưng implementation cũ bị quấn quá sâu với Codex/Admin/upstream/legacy architecture.
 
-| Chức năng Admin | Logic thật đang ở đâu | Có cần move logic không? | Quyết định |
-|---|---|---:|---|
-| Upstream MCP management | upstream MCP subsystem | Không | Retire cùng upstream |
-| Import MCP Cursor/Claude/OpenCode | upstream config | Không | Retire |
-| OAuth callback | upstream OAuth | Không | Retire |
-| Codex hooks management | `codex-hooks.ts` | Không | Retire cùng Codex |
-| Computer Use toggle | `plugin-config.ts` | Không còn cần | Retire |
-| Checkpoint status | `checkpoint.ts` | Không | Giữ checkpoint core behavior, bỏ UI |
-| Activity/history | `activity-log.ts` / `runtime-log.ts` | Không | Giữ logging, bỏ UI |
-| Local tool visibility | `tool-profile.ts` đã có logic | Không | Bỏ Admin routes duplicate |
-| `.env` editor | Chỉ convenience UI | Không | Retire |
-| Workspace/path status | Core modules khác | Không | Health/runtime vẫn cung cấp diagnosis |
-
-Sau khi Codex/upstream coupling bị tháo, Admin gần như không còn logic độc lập cần cứu.
-
-### 5.2 Dependency cần remap trước khi xoá Admin
-
-Hiện Admin port còn rò vào instruction context:
+Flow:
 
 ```text
-index.ts
-  └─ ADMIN_PORT
-      └─ instruction-context.ts
-          └─ git-snapshot.ts
-              └─ "Admin UI: http://127.0.0.1:..."
+viết spec nhỏ theo target
+→ implement module mới sạch
+→ test behavior cần giữ
+→ switch caller sang implementation mới
+→ delete implementation cũ
 ```
 
-Remap:
-
-| Old | New |
-|---|---|
-| `InstructionContextOptions.adminPort` | **xoá field** |
-| `formatEnvironmentForInstructions({ adminPort })` | Không truyền Admin info |
-| dòng Admin UI trong environment instructions | **xoá** |
-| `ADMIN_PORT`, `ADMIN_TOKEN` | bỏ khỏi normal runtime config |
-| `startAdminServer()` | bỏ khỏi `index.ts` |
-| `adminServer.close()` | bỏ khỏi shutdown |
-
-Sau đó các file có thể xoá:
-
-- `src/admin/server.ts`;
-- `src/admin/routes.ts`;
-- `src/admin/localhost-guard.ts`;
-- `public/ui/index.html`;
-- `public/ui/app.js`;
-- `public/ui/styles.css`.
+Không cố bóc từng nhánh legacy nếu rewrite nhỏ hơn, dễ hiểu hơn và ít dependency hơn.
 
 ---
 
-## 6. Upstream MCP hub — retire hoàn toàn
+# 3. GROUP A — DELETE DIRECTLY
 
-Phải phân biệt tuyệt đối:
+Các item dưới đây không chứa capability cần cho target architecture.
+
+## A1. Admin subsystem
+
+Delete:
+
+- `src/admin/server.ts`
+- `src/admin/routes.ts`
+- `src/admin/localhost-guard.ts`
+- `public/ui/index.html`
+- `public/ui/app.js`
+- `public/ui/styles.css`
+
+Không cần cứu:
+
+- Admin UI;
+- `.env` editor;
+- upstream management UI;
+- MCP import UI;
+- Codex hooks UI;
+- Computer Use toggle;
+- Admin health endpoint;
+- Admin instruction preview.
+
+Các capability hữu ích đã có owner riêng:
+
+- health → Worker `:3000/health`;
+- activity/runtime evidence → `activity-log.ts` / `runtime-log.ts`;
+- checkpoint behavior → `checkpoint.ts`;
+- local tool profile → `tool-profile.ts`.
+
+Caller/config phải tháo cùng change:
+
+- `startAdminServer()` trong `src/index.ts`;
+- `adminServer.close()`;
+- `ADMIN_PORT`;
+- `ADMIN_TOKEN`;
+- Admin URL trong startup log;
+- Admin data trong runtime log;
+- Admin port trong instruction/environment context.
+
+## A2. Upstream MCP hub
+
+Delete toàn subsystem:
+
+- `src/lib/mcp-upstream-manager.ts`
+- `src/lib/mcp-upstream-config.ts`
+- `src/lib/mcp-oauth-provider.ts`
+- `src/lib/mcp-tool-proxy.ts`
+- `src/tools/mcp-bridge.ts`
+- `profiles/mcp-upstream.json`
+
+Delete feature tools:
+
+- `mcp_servers`
+- `mcp_tools`
+- `mcp_call`
+- direct prefixed upstream proxy tools.
+
+Delete upstream-only tests/helpers sau khi runtime caller đã tháo:
+
+- `scripts/test-mcp-upstream.mjs`
+- `scripts/test-mcp-oauth.mjs`
+- `scripts/test-mcp-bridge-integration.mjs`
+- `scripts/mock-http-mcp.mjs`
+- `scripts/mock-stdio-mcp.mjs`
+
+Delete config/reference:
+
+- `MCP_UPSTREAM_CONFIG` trong `.env.example`;
+- `.mcp-oauth/` rule nếu không còn feature nào dùng;
+- `!profiles/mcp-upstream.json` trong `.gitignore`;
+- upstream test scripts trong `package.json`.
+
+**Không nhầm với OpenAI Secure MCP Tunnel.**
 
 ```text
 OpenAI Secure MCP Tunnel
-= GPT Web ↔ GPTWorker
-= CORE
+= CORE transport
+= KEEP
 
-Upstream MCP hub
-= GPTWorker ↔ MCP server khác
-= KHÔNG thuộc target
+GPTWorker → external MCP server
+= upstream MCP hub
+= DELETE
 ```
 
-User không dùng GPTWorker như một MCP hub.
+## A3. Codex runtime/plugin-only subsystem
 
-### 6.1 Upstream chain hiện tại
+Delete:
 
-```text
-mcp-upstream-config.ts
-        ↓
-mcp-oauth-provider.ts
-        ↓
-mcp-upstream-manager.ts
-        ↓
-mcp-tool-proxy.ts
-        ↓
-mcp-bridge.ts
-        ↓
-mcp_servers / mcp_tools / mcp_call
-```
+- `src/lib/codex-hooks.ts`
+- `src/tools/ponytail.ts`
+- `src/lib/plugin-config.ts`
 
-Không có chức năng nào trong chain này cần chuyển sang core mới.
+Delete behavior:
 
-### 6.2 Bóc coupling khỏi core
-
-| Core file hiện đang dính upstream | Coupling hiện tại | Remap |
-|---|---|---|
-| `src/index.ts` | `initUpstreamManager()` lúc boot | Bỏ init hoàn toàn |
-| `src/index.ts` shutdown | `upstreamManager.shutdown()` | Bỏ |
-| `src/lib/mcp-session-manager.ts` | `getUpstreamManager()`, register/unregister server | Bỏ toàn bộ upstream awareness |
-| `src/server-factory.ts` | nhận `McpUpstreamManager` parameter | Bỏ parameter |
-| `src/tools/work-gateway.ts` | nhận upstream manager và lazy-load family `mcp` | Bỏ manager + runtime family `mcp` |
-| `src/lib/tool-profile.ts` | catalog chứa `mcp_servers/mcp_tools/mcp_call` | Bỏ các tool này |
-| tool registration | special-case upstream proxy name `__` | Bỏ special-case |
-
-Sau remap, các file upstream trở thành leaf và có thể xoá:
-
-- `src/lib/mcp-upstream-manager.ts`;
-- `src/lib/mcp-upstream-config.ts`;
-- `src/lib/mcp-oauth-provider.ts`;
-- `src/lib/mcp-tool-proxy.ts`;
-- `src/tools/mcp-bridge.ts`;
-- `profiles/mcp-upstream.json`.
-
----
-
-## 7. Job Pack compatibility map
-
-**Không sửa `jobs/**` trong cleanup này.**
-
-Hiện metadata:
-
-| Job | Preload liên quan legacy |
-|---|---|
-| `dev-coding` | `rewind`, `repl`, `mcp` |
-| `dev-planing` | `mcp` |
-| `layla` | `mcp` |
-| `mto` | không có `mcp` |
-
-`dev-coding/JOB.md` cũng còn mô tả enabled upstream MCP servers. Tạm coi đây là documentation legacy trong Job Pack và **không sửa**.
-
-### 7.1 Tách Job-declared family khỏi runtime-supported family
-
-Không được xoá `mcp` khỏi Job schema ngay vì Job Pack hiện vẫn khai báo nó.
-
-Đề xuất trong runtime:
-
-```text
-Job-declared preload:
-[filesystem, shell, git, context, mcp]
-
-Runtime-supported:
-[filesystem, shell, git, context]
-
-Legacy ignored:
-[mcp]
-```
-
-Trong `work-gateway.ts`:
-
-- giữ runtime families thực;
-- thêm khái niệm legacy preload family;
-- `mcp` được accept nhưng không load module;
-- preload vẫn resolve thành công;
-- Job confirmation/activation không bị block.
-
-Đề xuất:
-
-```text
-RUNTIME_TOOL_FAMILIES
-= filesystem, shell, git, context, rewind, repl
-
-LEGACY_PRELOAD_FAMILIES
-= mcp, ponytail
-```
-
-`ponytail` hiện không thấy Job Pack mặc định nào preload, nhưng giữ nó như compatibility token một thời gian sẽ giúp parser/job metadata cũ không gây lỗi nếu tồn tại ở custom Job.
-
-### 7.2 Job runtime
-
-`src/jobs/job-runtime.ts` có thể tạm giữ enum `mcp` / `ponytail` để backward compatible.
-
-Không cần sửa Job Pack.
-
----
-
-## 8. `node_repl` — giữ dưới dạng local thuần
-
-Target:
-
-```text
-node_repl
-├─ workspace-scoped JS VM
-├─ persistent state
-├─ safe process.cwd view
-├─ no process.chdir
-├─ no direct fs/fs-promises
-└─ NO Codex Computer Use
-```
-
-### 8.1 Giữ
-
-- `createWorkspaceRequire()`;
-- `createWorkspaceProcessView()`;
-- active workspace binding;
-- VM state;
-- timeout;
-- output capture;
-- `node_repl` registration.
-
-### 8.2 Xoá khỏi file
-
-- import `os`;
-- import `pathToFileURL`;
-- `isComputerUseEnabled`;
-- `SkyTransport`;
-- `WindowsHelperTransportConstructor`;
-- `WindowsComputerUseClientConstructor`;
-- `loadSky()`;
-- `skyAvailable`;
-- `skyError`;
-- `globalThis.sky`;
-- Codex Computer Use status fields;
-- mọi path tới `AppData/Local/OpenAI/Codex`;
+- `~/.codex` plugin discovery;
+- Codex hook execution;
+- Ponytail turn controller;
+- Codex Computer Use enable/disable config;
 - `@oai/sky`;
 - `codex-computer-use.exe`;
-- wording "Codex Windows Computer Use".
+- `globalThis.sky`;
+- Codex plugin skill injection.
 
-Có thể đồng thời đổi internal name:
+Delete stale config/reference when caller = 0:
 
-```text
-__localCoderOutput
-→ __gptWorkerOutput
-```
+- `.codex-remote-attachments/` ignore rule nếu không còn subsystem nào dùng;
+- `CODEX_HOME` runtime ownership trong GPTWorker;
+- `codex-mcp-server` bin alias nếu không cần compatibility install cũ;
+- matching alias trong `package-lock.json`;
+- `coding-agent` package keyword nếu chỉ còn legacy metadata.
 
-nếu không có compatibility reason phải giữ tên cũ.
+## A4. Optional legacy helper không thuộc core
 
-Không cần tạo module Computer Use mới vì feature này không thuộc target.
+Candidate delete:
 
----
+- `scripts/init-claude-md.mjs` nếu không còn package script/user workflow thực sự dùng nó.
 
-## 9. Skills/context remap
-
-`skills-loader.ts` vẫn có thể phục vụ `context` tool family cho project-local skills.
-
-Sau cleanup:
-
-```text
-BEFORE
-skills-loader
-├─ project .claude/skills
-└─ Codex Computer Use plugin skill
-
-AFTER
-skills-loader
-└─ project-local skills only
-```
-
-Bỏ:
-
-- `resolveComputerUseSkillPath` import;
-- plugin source branch;
-- Computer Use-specific references;
-- Computer Use-specific instruction text.
-
-Không cần đổi Job Pack.
+GPTWorker có thể đọc project-local `CLAUDE.md` như một text context file nếu project vốn có file đó; GPTWorker không cần một helper riêng mô phỏng Claude Code `/init`.
 
 ---
 
-## 10. Instruction prompt remap
+# 4. GROUP B — EXTRACT / REMAP → DELETE OLD
 
-Current:
+## B1. Generic execution prompt ra khỏi Codex identity
 
-```text
-instruction-context.ts
-  └─ CODEX_AGENT_PROMPT
-      └─ codex-agent-prompt.ts
-```
+Old:
 
-Target:
+- `src/lib/codex-agent-prompt.ts`
+- `CODEX_AGENT_PROMPT`
 
-```text
-instruction-context.ts
-  └─ WORKER_EXECUTION_PROMPT
-      └─ worker-execution-prompt.ts
-```
+New:
 
-Nội dung prompt chỉ giữ:
+- `src/lib/worker-execution-prompt.ts`
+- `WORKER_EXECUTION_PROMPT`
+
+Caller remap:
+
+- `src/lib/instruction-context.ts`
+
+Chỉ giữ generic guidance:
 
 - Job gate;
 - gather → act → verify;
@@ -405,235 +237,658 @@ Nội dung prompt chỉ giữ:
 - shell/process workflow;
 - validation;
 - project context;
-- local core tool reference.
+- local tool reference.
 
-Không đưa Codex/plugin/upstream MCP identity vào prompt.
+Sau remap, delete old `codex-agent-prompt.ts`.
 
----
+## B2. Checkpoint safety tách khỏi standalone rewind family
 
-## 11. WorkGateway remap
+Target architecture không có một runtime family riêng tên `rewind`.
 
-### Current
+Giữ:
+
+- automatic checkpoint trước file mutation;
+- `checkpoint.ts` nếu nó phục vụ safety cho filesystem edits.
+
+Retire/remap:
+
+- standalone `src/tools/rewind.ts`;
+- `rewind` runtime family;
+- `rewind` preload behavior.
+
+Compatibility:
+
+- Job Pack hiện có thể vẫn khai báo `rewind`;
+- runtime có thể accept legacy preload token nhưng không coi nó là execution family;
+- không sửa `jobs/**` trong cleanup này.
+
+Nếu cần manual restore về sau, thiết kế nó như filesystem recovery capability, không dựng lại một agent-specific family.
+
+## B3. Admin reference ra khỏi core files
+
+Không cần rewrite toàn file.
+
+Remap:
+
+### `src/index.ts`
+
+Bỏ:
+
+- `ADMIN_PORT`;
+- Admin startup;
+- Admin shutdown;
+- Admin log/banner fields.
+
+### `src/lib/instruction-context.ts`
+
+Bỏ:
+
+- `adminPort` khỏi options.
+
+### `src/lib/git-snapshot.ts`
+
+Bỏ:
+
+- Admin UI URL khỏi environment text.
+
+Sau remap, Admin subsystem Group A có thể delete.
+
+## B4. Upstream references ra khỏi connection core
+
+### `src/index.ts`
+
+Bỏ:
+
+- `initUpstreamManager()`;
+- upstream shutdown.
+
+### `src/lib/mcp-session-manager.ts`
+
+Giữ nguyên các phần stability:
+
+- protocol negotiation;
+- Streamable HTTP;
+- GET/SSE;
+- POST serialization;
+- DELETE grace;
+- stale-session recovery;
+- TTL cleanup;
+- transport error handling.
+
+Chỉ bóc:
+
+- `getUpstreamManager()`;
+- register/unregister upstream server;
+- upstream comments/paths;
+- Codex SessionStart hook warmup.
+
+Đổi recovery client identity:
 
 ```text
-FAMILY_TOOLS
-├─ filesystem
-├─ shell
-├─ git
-├─ context
-├─ rewind
-├─ repl
-├─ ponytail
-└─ mcp
+codex-mcp-session-recovery
+→ gptworker-mcp-session-recovery
 ```
 
-### Target runtime
+### `src/server-factory.ts`
 
-```text
-FAMILY_TOOLS
-├─ filesystem
-├─ shell
-├─ git
-├─ context
-├─ rewind
-└─ repl
+Bỏ:
+
+- `McpUpstreamManager` type/import;
+- upstreamManager parameter;
+- upstream proxy special-case.
+
+### `src/lib/tool-work-policy.ts`
+
+Hiện có legacy bypass:
+
+```ts
+!toolName.includes("__")
 ```
 
-Legacy metadata:
+để upstream prefixed tools không đi theo normal work-handle policy.
 
-```text
-LEGACY_PRELOAD_FAMILIES
-├─ mcp
-└─ ponytail
-```
+Sau khi upstream proxy bị retire:
 
-Behavior:
+- bỏ special-case `__`;
+- mọi local execution tool đi qua normal work policy.
 
-- resolve actual work operation → chỉ runtime family;
-- preload Job → runtime families được load;
-- legacy family → ghi nhận/ignore, không throw;
-- telemetry không báo legacy family là loaded;
-- `work_tool` enum không expose `mcp_*` hay `ponytail_turn`.
+## B5. Tool profile cleanup
 
----
+`src/lib/tool-profile.ts` không cần rewrite toàn bộ.
 
-## 12. Tool profile remap
-
-### Xoá khỏi catalog/runtime visibility
+Bỏ khỏi catalog/profile:
 
 - `mcp_servers`;
 - `mcp_tools`;
 - `mcp_call`;
-- `ponytail_turn`.
+- `ponytail_turn`;
+- standalone `rewind` nếu Group B2 retire nó.
 
-### Giữ
+Giữ:
 
-- control/admission/job tools;
+- GPTWorker control/admission/job tools;
 - workspace discovery;
 - `work_tool`;
-- filesystem operations;
-- shell operations;
-- git operations;
-- context operations;
-- `rewind` nếu còn runtime-supported;
-- `node_repl`.
+- local filesystem/shell/git/context/node_repl operations.
 
-Nếu Admin bị xoá, `saveLocalToolOverrides()` cần đánh giá lại caller. Nếu không còn caller thì có thể xoá writer nhưng giữ read support nếu muốn cho phép config file thủ công.
+Nếu Admin bị delete và `saveLocalToolOverrides()` không còn caller:
 
----
+- delete writer nếu không cần config UI;
+- có thể giữ read-only manual overrides nếu có giá trị thực.
 
-## 13. File/function old → new/removal map
+## B6. Job Pack compatibility shim
 
-| Old file/function | Hành động | New home / replacement | Caller cần remap |
-|---|---|---|---|
-| `codex-agent-prompt.ts` | Rename/move | `worker-execution-prompt.ts` | `instruction-context.ts` |
-| `CODEX_AGENT_PROMPT` | Rename | `WORKER_EXECUTION_PROMPT` | `instruction-context.ts` |
-| `codex-hooks.ts` | Delete | Không replacement | session manager, Admin, Ponytail |
-| `ponytail.ts` | Delete | Legacy preload token only | WorkGateway/tool profile |
-| `plugin-config.ts` | Delete | Không replacement | node-repl, skills-loader, Admin |
-| `node-repl.ts::loadSky` | Delete | Không replacement | node-repl internal |
-| Codex Computer Use state/types | Delete | Không replacement | node-repl internal |
-| Computer Use skill injection | Delete | project-local skill loading remains | skills-loader |
-| Admin server/routes/guard | Delete | Worker health/logging remains | index |
-| Admin port in instruction context | Delete | Không replacement | index/instruction-context/git-snapshot |
-| `initUpstreamManager` | Delete | Không replacement | index |
-| upstream registration in session | Delete | Không replacement | session manager |
-| upstream manager parameter | Delete | Không replacement | server-factory/work-gateway |
-| runtime family `mcp` | Delete implementation | legacy preload token | work-gateway |
-| runtime family `ponytail` | Delete implementation | legacy preload token | work-gateway |
-| `mcp_servers/mcp_tools/mcp_call` | Delete | Không replacement | tool profile/work gateway |
-| upstream config/OAuth/proxy/manager | Delete | Không replacement | callers phải bằng 0 trước |
-| `profiles/mcp-upstream.json` | Delete | Không replacement | upstream subsystem retired |
+**Không sửa `jobs/**`.**
 
----
+Current Job metadata có legacy preload như:
 
-## 14. Files dự kiến có thể xoá sau remap
+- `mcp`;
+- `rewind`;
+- có thể có custom Job cũ dùng `ponytail`.
 
-### Codex
+Runtime phải tách:
 
-- `src/lib/codex-hooks.ts`;
-- `src/tools/ponytail.ts`;
-- `src/lib/plugin-config.ts`;
-- old `src/lib/codex-agent-prompt.ts` sau khi rename/move.
+```text
+Job-declared preload
+≠
+Runtime-supported family
+```
 
-### Admin
+Target:
 
-- `src/admin/server.ts`;
-- `src/admin/routes.ts`;
-- `src/admin/localhost-guard.ts`;
-- `public/ui/index.html`;
-- `public/ui/app.js`;
-- `public/ui/styles.css`.
+```text
+RUNTIME FAMILIES
+- filesystem
+- shell
+- git
+- context
+- repl
 
-### Upstream MCP
+LEGACY ACCEPTED / IGNORED PRELOAD TOKENS
+- mcp
+- ponytail
+- rewind
+```
 
-- `src/lib/mcp-upstream-manager.ts`;
-- `src/lib/mcp-upstream-config.ts`;
-- `src/lib/mcp-oauth-provider.ts`;
-- `src/lib/mcp-tool-proxy.ts`;
-- `src/tools/mcp-bridge.ts`;
-- `profiles/mcp-upstream.json`.
+Legacy token:
 
-### Tests của feature đã retire
+- parse được;
+- không throw;
+- không load module;
+- không xuất hiện như loaded runtime family;
+- không block Job confirmation/activation.
 
-Có thể retire sau khi implementation ổn:
+`src/jobs/job-runtime.ts` có thể tạm giữ enum legacy để backward compatibility.
 
-- `scripts/test-mcp-upstream.mjs`;
-- `scripts/test-mcp-oauth.mjs`;
-- `scripts/test-mcp-bridge-integration.mjs`;
-- mock fixtures chỉ phục vụ upstream MCP.
+## B7. Root config/docs/reference cleanup
 
-**Lưu ý:** file validation mới/protected không tự sửa. Nếu một test mới assert Codex/upstream behavior, đánh dấu để user quyết riêng.
+Sau implementation, remap wording/config:
 
----
+- `.env.example`: bỏ Admin/upstream config;
+- `.gitignore`: bỏ legacy upstream/Codex runtime rules không còn dùng;
+- `README.md`: bỏ Admin/upstream runtime description;
+- `WORKER.md`: không còn mô tả Codex/Admin/upstream là optional core capability;
+- `AGENTS.md`: hard boundary phải phản ánh target architecture mới;
+- `package.json` / `package-lock.json`: sync alias/scripts/keywords đã retire;
+- `src/lib/quickstart.ts`: bỏ `mcp_servers / mcp_tools / mcp_call` guidance;
+- generic wording trong `filesystem.ts`, `patch.ts`, v.v. có thể bỏ tên Codex/Claude khi không cần.
 
-## 15. Candidate đơn giản hoá nhưng chưa xoá
+### Secure Tunnel compatibility name
 
-| Item | Đánh giá | Hướng |
-|---|---|---|
-| `instruction-context.ts` slim mode | Có thể vẫn load nhiều rich context trước khi cần | Sau retire Codex/Admin, tiếp tục đo và giảm startup I/O |
-| `tool-profile.ts` | Có override layer và profile full/slim | Giữ trước; chỉ giảm catalog legacy |
-| activity + audit logging | Có overlap | Giữ trong cleanup vì cần diagnosis |
-| post-edit hooks | Không thuộc target tối thiểu nhưng nằm trong edit path | Giữ disabled, review riêng |
-| checkpoint/rewind | Không phải connection core nhưng đang tham gia edit behavior và dev-coding | Giữ |
-| project memory / project skills | Không phải transport core nhưng thuộc context family | Giữ, có thể lazy hơn sau |
+`openai-tunnel.ps1` hiện dùng:
+
+```powershell
+$ProfileName = "codex-local"
+```
+
+Đây chỉ là **legacy profile filename**, không phải Codex runtime dependency.
+
+File này nằm trên core connection path và đã ghi rõ giữ tên để tương thích local install.
+
+**KEEP FOR STABILITY. Không rename trong cleanup này.**
 
 ---
 
-## 16. Trình tự implementation an toàn
+# 5. GROUP C — REWRITE CLEAN
 
-### Phase 0 — baseline
+Các phần dưới đây vẫn cần behavior, nhưng implementation cũ quá dính legacy architecture.
 
-- backup branch đã có;
-- ghi nhận current main SHA;
-- build/test hiện tại;
+## C1. Rewrite `src/tools/work-gateway.ts`
+
+Không bóc dần implementation hiện tại.
+
+Viết lại theo spec nhỏ:
+
+```text
+WorkGateway
+├─ filesystem
+├─ shell
+├─ git
+├─ context
+└─ repl
+```
+
+Responsibilities duy nhất:
+
+- map operation → family;
+- lazy-load family;
+- cache loaded family;
+- preload runtime-supported family;
+- ignore legacy preload tokens;
+- dispatch `work_tool`;
+- telemetry đơn giản.
+
+Không có:
+
+- `McpUpstreamManager`;
+- `mcp` runtime family;
+- `ponytail` family;
+- standalone `rewind` family;
+- external proxy;
+- external tool discovery.
+
+Suggested conceptual split:
+
+```text
+RUNTIME_FAMILY_TOOLS
+LEGACY_PRELOAD_FAMILIES
+resolve(tool)
+prepareJob(jobId, declaredFamilies)
+waitForPreparedJob(jobId)
+clearPreparedJob()
+status()
+```
+
+## C2. Rewrite `src/tools/node-repl.ts`
+
+Viết lại local-only thay vì gỡ từng đoạn Sky/Codex.
+
+Target behavior:
+
+```text
+node_repl
+├─ workspace-scoped JavaScript VM
+├─ persistent state per MCP server/session scope
+├─ process.cwd() = confirmed workspace
+├─ process.chdir() disabled
+├─ direct fs/fs-promises blocked
+├─ timeout
+├─ captured output
+└─ NO external/Codex Computer Use
+```
+
+Không có:
+
+- `@oai/sky`;
+- `WindowsHelperTransport`;
+- `WindowsComputerUseClient`;
+- `globalThis.sky`;
+- Codex runtime path;
+- Computer Use plugin config;
+- Admin dependency.
+
+Có thể đổi internal output name:
+
+```text
+__localCoderOutput
+→ __gptWorkerOutput
+```
+
+## C3. Rewrite local `context` stack
+
+Context phải là **workspace/local GPTWorker context**, không phải agent ecosystem bridge.
+
+Các file nên được rewrite/simplify như một unit:
+
+- `src/tools/context.ts`;
+- `src/lib/project-memory.ts`;
+- `src/lib/auto-memory.ts`;
+- `src/lib/skills-loader.ts`;
+- phần rich context của `src/lib/instruction-context.ts`.
+
+### Context target
+
+```text
+confirmed workspace
+├─ project_context
+├─ project-local instructions/rules
+├─ project-local skills nếu giữ
+├─ GPTWorker-owned memory nếu giữ
+└─ local diagnostic status
+```
+
+Không có:
+
+- `getUpstreamManager()`;
+- `upstream_mcp`;
+- `.codex/config.toml`;
+- global `~/.codex/CLAUDE.md`;
+- Codex plugin skills;
+- Computer Use skill injection.
+
+### `agent_status`
+
+Target:
+
+```text
+agent_status
+├─ permission profile
+├─ confirmed/default workspace
+├─ machine roots
+├─ audit/runtime path
+├─ process/node info
+├─ tool profile
+└─ local checkpoint info nếu còn cần
+```
+
+Không có upstream MCP status.
+
+### Project memory
+
+Project-local files có thể được đọc nếu project thực sự có chúng, ví dụ:
+
+- `AGENTS.md`;
+- `CLAUDE.md`;
+- project-local rules.
+
+Nhưng không tự đi đọc global Codex/Claude home như authority.
+
+### Auto memory
+
+Current storage:
+
+```text
+CODEX_HOME || ~/.codex
+└─ projects/<hash>/MEMORY.md
+```
+
+Rewrite thành GPTWorker-owned data:
+
+```text
+getWorkerDataRoot()
+└─ memory/
+   └─ projects/
+      └─ <workspace-hash>/
+         └─ MEMORY.md
+```
+
+Windows default:
+
+```text
+%LOCALAPPDATA%\GPTWorker\memory\projects\...
+```
+
+Không dùng `CODEX_HOME`.
+
+## C4. Rewrite `src/lib/instruction-context.ts` thành control-plane tối thiểu
+
+Startup/initialize không nên kéo toàn bộ rich project context nếu chưa có active Job.
+
+Target:
+
+```text
+initialize instructions
+├─ GPTWorker identity
+├─ admission/control rules
+├─ Job lifecycle pointers
+├─ current tool profile
+└─ minimal environment info
+```
+
+Rich workspace context chỉ load khi Job/work thực sự cần qua `context` tools.
+
+Mục tiêu:
+
+- giảm startup I/O;
+- giảm dependency;
+- không load Codex/global memory;
+- không load Admin info;
+- không làm MCP initialize phụ thuộc project skill/memory ecosystem.
+
+## C5. Rewrite verification harness theo architecture mới
+
+Sau runtime rewrite, validator cũng phải phản ánh target thật.
+
+### Rewrite/replace
+
+- `scripts/run-all-tests.mjs`;
+- `scripts/test-idle-runtime.mjs`;
+- expectations trong `scripts/test-tool-profile.mjs`;
+- `scripts/test-quickstart.mjs`;
+- `scripts/test-project-memory.mjs` nếu module context được rewrite;
+- verification evidence chain nếu nó không thuộc protected artifacts.
+
+Target validation:
+
+```text
+Worker boot
+→ :3000/health
+→ MCP initialize
+→ tools/list
+→ stale recovery
+→ Job nomination/confirmation
+→ legacy preload ignored safely
+→ work_tool filesystem
+→ shell
+→ git
+→ context
+→ node_repl local
+→ stop/restart/reconnect
+```
+
+Không validate:
+
+- Admin :3001;
+- upstream MCP;
+- OAuth;
+- Ponytail;
+- Codex hooks;
+- external MCP proxy.
+
+### Protected validation artifacts
+
+Các file mới/protected do recent validation/upgrade **không tự sửa** trong cleanup nếu user chưa cho phép, bao gồm các artifact đã được đánh dấu trước đó như:
+
+- `setup-test.bat`;
+- `start-worker-background.ps1`;
+- `wait-runtime-ready.ps1`;
+- `wait-tray-ready.ps1`;
+- `gptworker-tray.vbs`;
+- `openai-tunnel.ps1`;
+- `docs/plans/gptworker-v2/**`;
+- các validation artifact mới khác nếu xác định được là thuộc cùng đợt.
+
+Nếu protected artifact assert architecture cũ:
+
+```text
+status = PROTECTED-STALE
+```
+
+Nó không được dùng làm lý do phục hồi Codex/Admin/upstream vào runtime.
+
+---
+
+# 6. Core phải KEEP / SURGICAL DETACH — không rewrite
+
+Một số file phức tạp vì chúng giải quyết vấn đề thật của connection stability.
+
+## `src/lib/mcp-session-manager.ts`
+
+**Không rewrite toàn bộ.**
+
+Giữ:
+
+- session IDs;
+- protocol negotiation;
+- Streamable HTTP;
+- raw header handling;
+- GET/SSE;
+- POST/DELETE serialization;
+- DELETE grace;
+- stale-session recovery;
+- TTL cleanup;
+- transport error tracking.
+
+Chỉ surgically detach:
+
+- upstream manager;
+- Codex hook warmup;
+- Codex naming.
+
+## `src/index.ts`
+
+Không rewrite server transport từ đầu.
+
+Giữ:
+
+- Express/MCP endpoints;
 - health;
+- MCP token path behavior;
+- initialize/recovery routing;
+- stale session handling;
+- startup/shutdown stability.
+
+Chỉ tháo:
+
+- Admin;
+- upstream manager;
+- related env/log fields.
+
+## OpenAI Secure MCP Tunnel + Windows resident runtime
+
+KEEP:
+
+- `openai-tunnel.ps1`;
+- `start.ps1`;
+- `stop.ps1`;
+- `reset-runtime.ps1`;
+- tray/resident flow;
+- health/wait scripts được bảo vệ.
+
+Không cleanup connection path chỉ vì còn legacy naming không ảnh hưởng behavior.
+
+---
+
+# 7. Dependency map cuối
+
+```text
+TARGET
+
+GPT Web
+   ↓
+OpenAI Secure MCP Tunnel
+   ↓
+index.ts
+   ↓
+mcp-session-manager.ts
+   ↓
+server-factory.ts
+   ↓
+admission + workspace + Job lifecycle
+   ↓
+NEW clean work-gateway.ts
+   ├─ filesystem
+   ├─ shell
+   ├─ git
+   ├─ NEW clean context
+   └─ NEW clean node_repl
+```
+
+Delete branches:
+
+```text
+X Admin server/UI
+X Codex hooks
+X Ponytail
+X Codex Computer Use
+X plugin-config
+X upstream MCP manager/config/OAuth/proxy
+X mcp bridge
+X external MCP import/discovery
+```
+
+Legacy Job metadata:
+
+```text
+mcp / ponytail / rewind
+→ accepted as legacy preload token
+→ ignored safely
+→ never loaded as runtime family
+```
+
+---
+
+# 8. Implementation order
+
+## Phase 0 — baseline
+
+Before source mutation:
+
+- record current main SHA;
+- backup branch already exists;
+- build;
+- current health;
 - MCP initialize;
 - tools/list;
 - session recovery;
-- một `work_tool` filesystem call;
+- Job nomination/confirmation;
+- one filesystem call;
 - shell;
 - git;
+- context;
 - node_repl.
 
-### Phase 1 — rename/extract phần cần giữ
+## Phase 1 — rewrite clean modules first
 
-1. `codex-agent-prompt.ts` → `worker-execution-prompt.ts`.
-2. Remap `instruction-context.ts`.
-3. Làm `node_repl` thuần local.
-4. Làm `skills-loader` project-local only.
+1. rewrite `work-gateway.ts`;
+2. rewrite local-only `node-repl.ts`;
+3. rewrite context stack;
+4. rewrite minimal instruction context;
+5. add legacy preload compatibility.
 
-Chưa xoá Admin/upstream ở bước này nếu caller chưa sạch.
+Goal: new core can operate without Codex/Admin/upstream before deleting old source.
 
-### Phase 2 — detach Codex
+## Phase 2 — remap connection/core callers
 
-1. gỡ Codex hooks khỏi session startup;
-2. bỏ Ponytail runtime/tool profile;
-3. bỏ plugin-config callers;
-4. xác nhận no `~/.codex` / Codex runtime path còn trên normal startup/tool path.
+1. detach upstream/Codex hooks from session manager;
+2. detach upstream from server factory;
+3. detach Admin/upstream from index;
+4. remove upstream bypass from tool-work-policy;
+5. remap worker execution prompt;
+6. clean tool profile/quickstart.
 
-### Phase 3 — detach Admin
+## Phase 3 — delete Group A
 
-1. bỏ Admin port khỏi instruction/environment context;
-2. bỏ Admin startup/shutdown khỏi `index.ts`;
-3. test Worker chỉ còn port 3000;
-4. sau đó xoá Admin/UI files.
+Delete leaf subsystems only when import/caller count is zero.
 
-### Phase 4 — detach upstream MCP
+## Phase 4 — config/package/docs cleanup
 
-1. bỏ upstream manager boot;
-2. bỏ upstream manager khỏi session manager;
-3. bỏ upstream parameter khỏi server factory/work gateway;
-4. đổi `mcp` thành legacy preload token;
-5. bỏ `mcp_*` tools khỏi catalog;
-6. test Job selection/confirmation vẫn hoạt động;
-7. sau đó xoá upstream files/config.
+- `.env.example`;
+- `.gitignore`;
+- `package.json`;
+- `package-lock.json`;
+- README/WORKER/AGENTS;
+- stale non-protected tests/helpers.
 
-### Phase 5 — physical deletion + config cleanup
+## Phase 5 — rewrite validation
 
-- xoá leaf files;
-- dọn unused imports;
-- dọn `.env.example`;
-- dọn package scripts dành riêng cho retired subsystem;
-- dọn obsolete docs ngoài Job Pack;
-- không sửa `jobs/**`.
+Validation must test the target architecture, not retired features.
 
-### Phase 6 — stability validation
+## Phase 6 — real stability validation
 
-Phải qua tối thiểu:
+Required:
 
-- Worker startup;
-- health;
-- Tunnel readiness;
+- Worker starts with no Codex installed;
+- Worker starts with no Admin server;
+- Worker starts with no upstream MCP config;
+- Tunnel ready;
 - MCP initialize;
-- modern discover fallback;
-- tools/list;
 - repeated tools/list;
 - stale session recovery;
-- session DELETE grace;
-- Job select → confirmation → activation;
-- Job Pack có preload `mcp` vẫn activate được;
-- `work_tool` filesystem;
+- DELETE grace;
+- Job select/confirm/activate;
+- legacy preload `mcp/rewind/ponytail` does not break activation;
+- filesystem;
 - shell;
 - git;
 - context;
@@ -643,39 +898,41 @@ Phải qua tối thiểu:
 
 ---
 
-## 17. Deletion gate
+# 9. Deletion/rewrite gates
 
-Một file chỉ được xoá khi:
+## DELETE gate
 
-1. không còn import/caller runtime;
-2. không nằm trên target architecture;
-3. không chứa phần chức năng còn cần chưa được remap;
-4. Job Pack compatibility không bị phá;
-5. startup/health/session/tool tests vẫn qua;
-6. validation file protected không bị sửa ngoài phạm vi;
-7. rollback từ backup branch vẫn rõ ràng.
+Delete only when:
 
-Ưu tiên:
+1. no required behavior inside;
+2. runtime caller/import = 0;
+3. no protected startup path depends on it;
+4. build passes after atomic caller removal.
 
-```text
-extract/remap
-→ detach
-→ validate
-→ delete
-```
+## EXTRACT/REMAP gate
 
-Không làm:
+Delete old file only when:
 
-```text
-delete trước
-→ sửa lỗi dependency sau
-```
+1. useful logic has new owner/name;
+2. all callers point to new owner;
+3. compatibility behavior is explicit;
+4. old symbol/path has no runtime caller.
+
+## REWRITE CLEAN gate
+
+Switch to new implementation only when:
+
+1. behavior spec is smaller and explicit;
+2. test covers required behavior;
+3. new implementation has no legacy dependency;
+4. fallback/rollback remains possible;
+5. connection/session core is not accidentally rewritten as collateral work.
 
 ---
 
-## 18. Definition of success
+# 10. Definition of success
 
-Cleanup thành công khi architecture thực tế gần đúng với:
+Cleanup hoàn tất khi runtime thực tế gần đúng với:
 
 ```text
 GPT Web
@@ -696,14 +953,18 @@ work_tool
    └─ node_repl
 ```
 
-và:
+và đồng thời:
 
-- Worker không cần Codex để khởi động hay chạy tool;
-- Worker không đọc `~/.codex` trên normal path;
-- Worker không phụ thuộc Codex Computer Use runtime;
-- Worker không khởi động Admin server;
-- Worker không init upstream MCP hub;
+- GPTWorker không cần Codex;
+- không đọc `~/.codex` trên normal path;
+- không dùng Codex Computer Use runtime;
+- không chạy Ponytail;
+- không start Admin server;
+- không init upstream MCP hub;
+- không proxy external MCP tools;
 - session manager chỉ lo connection/session stability;
-- Job Pack cũ vẫn parse/activate dù còn legacy preload `mcp`;
-- optional/legacy subsystem không thể làm connection core chết;
-- source boundary phản ánh đúng sản phẩm: **GPTWorker là stable local tool bridge cho GPT Web**.
+- context là local workspace/GPTWorker-owned context;
+- auto-memory nếu giữ phải nằm trong GPTWorker data root;
+- Job Pack cũ vẫn parse/activate dù còn legacy preload token;
+- optional/retired subsystem không thể làm core connection fail;
+- Secure MCP Tunnel và Windows resident runtime vẫn ổn định như trước.
