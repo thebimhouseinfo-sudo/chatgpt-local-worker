@@ -152,6 +152,19 @@ assert.doesNotThrow(() =>
   )
 );
 
+
+// Quoted Windows-style/space-containing Workspace paths must be treated as
+// one literal, not re-split into a fake drive-level path such as "D:\\00".
+const spacedWorkspace = path.join(root, "workspace with spaces");
+await fs.mkdir(spacedWorkspace, { recursive: true });
+const spacedFile = path.join(spacedWorkspace, "inside file.txt");
+assert.doesNotThrow(() =>
+  assertShellCommandWorkspaceBound(
+    `echo ok > "${spacedFile}"`,
+    spacedWorkspace
+  )
+);
+
 assert.throws(
   () =>
     assertShellCommandWorkspaceBound(
