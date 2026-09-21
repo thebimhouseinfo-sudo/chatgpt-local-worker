@@ -606,7 +606,7 @@ Validation after correction:
 
 # 5.2. POST-REVIEW ROUND 2 — CALLER / MAPPING AUDIT
 
-## STATUS: ✅ CODE CORRECTIONS DONE / STATIC VERIFIED / RUNTIME CI PENDING
+## STATUS: ✅ CODE CORRECTIONS DONE / STATIC VERIFIED / LOCAL TEST SUITE PASS
 
 Review này kiểm tra theo chuỗi:
 
@@ -786,7 +786,7 @@ The guard checks:
 - bundled Job skill/harness/validator paths exist;
 - stale `projectMemoryInstructions` naming is absent.
 
-Latest GitHub Actions still fails before any test step with `steps=null`, so this round is static-verified but runtime CI remains pending.
+GitHub Actions remains unreliable because prior runs failed before any test step with `steps=null`, but the full local Windows `npm run test:all` suite now passes after the Round-2/3 corrections.
 
 
 ---
@@ -966,7 +966,7 @@ Real acceptance retest passed after this correction: the admission → Job nomin
 
 # 5.5. RUNTIME ACCEPTANCE — 5 WORK FAMILIES
 
-## STATUS: 🟡 4/5 PASS / NODE_REPL FIXED / RETEST PENDING
+## STATUS: ✅ LOCAL REGRESSION PASS / LIVE REPL RETEST OPTIONAL
 
 Real 12-step runtime acceptance was executed against:
 
@@ -1015,7 +1015,9 @@ Correction:
   - explicit console output;
   - top-level await result.
 
-Runtime retest required only for `node_repl` after pulling the fix.
+After the fixes, the full local Windows `npm run test:all` suite passes, including the `node_repl` regression cases for arithmetic result surfacing, persistent state, console output, and top-level await.
+
+The original live GPT Web 12-step run recorded 4/5 before the REPL fix. A one-line live `node_repl: 2 + 3` retest can close that historical live-only gap, but the corrected implementation is now covered by the passing local suite.
 
 ---
 
@@ -1200,13 +1202,15 @@ work_tool
    └─ node_repl
 ```
 
-Current static architecture status:
+Current validation status:
 
 - target source boundary is implemented;
 - Group A/B/C quarantine guards are active;
 - C3 post-review memory correction is implemented;
 - GPTWorker has no active knowledge-memory subsystem;
-- runtime CI PASS is still pending because GitHub Actions currently fails before steps execute.
+- full local Windows `npm run test:all` passes;
+- live GPT Web acceptance has passed activation, Workspace binding, filesystem, shell, git, context, boundary rejection, and stop-to-idle;
+- GitHub Actions remains infrastructure-unreliable because runs may fail before steps execute.
 
 Success means:
 
