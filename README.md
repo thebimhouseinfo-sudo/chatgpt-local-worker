@@ -297,7 +297,7 @@ This prevents job/workspace context from drifting during long chats or reconnect
 
 ## Automatic activity logging
 
-The Worker automatically records structured runtime activity in `.mcp-activity.jsonl`. It includes MCP requests, tool activity, session lifecycle, HTTP/admin requests, startup/shutdown and transport errors. Records are written asynchronously, secrets and credential-like values are redacted, and the file rotates when it reaches the configured size limit. Logging failures do not fail the original Worker request.
+The Worker automatically records structured runtime activity in `.mcp-activity.jsonl`. It includes MCP requests, tool activity, session lifecycle, HTTP requests, startup/shutdown and transport errors. Records are written asynchronously, secrets and credential-like values are redacted, and the file rotates when it reaches the configured size limit. Logging failures do not fail the original Worker request.
 
 Optional settings:
 
@@ -308,7 +308,7 @@ ACTIVITY_LOG_MAX_RECORD_BYTES  # default 32 KB
 ACTIVITY_LOG_DISABLED=true     # disable the activity sink when explicitly needed
 ```
 
-The Admin API exposes recent persisted events at `/api/activity/history`. The activity file is operational evidence only; it is not a source of Job or workspace authority.
+The activity file is operational evidence only; it is not a source of Job or workspace authority.
 
 ## Job Packs
 
@@ -328,7 +328,7 @@ Generic lifecycle:
 DISCOVER → SELECT → RESOLVE → CONFIRM → EXECUTE → VALIDATE → COMPLETE
 ```
 
-The execution core supplies the capabilities required by active Job Packs, with filesystem, shell, git, project context, and validation as the primary path. Compatibility/optional capabilities such as checkpoint/rewind or upstream MCP integration are not architectural requirements and may be simplified or removed when they do not improve Worker reliability. A Job Pack supplies the prescribed workflow and validation for its class of work.
+The execution core supplies the capabilities required by active Job Packs through local filesystem, shell, git, project context, and node_repl families. Automatic checkpoints remain an internal filesystem safety mechanism. Standalone rewind, Admin UI, Codex hooks/Computer Use, Ponytail, and upstream MCP bridging are retired and are not part of the runtime architecture. A Job Pack supplies the prescribed workflow and validation for its class of work.
 
 ### System commands
 
@@ -408,7 +408,7 @@ The PowerShell helpers remain available for development/troubleshooting. Normal 
 
 GPTWorker is maintained as an independent project. It began by studying and reusing selected MIT-licensed components from [`hoangcoderr/chatgpt-local-coder`](https://github.com/hoangcoderr/chatgpt-local-coder), particularly parts of its MCP/local-execution foundation and Secure MCP Tunnel workflow.
 
-The current GPTWorker architecture and product direction are developed independently around a stability-first general Worker: Job Runtime, explicit admission and work lifecycle, Windows resident/tray operation, validation harnesses, workspace handling, and reusable Job Packs. The Secure MCP Tunnel remains an important transport layer, but coding-agent-specific upstream behavior is not an architectural requirement and may be replaced or removed when it does not improve Worker reliability.
+The current GPTWorker architecture is a stability-first local Windows worker: GPT Web → OpenAI Secure MCP Tunnel → GPTWorker → MCP session/recovery → admission/workspace → local work_tool families. Retired coding-agent, Admin, Computer Use, Ponytail, and upstream-MCP behavior is intentionally outside this architecture.
 
 Selected inherited components remain under their original MIT terms and attribution.
 
