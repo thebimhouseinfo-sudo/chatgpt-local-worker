@@ -59,14 +59,6 @@ export async function loadProjectSkills(workspaceRoot: string): Promise<SkillSum
   return out;
 }
 
-export function formatSkillsForInstructions(skills: SkillSummary[]): string {
-  if (!skills.length) return "";
-  return [
-    "## Skills",
-    `${skills.length} project-local skills are available. Call list_skills, then load_skill(name) before applying a matching workflow; do not guess a skill body from its name.`,
-  ].join("\n");
-}
-
 export async function loadProjectSkill(
   workspaceRoot: string,
   name: string,
