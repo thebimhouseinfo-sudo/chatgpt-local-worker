@@ -184,8 +184,11 @@ app.get("/health", (_req, res) => {
     name: "chatgpt-local-worker",
     workspace: workspaceRoot,
     defaultCwd: getDefaultCwd(),
-    fullMachineAccess: true,
+    fullMachineAccess: false,
+    hostFullMachineAccess: true,
     fullDiskAccess: getFullDiskAccess(),
+    jobWorkspaceBoundaryEnforced: true,
+    effectiveJobAccess: "confirmed-workspace-only",
     activeSessions: sessionManager.count(),
     activeWork,
     runtimeMode,
@@ -357,7 +360,8 @@ const server = app.listen(PORT, HOST, () => {
   console.log(`  MCP alt:   http://${HOST}:${PORT}${MCP_PATHS[1]}`);
   console.log(`  Health:    http://${HOST}:${PORT}/health`);
   console.log(`  Default cwd: ${workspaceRoot}`);
-  console.log(`  Full machine access: ON (no path restrictions)`);
+  console.log(`  Host machine access: available to the Worker process`);
+  console.log(`  Active Job boundary: confirmed Workspace only`);
   console.log(`  Session recovery: ${SESSION_RECOVERY ? "ON" : "OFF"}`);
   console.log(`  Auth:      ${MCP_TOKEN ? "ON (MCP_TOKEN in URL path)" : "OFF — dat MCP_TOKEN trong .env neu can path token"}`);
   console.log(`  PID:       ${process.pid}`);
