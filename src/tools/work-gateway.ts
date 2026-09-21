@@ -2,10 +2,7 @@ import { z } from "zod";
 import type { McpServer, RegisteredTool } from "@modelcontextprotocol/sdk/server/mcp.js";
 import { shouldExposeWorkOperation } from "../lib/tool-profile.js";
 import { toolAnnotations } from "../lib/tool-annotations.js";
-import {
-  LEGACY_PRELOAD_FAMILY_NAMES,
-  RUNTIME_FAMILIES,
-} from "../lib/runtime-families.js";
+import { RUNTIME_FAMILIES } from "../lib/runtime-families.js";
 
 type ToolCallback = (args?: Record<string, unknown>, ...rest: unknown[]) => any;
 
@@ -42,7 +39,6 @@ export type ToolFamily = keyof typeof FAMILY_TOOLS;
 
 export const TOOL_FAMILIES = [...RUNTIME_FAMILIES] as ToolFamily[];
 
-export const LEGACY_PRELOAD_FAMILIES = new Set<string>(LEGACY_PRELOAD_FAMILY_NAMES);
 
 export const WORK_TOOL_OPERATIONS = Object.values(FAMILY_TOOLS).flat();
 
@@ -133,9 +129,6 @@ function normalizePreloadFamilies(families: readonly string[]): ToolFamily[] {
       continue;
     }
 
-    if (LEGACY_PRELOAD_FAMILIES.has(family)) {
-      continue;
-    }
 
     console.warn(`[GPTWorker] Ignoring unknown preload family: ${family}`);
   }

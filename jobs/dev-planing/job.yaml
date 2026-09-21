@@ -88,8 +88,7 @@
       "filesystem",
       "shell",
       "git",
-      "context",
-      "mcp"
+      "context"
     ]
   }
 }
