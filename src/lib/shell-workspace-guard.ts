@@ -27,12 +27,16 @@ function looksLikeAbsolutePath(value: string): boolean {
 function extractPathLiterals(command: string): string[] {
   const found = new Set<string>();
 
-  for (const match of command.matchAll(/(["'])(.*?)\1/g)) {
-    const value = match[2]?.trim();
+  // First capture quoted path literals as a whole. This is required on Windows
+  // where normal Workspace paths commonly contain spaces (for example
+  // "D:\\00 Other Works\\project"). Do not split those quoted spans again.
+  const unquotedOnly = command.replace(/(["'])(.*?)\1/g, (match, _quote, inner) => {
+    const value = String(inner ?? "").trim();
     if (value && looksLikeAbsolutePath(value)) found.add(value);
-  }
+    return " ".repeat(match.length);
+  });
 
-  for (const raw of command.split(/\s+/)) {
+  for (const raw of unquotedOnly.split(/\s+/)) {
     const token = stripTokenPunctuation(raw);
     if (looksLikeAbsolutePath(token)) found.add(token);
   }
