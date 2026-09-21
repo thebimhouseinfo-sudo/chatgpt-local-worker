@@ -44,7 +44,7 @@ export type ToolFamily = keyof typeof FAMILY_TOOLS;
 
 export const TOOL_FAMILIES = [...RUNTIME_FAMILIES] as ToolFamily[];
 
-export const LEGACY_PRELOAD_FAMILIES = new Set(LEGACY_PRELOAD_FAMILY_NAMES);
+export const LEGACY_PRELOAD_FAMILIES = new Set<string>(LEGACY_PRELOAD_FAMILY_NAMES);
 
 export const WORK_TOOL_OPERATIONS = Object.values(FAMILY_TOOLS).flat();
 
