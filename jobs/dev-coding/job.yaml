@@ -3,7 +3,7 @@
   "name": "Dev Coding",
   "version": "1.4.0",
   "status": "ready",
-  "description": "Professional code-execution job that reads the active planning bundle first, selects/updates executable tasks, plans execution, then performs targeted code changes using the Local Coder filesystem, shell, git, checkpoint, project-context, project-skill, and MCP bridge core.",
+  "description": "Professional code-execution job that reads the active planning bundle first, selects/updates executable tasks, plans execution, then performs targeted code changes using the GPTWorker execution core and its filesystem, shell, git, context, validation, and optional compatibility capabilities.",
   "aliases": [
     "coding",
     "code",
