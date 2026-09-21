@@ -65,17 +65,15 @@ try {
   setDefaultCwd(tmpDir);
   const resolver = createWorkToolResolver(tmpDir, 30);
 
-  const prepared = await resolver.prepareJob("compat-job", [
+  const prepared = await resolver.prepareJob("runtime-job", [
     "filesystem",
-    "rewind",
-    "mcp",
-    "ponytail",
+    "filesystem",
   ]);
 
   assert.deepEqual(
     prepared.requested_families,
     ["filesystem"],
-    "legacy preload tokens must be ignored instead of becoming runtime families"
+    "runtime preload families must normalize without duplicates"
   );
   assert.deepEqual(
     prepared.prepared_families,
@@ -92,4 +90,4 @@ try {
   await fs.rm(tmpDir, { recursive: true, force: true });
 }
 
-console.log("test-group-b-retired: ok — rewind retired, checkpoint safety retained");
+console.log("test-group-b-retired: ok — rewind retired, checkpoint safety retained, active preload only");

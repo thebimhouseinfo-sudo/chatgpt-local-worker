@@ -6,7 +6,6 @@ import {
   createWorkToolResolver,
   FAMILY_TOOLS,
   TOOL_FAMILIES,
-  LEGACY_PRELOAD_FAMILIES,
   WORK_TOOL_OPERATIONS,
 } from "../dist/tools/work-gateway.js";
 import { setDefaultCwd } from "../dist/lib/path-security.js";
@@ -46,11 +45,6 @@ assert.deepEqual(
   ["filesystem", "shell", "git", "context", "repl"],
   "runtime family set drifted"
 );
-assert.deepEqual(
-  [...LEGACY_PRELOAD_FAMILIES],
-  ["mcp", "ponytail", "rewind"],
-  "legacy preload compatibility set drifted"
-);
 assert.equal("rewind" in FAMILY_TOOLS, false);
 assert.equal(WORK_TOOL_OPERATIONS.includes("rewind"), false);
 assert.equal(WORK_TOOL_OPERATIONS.includes("remember"), false);
@@ -61,11 +55,8 @@ try {
   setDefaultCwd(tmpDir);
   const resolver = createWorkToolResolver(tmpDir, 30);
 
-  const prepared = await resolver.prepareJob("compat-job", [
+  const prepared = await resolver.prepareJob("runtime-job", [
     "filesystem",
-    "mcp",
-    "ponytail",
-    "rewind",
     "filesystem",
   ]);
 
@@ -83,4 +74,4 @@ try {
   await fs.rm(tmpDir, { recursive: true, force: true });
 }
 
-console.log("test-group-c1-work-gateway: ok — clean runtime families + legacy preload compatibility");
+console.log("test-group-c1-work-gateway: ok — clean active runtime families");

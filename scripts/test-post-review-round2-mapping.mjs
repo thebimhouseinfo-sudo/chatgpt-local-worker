@@ -4,7 +4,6 @@ import os from "node:os";
 import path from "node:path";
 import {
   createWorkToolResolver,
-  LEGACY_PRELOAD_FAMILIES,
   TOOL_FAMILIES,
   WORK_TOOL_OPERATIONS,
 } from "../dist/tools/work-gateway.js";
@@ -55,10 +54,7 @@ assert.equal(requiresWorkHandle("agent_status"), true);
 assert.equal(toolFamily("agent_status"), "context");
 
 const activeFamilies = new Set(TOOL_FAMILIES);
-const acceptedPreloadFamilies = new Set([
-  ...JOB_PRELOAD_FAMILIES,
-  ...LEGACY_PRELOAD_FAMILIES,
-]);
+const acceptedPreloadFamilies = new Set(JOB_PRELOAD_FAMILIES);
 
 for (const jobId of ["dev-coding", "dev-planing", "layla", "mto"]) {
   const jobDir = path.join("jobs", jobId);
@@ -73,9 +69,9 @@ for (const jobId of ["dev-coding", "dev-planing", "layla", "mto"]) {
       `${jobId} declares unknown preload family ${family}`
     );
     assert.equal(
-      activeFamilies.has(family) || LEGACY_PRELOAD_FAMILIES.has(family),
+      activeFamilies.has(family),
       true,
-      `${jobId} preload family ${family} is neither active nor legacy-compatible`
+      `${jobId} preload family ${family} is not an active runtime family`
     );
   }
 
