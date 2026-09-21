@@ -7,12 +7,9 @@ dist/
 .tool-test-tmp/
 bin/
 profiles/*
-!profiles/mcp-upstream.json
 !profiles/post-edit-hooks.json
 !profiles/chatgpt-connector-description.txt
 .mcp-state/
-.mcp-oauth/
-.codex-remote-attachments/
 .env
 worker-state.json
 terminals/
