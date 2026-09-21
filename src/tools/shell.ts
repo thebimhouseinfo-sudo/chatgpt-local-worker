@@ -3,6 +3,7 @@ import path from "path";
 import { z } from "zod";
 import type { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import { getDefaultCwd, validatePath } from "../lib/path-security.js";
+import { assertShellCommandWorkspaceBound } from "../lib/shell-workspace-guard.js";
 import { requireCommandAllowed } from "../lib/permissions.js";
 import { audit } from "../lib/audit.js";
 import { toolAnnotations } from "../lib/tool-annotations.js";
@@ -156,10 +157,11 @@ export function registerShellTools(
     async ({ command, working_directory }) => {
       requireCommandAllowed(command);
       const workspaceRoot = getDefaultCwd();
+      assertShellCommandWorkspaceBound(command, workspaceRoot);
       const shellStatus = getShellStatus(workspaceRoot);
       const cwd = working_directory
         ? await validatePath(working_directory)
-        : shellStatus.cwd || workspaceRoot;
+        : await validatePath(shellStatus.cwd || workspaceRoot);
 
       let shell = "bash";
       let effectiveCommand = command;
