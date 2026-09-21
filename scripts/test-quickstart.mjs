@@ -2,6 +2,9 @@
  * Lock user-approved GPTWorker UI copy and routing rules.
  */
 import assert from "node:assert/strict";
+import path from "node:path";
+import { fileURLToPath } from "node:url";
+import { buildInstructionContext } from "../dist/lib/instruction-context.js";
 import {
   GPTWORKER_HELP,
   GPTWORKER_IDLE_PROMPT,
@@ -204,16 +207,27 @@ const instructions = buildServerInstructions(
 assert.ok(instructions.includes("PROJECT CONTEXT SENTINEL"));
 assert.ok(instructions.includes(GPTWORKER_ROOT_MENU));
 assert.ok(instructions.includes(GPTWORKER_HELP));
-assert.ok(MCP_QUICKSTART.includes("This is zero-tool."));
-assert.ok(MCP_QUICKSTART.includes("reply with GPTWORKER_ROOT_MENU verbatim"));
-assert.ok(MCP_QUICKSTART.includes("reply with GPTWORKER_HELP verbatim"));
-assert.ok(MCP_QUICKSTART.includes("reply with \`welcome_text\` verbatim and nothing else"));
-assert.ok(MCP_QUICKSTART.includes("Immediately after GPTWORKER_ROOT_MENU"));
-assert.ok(MCP_QUICKSTART.includes("Immediately after the bare @gptworker Welcome"));
-assert.ok(MCP_QUICKSTART.includes("never interpret a bare number as a GPTWorker command or Job"));
-assert.ok(MCP_QUICKSTART.includes("Do not invent any other shortcut or make these shortcuts global."));
+assert.ok(instructions.startsWith("# GPTWorker static control surface — HIGHEST PRIORITY"));
+assert.ok(instructions.indexOf(GPTWORKER_ROOT_MENU) < instructions.indexOf("PROJECT CONTEXT SENTINEL"));
+assert.ok(instructions.indexOf(GPTWORKER_HELP) < instructions.indexOf("PROJECT CONTEXT SENTINEL"));
+assert.equal(
+  instructions.split(GPTWORKER_ROOT_MENU).length - 1,
+  1,
+  "approved root menu must appear exactly once in server instructions"
+);
+assert.equal(
+  instructions.split(GPTWORKER_HELP).length - 1,
+  1,
+  "approved Help must appear exactly once in server instructions"
+);
+assert.ok(instructions.includes("Do not call tools. Do not summarize, explain, rewrite, reorder, or add anything."));
+assert.ok(instructions.includes("Only immediately after GPTWORKER_ROOT_MENU"));
+assert.ok(instructions.includes("Outside those immediately preceding choice lists, never interpret a bare number"));
+assert.ok(MCP_QUICKSTART.includes("reply with \`welcome_text\` verbatim"));
 assert.ok(MCP_QUICKSTART.includes("call \`job_list\` exactly once"));
 assert.ok(MCP_QUICKSTART.includes("private \`mto\` Job is never shown in Welcome"));
+assert.ok(!MCP_QUICKSTART.includes("## GPTWorker root command surface"));
+assert.ok(!MCP_QUICKSTART.includes("## gptworker/help"));
 
 for (const text of [GPTWORKER_IDLE_PROMPT, GPTWORKER_HELP, GPTWORKER_ROOT_MENU]) {
   assert.ok(!text.includes("thư mục tuyệt đối"));
@@ -222,5 +236,29 @@ for (const text of [GPTWORKER_IDLE_PROMPT, GPTWORKER_HELP, GPTWORKER_ROOT_MENU])
   assert.ok(!text.includes("admission_token"));
   assert.ok(!text.includes("work_handle"));
 }
+
+// ChatGPT web defaults to slim. Its initialize prompt must stay control-plane
+// focused instead of injecting the whole repository/policy context before work.
+process.env.CHATGPT_TOOL_PROFILE = "slim";
+const repoRoot = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
+const slimContext = await buildInstructionContext({
+  workspaceRoot: repoRoot,
+  workspaceRoots: [repoRoot],
+  pid: process.pid,
+  adminPort: 3001,
+});
+assert.ok(slimContext.contextText.includes("Slim control plane:"));
+assert.ok(!slimContext.contextText.includes("# GPTWorker — Worker Policy"));
+assert.ok(!slimContext.contextText.includes("# ChatGPT Local Worker — Repository Agent Instructions"));
+assert.equal(
+  slimContext.instructionsText.split(GPTWORKER_ROOT_MENU).length - 1,
+  1,
+  "slim instructions must contain the fixed root menu exactly once"
+);
+assert.equal(
+  slimContext.instructionsText.split(GPTWORKER_HELP).length - 1,
+  1,
+  "slim instructions must contain the fixed Help exactly once"
+);
 
 console.log("test-quickstart: ok");
