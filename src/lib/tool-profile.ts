@@ -31,12 +31,6 @@ export function getLocalToolOverrides(): LocalToolOverrides {
   return cachedOverrides;
 }
 
-export function saveLocalToolOverrides(next: LocalToolOverrides): void {
-  fs.mkdirSync(path.dirname(overridesPath()), { recursive: true });
-  fs.writeFileSync(overridesPath(), JSON.stringify(next, null, 2));
-  cachedOverrides = next;
-}
-
 /** Core tools for ChatGPT web — smaller tools/list payload, fewer discovery errors. */
 export const SLIM_CHATGPT_TOOLS = new Set([
   "gptworker_control",
