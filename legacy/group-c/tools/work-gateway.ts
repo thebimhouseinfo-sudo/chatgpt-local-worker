@@ -12,6 +12,7 @@ interface CapturedTool {
 }
 
 interface FamilyCache {
+  server: McpServer;
   tools: Map<string, CapturedTool>;
 }
 
@@ -37,16 +38,10 @@ export const FAMILY_TOOLS = {
 } as const;
 
 export type ToolFamily = keyof typeof FAMILY_TOOLS;
-
 export const TOOL_FAMILIES = Object.keys(FAMILY_TOOLS) as ToolFamily[];
-
-export const LEGACY_PRELOAD_FAMILIES = new Set([
-  "mcp",
-  "ponytail",
-  "rewind",
-]);
-
 export const WORK_TOOL_OPERATIONS = Object.values(FAMILY_TOOLS).flat();
+
+const PROCESS_LOADED_FAMILIES = new Set<ToolFamily>();
 
 const TOOL_FAMILY = new Map<string, ToolFamily>();
 for (const [family, tools] of Object.entries(FAMILY_TOOLS) as Array<
@@ -54,8 +49,6 @@ for (const [family, tools] of Object.entries(FAMILY_TOOLS) as Array<
 >) {
   for (const tool of tools) TOOL_FAMILY.set(tool, family);
 }
-
-const PROCESS_LOADED_FAMILIES = new Set<ToolFamily>();
 
 function fakeHandle(): RegisteredTool {
   return {
@@ -68,7 +61,7 @@ function fakeHandle(): RegisteredTool {
   } as unknown as RegisteredTool;
 }
 
-function createCaptureServer(): FamilyCache & { server: McpServer } {
+function createCaptureServer(): FamilyCache {
   const tools = new Map<string, CapturedTool>();
   const server = {
     registerTool(
@@ -76,73 +69,11 @@ function createCaptureServer(): FamilyCache & { server: McpServer } {
       config: { inputSchema?: Record<string, z.ZodTypeAny> },
       callback: ToolCallback
     ): RegisteredTool {
-      tools.set(String(name), {
-        name: String(name),
-        config,
-        callback,
-      });
+      tools.set(String(name), { name: String(name), config, callback });
       return fakeHandle();
     },
   } as unknown as McpServer;
-
   return { server, tools };
-}
-
-async function registerFamily(
-  family: ToolFamily,
-  server: McpServer,
-  workspaceRoot: string,
-  shellTimeout: number
-): Promise<void> {
-  switch (family) {
-    case "filesystem": {
-      const module = await import("./filesystem.js");
-      module.registerFilesystemTools(server);
-      return;
-    }
-    case "shell": {
-      const module = await import("./shell.js");
-      module.registerShellTools(server, workspaceRoot, shellTimeout);
-      return;
-    }
-    case "git": {
-      const module = await import("./git.js");
-      module.registerGitTools(server, workspaceRoot);
-      return;
-    }
-    case "context": {
-      const module = await import("./context.js");
-      module.registerContextTools(server, workspaceRoot);
-      return;
-    }
-    case "repl": {
-      const module = await import("./node-repl.js");
-      module.registerNodeReplTool(server, workspaceRoot);
-      return;
-    }
-  }
-}
-
-function normalizePreloadFamilies(families: readonly string[]): ToolFamily[] {
-  const runtimeFamilies = new Set<ToolFamily>(TOOL_FAMILIES);
-  const normalized: ToolFamily[] = [];
-
-  for (const family of families) {
-    if (runtimeFamilies.has(family as ToolFamily)) {
-      if (!normalized.includes(family as ToolFamily)) {
-        normalized.push(family as ToolFamily);
-      }
-      continue;
-    }
-
-    if (LEGACY_PRELOAD_FAMILIES.has(family)) {
-      continue;
-    }
-
-    console.warn(`[GPTWorker] Ignoring unknown preload family: ${family}`);
-  }
-
-  return normalized;
 }
 
 export interface WorkToolResolver {
@@ -172,7 +103,6 @@ export function createWorkToolResolver(
 ): WorkToolResolver {
   const loaded = new Map<ToolFamily, FamilyCache>();
   const pending = new Map<ToolFamily, Promise<FamilyCache>>();
-
   let preparedJob: string | null = null;
   let preparedFamilies = new Set<ToolFamily>();
   let preloadGeneration = 0;
@@ -187,26 +117,44 @@ export function createWorkToolResolver(
 
     const loading = (async () => {
       const capture = createCaptureServer();
-      await registerFamily(
-        family,
-        capture.server,
-        workspaceRoot,
-        shellTimeout
-      );
 
-      const cache: FamilyCache = { tools: capture.tools };
-      loaded.set(family, cache);
+      if (family === "filesystem") {
+        const module = await import("./filesystem.js");
+        module.registerFilesystemTools(capture.server);
+      } else if (family === "shell") {
+        const module = await import("./shell.js");
+        module.registerShellTools(capture.server, workspaceRoot, shellTimeout);
+      } else if (family === "git") {
+        const module = await import("./git.js");
+        module.registerGitTools(capture.server, workspaceRoot);
+      } else if (family === "context") {
+        const module = await import("./context.js");
+        module.registerContextTools(capture.server, workspaceRoot);
+      } else if (family === "repl") {
+        const module = await import("./node-repl.js");
+        module.registerNodeReplTool(capture.server, workspaceRoot);
+      }
+
+      loaded.set(family, capture);
       PROCESS_LOADED_FAMILIES.add(family);
-      return cache;
+      return capture;
     })();
 
     pending.set(family, loading);
-
     try {
       return await loading;
     } finally {
       pending.delete(family);
     }
+  }
+
+  function normalizeFamilies(families: readonly string[]): ToolFamily[] {
+    const known = new Set<ToolFamily>(TOOL_FAMILIES);
+    return [...new Set(
+      families.filter((family): family is ToolFamily =>
+        known.has(family as ToolFamily)
+      )
+    )];
   }
 
   return {
@@ -215,23 +163,19 @@ export function createWorkToolResolver(
       if (!family) {
         throw new Error(`Unknown work tool: ${tool}`);
       }
-
       const cache = await loadFamily(family);
       const captured = cache.tools.get(tool);
-
       if (!captured) {
         throw new Error(
           `Work tool '${tool}' was not registered by the '${family}' family.`
         );
       }
-
       return captured;
     },
 
     async prepareJob(jobId: string, families: readonly string[]) {
       const generation = ++preloadGeneration;
-      const requested = normalizePreloadFamilies(families);
-
+      const requested = normalizeFamilies(families);
       preparedJob = jobId;
       preparedFamilies = new Set();
 
@@ -239,27 +183,25 @@ export function createWorkToolResolver(
         await Promise.all(
           requested.map(async (family) => {
             await loadFamily(family);
-
             if (generation === preloadGeneration && preparedJob === jobId) {
               preparedFamilies.add(family);
             }
           })
         );
 
-        const current =
-          generation === preloadGeneration && preparedJob === jobId;
-
         return {
           job_id: jobId,
           generation,
           requested_families: requested,
-          prepared_families: current ? [...preparedFamilies] : [],
-          stale: !current,
+          prepared_families:
+            generation === preloadGeneration && preparedJob === jobId
+              ? [...preparedFamilies]
+              : [],
+          stale: generation !== preloadGeneration || preparedJob !== jobId,
         };
       })();
 
       preloadPromise = promise;
-
       try {
         return await promise;
       } finally {
@@ -283,7 +225,7 @@ export function createWorkToolResolver(
       return {
         loaded_families: [...loaded.keys()],
         loaded_tool_count: [...loaded.values()].reduce(
-          (count, cache) => count + cache.tools.size,
+          (count, item) => count + item.tools.size,
           0
         ),
         prepared_job: preparedJob,
@@ -307,7 +249,10 @@ export function registerWorkGateway(
   workspaceRoot: string,
   shellTimeout: number
 ): WorkToolResolver {
-  const resolver = createWorkToolResolver(workspaceRoot, shellTimeout);
+  const resolver = createWorkToolResolver(
+    workspaceRoot,
+    shellTimeout
+  );
   const profile = getChatGptToolProfile();
   const exposed = WORK_TOOL_OPERATIONS.filter((name) =>
     shouldExposeTool(name, profile)
@@ -322,7 +267,7 @@ export function registerWorkGateway(
     {
       title: "GPTWorker Work Tool",
       description:
-        "Execute one confirmed-work operation. Runtime families are local-only and lazy-loaded; supported Job preload families may be prepared while awaiting confirmation.",
+        "Execute one confirmed-work operation. The nominated Job's expected tool families are preloaded while waiting for user confirmation; any family not already prepared is still lazy-loaded on first use.",
       inputSchema: {
         tool: z.enum(exposed as [string, ...string[]]).describe(
           "Exact work operation to execute."
