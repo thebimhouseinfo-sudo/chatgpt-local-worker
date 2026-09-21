@@ -795,7 +795,7 @@ Latest GitHub Actions still fails before any test step with `steps=null`, so thi
 
 # 5.3. POST-REVIEW ROUND 3 — HARD WORKSPACE BOUNDARY
 
-## STATUS: ✅ CORE ENFORCEMENT DONE / STATIC VERIFIED / RUNTIME ACCEPTANCE PENDING
+## STATUS: ✅ CORE ENFORCEMENT DONE / STATIC VERIFIED / REAL RUNTIME ACCEPTANCE PASS
 
 Reason:
 
@@ -880,13 +880,25 @@ active Job Pack directory
 
 This keeps Custom/default Job skills and harnesses usable without reopening arbitrary project paths outside the confirmed Workspace.
 
+Real GPT Web → Tunnel → Worker acceptance result:
+
+- `dev-coding` activated only after user confirmation;
+- Workspace bound exactly to `D:\GPTWorker-Acceptance`;
+- valid mutation inside Workspace succeeded;
+- attempted write to `D:\GPTWorker-Acceptance-escape.txt` was rejected by `WORKSPACE_BOUNDARY`;
+- baseline file remained unchanged;
+- resulting Workspace contents were correct;
+- Job stop returned GPTWorker to idle.
+
+This confirms the core requirement in a live runtime: a wrong operation may fail inside the authorized Workspace, but ordinary structured execution cannot mutate an unrelated absolute path outside it.
+
 ---
 
 
 
 # 5.4. RUNTIME ACCEPTANCE FINDING — AUTHORITY MUST SURVIVE MCP TRANSPORT ROTATION
 
-## STATUS: ✅ FIXED / LOCAL RUNTIME RETEST REQUIRED
+## STATUS: ✅ FIXED / REAL RUNTIME RETEST PASS
 
 Observed during real GPT Web → Tunnel → Worker acceptance testing:
 
@@ -945,6 +957,8 @@ transport C: job_select confirmed=true
 ```
 
 This preserves real connector continuity without turning transport/session identity into work authority.
+
+Real acceptance retest passed after this correction: the admission → Job nomination/confirmation → work_handle flow completed successfully through the live GPT Web/Tunnel/Worker path.
 
 ---
 
