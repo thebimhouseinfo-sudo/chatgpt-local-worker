@@ -1,9 +1,7 @@
-/**
- * Verify slim tool profile exposes expected tools only.
- */
+import assert from "node:assert/strict";
 import {
-  SLIM_CHATGPT_TOOLS,
   LOCAL_TOOL_CATALOG,
+  SLIM_CHATGPT_TOOLS,
   shouldExposeTool,
 } from "../dist/lib/tool-profile.js";
 import {
@@ -12,61 +10,55 @@ import {
   toolFamily,
 } from "../dist/lib/tool-work-policy.js";
 
-const ALL_KNOWN = [
-  "read_text_file", "write_file", "apply_patch", "glob", "grep", "run_command",
-  "git_status", "mcp_call", "delete_directory", "read_file_base64",
-];
-
-let passed = 0;
-let failed = 0;
-function ok(m) { console.log(`OK  ${m}`); passed++; }
-function fail(m, e) { console.error(`FAIL ${m}: ${e}`); failed++; }
-
-try {
-  if (SLIM_CHATGPT_TOOLS.size < 18) throw new Error(`slim set too small: ${SLIM_CHATGPT_TOOLS.size}`);
-  ok(`slim profile has ${SLIM_CHATGPT_TOOLS.size} tools`);
-
-  for (const t of [
-    "apply_patch",
-    "glob",
-    "remember",
-    "load_path_rules",
-    "job_create",
-    "job_update",
-    "job_remove",
-    "job_export",
-    "job_import",
-    "job_stop",
-    "move_file",
-    "gptworker_control",
-    "gptworker_admission",
-    "workspace_discover",
-    "work_tool",
-  ]) {
-    if (!shouldExposeTool(t, "slim")) throw new Error(`${t} missing from slim`);
-  }
-  ok("core and public job lifecycle tools exposed in slim");
-
-  if (shouldExposeTool("mcp_call", "slim")) throw new Error("mcp_call should be hidden in slim");
-  if (shouldExposeTool("delete_directory", "slim")) throw new Error("delete_directory hidden");
-  if (shouldExposeTool("help", "slim")) throw new Error("gr/help (gptworker/help) must stay chat-only, not an MCP tool");
-  ok("heavy tools hidden and no generic help tool is exposed");
-
-  if (!shouldExposeTool("mcp_call", "full")) throw new Error("full should expose all");
-  ok("full profile exposes all");
-
-  // N1: Verify no orphan tools exist in LOCAL_TOOL_CATALOG
-  for (const t of LOCAL_TOOL_CATALOG) {
-    const isControl = isControlTool(t);
-    const needsWorkHandle = requiresWorkHandle(t);
-    if (isControl === needsWorkHandle) {
-      throw new Error(`Tool '${t}' classification conflict: isControl=${isControl}, requiresWorkHandle=${needsWorkHandle}`);
-    }
-  }
-  ok("all tools in LOCAL_TOOL_CATALOG are strictly classified as control or work tools");
-} catch (e) {
-  fail("tool profile", e.message || e);
+for (const tool of [
+  "apply_patch",
+  "glob",
+  "remember",
+  "load_path_rules",
+  "job_create",
+  "job_update",
+  "job_remove",
+  "job_export",
+  "job_import",
+  "job_stop",
+  "move_file",
+  "gptworker_control",
+  "gptworker_admission",
+  "workspace_discover",
+  "work_tool",
+]) {
+  assert.equal(shouldExposeTool(tool, "slim"), true, `${tool} missing from slim`);
 }
 
-console.log(`\n${passed} passed, ${failed} failed`);
-process.exit(failed ? 1 : 0);
+for (const retired of [
+  "mcp_servers",
+  "mcp_tools",
+  "mcp_call",
+  "ponytail_turn",
+  "rewind",
+]) {
+  assert.equal(LOCAL_TOOL_CATALOG.includes(retired), false, `${retired} remains in catalog`);
+  assert.equal(SLIM_CHATGPT_TOOLS.has(retired), false, `${retired} remains in slim profile`);
+}
+
+assert.equal(shouldExposeTool("delete_directory", "slim"), false);
+assert.equal(shouldExposeTool("delete_directory", "full"), true);
+assert.equal(shouldExposeTool("help", "slim"), false);
+
+for (const tool of LOCAL_TOOL_CATALOG) {
+  const control = isControlTool(tool);
+  const needsWork = requiresWorkHandle(tool);
+  assert.notEqual(
+    control,
+    needsWork,
+    `tool classification conflict for ${tool}: control=${control}, work=${needsWork}`
+  );
+}
+
+assert.equal(toolFamily("read_text_file"), "filesystem");
+assert.equal(toolFamily("run_command"), "shell");
+assert.equal(toolFamily("git_status"), "git");
+assert.equal(toolFamily("project_context"), "context");
+assert.equal(toolFamily("node_repl"), "repl");
+
+console.log("test-tool-profile: ok — local tool surface only");

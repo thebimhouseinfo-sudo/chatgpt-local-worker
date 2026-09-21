@@ -1,107 +1,107 @@
+import assert from "node:assert/strict";
 import fs from "node:fs/promises";
 
 const serverFactory = await fs.readFile("src/server-factory.ts", "utf8");
 const workGateway = await fs.readFile("src/tools/work-gateway.ts", "utf8");
-const jobs = await fs.readFile("src/tools/jobs.ts", "utf8");
 const sessionManager = await fs.readFile("src/lib/mcp-session-manager.ts", "utf8");
+const nodeRepl = await fs.readFile("src/tools/node-repl.ts", "utf8");
+const context = await fs.readFile("src/tools/context.ts", "utf8");
 const tray = await fs.readFile("gptworker-tray.ps1", "utf8");
 const start = await fs.readFile("start.ps1", "utf8");
 const tunnel = await fs.readFile("openai-tunnel.ps1", "utf8");
+const setupTest = await fs.readFile("setup-test.bat", "utf8");
+
 if (/[^\x00-\x7F]/.test(tunnel)) {
   throw new Error("openai-tunnel.ps1 must remain ASCII-safe for Windows PowerShell 5.1");
 }
-const setupTest = await fs.readFile("setup-test.bat", "utf8");
 
-const heavyModules = [
+for (const modulePath of [
   "./tools/filesystem.js",
   "./tools/shell.js",
   "./tools/git.js",
   "./tools/context.js",
   "./tools/node-repl.js",
-  "./tools/ponytail.js",
-  "./tools/rewind.js",
-  "./tools/mcp-bridge.js",
-];
-
-for (const modulePath of heavyModules) {
-  if (serverFactory.includes(`import("${modulePath}")`)) {
-    throw new Error(`server factory must not preload execution module: ${modulePath}`);
-  }
+]) {
+  assert.equal(
+    serverFactory.includes(`import("${modulePath}")`),
+    false,
+    `server factory must not preload execution module: ${modulePath}`
+  );
 }
 
-if (!serverFactory.includes("registerWorkGateway(")) {
-  throw new Error("lightweight work gateway is not registered");
-}
-if (!serverFactory.includes("registerAdmissionTool(server, admissionRuntime)")) {
-  throw new Error("session-scoped GPTWorker admission handshake is not registered");
-}
-if (!serverFactory.includes("new AdmissionRuntime()")) {
-  throw new Error("admission authority must be scoped to each MCP server/session");
-}
-if (!serverFactory.includes("registerWorkspaceDiscoveryTool(")) {
-  throw new Error("minimal pre-confirmation workspace discovery is not registered");
-}
-if (!serverFactory.includes(".prepareJob(job.id")) {
-  throw new Error("nominated Job profile is not preloaded while awaiting confirmation");
-}
-if (serverFactory.includes("onWorkActivated") || jobs.includes("onWorkActivated")) {
-  throw new Error("Job confirmation must not activate execution modules");
-}
-if (!workGateway.includes('import("./filesystem.js")')) {
-  throw new Error("filesystem family is not lazy imported by work gateway");
-}
-if (!workGateway.includes('import("./shell.js")')) {
-  throw new Error("shell family is not lazy imported by work gateway");
-}
-if (!workGateway.includes('import("./git.js")')) {
-  throw new Error("git family is not lazy imported by work gateway");
-}
-if (!workGateway.includes("async resolve(tool: string)")) {
-  throw new Error("work gateway does not resolve operations on demand");
-}
-if (!workGateway.includes("async prepareJob(jobId: string")) {
-  throw new Error("work gateway does not support nomination-time preload");
-}
-if (!workGateway.includes("preloadGeneration")) {
-  throw new Error("work gateway must invalidate stale nomination preload generations");
+for (const required of [
+  "registerWorkGateway(",
+  "registerAdmissionTool(server, admissionRuntime)",
+  "new AdmissionRuntime()",
+  "registerWorkspaceDiscoveryTool(",
+  ".prepareJob(job.id",
+]) {
+  assert.equal(serverFactory.includes(required), true, `server factory missing: ${required}`);
 }
 
-if (sessionManager.includes("refreshProxiedTools")) {
-  throw new Error("MCP session startup must not auto-discover upstream tools");
+for (const lazyModule of [
+  'import("./filesystem.js")',
+  'import("./shell.js")',
+  'import("./git.js")',
+  'import("./context.js")',
+  'import("./node-repl.js")',
+]) {
+  assert.equal(workGateway.includes(lazyModule), true, `gateway missing lazy import: ${lazyModule}`);
 }
 
-if (sessionManager.includes("await runCodexSessionStartHooks")) {
-  throw new Error("SessionStart hooks must not block MCP initialize");
-}
-if (!sessionManager.includes("getCachedCodexSessionStartHooks()")) {
-  throw new Error("cached hook instructions are not used during initialize");
-}
-if (!sessionManager.includes("void primeCodexSessionStartHooks()")) {
-  throw new Error("SessionStart hook background warmup is missing");
+for (const retired of [
+  "mcp-upstream",
+  "mcp-bridge",
+  "ponytail.js",
+  "rewind.js",
+  "McpUpstreamManager",
+]) {
+  assert.equal(workGateway.includes(retired), false, `gateway contains retired dependency: ${retired}`);
 }
 
-if (!tray.includes('"start.ps1") -ExtraArgs @("-Port", "$WorkerPort", "-Detach")')) {
-  throw new Error("tray must launch Worker in detached mode");
+for (const retired of [
+  "getUpstreamManager",
+  "codex-hooks",
+  "getCachedCodexSessionStartHooks",
+  "primeCodexSessionStartHooks",
+  "refreshProxiedTools",
+]) {
+  assert.equal(sessionManager.includes(retired), false, `session manager contains retired dependency: ${retired}`);
 }
-if (!tray.includes('"openai-tunnel.ps1") -ExtraArgs @("-Port", "$WorkerPort", "-Detach")')) {
-  throw new Error("tray must launch tunnel in detached mode");
+
+for (const required of [
+  "enqueueSessionOp",
+  'req.method !== "GET"',
+  "scheduleDeleteGrace",
+  "warmUpRecoveredSession",
+  "gptworker-mcp-session-recovery",
+]) {
+  assert.equal(sessionManager.includes(required), true, `session stability behavior missing: ${required}`);
 }
-if (
-  !start.includes("[switch]$Detach") ||
-  !start.includes("Get-Command node") ||
-  !start.includes("Start-Process -FilePath $nodeExe")
-) {
-  throw new Error("start.ps1 detached node launch is missing");
+
+for (const retired of ["@oai/sky", "codex-computer-use", "plugin-config", "globalThis.sky"]) {
+  assert.equal(nodeRepl.includes(retired), false, `node_repl contains retired dependency: ${retired}`);
 }
-if (!tunnel.includes("[switch]$Detach") || !tunnel.includes("Start-Process -FilePath $bin")) {
-  throw new Error("openai-tunnel.ps1 detached tunnel launch is missing");
+
+for (const retired of ["getUpstreamManager", "upstream_mcp", "mcp-upstream"]) {
+  assert.equal(context.includes(retired), false, `context contains retired dependency: ${retired}`);
 }
-if (!tunnel.includes("Quote-ProcessArgument $ProfileFile")) {
-  throw new Error("detached tunnel profile path must be quoted for Windows paths with spaces");
-}
-if (!tunnel.includes('$argumentLine = "run --profile-file $quotedProfile"')) {
-  throw new Error("detached tunnel must pass a quoted profile path argument line");
-}
+
+assert.equal(
+  tray.includes('"start.ps1") -ExtraArgs @("-Port", "$WorkerPort", "-Detach")'),
+  true
+);
+assert.equal(
+  tray.includes('"openai-tunnel.ps1") -ExtraArgs @("-Port", "$WorkerPort", "-Detach")'),
+  true
+);
+assert.equal(start.includes("[switch]$Detach"), true);
+assert.equal(start.includes("Get-Command node"), true);
+assert.equal(start.includes("Start-Process -FilePath $nodeExe"), true);
+assert.equal(tunnel.includes("[switch]$Detach"), true);
+assert.equal(tunnel.includes("Start-Process -FilePath $bin"), true);
+assert.equal(tunnel.includes("Quote-ProcessArgument $ProfileFile"), true);
+assert.equal(tunnel.includes('$argumentLine = "run --profile-file $quotedProfile"'), true);
 
 for (const required of [
   "O Permissions, chon Restricted.",
@@ -113,9 +113,7 @@ for (const required of [
   "Neu co muc chon ChatGPT workspace, chon dung workspace",
   "API key giong nhu chia khoa",
 ]) {
-  if (!tunnel.includes(required)) {
-    throw new Error(`setup wizard is missing non-developer guidance: ${required}`);
-  }
+  assert.equal(tunnel.includes(required), true, `tunnel setup guidance missing: ${required}`);
 }
 
 for (const required of [
@@ -126,9 +124,7 @@ for (const required of [
   "gõ bất kỳ chữ nào",
   "Kết nối GPTWorker với ChatGPT",
 ]) {
-  if (!setupTest.includes(required)) {
-    throw new Error(`setup-test UX contract missing: ${required}`);
-  }
+  assert.equal(setupTest.includes(required), true, `setup-test UX contract missing: ${required}`);
 }
 
-console.log("test-idle-runtime: ok");
+console.log("test-idle-runtime: ok — control plane is local-only and lazy");

@@ -1,152 +1,138 @@
-/**
- * Full verification suite for ChatGPT MCP readiness.
- */
 import { spawn } from "node:child_process";
-import path from "path";
-import { fileURLToPath } from "url";
+import path from "node:path";
+import { fileURLToPath } from "node:url";
 
-const __dirname = path.dirname(fileURLToPath(import.meta.url));
-const root = path.resolve(__dirname, "..");
+const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
+const port = 4400 + (process.pid % 200);
 
-const mcpPort = 4200 + Math.floor(Math.random() * 200);
-const adminPort = mcpPort + 1;
-
-function runNode(script, env = {}) {
-  const scriptPath = path.join(root, script);
+function run(command, args, env = process.env) {
   return new Promise((resolve, reject) => {
-    const child = spawn(process.execPath, [scriptPath], {
+    const child = spawn(command, args, {
       cwd: root,
-      env: { ...process.env, ...env },
+      env,
       stdio: "inherit",
+      shell: false,
     });
-    child.on("close", (code) => (code === 0 ? resolve() : reject(new Error(`${script} exit ${code}`))));
+    child.on("error", reject);
+    child.on("close", (code) =>
+      code === 0 ? resolve() : reject(new Error(`${command} ${args.join(" ")} exit ${code}`))
+    );
   });
 }
 
-function runBuild() {
-  return new Promise((resolve, reject) => {
-    const child = spawn(process.execPath, [path.join(root, "node_modules/typescript/bin/tsc")], {
-      cwd: root,
-      env: process.env,
-      stdio: "inherit",
-    });
-    child.on("error", () => {
-      const fallback = spawn("npm", ["run", "build"], { cwd: root, stdio: "inherit", shell: true });
-      fallback.on("close", (code) => (code === 0 ? resolve() : reject(new Error(`build exit ${code}`))));
-    });
-    child.on("close", (code) => (code === 0 ? resolve() : reject(new Error(`tsc exit ${code}`))));
-  });
-}
-
-async function waitFor(url, ms = 25000) {
-  const t0 = Date.now();
-  while (Date.now() - t0 < ms) {
+async function waitForHealth(url, timeoutMs = 25000) {
+  const deadline = Date.now() + timeoutMs;
+  while (Date.now() < deadline) {
     try {
-      const res = await fetch(url);
-      if (res.ok) return await res.json();
+      const response = await fetch(url);
+      if (response.ok) return await response.json();
     } catch {}
-    await new Promise((r) => setTimeout(r, 250));
+    await new Promise((resolve) => setTimeout(resolve, 250));
   }
-  throw new Error(`timeout ${url}`);
+  throw new Error(`timeout waiting for ${url}`);
 }
 
-console.log("=== Build ===");
-await runBuild();
+const npm = process.platform === "win32" ? "npm.cmd" : "npm";
 
-const unitScripts = [
-  "scripts/test-patch.mjs",
-  "scripts/test-tools.mjs",
-  "scripts/test-checkpoints.mjs",
-  "scripts/test-activity-log.mjs",
-  "scripts/test-project-memory.mjs",
-  "scripts/test-tool-profile.mjs",
-  "scripts/test-control-surface.mjs",
-  "scripts/test-shell-persist.mjs",
-];
+console.log("=== Default test suite ===");
+await run(npm, ["test"]);
 
-console.log("\n=== Unit tests ===");
-const failedScripts = [];
-for (const script of unitScripts) {
-  console.log(`\n--- ${script} ---`);
-  try {
-    await runNode(script);
-  } catch (err) {
-    failedScripts.push({ script, error: err });
-    console.error(`FAIL: ${script}`);
-  }
-}
-
-if (failedScripts.length > 0) {
-  console.error(`\n❌ ${failedScripts.length} unit test(s) failed: ${failedScripts.map((f) => f.script).join(", ")}`);
-  process.exit(1);
-}
-
-console.log("\n=== Integration (spawn server) ===");
+console.log("\n=== Runtime integration ===");
 const server = spawn(process.execPath, ["dist/index.js"], {
   cwd: root,
   env: {
     ...process.env,
-    PORT: String(mcpPort),
-    ADMIN_PORT: String(adminPort),
-    CHATGPT_TOOL_PROFILE: "full",
+    PORT: String(port),
+    CHATGPT_TOOL_PROFILE: "slim",
   },
   stdio: ["ignore", "pipe", "pipe"],
 });
 
 let serverLog = "";
-server.stdout?.on("data", (d) => (serverLog += d));
-server.stderr?.on("data", (d) => (serverLog += d));
+server.stdout?.on("data", (chunk) => (serverLog += chunk.toString()));
+server.stderr?.on("data", (chunk) => (serverLog += chunk.toString()));
 
 try {
-  const health = await waitFor(`http://127.0.0.1:${mcpPort}/health`);
-  if (!health.instructions?.tool_profile) throw new Error("health missing instructions");
-  console.log(`OK  health: profile=${health.instructions.tool_profile}, memory=${health.instructions.memory_files?.length ?? 0} files`);
+  const health = await waitForHealth(`http://127.0.0.1:${port}/health`);
 
-  const admin = await waitFor(`http://127.0.0.1:${adminPort}/health`);
-  if (!admin.instructions) throw new Error("admin health missing instructions");
-  console.log("OK  admin health");
+  if (health.status !== "ok") throw new Error(`health not ok: ${JSON.stringify(health)}`);
+  if (health.instructions?.mode !== "control-plane") {
+    throw new Error(`unexpected instruction mode: ${JSON.stringify(health.instructions)}`);
+  }
+  if (health.instructions?.memory_files || health.instructions?.upstream_mcp) {
+    throw new Error("health still exposes retired rich/upstream instruction state");
+  }
 
-  const preview = await (await fetch(`http://127.0.0.1:${adminPort}/api/instructions/preview`)).json();
-  if (!preview.preview?.includes("GPTWorker")) throw new Error("instructions preview missing agent prompt");
-  console.log(`OK  instructions preview ${preview.total_chars} chars`);
+  console.log(
+    `OK  health: mode=${health.instructions.mode}, runtime=${health.runtimeMode}`
+  );
 
-  // MCP session + tools/list count
-  const initRes = await fetch(`http://127.0.0.1:${mcpPort}/mcp`, {
-    method: "POST",
-    headers: { "Content-Type": "application/json", Accept: "application/json, text/event-stream" },
-    body: JSON.stringify({
-      jsonrpc: "2.0",
-      id: 1,
-      method: "initialize",
-      params: { protocolVersion: "2025-03-26", capabilities: {}, clientInfo: { name: "test", version: "1" } },
-    }),
-  });
-  const sid = initRes.headers.get("mcp-session-id");
-  if (!sid) throw new Error("no session id");
-
-  const listRes = await fetch(`http://127.0.0.1:${mcpPort}/mcp`, {
+  const initResponse = await fetch(`http://127.0.0.1:${port}/mcp`, {
     method: "POST",
     headers: {
       "Content-Type": "application/json",
       Accept: "application/json, text/event-stream",
-      "mcp-session-id": sid,
+    },
+    body: JSON.stringify({
+      jsonrpc: "2.0",
+      id: 1,
+      method: "initialize",
+      params: {
+        protocolVersion: "2025-03-26",
+        capabilities: {},
+        clientInfo: { name: "gptworker-validation", version: "1.0.0" },
+      },
+    }),
+  });
+
+  if (!initResponse.ok) {
+    throw new Error(`initialize HTTP ${initResponse.status}: ${await initResponse.text()}`);
+  }
+
+  const sessionId = initResponse.headers.get("mcp-session-id");
+  if (!sessionId) throw new Error("initialize did not return mcp-session-id");
+
+  const listResponse = await fetch(`http://127.0.0.1:${port}/mcp`, {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+      Accept: "application/json, text/event-stream",
+      "mcp-session-id": sessionId,
       "mcp-protocol-version": "2025-03-26",
     },
-    body: JSON.stringify({ jsonrpc: "2.0", id: 2, method: "tools/list", params: {} }),
+    body: JSON.stringify({
+      jsonrpc: "2.0",
+      id: 2,
+      method: "tools/list",
+      params: {},
+    }),
   });
-  const listText = await listRes.text();
-  const listJson = JSON.parse(listText);
-  const tools = listJson?.result?.tools || [];
-  const bytes = Buffer.byteLength(listText, "utf-8");
-  console.log(`OK  tools/list: ${tools.length} tools, ${Math.round(bytes / 1024)}KB`);
-  if (tools.length > 30) console.warn(`WARN tools/list has ${tools.length} tools — consider slim profile`);
-  if (!tools.some((t) => t.name === "work_tool" || t.name === "apply_patch")) throw new Error("work execution tool missing");
 
-  process.env.PORT = String(mcpPort);
-  await runNode("scripts/test-mcp-session.mjs", { PORT: String(mcpPort) });
-  console.log("OK  test-mcp-session");
+  const listJson = await listResponse.json();
+  const tools = listJson?.result?.tools ?? [];
+  const names = tools.map((tool) => tool.name);
+
+  for (const required of ["gptworker_control", "gptworker_admission", "job_select", "work_tool"]) {
+    if (!names.includes(required)) throw new Error(`tools/list missing ${required}`);
+  }
+
+  for (const retired of ["mcp_call", "mcp_servers", "mcp_tools", "ponytail_turn", "rewind"]) {
+    if (names.includes(retired)) throw new Error(`tools/list exposes retired tool ${retired}`);
+  }
+
+  console.log(`OK  tools/list: ${names.length} tools, retired surfaces absent`);
+
+  await run(process.execPath, [path.join(root, "scripts/test-mcp-session.mjs")], {
+    ...process.env,
+    PORT: String(port),
+  });
+
+  console.log("OK  MCP session recovery");
+} catch (error) {
+  console.error(serverLog);
+  throw error;
 } finally {
   server.kill();
 }
 
-console.log("\n=== ALL TESTS PASSED ===");
+console.log("\n=== ALL TARGET-ARCHITECTURE TESTS PASSED ===");

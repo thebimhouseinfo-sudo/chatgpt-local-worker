@@ -240,11 +240,12 @@ const slimContext = await buildInstructionContext({
   workspaceRoot: repoRoot,
   workspaceRoots: [repoRoot],
   pid: process.pid,
-  adminPort: 3001,
 });
-assert.ok(slimContext.contextText.includes("Slim control plane:"));
+assert.ok(slimContext.contextText.includes("## GPTWorker control plane"));
 assert.ok(!slimContext.contextText.includes("# GPTWorker — Worker Policy"));
 assert.ok(!slimContext.contextText.includes("# ChatGPT Local Worker — Repository Agent Instructions"));
+assert.ok(!slimContext.contextText.includes("## Git"));
+assert.ok(!slimContext.contextText.includes("## Project memory"));
 assert.ok(!slimContext.instructionsText.includes(GPTWORKER_ROOT_MENU));
 assert.ok(!slimContext.instructionsText.includes(GPTWORKER_HELP));
 assert.ok(slimContext.instructionsText.includes("gptworker_control once with surface=commands"));
