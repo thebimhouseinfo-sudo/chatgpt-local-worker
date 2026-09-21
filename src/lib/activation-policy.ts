@@ -92,6 +92,7 @@ function isPublicControlCommand(userTurn: string): boolean {
 
 export class AdmissionRuntime {
   private armedAtFlow: ArmedAtFlow | undefined;
+  private readonly ownedAdmissionTokens = new Set<string>();
 
   private cleanup(): void {
     const now = Date.now();
@@ -194,6 +195,7 @@ export class AdmissionRuntime {
       workspace,
       createdAt: Date.now(),
     });
+    this.ownedAdmissionTokens.add(token);
 
     // The explicit @ flow is one-shot for admitting a new Job/Workspace request.
     // Once a token is minted, the token carries the current flow through
@@ -225,7 +227,7 @@ export class AdmissionRuntime {
     const proof = SHARED_ADMISSIONS.get(token);
     if (!proof) {
       throw new Error(
-        "ADMISSION_REQUIRED: admission token is missing, stale, invalid, or belongs to another MCP session. Start again through @gptworker."
+        "ADMISSION_REQUIRED: admission token is missing, stale, invalid, or belongs to another GPTWorker admission flow. Start again through @gptworker."
       );
     }
 
@@ -291,10 +293,14 @@ export class AdmissionRuntime {
     this.cleanup();
     if (!token) return;
     SHARED_ADMISSIONS.delete(token);
+    this.ownedAdmissionTokens.delete(token);
   }
 
   clear(): void {
-    SHARED_ADMISSIONS.clear();
+    for (const token of this.ownedAdmissionTokens) {
+      SHARED_ADMISSIONS.delete(token);
+    }
+    this.ownedAdmissionTokens.clear();
     this.armedAtFlow = undefined;
   }
 }
@@ -309,7 +315,7 @@ export function validateActivationGate(input: ActivationGateInput): ActivationGa
   const request = input.activationRequest?.trim();
   if (!request) {
     throw new Error(
-      "ACTIVATION_REQUIRED: activation_request must contain the explicit @gptworker invocation observed in this MCP session."
+      "ACTIVATION_REQUIRED: activation_request must contain the explicit @gptworker invocation for this admission flow."
     );
   }
 
