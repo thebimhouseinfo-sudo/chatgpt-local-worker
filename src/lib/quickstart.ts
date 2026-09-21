@@ -193,20 +193,6 @@ Nhập tiếp \`3\` hoặc \`gptworker/job create\` để bắt đầu tạo cus
 export const GPTWORKER_IDLE_PROMPT = buildGptworkerWelcome();
 
 export const MCP_QUICKSTART = `
-## GPTWorker root command surface
-When the user sends exactly gptworker/, reply with GPTWORKER_ROOT_MENU verbatim.
-
-This is zero-tool. Do not call job_list, gptworker_admission, job_status, or any MCP tool. Do not rewrite, shorten, expand, reorder, or reformat GPTWORKER_ROOT_MENU.
-
-Contextual numeric shortcuts exist only when GPTWorker itself has just displayed a numbered choice list:
-- Immediately after GPTWORKER_ROOT_MENU, a reply consisting only of 1 through 8 means the command shown at that number.
-- Immediately after the bare @gptworker Welcome, a reply using a displayed Job number or displayed Job name may select that displayed Job within the already-armed @gptworker flow.
-- Outside the immediately preceding displayed choice list, never interpret a bare number as a GPTWorker command or Job.
-- Do not invent any other shortcut or make these shortcuts global.
-
-## gptworker/help
-When the user sends exactly gptworker/help, or replies only \`1\` immediately after GPTWORKER_ROOT_MENU, reply with GPTWORKER_HELP verbatim. This is zero-tool: do not call any MCP tool, do not create/select a Job, do not infer a folder, do not change Worker state, and do not rewrite, shorten, expand, or reformat GPTWORKER_HELP.
-
 ## Bare GPTWorker invocation — approved Welcome
 When the user invokes bare \`@gptworker\` with no concrete task + Workspace yet, call \`job_list\` exactly once with \`activation_request\` set to the exact current user text containing literal \`@gptworker\`.
 
@@ -361,52 +347,40 @@ export function buildServerInstructions(
   _fullDiskAccess: boolean,
   contextBlock?: string
 ): string {
+  const controlSurface = [
+    "# GPTWorker static control surface — HIGHEST PRIORITY",
+    "For the exact commands below, stop immediately after returning the specified fixed text. Do not call tools. Do not summarize, explain, rewrite, reorder, or add anything.",
+    "## Exact command: gptworker/",
+    "Return the following text verbatim:",
+    GPTWORKER_ROOT_MENU,
+    "## Exact command: gptworker/help",
+    "Return the following text verbatim:",
+    GPTWORKER_HELP,
+    "## Immediate contextual shortcuts",
+    "Only immediately after GPTWORKER_ROOT_MENU, a reply containing only 1 through 8 means the command displayed at that number.",
+    "Only immediately after the bare @gptworker Welcome, a displayed Job number or displayed Job name may select that Job in the already-armed flow.",
+    "Outside those immediately preceding choice lists, never interpret a bare number as a GPTWorker command or Job.",
+  ].join("\n\n");
+
   const header = [
     "# GPTWorker MCP",
     "Full machine access: ON.",
-    "The startup cwd is not project authority. JOB + absolute local FOLDER must be resolved from the current chat and explicitly confirmed before job-specific execution.",
+    "The startup cwd is not project authority. JOB + FOLDER must be resolved from the current chat and explicitly confirmed before job-specific execution.",
     "A work_handle is the only active-work authority. worker-state.json is compatibility/diagnostic state only and must never be used to infer or resume another chat's Job or Workspace.",
   ].join("\n");
 
+  const body = contextBlock?.trim();
+
   const footer = [
-    "## Quick pointers",
+    "## Runtime pointers",
     `Startup root: ${workspaceRoot}`,
     `Startup roots: ${workspaceRoots.join("; ")}`,
-    "gptworker/help — reply with the prewritten newcomer guide only; do not call tools or change Worker state",
-    "gptworker/ — ZERO tools; reply only with GPTWORKER_ROOT_MENU (8 system commands, no Jobs)",
-    "bare @gptworker — call job_list once with activation_request, then return its approved welcome_text verbatim",
-    "gptworker_admission — work activation is @-flow-only; a turn starting with @gptworker or a continuation of a session armed by bare @ may become ACTIVE; fresh task + local path stays INACTIVE",
-    "job_status — inspect this chat's work only when its work_handle is supplied; otherwise report unemployed",
-    "job_list — list/suggest jobs only in the explicit @gptworker flow or when the user explicitly requests the Job catalog",
-    "Root gptworker/ menu is fixed: help, job list, job create, job update, job remove, job export, job import, job stop. Never append dynamic Job Pack ids.",
-    "job_select — requires ACTIVE admission_token from gptworker_admission; never enter directly",
-    "job_create — create a Job Pack without activating dev-coding or inheriting a workspace",
-    "job_remove — remove an inactive custom Job Pack only after explicit confirmation; bundled defaults remain protected",
-    "job_export — export a custom Job as <id>.zip to an absolute local destination directory",
-    "job_import — import a validated custom Job from an absolute local ZIP path or directory containing exactly one ZIP",
-    "job_stop — cancel this session's pending/selected state without a handle, or end active work with its work_handle; idle timeout is the abandoned-active-work fallback",
-    "workspace_discover — ambiguity fallback inside an explicit @gptworker flow only; never activate from task + local path in a fresh/unarmed session",
-    "job_select confirmed=false — nominate the Job and begin background preload of its declared runtime.preload_families while waiting for confirmation",
-    "if the nomination changes, invalidate the prior preload generation and prepare the replacement Job profile",
-    "work_tool — confirmed-work execution gateway; use the warmed Job profile and lazy-load only unexpected families",
-    "project_context / agent_status and all other confirmed workspace operations are dispatched through work_tool",
+    "bare @gptworker — call job_list once with activation_request, then return its approved welcome_text verbatim and nothing else",
+    "Public static commands gptworker/ and gptworker/help are zero-tool and must use the fixed text at the top of these instructions",
     "User-facing Welcome, Help, root menu, confirmation, and folder prompts must never introduce technical path wording such as absolute path, absolute local folder, thư mục tuyệt đối, or đường dẫn tuyệt đối; internal path validation remains unchanged.",
   ].join("\n");
 
-  const body = contextBlock?.trim();
-  const commandContract = [
-    "## Prewritten gptworker/ root menu",
-    "When the user sends exactly gptworker/, return this verbatim and do not call tools. If the immediately following user reply is only a number 1-8, treat it as the corresponding displayed command; never use that numeric shortcut outside this menu context:",
-    GPTWORKER_ROOT_MENU,
-    "## Bare @gptworker response",
-    "When the user invokes bare @gptworker, call job_list once with activation_request set to the exact current user turn. Return the tool's welcome_text verbatim. Do not rewrite it, expose hidden Jobs, or add extra guidance.",
-    "## Prewritten gptworker/help response",
-    "When the user sends exactly gptworker/help, or only 1 immediately after the root menu, return the following approved guide verbatim and do not call tools:",
-    GPTWORKER_HELP,
-    MCP_QUICKSTART,
-  ].join("\n\n");
-
-  return [header, body, commandContract, footer]
+  return [controlSurface, header, body, MCP_QUICKSTART, footer]
     .filter(Boolean)
     .join("\n\n");
 }
