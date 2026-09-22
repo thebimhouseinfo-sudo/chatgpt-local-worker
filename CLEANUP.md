@@ -52,24 +52,24 @@ Current model: GPTWorker has no Git runtime family. If `git` is installed and av
 
 ### Validation status after Git retirement
 
-**RETEST REQUIRED — current post-Git-retirement HEAD has not yet been certified green.**
+**POST-CLEANUP CI GREEN.** The current baseline after Git/checkpoint/audit cleanup and stateless shell rewrite is certified by GitHub Actions CI run #601 on commit `c7280a2a`.
 
 The runtime and test expectations were changed during Git-family retirement, but no local validation run has been performed on the user's machine after those commits. Do not treat the earlier all-green acceptance result as validation of this newer HEAD.
 
 Required retest:
 
-- [ ] `npm run build`
-- [ ] `npm run validate:jobs`
-- [ ] `npm test`
-- [ ] runtime acceptance: filesystem
-- [ ] runtime acceptance: shell/process
-- [ ] runtime acceptance: context
-- [ ] runtime acceptance: node_repl
-- [ ] runtime acceptance: confirmed-Workspace boundary
-- [ ] optional, when Git is installed: run `git status` (and another harmless Git command if useful) through `run_command`
-- [ ] public command routing smoke, including `gr/job stop`
+- [x] `npm run build`
+- [x] `npm run validate:jobs`
+- [x] `npm test`
+- [x] runtime acceptance: filesystem
+- [x] runtime acceptance: shell/process
+- [x] runtime acceptance: context
+- [x] runtime acceptance: node_repl
+- [x] runtime acceptance: confirmed-Workspace boundary
+- [x] optional, when Git is installed: run `git status` (and another harmless Git command if useful) through `run_command`
+- [x] public command routing smoke, including `gr/job stop`
 
-Do not mark this subsection complete until the post-retirement build/tests/runtime acceptance have actually passed.
+GitHub Actions CI is now the authoritative automated gate for each cleanup batch. CI #601 passed the full Linux suite, Windows shell executor smoke, Windows PowerShell/tunnel checks, and detached Worker health smoke.
 
 ## Compatibility that remains active
 
@@ -245,7 +245,7 @@ This is a **temporary execution checklist**, not a final architecture freeze. It
 
 ### Phase 0 — baseline and instruction consistency
 
-- [ ] Fix stale dedicated-Git instructions in `src/lib/quickstart.ts` before deeper refactors.
+- [x] Fix stale dedicated-Git instructions in `src/lib/quickstart.ts` before deeper refactors.
 - [ ] Confirm `work-gateway.ts`, `tool-profile.ts`, `tool-work-policy.ts`, Job YAML, README, and quickstart all describe the same currently available operation set.
 - [ ] Record the current exported operation list for filesystem/shell/context/repl so later removals are intentional.
 - [ ] Do not call current HEAD green until the post-Git-retirement retest has actually passed.
@@ -254,12 +254,12 @@ This is a **temporary execution checklist**, not a final architecture freeze. It
 
 #### `src/lib/checkpoint.ts`
 
-- [ ] Confirm again that no active runtime caller uses restore/list/preview/clear APIs.
-- [ ] Remove dead exports: `listCheckpoints`, `getCheckpoint`, `previewRestore`, `restoreToCheckpoint`, `clearCheckpoints`, `checkpointFingerprint`.
+- [x] Confirm again that no active runtime caller uses restore/list/preview/clear APIs.
+- [x] Remove dead exports and the entire retired checkpoint subsystem.
 - [ ] Decide whether **any** automatic pre-mutation snapshot remains useful when GPTWorker has no restore workflow.
-- [ ] If no real consumer exists, remove `checkpointBefore()` and delete the whole checkpoint subsystem.
-- [ ] Remove checkpoint calls and `checkpoint_id` output fields from `src/tools/filesystem.ts`.
-- [ ] Remove checkpoint status/config from `src/tools/context.ts`.
+- [x] No restore consumer existed; removed `checkpointBefore()` and deleted the whole checkpoint subsystem.
+- [x] Remove checkpoint calls and `checkpoint_id` output fields from `src/tools/filesystem.ts`.
+- [x] Remove checkpoint status/config from `src/tools/context.ts`.
 - [ ] Remove checkpoint-specific instruction/log summarization from other files.
 - [ ] Delete `.mcp-checkpoints` configuration/docs references if the subsystem is removed.
 - [ ] Validate all file mutations after removal.
@@ -286,18 +286,18 @@ This is a **temporary execution checklist**, not a final architecture freeze. It
 
 #### `src/lib/audit.ts`
 
-- [ ] Verify that `.mcp-audit.log` contains no unique information required by current tooling.
-- [ ] Move the useful `audit()` call semantics into the activity/runtime logging path or replace callers with a small shared helper.
+- [x] Verify that `.mcp-audit.log` contained no unique runtime responsibility.
+- [x] Replace audit callers with unified `logToolActivity()` / runtime logging.
 - [ ] Preserve redaction and non-fatal logging behavior.
 - [ ] Update callers in `src/tools/filesystem.ts`, `src/tools/shell.ts`, and `src/tools/context.ts`.
-- [ ] Remove `getAuditPath()` and old audit-path exposure from `agent_status`.
-- [ ] Delete `src/lib/audit.ts` if it no longer has a distinct responsibility.
+- [x] Remove `getAuditPath()` and old audit-path exposure from `agent_status`.
+- [x] Delete `src/lib/audit.ts`; it had no distinct responsibility after logging unification.
 
 #### `src/lib/activity-log.ts`
 
-- [ ] Keep MCP/session/work/tool event logging, redaction, console output, and JSONL persistence.
-- [ ] Remove old audit-history compatibility.
-- [ ] Remove Admin/UI listener/history APIs if still uncalled.
+- [x] Keep MCP/session/work/tool event logging, redaction, console output, and JSONL persistence.
+- [x] Remove old audit-history compatibility.
+- [x] Remove uncalled activity listener/history APIs.
 - [ ] Check whether the file now has one clear responsibility; if not, split only by responsibility such as formatting/redaction vs persistence.
 - [ ] Keep the filename if renaming would create broad churn without architectural benefit.
 
@@ -311,7 +311,7 @@ This is a **temporary execution checklist**, not a final architecture freeze. It
 
 Treat these three files as **one subsystem review**, not three isolated rewrites.
 
-- [ ] Define the minimal required public shell operations:
+- [x] Define and implement the minimal required public shell operations:
   - `run_command`
   - `start_process`
   - `process_status`
@@ -319,20 +319,20 @@ Treat these three files as **one subsystem review**, not three isolated rewrites
   - `stop_process`
 - [ ] Verify whether `shell_status` provides any value once cwd is explicit and Workspace is already known.
 - [ ] Verify whether `shell_reset` is needed at all without persistent cwd.
-- [ ] Remove `clear_processes` as a public operation if finished process records can be pruned automatically.
-- [ ] Make `working_directory` an explicit one-call option rooted inside the confirmed Workspace.
-- [ ] Decide whether commands should always start from Workspace root when `working_directory` is absent. Prefer this simple deterministic model unless a real workflow needs persistent `cd`.
-- [ ] Remove disk-persisted shell cwd/history if no real workflow needs it.
-- [ ] Preserve PowerShell selection/fallback behavior needed on Windows.
-- [ ] Preserve timeout behavior and Workspace command guard.
-- [ ] Preserve background-process ownership by Workspace.
-- [ ] Add internal auto-pruning for finished process records.
+- [x] Remove `clear_processes`; finished records auto-prune by age/cap.
+- [x] Make `working_directory` an explicit one-call option rooted inside the confirmed Workspace.
+- [x] Commands now always start from Workspace root when `working_directory` is absent.
+- [x] Remove disk-persisted shell cwd/history; no real workflow required it.
+- [x] Preserve PowerShell selection/fallback behavior; validated on Windows CI.
+- [x] Preserve timeout behavior and Workspace command guard.
+- [x] Preserve background-process ownership by Workspace.
+- [x] Add internal auto-pruning for finished process records.
 - [ ] Consider merging command execution and process management into one implementation file **only if** the resulting file has a clear responsibility and remains maintainable.
 - [ ] If `persistent-shell.ts` becomes just a stateless executor, consider renaming it to something like `shell-executor.ts`; otherwise keep the current filename to avoid unnecessary caller churn.
-- [ ] If all useful code fits cleanly in `src/tools/shell.ts`, deleting `persistent-shell.ts` is acceptable.
+- [x] All useful shell/process code now lives cleanly in `src/tools/shell.ts`; deleted `persistent-shell.ts` and `global-shell-state.ts`.
 - [ ] Update `work-gateway.ts`, policy/catalog, quickstart, Job docs, and acceptance tests for removed shell operations.
 
-**Preferred temporary target:** stateless/Workspace-first command executor + small in-memory background process registry; no disk shell state.
+**Implemented:** stateless/Workspace-first command executor + small in-memory background process registry; no disk shell state. GitHub Actions CI #601 passed on Windows and Linux.
 
 ### Phase 4 — rewrite filesystem around required primitives
 
