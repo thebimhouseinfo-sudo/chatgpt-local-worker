@@ -35,7 +35,6 @@ for (const operation of [
   "stop_process",
   "project_context",
   "agent_status",
-  "node_repl",
 ]) {
   assert.equal(
     shouldExposeWorkOperation(operation),
@@ -51,6 +50,7 @@ for (const retired of [
   "ponytail_turn",
   "rewind",
   "remember",
+  "node_repl",
 ]) {
   assert.equal(LOCAL_TOOL_CATALOG.includes(retired), false, `${retired} remains in catalog`);
   assert.equal(SLIM_CHATGPT_TOOLS.has(retired), false, `${retired} remains in slim profile`);
@@ -76,6 +76,6 @@ assert.equal(toolFamily("run_command"), "shell");
 assert.equal(toolFamily("project_context"), "context");
 assert.equal(toolFamily("agent_status"), "context");
 assert.equal(requiresWorkHandle("agent_status"), true);
-assert.equal(toolFamily("node_repl"), "repl");
+assert.equal(toolFamily("node_repl"), "core");
 
 console.log("test-tool-profile: ok — local tool surface only");
