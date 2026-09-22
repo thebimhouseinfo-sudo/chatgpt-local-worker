@@ -25,9 +25,22 @@ SOFTWARE.
 
 Attribution notice
 
-The current GPTWorker codebase incorporates and modifies substantial portions
-of hoangcoderr/chatgpt-local-coder that remain active in GPTWorker. The
-hoangcoderr copyright notice is retained for those inherited active portions.
+GPTWorker is built in part on code from
+hoangcoderr/chatgpt-local-coder. Active reused and modified portions include
+the local coding runtime and supporting helpers, including:
 
-New and substantially modified GPTWorker code is copyright
+- filesystem tools and file-edit operations;
+- shell execution and background-process management;
+- Git tooling;
+- patch application logic;
+- MCP session handling and recovery logic;
+- checkpoint, audit, and activity-related helpers;
+- related runtime utilities that remain in the current GPTWorker codebase.
+
+These inherited portions have been modified and integrated into GPTWorker's
+current architecture.
+
+GPTWorker-specific code, including its Job lifecycle, confirmed-Workspace
+boundary, execution-authority model, lazy runtime-family loading, control
+surface, and other new orchestration/runtime behavior, is copyright
 thebimhouseinfo-sudo and GPTWorker contributors.
