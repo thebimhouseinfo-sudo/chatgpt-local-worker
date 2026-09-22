@@ -24,9 +24,8 @@ pause
 
 call :screen "BƯỚC 1 / 4" "Kiểm tra máy tính"
 
-echo   GPTWorker cần 2 chương trình nền là Node.js và Git.
-echo   Bạn không cần biết cách dùng chúng; GPTWorker chỉ kiểm tra xem
-echo   máy đã có sẵn hay chưa.
+echo   GPTWorker cần Node.js. Git là tùy chọn.
+echo   Nếu máy có Git, Dev Coding có thể dùng lệnh Git/GitHub qua shell.
 echo.
 
 where node >nul 2>nul
@@ -40,15 +39,13 @@ for /f "tokens=*" %%V in ('node --version') do echo   [ĐÃ CÓ] Node.js %%V
 
 where git >nul 2>nul
 if errorlevel 1 (
-  echo   [THIẾU] Máy chưa có Git hoặc Windows chưa nhận ra Git.
-  echo.
-  echo   Hãy cài Git for Windows, sau đó chạy lại setup-test.bat.
-  goto :failed
+  echo   [TÙY CHỌN] Chưa có Git. GPTWorker vẫn hoạt động; chỉ các lệnh Git/GitHub không dùng được.
+) else (
+  for /f "tokens=*" %%V in ('git --version') do echo   [ĐÃ CÓ] %%V
 )
-for /f "tokens=*" %%V in ('git --version') do echo   [ĐÃ CÓ] %%V
 
 echo.
-echo   [OK] Máy đã có đủ chương trình cần thiết.
+echo   [OK] Máy đã có chương trình bắt buộc.
 echo.
 pause
 

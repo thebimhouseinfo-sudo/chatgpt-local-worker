@@ -1,6 +1,6 @@
 # Dev Coding — Operating SOP
 
-This file orchestrates the `dev-coding` Job Pack. GPTWorker's local execution core provides filesystem, shell, git, project-context, and node_repl operations through `work_tool`. Automatic checkpoints are internal filesystem safety, not a separate callable tool. This pack supplies execution discipline, specialist skills, and deterministic gates.
+This file orchestrates the `dev-coding` Job Pack. GPTWorker's local execution core provides filesystem, shell, project-context, and node_repl operations through `work_tool`. When Git is installed on the host and needed by the task, run Git commands through the shell rather than a dedicated Git tool family. Automatic checkpoints are internal filesystem safety, not a separate callable tool. This pack supplies execution discipline, specialist skills, and deterministic gates.
 
 `dev-coding` is an **implementation job with implementation-scoped execution planning**. Its normal starting point is the existing planning bundle, not a fresh full-repository review. The separate `dev-planing` Job Pack is for cases where deep repository review, architecture/design, or a durable project-level planning bundle is itself the primary job.
 

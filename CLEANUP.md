@@ -27,7 +27,7 @@ Development-only tests are not rewrite targets. `scripts/test-*.mjs` and other t
 - [x] Remove inert preload tokens `mcp`, `ponytail`, and `rewind` from runtime-family policy, Job runtime/tool schemas, and default Job configs.
 - [x] Run local TypeScript build.
 - [x] Run Job Pack validation.
-- [x] Run runtime acceptance for filesystem, shell/process, git, context, node_repl, and workspace-boundary behavior.
+- [x] Run runtime acceptance for filesystem, shell/process, context, node_repl, and workspace-boundary behavior; Git CLI is optional and exercised through shell when installed.
 - [x] Remove quarantine after active runtime validation passed.
 
 ## Compatibility that remains active
@@ -36,7 +36,7 @@ Development-only tests are not rewrite targets. `scripts/test-*.mjs` and other t
 
 ## Remaining provenance rewrite candidates
 
-After dead compatibility cleanup, review only implementation that is still active. High-priority inherited areas include `src/tools/filesystem.ts`, `src/lib/patch.ts`, `src/tools/git.ts`, `src/lib/mcp-session-manager.ts`, `src/lib/checkpoint.ts`, and `src/tools/shell.ts` / `src/lib/persistent-shell.ts`.
+After dead compatibility cleanup, review only implementation that is still active. High-priority inherited areas include `src/tools/filesystem.ts`, `src/lib/patch.ts`, `src/lib/mcp-session-manager.ts`, `src/lib/checkpoint.ts`, and `src/tools/shell.ts` / `src/lib/persistent-shell.ts`. The dedicated Git wrapper family has been retired because it only delegated to the machine's external `git` executable; Git remains available through shell when installed.
 
 Smaller active utilities such as audit/search/tool-result/tool-annotations should be reviewed only if they remain part of the final runtime.
 
@@ -103,7 +103,7 @@ These modules are more coupled and must be changed only when the review finds a 
 
 - [ ] Review `src/lib/patch.ts`.
 - [ ] Review `src/tools/filesystem.ts`.
-- [ ] Review `src/tools/git.ts`.
+- [x] Retire dedicated `src/tools/git.ts` / Git runtime family; use the external Git CLI through shell when installed.
 - [ ] Review `src/lib/persistent-shell.ts`.
 - [ ] Review `src/tools/shell.ts`.
 - [ ] Review `src/lib/mcp-session-manager.ts`.
@@ -147,7 +147,7 @@ After any material SIMPLIFY / REMOVE / REFACTOR / REWRITE:
 - [ ] `npm run build`
 - [ ] `npm run validate:jobs`
 - [ ] `npm test`
-- [ ] runtime acceptance for filesystem, shell/process, git, context, node_repl, and workspace boundary
+- [ ] runtime acceptance for filesystem, shell/process, context, node_repl, and workspace boundary; optionally verify Git CLI through `run_command` when Git is installed
 - [ ] public command routing check, including `gr/job stop`
 
 ### Completion condition

@@ -15,7 +15,7 @@ The required bundle is:
 ## Boundaries
 
 - Read repository code, tests, config, docs, history, and project instructions as needed.
-- Use non-mutating shell/git inspection only.
+- Use non-mutating shell inspection only. When Git is installed, non-mutating Git inspection may be run through the shell.
 - Intentionally write only inside the resolved planning bundle directory. If `planning_dir` was not supplied, resolve the repository's existing planning convention after confirmation; if none exists, use a suitable `docs/plans` location inside the confirmed workspace.
 - Do not implement the feature/fix, refactor source, update dependencies, or create migrations in this job.
 - Do not invent product or architecture decisions that repository evidence and user context do not establish; record them as open questions.

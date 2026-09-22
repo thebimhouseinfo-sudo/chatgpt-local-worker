@@ -36,7 +36,7 @@ Requirements:
 
 - Windows
 - Node.js 18+
-- Git
+- Git for Windows (optional; required only for Git/GitHub repository commands)
 - a supported ChatGPT account/workspace with Developer Mode / custom MCP app access
 
 ### 1. Run setup.bat
@@ -186,7 +186,7 @@ setup-test.bat
 
 This is a **terminal-only Setup Wizard dry-run**. It follows the real first-time sequence instead of using simplified fake prompts:
 
-1. checks Node.js and Git;
+1. checks Node.js and reports whether optional Git is available;
 2. installs/builds/validates/tests GPTWorker;
 3. runs the same Tunnel → Runtime API key terminal prompts used by `setup.bat`, opening the real OpenAI pages at the correct moment and validating the entered formats;
 4. does **not** save the entered Tunnel ID/API key or replace the current `.env`;
@@ -328,7 +328,16 @@ Generic lifecycle:
 DISCOVER → SELECT → RESOLVE → CONFIRM → EXECUTE → VALIDATE → COMPLETE
 ```
 
-The execution core supplies the capabilities required by active Job Packs through local filesystem, shell, git, project context, and node_repl families. Automatic checkpoints remain an internal filesystem safety mechanism. Standalone rewind, Admin UI, Codex hooks/Computer Use, Ponytail, and upstream MCP bridging are retired and are not part of the runtime architecture. A Job Pack supplies the prescribed workflow and validation for its class of work.
+The execution core supplies the capabilities required by active Job Packs through local filesystem, shell, project context, and node_repl families. Automatic checkpoints remain an internal filesystem safety mechanism. Standalone rewind, dedicated Git tools, Admin UI, Codex hooks/Computer Use, Ponytail, and upstream MCP bridging are retired and are not part of the runtime architecture. A Job Pack supplies the prescribed workflow and validation for its class of work.
+
+
+### Git and GitHub through shell
+
+GPTWorker does **not** bundle Git and no longer exposes a dedicated `git_*` tool family. Git is treated as an optional external CLI capability.
+
+If `git` is installed on Windows and available in `PATH`, Dev Coding may use `run_command` to execute normal Git commands such as `git status`, `git diff`, `git log`, `git add`, `git commit`, `git branch`, `git pull`, and `git push` when the task requires them. For GitHub repositories, those commands use the machine's existing Git remote configuration and authentication.
+
+Git commands still run through the confirmed Workspace shell boundary. If Git is not installed, GPTWorker continues to work normally for filesystem, shell, context, and other local tasks; Git/GitHub CLI operations are simply unavailable until Git is installed separately.
 
 ### System commands
 
@@ -356,7 +365,7 @@ For every bundled or Custom Job:
 
 - structured filesystem/context paths must be absolute;
 - those absolute paths must stay inside the confirmed Workspace;
-- Git runs against the confirmed Workspace/repository;
+- Git commands, when invoked through shell, run from the confirmed Workspace/repository;
 - `node_repl` has no direct filesystem access;
 - shell cwd and normal/obvious path references are checked against the same Workspace boundary;
 - moving to another Workspace requires an explicit Job switch/reconfirmation.
@@ -413,7 +422,7 @@ The PowerShell helpers remain available for development/troubleshooting. Normal 
 | ChatGPT asks for an MCP endpoint | Use **Connection: Tunnel** and select the GPTWorker Tunnel from **Available tunnels**. Do not choose Server URL, do not use "Use tunnel ID instead", and do not paste the localhost MCP URL. |
 | Wrong project | Check the `FOLDER:` line before confirming and inspect `worker-state.json` |
 | Wrong job | Stop/switch the job and confirm the correct `JOB + FOLDER` again |
-| Git/shell seems to target the wrong place | `job_status` and `agent_status` show the persistent/current workspace state |
+| Shell or Git CLI seems to target the wrong place | `job_status` and `agent_status` show the persistent/current workspace state |
 
 ## Origins and acknowledgements
 

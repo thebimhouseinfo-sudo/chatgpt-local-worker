@@ -11,7 +11,7 @@ GPT Web
 → MCP session/recovery
 → admission + Job + Workspace
 → work_tool
-→ filesystem / shell / git / context / repl
+→ filesystem / shell / context / repl
 ```
 
 This test does not require reading source code.
@@ -139,7 +139,7 @@ Run the GPTWorker runtime acceptance sequence in this confirmed Workspace:
 
 Do not touch anything outside the confirmed Workspace.
 Report each family as PASS/FAIL:
-filesystem, shell, git, context, repl.
+filesystem, shell, context, repl. Git is optional and, when installed, is exercised through shell.
 ```
 
 Expected:
@@ -147,7 +147,7 @@ Expected:
 ```text
 filesystem PASS
 shell      PASS
-git        PASS
+git-via-shell (optional) PASS
 context    PASS
 repl       PASS
 ```
@@ -194,7 +194,7 @@ Important Round-2/3 checks:
 
 - `create_directory`, `copy_file`, `delete_file` are callable through work_tool;
 - process status/stop operations are callable;
-- git branch/status operations are callable;
+- when Git is installed, `git branch` / `git status` are callable through `run_command`;
 - `agent_status` works only inside active work and is classified as context;
 - no `rewind`, upstream MCP, Ponytail, or remember tool is requested or exposed.
 
@@ -255,7 +255,7 @@ If everything passes, send:
 ```text
 A PASS
 B Connected
-D filesystem PASS / shell PASS / git PASS / context PASS / repl PASS
+D filesystem PASS / shell PASS / context PASS / repl PASS; optional Git-through-shell PASS when Git is installed
 D-boundary PASS
 E reconnect PASS
 ```

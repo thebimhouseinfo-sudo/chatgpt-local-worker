@@ -19,10 +19,10 @@ if errorlevel 1 (
 
 where git >nul 2>nul
 if errorlevel 1 (
-  echo [ERROR] Git is not installed or not in PATH.
-  echo Install Git for Windows and run setup.bat again.
-  pause
-  exit /b 1
+  echo [INFO] Git is not installed or not in PATH.
+  echo GPTWorker can still run. Git/GitHub repository commands will be unavailable until Git is installed separately.
+) else (
+  for /f "tokens=*" %%V in ('git --version') do echo [OK] %%V
 )
 
 if not exist ".env" (
