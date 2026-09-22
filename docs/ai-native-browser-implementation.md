@@ -12,11 +12,11 @@ Primary base:
 
 > **vercel-labs/agent-browser**
 
-Therefore implementation should remain short and conservative:
+Therefore implementation should remain short and additive:
 
-> **Run first. Keep what passes. Add only what is missing. Replace only after a reproducible failing test.**
+> **Keep the base repo intact. Add only the product features we need. Replace an existing subsystem only after a reproducible failing test proves it is necessary.**
 
-Do not rebuild MCP, semantic snapshot, stable refs, screenshot, tab control, session handling, iframe support, or context-reduction logic if the base implementation already satisfies the MVP.
+Do not rebuild MCP, semantic snapshot, stable refs, screenshot, tab control, session handling, iframe support, context-reduction logic, or remove unrelated base features simply because the MVP does not currently use them.
 
 ## 2. Target product
 
@@ -53,17 +53,21 @@ Keep the existing implementation when acceptance tests pass:
 - delta/context reduction
 - existing browser-control primitives
 
-### STRIP only when clearly unnecessary
+### DO NOT strip by default
 
-Potentially remove:
+The MVP should not spend effort deleting working base-repo capabilities that are not currently needed.
 
-- provider/model-specific AI logic not required by the browser
-- demo/dashboard code not required by the standalone browser
-- cloud/proxy/infrastructure features not required locally
-- duplicate transports that are not needed after packaging
-- non-MVP consumer features
+Keep them unless they:
 
-Do not remove a working subsystem only to make the codebase look smaller.
+- directly conflict with the standalone browser product;
+- create a security/privacy problem;
+- break packaging or runtime behavior;
+- materially increase maintenance or release risk;
+- fail an acceptance test in a way that requires replacement.
+
+Unused but harmless functionality may remain in the codebase.
+
+The goal is to minimize modification surface, not to minimize line count.
 
 ### ADD
 
@@ -106,9 +110,9 @@ BASELINE.md
 
 A module that passes its required tests stays unchanged.
 
-## 5. Phase 1 — Standalone browser shell
+## 5. Phase 1 — Add standalone browser shell
 
-Wrap/package the retained base runtime as an independent browser application.
+Package the existing base runtime as an independent browser application without removing unrelated working capabilities.
 
 Minimum human UI:
 
@@ -643,14 +647,16 @@ AI reaches payment/auth step
 
 ## 12. Scope-control rules
 
-1. Do not rewrite an existing subsystem because another repo appears better.
-2. Replace only after a reproducible failing acceptance test.
-3. Prefer upstream fixes before local forks when practical.
-4. Security redaction is an exception: it is product-specific and must be enforced even if the base does not provide it.
-5. Keep Gptworker outside browser core.
-6. Keep provider-specific logic outside browser core.
-7. Do not add IDE/file-explorer/terminal features.
-8. Do not add consumer-browser features without an actual browser requirement.
+1. Do not delete working base-repo functionality merely because the MVP does not use it yet.
+2. Do not rewrite an existing subsystem because another repo appears better.
+3. Replace only after a reproducible failing acceptance test.
+4. Prefer additive integration over invasive refactoring.
+5. Prefer upstream fixes before local forks when practical.
+6. Security redaction is an exception: it is product-specific and must be enforced even if the base does not provide it.
+7. Keep Gptworker outside browser core.
+8. Keep provider-specific logic outside browser core.
+9. Do not add IDE/file-explorer/terminal features.
+10. Do not add new consumer-browser features without an actual browser requirement.
 
 ## 13. MVP exit criteria
 
@@ -668,4 +674,4 @@ MVP is ready when:
 
 ## 14. Final implementation rule
 
-> **Keep what already works. The main custom engineering effort is product packaging, connector UX, and a hard security boundary around user secrets.**
+> **Keep the base repo as intact as practical. Add the missing browser shell, sidebar/admin UX, connectors, and hard security boundary. Avoid cleanup/refactoring that does not directly serve the MVP.**
