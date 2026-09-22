@@ -107,7 +107,7 @@ await runWithWorkspaceCwd(root, async () => {
 
   result = await call("glob", {
     path: root,
-    pattern: "**/*.txt",
+    pattern: "*.txt",
     max_results: 50,
   });
   assert.equal(result.structuredContent.data.count >= 2, true);
