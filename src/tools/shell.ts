@@ -4,7 +4,7 @@ import { z } from "zod";
 import type { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import { getDefaultCwd, validatePath } from "../lib/path-security.js";
 import { assertShellCommandWorkspaceBound } from "../lib/shell-workspace-guard.js";
-import { audit } from "../lib/audit.js";
+import { logToolActivity } from "../lib/activity-log.js";
 import { toolAnnotations } from "../lib/tool-annotations.js";
 import { toolResult } from "../lib/tool-result.js";
 import {
@@ -87,7 +87,7 @@ export function registerShellTools(
         timeoutSec * 1000,
         cwdOverride
       );
-      await audit({
+      logToolActivity({
         tool: "run_command",
         action: "command",
         target: result.cwd,
@@ -215,7 +215,7 @@ export function registerShellTools(
         item.exitCode = code;
         item.signal = signal;
       });
-      await audit({
+      logToolActivity({
         tool: "start_process",
         action: "start",
         target: cwd,
@@ -332,7 +332,7 @@ export function registerShellTools(
         );
       }
       item.child.kill(force ? "SIGKILL" : "SIGTERM");
-      await audit({
+      logToolActivity({
         tool: "stop_process",
         action: "stop",
         target: item.cwd,

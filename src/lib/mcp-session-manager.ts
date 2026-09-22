@@ -477,12 +477,4 @@ export function createSessionManager(config: SessionManagerConfig): SessionManag
   };
 }
 
-export function isStaleSessionRequest(
-  sessionId: string | undefined,
-  body: unknown,
-  getSession: (id: string) => McpSession | undefined
-): boolean {
-  return Boolean(sessionId && !getSession(sessionId) && !isInitializeRequest(body));
-}
-
 export { extractRequestId, isInitializeRequest };

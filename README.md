@@ -328,7 +328,7 @@ Generic lifecycle:
 DISCOVER → SELECT → RESOLVE → CONFIRM → EXECUTE → VALIDATE → COMPLETE
 ```
 
-The execution core supplies the capabilities required by active Job Packs through local filesystem, shell, project context, and node_repl families. Automatic checkpoints remain an internal filesystem safety mechanism. Standalone rewind, dedicated Git tools, Admin UI, Codex hooks/Computer Use, Ponytail, and upstream MCP bridging are retired and are not part of the runtime architecture. A Job Pack supplies the prescribed workflow and validation for its class of work.
+The execution core supplies the capabilities required by active Job Packs through local filesystem, shell, project context, and node_repl families. Dedicated checkpoints/rewind, dedicated Git tools, Admin UI, Codex hooks/Computer Use, Ponytail, and upstream MCP bridging are retired and are not part of the runtime architecture. A Job Pack supplies the prescribed workflow and validation for its class of work.
 
 
 ### Git and GitHub through shell

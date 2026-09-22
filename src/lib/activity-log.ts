@@ -1,7 +1,5 @@
 import { randomUUID } from "node:crypto";
-import fs from "fs/promises";
-import { getAuditPath } from "./audit.js";
-import { enqueueRuntimeLog, loadRuntimeLog } from "./runtime-log.js";
+import { enqueueRuntimeLog } from "./runtime-log.js";
 import { requiresWorkHandle, toolFamily } from "./tool-work-policy.js";
 
 export type ActivityKind = "tool" | "mcp" | "session" | "system";
@@ -28,10 +26,6 @@ export interface ActivityEntry {
   tool_family?: string;
   schema_version?: 1;
 }
-
-const MAX_ENTRIES = parseInt(process.env.ACTIVITY_LOG_MAX || "500", 10);
-const entries: ActivityEntry[] = [];
-const listeners = new Set<(entry: ActivityEntry) => void>();
 
 function trimSummary(text: string, max = 160): string {
   const oneLine = text.replace(/\s+/g, " ").trim();
@@ -88,7 +82,6 @@ export function summarizeToolArgs(tool: string, args: unknown): string {
     return `${a.server_id} → ${a.tool}`;
   }
   if (typeof a.pattern === "string") return `pattern: ${a.pattern}`;
-  if (typeof a.checkpoint_id === "string") return `checkpoint: ${a.checkpoint_id}`;
   if (typeof a.action === "string") return `action: ${a.action}`;
 
   try {
@@ -113,16 +106,8 @@ export function appendActivity(partial: Omit<ActivityEntry, "id" | "time"> & { t
       : partial.details,
   };
 
-  entries.push(entry);
-  while (entries.length > MAX_ENTRIES) entries.shift();
-
   writeConsole(entry);
   enqueueRuntimeLog(entry as unknown as Record<string, unknown>);
-  for (const listener of listeners) {
-    try {
-      listener(entry);
-    } catch {}
-  }
   return entry;
 }
 
@@ -140,17 +125,30 @@ export function logSystemEvent(
   });
 }
 
-export function subscribeActivity(listener: (entry: ActivityEntry) => void): () => void {
-  listeners.add(listener);
-  return () => listeners.delete(listener);
+
+
+export interface ToolActivityEvent {
+  tool: string;
+  action: string;
+  target?: string;
+  status?: string;
+  details?: Record<string, unknown>;
 }
 
-export function getRecentActivity(limit = 100, sinceId?: string): ActivityEntry[] {
-  const capped = Math.min(Math.max(limit, 1), MAX_ENTRIES);
-  if (!sinceId) return [...entries].slice(-capped).reverse();
-  const idx = entries.findIndex((e) => e.id === sinceId);
-  if (idx < 0) return [...entries].slice(-capped).reverse();
-  return entries.slice(idx + 1).reverse();
+export function logToolActivity(event: ToolActivityEvent): ActivityEntry {
+  return appendActivity({
+    kind: "tool",
+    tool: event.tool,
+    action: event.action,
+    target: event.target,
+    status: event.status ?? "ok",
+    summary:
+      event.target ||
+      (event.details
+        ? JSON.stringify(sanitizeActivityValue(event.details)).slice(0, 120)
+        : undefined),
+    details: event.details,
+  });
 }
 
 function writeConsole(entry: ActivityEntry): void {
@@ -205,47 +203,6 @@ function writeConsole(entry: ActivityEntry): void {
   }
 }
 
-export async function loadAuditHistory(limit = 80): Promise<ActivityEntry[]> {
-  const auditPath = getAuditPath();
-  try {
-    const raw = await fs.readFile(auditPath, "utf-8");
-    const lines = raw.trim().split("\n").filter(Boolean);
-    const slice = lines.slice(-limit);
-    return slice.map((line) => {
-      try {
-        const rec = JSON.parse(line) as Record<string, unknown>;
-        return {
-          id: randomUUID(),
-          time: String(rec.time || new Date().toISOString()),
-          kind: "tool" as const,
-          tool: String(rec.tool || "unknown"),
-          action: String(rec.action || ""),
-          target: rec.target ? String(rec.target) : undefined,
-          status: rec.status ? String(rec.status) : undefined,
-          details: rec.details as Record<string, unknown> | undefined,
-          summary: rec.target ? String(rec.target) : undefined,
-        };
-      } catch {
-        return {
-          id: randomUUID(),
-          time: new Date().toISOString(),
-          kind: "system" as const,
-          summary: line.slice(0, 200),
-        };
-      }
-    }).reverse();
-  } catch {
-    return [];
-  }
-}
-
-export async function loadActivityHistory(limit = 200): Promise<ActivityEntry[]> {
-  const records = await loadRuntimeLog(limit);
-  return records.flatMap((record) => {
-    if (typeof record.id !== "string" || typeof record.time !== "string") return [];
-    return [record as unknown as ActivityEntry];
-  });
-}
 
 export function logMcpHttpEvent(opts: {
   method: string;

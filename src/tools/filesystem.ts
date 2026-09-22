@@ -3,9 +3,8 @@ import path from "path";
 import { z } from "zod";
 import type { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import { validatePath, validateReadPath } from "../lib/path-security.js";
-import { audit } from "../lib/audit.js";
-import { applyMultiFilePatch, applyUnifiedPatchToText, buildSimpleDiff, isMultiFilePatch, parseMultiFilePatch } from "../lib/patch.js";
-import { checkpointBefore } from "../lib/checkpoint.js";
+import { logToolActivity } from "../lib/activity-log.js";
+import { applyMultiFilePatch, applyUnifiedPatchToText, buildSimpleDiff, isMultiFilePatch } from "../lib/patch.js";
 import { toolAnnotations } from "../lib/tool-annotations.js";
 import { toolResult } from "../lib/tool-result.js";
 import { globFiles } from "../lib/glob-search.js";
@@ -97,13 +96,13 @@ export function registerFilesystemTools(server: McpServer): void {
         const end = limit !== undefined ? start + limit : lines.length;
         const slice = lines.slice(start, end);
         const numbered = slice.map((line, idx) => `${String(start + idx + 1).padStart(6, " ")}|${line}`);
-        await audit({ tool: "read_text_file", action: "read", target: validPath, status: "ok", details: { offset, limit } });
+        logToolActivity({ tool: "read_text_file", action: "read", target: validPath, status: "ok", details: { offset, limit } });
         return toolResult("read_text_file", { path: validPath, content: numbered.join("\n"), offset, limit, lines: slice.length });
       }
 
       const result =
         head !== undefined ? lines.slice(0, head).join("\n") : tail !== undefined ? lines.slice(-tail).join("\n") : content;
-      await audit({ tool: "read_text_file", action: "read", target: validPath, status: "ok" });
+      logToolActivity({ tool: "read_text_file", action: "read", target: validPath, status: "ok" });
       return toolResult("read_text_file", { path: validPath, content: result, head, tail });
     }
   );
@@ -133,7 +132,7 @@ export function registerFilesystemTools(server: McpServer): void {
         const { bytesRead } = await handle.read(buffer, 0, chunkLength, start);
         const data = buffer.subarray(0, bytesRead);
         const nextOffset = start + bytesRead;
-        await audit({ tool: "read_file_base64", action: "read", target: validPath, status: "ok", details: { offset: start, bytesRead } });
+        logToolActivity({ tool: "read_file_base64", action: "read", target: validPath, status: "ok", details: { offset: start, bytesRead } });
         return toolResult("read_file_base64", {
           path: validPath,
           size: stat.size,
@@ -160,16 +159,12 @@ export function registerFilesystemTools(server: McpServer): void {
       annotations: toolAnnotations("edit"),
     },
     async ({ path: filePath, content }) => {
-      const validPath = await validatePath(filePath);
-      const checkpointId = await checkpointBefore("write_file", [validPath]);
-      await fs.mkdir(path.dirname(validPath), { recursive: true });
+      const validPath = await validatePath(filePath);      await fs.mkdir(path.dirname(validPath), { recursive: true });
       await fs.writeFile(validPath, content, "utf-8");
-      await audit({ tool: "write_file", action: "write", target: validPath, status: "ok", details: { bytes: Buffer.byteLength(content) } });
+      logToolActivity({ tool: "write_file", action: "write", target: validPath, status: "ok", details: { bytes: Buffer.byteLength(content) } });
       return toolResult("write_file", {
         path: validPath,
-        bytes: Buffer.byteLength(content),
-        checkpoint_id: checkpointId,
-      });
+        bytes: Buffer.byteLength(content),      });
     }
   );
 
@@ -183,13 +178,11 @@ export function registerFilesystemTools(server: McpServer): void {
       annotations: toolAnnotations("edit"),
     },
     async ({ path: filePath, content }) => {
-      const validPath = await validatePath(filePath);
-      const checkpointId = await checkpointBefore("write_file_base64", [validPath]);
-      const buffer = Buffer.from(content, "base64");
+      const validPath = await validatePath(filePath);      const buffer = Buffer.from(content, "base64");
       await fs.mkdir(path.dirname(validPath), { recursive: true });
       await fs.writeFile(validPath, buffer);
-      await audit({ tool: "write_file_base64", action: "write", target: validPath, status: "ok", details: { bytes: buffer.length } });
-      return toolResult("write_file_base64", { path: validPath, bytes: buffer.length, checkpoint_id: checkpointId });
+      logToolActivity({ tool: "write_file_base64", action: "write", target: validPath, status: "ok", details: { bytes: buffer.length } });
+      return toolResult("write_file_base64", { path: validPath, bytes: buffer.length});
     }
   );
 
@@ -213,13 +206,11 @@ export function registerFilesystemTools(server: McpServer): void {
       const content = await fs.readFile(validPath, "utf-8");
       if (!content.includes(old_text)) throw new Error("old_text not found in file. Ensure exact match.");
       const newContent = replace_all ? content.split(old_text).join(new_text) : content.replace(old_text, new_text);
-      const diff = buildSimpleDiff(content, newContent);
-      const checkpointId = await checkpointBefore("edit_file", [validPath], { dry_run });
-      if (!dry_run) await fs.writeFile(validPath, newContent, "utf-8");
-      await audit({ tool: "edit_file", action: "edit", target: validPath, status: dry_run ? "dry-run" : "ok" });
+      const diff = buildSimpleDiff(content, newContent);      if (!dry_run) await fs.writeFile(validPath, newContent, "utf-8");
+      logToolActivity({ tool: "edit_file", action: "edit", target: validPath, status: dry_run ? "dry-run" : "ok" });
       return toolResult(
         "edit_file",
-        { path: validPath, diff, dry_run, checkpoint_id: checkpointId },
+        { path: validPath, diff, dry_run},
         { summary: dry_run ? `dry-run ${validPath}` : `edited ${validPath}` }
       );
     }
@@ -246,17 +237,13 @@ export function registerFilesystemTools(server: McpServer): void {
         if (!next.includes(edit.old_text)) throw new Error(`old_text not found: ${edit.old_text.slice(0, 120)}`);
         next = edit.replace_all ? next.split(edit.old_text).join(edit.new_text) : next.replace(edit.old_text, edit.new_text);
       }
-      const diff = buildSimpleDiff(original, next);
-      const checkpointId = await checkpointBefore("multi_edit", [validPath], { dry_run });
-      if (!dry_run) await fs.writeFile(validPath, next, "utf-8");
-      await audit({ tool: "multi_edit", action: "edit", target: validPath, status: dry_run ? "dry-run" : "ok", details: { edits: edits.length } });
+      const diff = buildSimpleDiff(original, next);      if (!dry_run) await fs.writeFile(validPath, next, "utf-8");
+      logToolActivity({ tool: "multi_edit", action: "edit", target: validPath, status: dry_run ? "dry-run" : "ok", details: { edits: edits.length } });
       return toolResult("multi_edit", {
         path: validPath,
         diff,
         edits: edits.length,
-        dry_run,
-        checkpoint_id: checkpointId,
-      });
+        dry_run,      });
     }
   );
 
@@ -275,11 +262,9 @@ export function registerFilesystemTools(server: McpServer): void {
       const regex = new RegExp(pattern, flags);
       const next = original.replace(regex, replacement);
       if (next === original) throw new Error("Regex made no changes.");
-      const diff = buildSimpleDiff(original, next);
-      const checkpointId = await checkpointBefore("replace_regex", [validPath], { dry_run });
-      if (!dry_run) await fs.writeFile(validPath, next, "utf-8");
-      await audit({ tool: "replace_regex", action: "edit", target: validPath, status: dry_run ? "dry-run" : "ok" });
-      return toolResult("replace_regex", { path: validPath, diff, dry_run, checkpoint_id: checkpointId });
+      const diff = buildSimpleDiff(original, next);      if (!dry_run) await fs.writeFile(validPath, next, "utf-8");
+      logToolActivity({ tool: "replace_regex", action: "edit", target: validPath, status: dry_run ? "dry-run" : "ok" });
+      return toolResult("replace_regex", { path: validPath, diff, dry_run});
     }
   );
 
@@ -307,12 +292,9 @@ export function registerFilesystemTools(server: McpServer): void {
         }
         const validPath = await validatePath(filePath);
         const stat = await fs.stat(validPath);
-        const baseDir = stat.isDirectory() ? validPath : path.dirname(validPath);
-        const patchPaths = parseMultiFilePatch(patch, baseDir).map((op) => op.path);
-        const checkpointId = await checkpointBefore("apply_patch", patchPaths, { dry_run });
-        const results = await applyMultiFilePatch(patch, { base_dir: baseDir, dry_run });
+        const baseDir = stat.isDirectory() ? validPath : path.dirname(validPath);        const results = await applyMultiFilePatch(patch, { base_dir: baseDir, dry_run });
         const failed = results.filter((r) => !r.ok);
-        await audit({
+        logToolActivity({
           tool: "apply_patch",
           action: "patch",
           target: baseDir || "multi",
@@ -322,9 +304,7 @@ export function registerFilesystemTools(server: McpServer): void {
         return toolResult("apply_patch", {
           files: results,
           dry_run,
-          multi_file: true,
-          checkpoint_id: checkpointId,
-        }, {
+          multi_file: true,        }, {
           ok: failed.length === 0,
           summary: `patched ${results.length} file(s)${failed.length ? `, ${failed.length} failed` : ""}`,
         });
@@ -334,16 +314,12 @@ export function registerFilesystemTools(server: McpServer): void {
       const validPath = await validatePath(filePath);
       const original = await fs.readFile(validPath, "utf-8");
       const next = applyUnifiedPatchToText(original, patch);
-      const diff = buildSimpleDiff(original, next);
-      const checkpointId = await checkpointBefore("apply_patch", [validPath], { dry_run });
-      if (!dry_run) await fs.writeFile(validPath, next, "utf-8");
-      await audit({ tool: "apply_patch", action: "patch", target: validPath, status: dry_run ? "dry-run" : "ok" });
+      const diff = buildSimpleDiff(original, next);      if (!dry_run) await fs.writeFile(validPath, next, "utf-8");
+      logToolActivity({ tool: "apply_patch", action: "patch", target: validPath, status: dry_run ? "dry-run" : "ok" });
       return toolResult("apply_patch", {
         path: validPath,
         diff,
-        dry_run,
-        checkpoint_id: checkpointId,
-      });
+        dry_run,      });
     }
   );
 
@@ -367,7 +343,7 @@ export function registerFilesystemTools(server: McpServer): void {
       );
       const filtered = entries.filter((e) => !ignoreMatchers.some((m) => m.test(e.name)));
       const items = filtered.map((e) => ({ name: e.name, type: e.isDirectory() ? "directory" : "file" }));
-      await audit({ tool: "list_directory", action: "list", target: validPath, status: "ok" });
+      logToolActivity({ tool: "list_directory", action: "list", target: validPath, status: "ok" });
       return toolResult("list_directory", { path: validPath, entries: items, count: items.length });
     }
   );
@@ -388,7 +364,7 @@ export function registerFilesystemTools(server: McpServer): void {
     async ({ pattern, path: searchPath, max_results }) => {
       const validPath = searchPath ? await validateReadPath(searchPath) : (await import("../lib/path-security.js")).getAllowedRoots()[0];
       const matches = await globFiles(validPath, pattern, max_results);
-      await audit({ tool: "glob", action: "glob", target: validPath, status: "ok", details: { pattern, results: matches.length } });
+      logToolActivity({ tool: "glob", action: "glob", target: validPath, status: "ok", details: { pattern, results: matches.length } });
       return toolResult("glob", { path: validPath, pattern, matches: matches.map((m) => m.path), count: matches.length });
     }
   );
@@ -438,7 +414,7 @@ export function registerFilesystemTools(server: McpServer): void {
         contextAfter: context_after,
         contextAround: context_around,
       });
-      await audit({ tool: "grep", action: "grep", target: validPath, status: "ok", details: { pattern, output_mode } });
+      logToolActivity({ tool: "grep", action: "grep", target: validPath, status: "ok", details: { pattern, output_mode } });
       return toolResult("grep", { path: validPath, pattern, output_mode, output });
     }
   );
@@ -455,11 +431,9 @@ export function registerFilesystemTools(server: McpServer): void {
     async ({ path: filePath }) => {
       const validPath = await validatePath(filePath);
       const stat = await fs.stat(validPath);
-      if (!stat.isFile()) throw new Error("Path is not a file");
-      const checkpointId = await checkpointBefore("delete_file", [validPath]);
-      await fs.unlink(validPath);
-      await audit({ tool: "delete_file", action: "delete", target: validPath, status: "ok" });
-      return toolResult("delete_file", { path: validPath, checkpoint_id: checkpointId });
+      if (!stat.isFile()) throw new Error("Path is not a file");      await fs.unlink(validPath);
+      logToolActivity({ tool: "delete_file", action: "delete", target: validPath, status: "ok" });
+      return toolResult("delete_file", { path: validPath});
     }
   );
 
@@ -475,7 +449,7 @@ export function registerFilesystemTools(server: McpServer): void {
     async ({ path: dirPath }) => {
       const validPath = await validatePath(dirPath);
       await fs.mkdir(validPath, { recursive: true });
-      await audit({ tool: "create_directory", action: "mkdir", target: validPath, status: "ok" });
+      logToolActivity({ tool: "create_directory", action: "mkdir", target: validPath, status: "ok" });
       return toolResult("create_directory", { path: validPath });
     }
   );
@@ -493,14 +467,10 @@ export function registerFilesystemTools(server: McpServer): void {
     async ({ path: dirPath }) => {
       const validPath = await validatePath(dirPath);
       const stat = await fs.stat(validPath);
-      if (!stat.isDirectory()) throw new Error("Path is not a directory");
-      const checkpointId = await checkpointBefore("delete_directory", [validPath]);
-      await fs.rm(validPath, { recursive: true, force: true });
-      await audit({ tool: "delete_directory", action: "rmdir", target: validPath, status: "ok" });
+      if (!stat.isDirectory()) throw new Error("Path is not a directory");      await fs.rm(validPath, { recursive: true, force: true });
+      logToolActivity({ tool: "delete_directory", action: "rmdir", target: validPath, status: "ok" });
       return toolResult("delete_directory", {
-        path: validPath,
-        checkpoint_id: checkpointId,
-        run_command_fallback: `Remove-Item -Recurse -Force "${validPath}"`,
+        path: validPath,        run_command_fallback: `Remove-Item -Recurse -Force "${validPath}"`,
       });
     }
   );
@@ -518,12 +488,10 @@ export function registerFilesystemTools(server: McpServer): void {
       const src = await validatePath(source);
       const dest = await validatePath(destination);
       const stat = await fs.stat(src);
-      if (!stat.isFile()) throw new Error("Source is not a file");
-      const checkpointId = await checkpointBefore("copy_file", [dest]);
-      await fs.mkdir(path.dirname(dest), { recursive: true });
+      if (!stat.isFile()) throw new Error("Source is not a file");      await fs.mkdir(path.dirname(dest), { recursive: true });
       await fs.copyFile(src, dest);
-      await audit({ tool: "copy_file", action: "copy", target: dest, status: "ok", details: { source: src } });
-      return toolResult("copy_file", { source: src, destination: dest, checkpoint_id: checkpointId });
+      logToolActivity({ tool: "copy_file", action: "copy", target: dest, status: "ok", details: { source: src } });
+      return toolResult("copy_file", { source: src, destination: dest});
     }
   );
 
@@ -538,12 +506,10 @@ export function registerFilesystemTools(server: McpServer): void {
     },
     async ({ source, destination }) => {
       const src = await validatePath(source);
-      const dest = await validatePath(destination);
-      const checkpointId = await checkpointBefore("move_file", [src, dest]);
-      await fs.mkdir(path.dirname(dest), { recursive: true });
+      const dest = await validatePath(destination);      await fs.mkdir(path.dirname(dest), { recursive: true });
       await fs.rename(src, dest);
-      await audit({ tool: "move_file", action: "move", target: dest, status: "ok", details: { source: src } });
-      return toolResult("move_file", { source: src, destination: dest, checkpoint_id: checkpointId });
+      logToolActivity({ tool: "move_file", action: "move", target: dest, status: "ok", details: { source: src } });
+      return toolResult("move_file", { source: src, destination: dest});
     }
   );
 
@@ -551,14 +517,14 @@ export function registerFilesystemTools(server: McpServer): void {
     const validPath = await validateReadPath(searchPath);
     const results: string[] = [];
     await searchDirectory(validPath, new RegExp(pattern, "i"), globPattern, results, max_results);
-    await audit({ tool: "search_files", action: "search", target: validPath, status: "ok", details: { pattern, results: results.length } });
+    logToolActivity({ tool: "search_files", action: "search", target: validPath, status: "ok", details: { pattern, results: results.length } });
     return toolResult("search_files", { path: validPath, pattern, matches: results, count: results.length });
   });
 
   server.registerTool("directory_tree", { title: "Directory Tree", description: "Get recursive directory structure as JSON.", inputSchema: { path: z.string(), max_depth: z.number().optional().default(4) }, annotations: toolAnnotations("read") }, async ({ path: dirPath, max_depth }) => {
     const validPath = await validateReadPath(dirPath);
     const tree = await buildTree(validPath, 0, max_depth);
-    await audit({ tool: "directory_tree", action: "tree", target: validPath, status: "ok" });
+    logToolActivity({ tool: "directory_tree", action: "tree", target: validPath, status: "ok" });
     return toolResult("directory_tree", { path: validPath, tree, max_depth });
   });
 

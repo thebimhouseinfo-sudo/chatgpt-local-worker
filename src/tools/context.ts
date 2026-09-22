@@ -1,7 +1,6 @@
 import { z } from "zod";
 import type { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
-import { audit, getAuditPath } from "../lib/audit.js";
-import { getCheckpointConfig } from "../lib/checkpoint.js";
+import { logToolActivity } from "../lib/activity-log.js";
 import { loadProjectContext } from "../lib/project-context-loader.js";
 import {
   getDefaultCwd,
@@ -57,7 +56,7 @@ export function registerContextTools(
         kind: section.kind,
       }));
 
-      await audit({
+      logToolActivity({
         tool: "project_context",
         action: "read",
         target: root,
@@ -80,7 +79,7 @@ export function registerContextTools(
     {
       title: "Agent Status",
       description:
-        "Local GPTWorker diagnostic: permissions, active workspace, machine roots, checkpoint safety, and tool profile.",
+        "Local GPTWorker diagnostic: permissions, active workspace, machine roots, runtime paths, and tool profile.",
       inputSchema: {},
       annotations: toolAnnotations("read"),
     },
@@ -96,10 +95,8 @@ export function registerContextTools(
         default_cwd: getDefaultCwd(),
         host_machine_roots: getMachineRoots(),
         worker_data_root: getWorkerDataRoot(),
-        audit_log: getAuditPath(),
         pid: process.pid,
         node: process.version,
-        checkpoint: getCheckpointConfig(),
         tool_profile: process.env.CHATGPT_TOOL_PROFILE || "slim",
         quickstart: MCP_QUICKSTART,
       });

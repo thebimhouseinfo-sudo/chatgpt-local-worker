@@ -285,7 +285,7 @@ Xác nhận bắt đầu?
 - Every shell working_directory/shell_reset path must be absolute and inside the confirmed FOLDER.
 - Relative cd/Set-Location/pushd targets and parent-directory traversal are rejected; normal/obvious shell absolute-path escapes outside the confirmed FOLDER are rejected.
 - For multi-file apply_patch, supply an absolute base path inside the confirmed FOLDER; each patch target is boundary-checked.
-- Git operations use the confirmed Workspace/repository.
+- Git is not a dedicated GPTWorker tool family. When Git is installed and needed, run ordinary `git ...` commands through work_tool tool=run_command from the confirmed Workspace.
 - node_repl may not access fs/fs-promises directly. Use dedicated filesystem tools inside the confirmed Workspace.
 - To work in another local folder, switch/reselect the Workspace and confirm again.
 
@@ -298,7 +298,7 @@ After confirmation, all actual workspace execution goes through work_tool.
 3. For file rename/move operations, dispatch move_file through work_tool. Do not fall back to node_repl for routine filesystem mutations.
 4. Edit through work_tool with apply_patch (preferred), multi_edit, edit_file, or write_file.
 5. Run builds/tests through work_tool with run_command for short work or start_process + process_output for long-running work.
-6. Dispatch git operations through work_tool without path arguments so they operate on the confirmed active workspace.
+6. When Git is installed and required, dispatch ordinary `git ...` CLI commands through work_tool with tool=run_command so they execute from the confirmed active Workspace.
 8. Families declared by the nominated Job may already be cached from confirmation-wait preload. Any other family is imported only on its first real work_tool call.
 9. If nomination changes before confirmation, treat the old prepared profile as stale and prepare the replacement Job profile.
 10. End or cancel the session with job_stop when the user is done. Pending/selected state can be cancelled without a work_handle; active work still requires its work_handle. The 10-minute idle timeout is only the safety fallback for abandoned active work.
@@ -334,7 +334,7 @@ All tools return JSON: { ok, tool, summary, data }
 - work_tool operations create_directory / delete_directory / copy_file / delete_file: other filesystem operations
 - work_tool operations run_command / start_process / process_output / process_status / stop_process: execute
 - work_tool operations shell_status / shell_reset: persistent shell state
-- work_tool operations git_status / git_diff / git_add / git_commit / git_branch / git_restore / git_stash: git
+- Git/GitHub repository operations are optional host CLI behavior: use work_tool tool=run_command with ordinary `git ...` commands when Git is installed.
 - work_tool operations project_context / agent_status: active-workspace context
 - when a dedicated operation is unavailable, dispatch run_command through work_tool; node_repl is not the fallback for routine filesystem mutation
 
