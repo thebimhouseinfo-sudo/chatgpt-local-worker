@@ -3,11 +3,16 @@ import path from "path";
 import { validatePath } from "./path-security.js";
 
 /**
- * Apply unified diff and context-hunk patches to text.
- * Supports:
- * - Context-hunk format: hunk header "@@" without line numbers
- * - Standard unified diff: "@@ -1,3 +1,4 @@"
- * - Mixed CRLF/LF input (normalized to LF for matching, preserves original EOL when possible)
+ * Apply single-file unified/context hunks and GPT-style multi-file patches.
+ *
+ * Single-file patches support:
+ * - context hunks with "@@" and no line numbers;
+ * - standard unified hunk headers such as "@@ -1,3 +1,4 @@";
+ * - optional ---/+++ headers, which are ignored by the single-file parser;
+ * - CRLF/LF preservation.
+ *
+ * Multi-file routing is intentionally limited to the explicit
+ * "*** Begin Patch / Update File / Add File / Delete File" format.
  */
 
 function normalizeEol(text: string): string {
@@ -158,7 +163,7 @@ export function applyUnifiedPatchToText(original: string, patchText: string): st
   return eol === "\r\n" ? result.replace(/\n/g, "\r\n") : result;
 }
 
-export interface MultiPatchFileOp {
+interface MultiPatchFileOp {
   path: string;
   operation: "create" | "update" | "delete";
   patch?: string;
@@ -174,81 +179,77 @@ export interface MultiPatchResult {
 }
 
 export function isMultiFilePatch(patchText: string): boolean {
-  const t = patchText.trim();
+  const text = patchText.trim();
   return (
-    t.includes("*** Begin Patch") ||
-    t.includes("*** Update File:") ||
-    t.includes("*** Add File:") ||
-    t.includes("*** Delete File:") ||
-    /^---\s+/m.test(t) ||
-    /^\+\+\+\s+/m.test(t)
+    text.includes("*** Begin Patch") ||
+    text.includes("*** Update File:") ||
+    text.includes("*** Add File:") ||
+    text.includes("*** Delete File:")
   );
 }
 
-export function parseMultiFilePatch(patchText: string, baseDir?: string): MultiPatchFileOp[] {
-  const normalized = normalizeEol(patchText.trim());
+function parseMultiFilePatch(
+  patchText: string,
+  baseDir?: string
+): MultiPatchFileOp[] {
+  const lines = normalizeEol(patchText.trim()).split("\n");
   const ops: MultiPatchFileOp[] = [];
+  let current: MultiPatchFileOp | null = null;
+  const chunk: string[] = [];
 
-  if (normalized.includes("*** Begin Patch") || normalized.includes("*** Update File:")) {
-    const lines = normalized.split("\n");
-    let i = 0;
-    let current: MultiPatchFileOp | null = null;
-    const chunk: string[] = [];
+  const flush = () => {
+    if (!current) return;
 
-    const flush = () => {
-      if (!current) return;
-      if (current.operation === "create") {
-        current.content = chunk
-          .filter((l) => l.startsWith("+"))
-          .map((l) => l.slice(1))
-          .join("\n");
-      } else if (current.operation === "update") {
-        current.patch = chunk.join("\n");
-      }
-      ops.push(current);
-      current = null;
-      chunk.length = 0;
-    };
-
-    for (; i < lines.length; i++) {
-      const line = lines[i];
-      if (line.startsWith("*** Update File:")) {
-        flush();
-        current = { path: resolvePatchPath(line.slice(16).trim(), baseDir), operation: "update" };
-        continue;
-      }
-      if (line.startsWith("*** Add File:")) {
-        flush();
-        current = { path: resolvePatchPath(line.slice(13).trim(), baseDir), operation: "create" };
-        continue;
-      }
-      if (line.startsWith("*** Delete File:")) {
-        flush();
-        ops.push({ path: resolvePatchPath(line.slice(16).trim(), baseDir), operation: "delete" });
-        continue;
-      }
-      if (line.startsWith("*** End Patch") || line.startsWith("*** Begin Patch")) continue;
-      if (current) chunk.push(line);
+    if (current.operation === "create") {
+      current.content = chunk
+        .filter((line) => line.startsWith("+"))
+        .map((line) => line.slice(1))
+        .join("\n");
+    } else if (current.operation === "update") {
+      current.patch = chunk.join("\n");
     }
-    flush();
-    return ops;
+
+    ops.push(current);
+    current = null;
+    chunk.length = 0;
+  };
+
+  for (const line of lines) {
+    if (line.startsWith("*** Update File:")) {
+      flush();
+      current = {
+        path: resolvePatchPath(line.slice(16).trim(), baseDir),
+        operation: "update",
+      };
+      continue;
+    }
+
+    if (line.startsWith("*** Add File:")) {
+      flush();
+      current = {
+        path: resolvePatchPath(line.slice(13).trim(), baseDir),
+        operation: "create",
+      };
+      continue;
+    }
+
+    if (line.startsWith("*** Delete File:")) {
+      flush();
+      ops.push({
+        path: resolvePatchPath(line.slice(16).trim(), baseDir),
+        operation: "delete",
+      });
+      continue;
+    }
+
+    if (line.startsWith("*** Begin Patch") || line.startsWith("*** End Patch")) {
+      continue;
+    }
+
+    if (current) chunk.push(line);
   }
 
-  // Unified diff multi-file: --- a/path +++ b/path blocks
-  const blocks = normalized.split(/\n(?=---\s)/);
-  for (const block of blocks) {
-    const trimmed = block.trim();
-    if (!trimmed.startsWith("---")) continue;
-    const header = trimmed.split("\n")[0];
-    const filePath = header.replace(/^---\s+[ab]\//, "").replace(/^---\s+/, "").trim();
-    const hunks = trimmed.split("\n").slice(1).join("\n");
-    ops.push({
-      path: resolvePatchPath(filePath, baseDir),
-      operation: "update",
-      patch: hunks,
-    });
-  }
-
+  flush();
   return ops;
 }
 

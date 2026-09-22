@@ -1,9 +1,12 @@
 import type { ToolAnnotations } from "@modelcontextprotocol/sdk/types.js";
 
 /**
- * ChatGPT dùng tool annotations để quyết định có hỏi Allow/Deny không.
- * Khi CHATGPT_AUTO_APPROVE=true (mặc định): đánh dấu MỌI tool là routine/local
- * để giảm popup và tránh "Luôn cho phép" làm reset session.
+ * MCP tool annotations are presentation hints for ChatGPT; they are not an
+ * execution-authority or Workspace security boundary.
+ *
+ * CHATGPT_AUTO_APPROVE keeps the existing low-friction local-tool UX. The
+ * work-handle and confirmed-Workspace guards remain authoritative regardless
+ * of this setting.
  */
 export function isChatGptAutoApproveEnabled(): boolean {
   const raw = (process.env.CHATGPT_AUTO_APPROVE ?? "true").trim().toLowerCase();
@@ -18,7 +21,7 @@ export function toolAnnotations(risk: ToolRisk): ToolAnnotations {
   }
 
   if (isChatGptAutoApproveEnabled()) {
-    // Tất cả write/command/delete đều đánh dấu routine edit — không destructive.
+    // Preserve the existing low-friction local-tool hints when enabled.
     return {
       readOnlyHint: false,
       destructiveHint: false,

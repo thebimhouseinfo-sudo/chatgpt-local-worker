@@ -1,4 +1,4 @@
-import { applyUnifiedPatchToText } from "../dist/lib/patch.js";
+import { applyUnifiedPatchToText, isMultiFilePatch } from "../dist/lib/patch.js";
 
 let passed = 0;
 let failed = 0;
@@ -28,6 +28,40 @@ test("unified diff with line numbers", () => {
   const result = applyUnifiedPatchToText(original, patch);
   if (!result.includes("new")) throw new Error("replacement missing");
   if (result.includes("old")) throw new Error("old line still present");
+});
+
+test("single-file unified diff headers stay single-file", () => {
+  const original = "line1\nline2\n";
+  const patch = [
+    "--- a/sample.txt",
+    "+++ b/sample.txt",
+    "@@ -1,2 +1,2 @@",
+    " line1",
+    "-line2",
+    "+lineX",
+  ].join("\n");
+
+  if (isMultiFilePatch(patch)) {
+    throw new Error("standard unified headers must not force multi-file routing");
+  }
+
+  const result = applyUnifiedPatchToText(original, patch);
+  if (!result.includes("lineX")) throw new Error("unified header patch failed");
+});
+
+test("explicit GPT multi-file patch is detected", () => {
+  const patch = [
+    "*** Begin Patch",
+    "*** Update File: sample.txt",
+    "@@",
+    "-old",
+    "+new",
+    "*** End Patch",
+  ].join("\n");
+
+  if (!isMultiFilePatch(patch)) {
+    throw new Error("explicit multi-file patch was not detected");
+  }
 });
 
 test("crlf preserved", () => {

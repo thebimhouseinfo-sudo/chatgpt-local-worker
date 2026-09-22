@@ -240,7 +240,7 @@ export function registerFilesystemTools(server: McpServer): void {
     {
       title: "Apply Patch",
       description:
-        "Preferred structured code edit. Supports single-file @@ hunks and multi-file *** Begin Patch / unified-diff forms.",
+        "Preferred structured code edit. Supports single-file @@/unified hunks and multi-file *** Begin Patch forms.",
       inputSchema: {
         path: z
           .string()
