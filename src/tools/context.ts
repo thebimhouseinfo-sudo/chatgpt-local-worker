@@ -4,11 +4,8 @@ import { logToolActivity } from "../lib/activity-log.js";
 import { loadProjectContext } from "../lib/project-context-loader.js";
 import {
   getDefaultCwd,
-  getFullDiskAccess,
-  getMachineRoots,
   validatePath,
 } from "../lib/path-security.js";
-import { MCP_QUICKSTART } from "../lib/quickstart.js";
 import { toolAnnotations } from "../lib/tool-annotations.js";
 import { toolResult } from "../lib/tool-result.js";
 import { getWorkerDataRoot } from "../lib/worker-home.js";
@@ -79,26 +76,18 @@ export function registerContextTools(
     {
       title: "Agent Status",
       description:
-        "Local GPTWorker diagnostic: permissions, active workspace, machine roots, runtime paths, and tool profile.",
+        "Local GPTWorker diagnostic for the confirmed Workspace and Worker runtime.",
       inputSchema: {},
       annotations: toolAnnotations("read"),
     },
     async () => {
       return toolResult("agent_status", {
-        permission_profile: "workspace-bound",
-        permission_description:
-          "confirmed-workspace-only: execution requires active work authority and structured paths remain inside the confirmed workspace",
-        full_machine_access: false,
-        host_full_disk_access: getFullDiskAccess(),
-        workspace_boundary_enforced: true,
         effective_scope: "confirmed-workspace-only",
-        default_cwd: getDefaultCwd(),
-        host_machine_roots: getMachineRoots(),
+        workspace_boundary_enforced: true,
+        workspace: getDefaultCwd(),
         worker_data_root: getWorkerDataRoot(),
         pid: process.pid,
         node: process.version,
-        tool_profile: process.env.CHATGPT_TOOL_PROFILE || "slim",
-        quickstart: MCP_QUICKSTART,
       });
     }
   );

@@ -9,7 +9,6 @@ import { randomUUID } from "crypto";
 import {
   setDefaultCwd,
   getDefaultCwd,
-  getFullDiskAccess,
 } from "./lib/path-security.js";
 import {
   consumeSessionTransportError,
@@ -182,10 +181,6 @@ app.get("/health", (_req, res) => {
     name: "chatgpt-local-worker",
     workspace: workspaceRoot,
     defaultCwd: getDefaultCwd(),
-    fullMachineAccess: false,
-    hostFullMachineAccess: true,
-    fullDiskAccess: false,
-    hostFullDiskAccess: getFullDiskAccess(),
     jobWorkspaceBoundaryEnforced: true,
     effectiveJobAccess: "confirmed-workspace-only",
     activeSessions: sessionManager.count(),

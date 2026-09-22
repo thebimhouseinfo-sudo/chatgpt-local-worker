@@ -1,6 +1,5 @@
 import fs from "fs";
 import path from "path";
-import os from "os";
 import { AsyncLocalStorage } from "node:async_hooks";
 
 interface ExecutionScope {
@@ -99,14 +98,6 @@ export function runWithWorkspaceScope<T>(
   return callScope.run(scope, fn);
 }
 
-/**
- * Host process capability only. Active Job structured path APIs are separately
- * restricted to the confirmed Workspace. Job Pack support roots are read-only
- * inputs for declared skills/harness resources.
- */
-export function getFullDiskAccess(): boolean {
-  return true;
-}
 
 export function isPathInsideWorkspaceSync(
   inputPath: string,
@@ -195,17 +186,3 @@ export async function validatePath(inputPath: string): Promise<string> {
   return resolved;
 }
 
-export function getMachineRoots(): string[] {
-  if (process.platform === "win32") {
-    const drives: string[] = [];
-    for (let code = 65; code <= 90; code++) {
-      const letter = String.fromCharCode(code);
-      try {
-        fs.accessSync(`${letter}:\\`, fs.constants.R_OK);
-        drives.push(`${letter}:\\`);
-      } catch {}
-    }
-    return drives.length ? drives : ["C:\\"];
-  }
-  return ["/", os.homedir()];
-}
