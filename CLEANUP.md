@@ -25,10 +25,10 @@ Development-only tests are not rewrite targets. `scripts/test-*.mjs` and other t
 - [x] Move driver epoch runtime state out of the repository into `getWorkerDataRoot()` and quarantine the obsolete tracked root marker.
 - [x] Retire standalone `stop.ps1`; tray/reset-runtime remains the supported stop/reset path.
 - [x] Remove inert preload tokens `mcp`, `ponytail`, and `rewind` from runtime-family policy, Job runtime/tool schemas, and default Job configs.
-- [ ] Run local TypeScript build.
-- [ ] Run Job Pack validation.
+- [x] Run local TypeScript build.
+- [x] Run Job Pack validation.
 - [x] Run runtime acceptance for filesystem, shell/process, git, context, node_repl, and workspace-boundary behavior.
-- [ ] Hard-delete quarantine only after active runtime validation passes.
+- [x] Remove quarantine after active runtime validation passed.
 
 ## Compatibility that remains active
 
@@ -47,3 +47,12 @@ Rewrite required behavior; do not rewrite dead code merely to make it look origi
 Before producing the final distributable, define an explicit artifact manifest. The shipped artifact should not include `scripts/test-*.mjs`, other test-only runners, `legacy/**` quarantine, `setup-test.bat`, or completed planning/cleanup artifacts that are not runtime/operator documentation.
 
 Finalize the exact manifest when the distribution format (source package, npm package, or executable bundle) is frozen.
+
+
+## Cleanup closure
+
+Validation completed successfully, including build, Job Pack validation, the default test suite, the full runtime acceptance sequence, and public command routing. The previously failing `gr/job stop` route was fixed and confirmed working.
+
+The temporary quarantine has been removed. The quarantine-only regression checks are no longer part of the default test runner because the quarantine they guarded no longer exists.
+
+Dead compatibility cleanup is closed. Any next step is provenance rewrite of still-active implementation, not dead-code cleanup.
