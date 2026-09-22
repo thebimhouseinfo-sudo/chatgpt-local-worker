@@ -11,7 +11,6 @@ import { createMcpServer } from "../server-factory.js";
 import { logSystemEvent } from "./activity-log.js";
 
 
-const DEFAULT_PROTOCOL_VERSION = "2025-03-26";
 const SESSION_TTL_MS = parseInt(process.env.MCP_SESSION_TTL_MS || "86400000", 10); // 24h
 const SESSION_CLEANUP_INTERVAL_MS = parseInt(
   process.env.MCP_SESSION_CLEANUP_MS || "300000",
@@ -70,7 +69,6 @@ export interface McpSession {
   transport: StreamableHTTPServerTransport;
   server: McpServer;
   lastAccessedAt: number;
-  createdAt: number;
 }
 
 export interface SessionManagerConfig {
@@ -83,7 +81,6 @@ export interface SessionManagerConfig {
 
 export interface SessionManager {
   get(sessionId: string): McpSession | undefined;
-  touch(sessionId: string): void;
   count(): number;
   createNew(req: Request, res: Response, body: unknown): Promise<void>;
   handleExisting(session: McpSession, req: Request, res: Response, body?: unknown): Promise<void>;
@@ -227,7 +224,6 @@ export function createSessionManager(config: SessionManagerConfig): SessionManag
           transport,
           server: mcpServer,
           lastAccessedAt: Date.now(),
-          createdAt: existing?.createdAt ?? Date.now(),
         };
         clearPendingRecovery(sid);
         logSystemEvent("session_initialized", {
@@ -267,7 +263,6 @@ export function createSessionManager(config: SessionManagerConfig): SessionManag
         transport,
         server: mcpServer,
         lastAccessedAt: Date.now(),
-        createdAt: Date.now(),
       }
     );
   }
@@ -323,7 +318,6 @@ export function createSessionManager(config: SessionManagerConfig): SessionManag
       return sessions[sessionId];
     },
 
-    touch,
 
     count() {
       return Object.keys(sessions).length;

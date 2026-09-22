@@ -40,7 +40,7 @@ assert.equal(
   path.resolve(outsideFile)
 );
 
-await pathSecurity.runWithWorkspaceCwd(workspace, async () => {
+await pathSecurity.runWithWorkspaceScope(workspace, [], async () => {
   assert.equal(
     await pathSecurity.validatePath(insideFile),
     path.resolve(insideFile)
@@ -56,7 +56,7 @@ await pathSecurity.runWithWorkspaceCwd(workspace, async () => {
     /Absolute path required/
   );
 
-  assert.deepEqual(pathSecurity.getAllowedRoots(), [path.resolve(workspace)]);
+  assert.equal(pathSecurity.getDefaultCwd(), path.resolve(workspace));
 
   // Multi-file patches must validate every resolved target, including an
   // absolute path embedded in patch text.
@@ -126,7 +126,7 @@ try {
     linkPath,
     process.platform === "win32" ? "junction" : "dir"
   );
-  await pathSecurity.runWithWorkspaceCwd(workspace, async () => {
+  await pathSecurity.runWithWorkspaceScope(workspace, [], async () => {
     await assert.rejects(
       () => pathSecurity.validatePath(path.join(linkPath, "escaped.txt")),
       /WORKSPACE_BOUNDARY/

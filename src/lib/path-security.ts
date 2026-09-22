@@ -83,16 +83,8 @@ export function getDefaultCwd(): string {
   return callScope.getStore()?.workspace ?? defaultCwd;
 }
 
-export function getActiveWorkspaceBoundary(): string | null {
-  return callScope.getStore()?.workspace ?? null;
-}
-
 export function getActiveSupportRoots(): string[] {
   return [...(callScope.getStore()?.supportRoots ?? [])];
-}
-
-export function isWorkspaceBoundaryActive(): boolean {
-  return Boolean(callScope.getStore());
 }
 
 export function runWithWorkspaceScope<T>(
@@ -106,25 +98,6 @@ export function runWithWorkspaceScope<T>(
   };
   return callScope.run(scope, fn);
 }
-
-export function runWithWorkspaceCwd<T>(
-  cwd: string,
-  fn: () => T
-): T {
-  return runWithWorkspaceScope(cwd, [], fn);
-}
-
-/** @deprecated use getDefaultCwd — kept for compatibility */
-export function setAllowedRoots(roots: string[]): void {
-  if (roots.length > 0) setDefaultCwd(roots[0]);
-}
-
-/** Effective active-work root; before work activation this is startup context only. */
-export function getAllowedRoots(): string[] {
-  return [getDefaultCwd()];
-}
-
-export function setFullDiskAccess(_enabled: boolean): void {}
 
 /**
  * Host process capability only. Active Job structured path APIs are separately
