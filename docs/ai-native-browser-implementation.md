@@ -453,7 +453,65 @@ Current browser tab
 
 The user may still use external local-model software for model hosting, but the browser should provide the normal conversation/control UI.
 
-### 8.3 Connector states
+### 8.3 Sidebar scope
+
+Keep the sidebar intentionally simple.
+
+For both ChatGPT and local AI, the sidebar is primarily a **conversation surface**:
+
+- render chat/messages;
+- show current task/activity;
+- show tool/action log or concise execution history;
+- show connection status;
+- allow basic reconnect/disconnect controls;
+- preserve conversation history while switching browser tabs.
+
+Do not turn the sidebar into a full configuration console.
+
+For web-login providers such as ChatGPT, this can remain especially lightweight because provider authentication and account UX are handled by the provider/Gptworker path.
+
+### 8.4 Local AI admin/config page
+
+Local AI needs more configuration than the sidebar should carry.
+
+Provide a separate browser-owned **Admin / Settings page** for local-AI setup.
+
+Suggested internal route:
+
+```text
+browser://settings/ai
+```
+
+or equivalent.
+
+The admin page may contain:
+
+- local connector enable/disable;
+- provider/runtime type;
+- local endpoint/port;
+- model selection;
+- connection test;
+- timeout/retry settings;
+- optional context/tool limits;
+- startup/autoconnect preference;
+- connector logs/diagnostics;
+- reset/reconnect controls.
+
+The sidebar should read the resulting connector state but should not duplicate these advanced settings.
+
+Expected split:
+
+```text
+Sidebar
+  = chat + task/activity + history + status
+
+Admin page
+  = connector/model/runtime configuration
+```
+
+This keeps the primary browser experience clean while still supporting more complex local setups.
+
+### 8.5 Connector states
 
 At minimum the sidebar should support these states:
 
@@ -470,7 +528,7 @@ Choose connector
 
 Third-party providers may add their own connectors later.
 
-### 8.4 Reuse strategy for sidebar UI
+### 8.6 Reuse strategy for sidebar UI
 
 The base repository's existing dashboard/chat UI may be reused for components, styles, activity display, connection indicators, or conversation UI where useful.
 
@@ -478,7 +536,7 @@ However, the final product UX is a **native docked browser sidebar**, not a sepa
 
 Do not rewrite existing dashboard components if they can be embedded or adapted cleanly.
 
-### 8.5 Control-path rule
+### 8.7 Control-path rule
 
 The sidebar is a human-facing UI only.
 
