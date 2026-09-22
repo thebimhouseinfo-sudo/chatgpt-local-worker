@@ -4,7 +4,7 @@ import os from "node:os";
 import path from "node:path";
 import { registerFilesystemTools } from "../dist/tools/filesystem.js";
 import {
-  runWithWorkspaceCwd,
+  runWithWorkspaceScope,
   setDefaultCwd,
 } from "../dist/lib/path-security.js";
 
@@ -57,7 +57,7 @@ for (const retired of [
   assert.equal(registered.has(retired), false, `${retired} must be retired`);
 }
 
-await runWithWorkspaceCwd(root, async () => {
+await runWithWorkspaceScope(root, [], async () => {
   const call = (name, args) => registered.get(name).callback(args);
 
   const file = path.join(root, "sample.txt");
