@@ -303,7 +303,7 @@ This is a **temporary execution checklist**, not a final architecture freeze. It
 
 **Target state:** one logging pipeline, one persistent runtime log, no duplicate audit file.
 
-### Phase 3 — rewrite shell/process around current GPTWorker needs
+### Phase 3 — rewrite shell/process around current GPTWorker needs — COMPLETE / CI GREEN
 
 #### `src/tools/shell.ts`
 #### `src/lib/persistent-shell.ts`
@@ -317,8 +317,8 @@ Treat these three files as **one subsystem review**, not three isolated rewrites
   - `process_status`
   - `process_output`
   - `stop_process`
-- [ ] Verify whether `shell_status` provides any value once cwd is explicit and Workspace is already known.
-- [ ] Verify whether `shell_reset` is needed at all without persistent cwd.
+- [x] `shell_status` removed; no independent value remains with stateless cwd.
+- [x] `shell_reset` removed; stateless shell has nothing to reset.
 - [x] Remove `clear_processes`; finished records auto-prune by age/cap.
 - [x] Make `working_directory` an explicit one-call option rooted inside the confirmed Workspace.
 - [x] Commands now always start from Workspace root when `working_directory` is absent.
@@ -330,7 +330,7 @@ Treat these three files as **one subsystem review**, not three isolated rewrites
 - [ ] Consider merging command execution and process management into one implementation file **only if** the resulting file has a clear responsibility and remains maintainable.
 - [ ] If `persistent-shell.ts` becomes just a stateless executor, consider renaming it to something like `shell-executor.ts`; otherwise keep the current filename to avoid unnecessary caller churn.
 - [x] All useful shell/process code now lives cleanly in `src/tools/shell.ts`; deleted `persistent-shell.ts` and `global-shell-state.ts`.
-- [ ] Update `work-gateway.ts`, policy/catalog, quickstart, Job docs, and acceptance tests for removed shell operations.
+- [x] Gateway/policy/catalog/quickstart/tests updated for removed shell operations.
 
 **Implemented:** stateless/Workspace-first command executor + small in-memory background process registry; no disk shell state. GitHub Actions CI #601 passed on Windows and Linux.
 
