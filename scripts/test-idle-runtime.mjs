@@ -20,7 +20,6 @@ if (/[^\x00-\x7F]/.test(tunnel)) {
 for (const modulePath of [
   "./tools/filesystem.js",
   "./tools/shell.js",
-  "./tools/git.js",
   "./tools/context.js",
   "./tools/node-repl.js",
 ]) {
@@ -44,7 +43,6 @@ for (const required of [
 for (const lazyModule of [
   'import("./filesystem.js")',
   'import("./shell.js")',
-  'import("./git.js")',
   'import("./context.js")',
   'import("./node-repl.js")',
 ]) {
