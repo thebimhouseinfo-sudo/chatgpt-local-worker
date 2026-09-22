@@ -22,8 +22,7 @@ const FILESYSTEM_TOOLS = new Set([
 ]);
 
 const SHELL_TOOLS = new Set([
-  "run_command", "shell_status", "shell_reset", "start_process",
-  "process_status", "process_output", "stop_process", "clear_processes",
+  "run_command", "start_process", "process_status", "process_output", "stop_process",
 ]);
 
 export { CONTROL_TOOLS };

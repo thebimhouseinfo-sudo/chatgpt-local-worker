@@ -1,80 +1,101 @@
-/**
- * Persistent shell state is isolated by concrete workspace.
- */
-import fs from "fs/promises";
-import path from "path";
-import { fileURLToPath } from "url";
-import {
-  bootstrapShellSession,
-  execInShellSession,
-  getShellStatus,
-  resetAllShellSessionsForTests,
-} from "../dist/lib/persistent-shell.js";
+import assert from "node:assert/strict";
+import fs from "node:fs/promises";
+import os from "node:os";
+import path from "node:path";
+import { registerShellTools } from "../dist/tools/shell.js";
+import { setDefaultCwd } from "../dist/lib/path-security.js";
 
-const __dirname = path.dirname(fileURLToPath(import.meta.url));
-const root = path.resolve(__dirname, "..");
-const stateDir = path.join(root, ".tool-test-tmp", "shell-persist");
-const workspaceA = path.join(stateDir, "workspace-a");
-const workspaceB = path.join(stateDir, "workspace-b");
-const subA = path.join(workspaceA, "sub");
-const subB = path.join(workspaceB, "sub");
+process.env.ACTIVITY_LOG_DISABLED = "true";
 
-process.env.MCP_SHELL_STATE_DIR = path.join(stateDir, "state");
+const root = await fs.mkdtemp(path.join(os.tmpdir(), "gptworker-shell-stateless-"));
+const sub = path.join(root, "sub");
+await fs.mkdir(sub, { recursive: true });
+setDefaultCwd(root);
 
-let passed = 0;
-let failed = 0;
-function ok(m) { console.log(`OK  ${m}`); passed++; }
-function fail(m, e) { console.error(`FAIL ${m}: ${e && e.stack || e}`); failed++; }
+const registered = new Map();
+const server = {
+  registerTool(name, config, callback) {
+    registered.set(name, { config, callback });
+    return {
+      remove() {},
+      update() {},
+      enable() {},
+      disable() {},
+      enabled: true,
+    };
+  },
+};
 
-try {
-  await fs.rm(stateDir, { recursive: true, force: true });
-  await fs.mkdir(subA, { recursive: true });
-  await fs.mkdir(subB, { recursive: true });
-  resetAllShellSessionsForTests();
+registerShellTools(server, root, 15);
 
-  await bootstrapShellSession(workspaceA);
-  await bootstrapShellSession(workspaceB);
-
-  await execInShellSession(`cd "${subA}"`, workspaceA, 5000);
-  await execInShellSession(`cd "${subB}"`, workspaceB, 5000);
-
-  const statusA = getShellStatus(workspaceA);
-  const statusB = getShellStatus(workspaceB);
-  if (path.resolve(statusA.cwd) !== path.resolve(subA)) {
-    throw new Error(`workspace A cwd mismatch: ${statusA.cwd}`);
-  }
-  if (path.resolve(statusB.cwd) !== path.resolve(subB)) {
-    throw new Error(`workspace B cwd mismatch: ${statusB.cwd}`);
-  }
-  ok("two workspaces keep independent shell cwd");
-
-  let relativeCdBlocked = false;
-  try {
-    await execInShellSession("cd sub", workspaceA, 5000);
-  } catch (error) {
-    relativeCdBlocked = /absolute path/i.test(String(error?.message || error));
-  }
-  if (!relativeCdBlocked) throw new Error("relative cd target should be rejected");
-  ok("relative shell directory changes are rejected");
-
-  resetAllShellSessionsForTests();
-  await bootstrapShellSession(workspaceA);
-  const restoredA = getShellStatus(workspaceA).cwd;
-  if (path.resolve(restoredA) !== path.resolve(subA)) {
-    throw new Error(`persist failed for workspace A: ${restoredA}`);
-  }
-  ok("workspace shell cwd restores from its own persisted state");
-
-  await bootstrapShellSession(workspaceB);
-  const restoredB = getShellStatus(workspaceB).cwd;
-  if (path.resolve(restoredB) !== path.resolve(subB)) {
-    throw new Error(`persist failed for workspace B: ${restoredB}`);
-  }
-  ok("workspace B restore does not reuse workspace A state");
-} catch (e) {
-  fail("shell workspace isolation", e.message || e);
+for (const required of [
+  "run_command",
+  "start_process",
+  "process_status",
+  "process_output",
+  "stop_process",
+]) {
+  assert.ok(registered.has(required), `missing shell operation: ${required}`);
+}
+for (const retired of ["shell_status", "shell_reset", "clear_processes"]) {
+  assert.equal(registered.has(retired), false, `${retired} must be retired`);
 }
 
-await fs.rm(stateDir, { recursive: true, force: true });
-console.log(`\n${passed} passed, ${failed} failed`);
-process.exit(failed ? 1 : 0);
+const runCommand = registered.get("run_command").callback;
+const cwdScript = 'node -e "process.stdout.write(process.cwd())"';
+
+const rootResult = await runCommand({ command: cwdScript });
+assert.equal(rootResult.structuredContent.ok, true);
+assert.equal(path.resolve(rootResult.structuredContent.data.cwd), path.resolve(root));
+assert.equal(path.resolve(rootResult.structuredContent.data.stdout), path.resolve(root));
+
+const subResult = await runCommand({
+  command: cwdScript,
+  working_directory: sub,
+});
+assert.equal(subResult.structuredContent.ok, true);
+assert.equal(path.resolve(subResult.structuredContent.data.cwd), path.resolve(sub));
+assert.equal(path.resolve(subResult.structuredContent.data.stdout), path.resolve(sub));
+
+const rootAgain = await runCommand({ command: cwdScript });
+assert.equal(
+  path.resolve(rootAgain.structuredContent.data.cwd),
+  path.resolve(root),
+  "working_directory must not persist into the next command"
+);
+
+await assert.rejects(
+  () => runCommand({ command: cwdScript, working_directory: "sub" }),
+  /absolute path/i,
+  "relative working_directory must be rejected"
+);
+
+await assert.rejects(
+  () => runCommand({ command: "cd sub" }),
+  /absolute path/i,
+  "relative cd must be rejected"
+);
+
+const startProcess = registered.get("start_process").callback;
+const processStatus = registered.get("process_status").callback;
+const processOutput = registered.get("process_output").callback;
+
+const started = await startProcess({
+  command: 'node -e "setTimeout(() => console.log(\'process-ok\'), 50)"',
+});
+assert.equal(started.structuredContent.ok, true);
+const id = started.structuredContent.data.id;
+assert.equal(typeof id, "string");
+
+await new Promise((resolve) => setTimeout(resolve, 250));
+
+const status = await processStatus({ id });
+assert.equal(status.structuredContent.ok, true);
+assert.equal(status.structuredContent.data.processes.length, 1);
+assert.equal(status.structuredContent.data.processes[0].running, false);
+
+const output = await processOutput({ id, tail_chars: 4000 });
+assert.match(output.structuredContent.data.stdout, /process-ok/);
+
+await fs.rm(root, { recursive: true, force: true });
+console.log("test-shell-stateless: ok");

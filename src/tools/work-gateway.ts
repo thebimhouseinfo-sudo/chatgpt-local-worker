@@ -24,8 +24,7 @@ export const FAMILY_TOOLS = {
     "copy_file", "move_file", "search_files", "directory_tree", "list_allowed_directories",
   ],
   shell: [
-    "run_command", "shell_status", "shell_reset", "start_process",
-    "process_status", "process_output", "stop_process", "clear_processes",
+    "run_command", "start_process", "process_status", "process_output", "stop_process",
   ],
   context: ["project_context", "agent_status"],
   repl: ["node_repl"],

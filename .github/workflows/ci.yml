@@ -76,6 +76,9 @@ jobs:
       - name: Build
         run: npm run build
 
+      - name: Shell executor smoke
+        run: node scripts/test-shell-persist.mjs
+
       - name: Validate tunnel script with Windows PowerShell 5.1
         shell: powershell
         run: |

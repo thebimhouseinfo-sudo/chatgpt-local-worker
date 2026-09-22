@@ -282,7 +282,7 @@ Xác nhận bắt đầu?
 - Every Job binding whose type is path/file/directory/folder/repo/repository must be an absolute local path.
 - After activation, the confirmed FOLDER is the hard Job execution boundary for every bundled or Custom Job.
 - Every filesystem/context path/source/destination must be absolute **and inside the confirmed FOLDER**.
-- Every shell working_directory/shell_reset path must be absolute and inside the confirmed FOLDER.
+- Every shell working_directory must be absolute and inside the confirmed FOLDER. Shell cwd is not persisted between calls.
 - Relative cd/Set-Location/pushd targets and parent-directory traversal are rejected; normal/obvious shell absolute-path escapes outside the confirmed FOLDER are rejected.
 - For multi-file apply_patch, supply an absolute base path inside the confirmed FOLDER; each patch target is boundary-checked.
 - Git is not a dedicated GPTWorker tool family. When Git is installed and needed, run ordinary \`git ...\` commands through work_tool tool=run_command from the confirmed Workspace.
@@ -333,7 +333,6 @@ All tools return JSON: { ok, tool, summary, data }
 - work_tool operation move_file: preferred rename/move operation inside the active workspace
 - work_tool operations create_directory / delete_directory / copy_file / delete_file: other filesystem operations
 - work_tool operations run_command / start_process / process_output / process_status / stop_process: execute
-- work_tool operations shell_status / shell_reset: persistent shell state
 - Git/GitHub repository operations are optional host CLI behavior: use work_tool tool=run_command with ordinary \`git ...\` commands when Git is installed.
 - work_tool operations project_context / agent_status: active-workspace context
 - when a dedicated operation is unavailable, dispatch run_command through work_tool; node_repl is not the fallback for routine filesystem mutation
