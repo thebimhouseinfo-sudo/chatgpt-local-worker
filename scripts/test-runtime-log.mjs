@@ -8,10 +8,10 @@ const logPath = path.join(root, "activity.jsonl");
 process.env.ACTIVITY_LOG_PATH = logPath;
 process.env.ACTIVITY_LOG_ROTATE_BYTES = "600";
 
-const { appendActivity, loadActivityHistory, sanitizeActivityValue } = await import(
+const { appendActivity, sanitizeActivityValue } = await import(
   `../dist/lib/activity-log.js?runtime-log-test=${Date.now()}`
 );
-const { flushRuntimeLog } = await import("../dist/lib/runtime-log.js");
+const { flushRuntimeLog, loadRuntimeLog } = await import("../dist/lib/runtime-log.js");
 
 process.env.MCP_TOKEN = "mcp-runtime-secret-123456";
 
@@ -46,7 +46,7 @@ appendActivity({ kind: "system", action: "rotation_test", details: { payload: "x
 appendActivity({ kind: "system", action: "rotation_test_2", details: { payload: "y".repeat(1200) } });
 await flushRuntimeLog();
 assert.equal((await fs.stat(`${logPath}.1`)).isFile(), true);
-assert.ok((await loadActivityHistory(20)).some((entry) => entry.action === "rotation_test_2"));
+assert.ok((await loadRuntimeLog(20)).some((entry) => entry.action === "rotation_test_2"));
 
 process.env.ACTIVITY_LOG_PATH = root;
 assert.doesNotThrow(() => appendActivity({ kind: "system", action: "fail_open_test" }));
