@@ -4,7 +4,6 @@ import fs from "node:fs/promises";
 const serverFactory = await fs.readFile("src/server-factory.ts", "utf8");
 const workGateway = await fs.readFile("src/tools/work-gateway.ts", "utf8");
 const sessionManager = await fs.readFile("src/lib/mcp-session-manager.ts", "utf8");
-const nodeRepl = await fs.readFile("src/tools/node-repl.ts", "utf8");
 const context = await fs.readFile("src/tools/context.ts", "utf8");
 const tray = await fs.readFile("gptworker-tray.ps1", "utf8");
 const start = await fs.readFile("start.ps1", "utf8");
@@ -21,7 +20,6 @@ for (const modulePath of [
   "./tools/filesystem.js",
   "./tools/shell.js",
   "./tools/context.js",
-  "./tools/node-repl.js",
 ]) {
   assert.equal(
     serverFactory.includes(`import("${modulePath}")`),
@@ -44,7 +42,6 @@ for (const lazyModule of [
   'import("./filesystem.js")',
   'import("./shell.js")',
   'import("./context.js")',
-  'import("./node-repl.js")',
 ]) {
   assert.equal(workGateway.includes(lazyModule), true, `gateway missing lazy import: ${lazyModule}`);
 }
@@ -79,9 +76,16 @@ for (const required of [
   assert.equal(sessionManager.includes(required), true, `session stability behavior missing: ${required}`);
 }
 
-for (const retired of ["@oai/sky", "codex-computer-use", "plugin-config", "globalThis.sky"]) {
-  assert.equal(nodeRepl.includes(retired), false, `node_repl contains retired dependency: ${retired}`);
-}
+assert.equal(
+  await fs.access("src/tools/node-repl.ts").then(() => true).catch(() => false),
+  false,
+  "node_repl implementation must remain retired"
+);
+assert.equal(
+  workGateway.includes('import("./node-repl.js")'),
+  false,
+  "work gateway must not lazy-import retired node_repl"
+);
 
 for (const retired of ["getUpstreamManager", "upstream_mcp", "mcp-upstream"]) {
   assert.equal(context.includes(retired), false, `context contains retired dependency: ${retired}`);
