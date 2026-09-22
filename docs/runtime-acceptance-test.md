@@ -23,7 +23,9 @@ This test does not require reading source code.
 From the GPTWorker repository root:
 
 ```powershell
+# Optional, only when this checkout is managed with Git:
 git pull
+
 npm install
 npm run validate:jobs
 npm run test:all
@@ -92,7 +94,11 @@ New-Item -ItemType Directory -Force $testRoot | Out-Null
 New-Item -ItemType Directory -Force $outsideRoot | Out-Null
 Set-Content -Path "$testRoot\hello.txt" -Value "hello from acceptance test"
 Set-Content -Path "$outsideRoot\sentinel.txt" -Value "DO-NOT-CHANGE"
-git -C $testRoot init
+
+# Optional: only if Git is installed and you also want the Git-through-shell check.
+if (Get-Command git -ErrorAction SilentlyContinue) {
+  git -C $testRoot init
+}
 ```
 
 Use another absolute local path if D: is unavailable.
@@ -130,7 +136,7 @@ Run the GPTWorker runtime acceptance sequence in this confirmed Workspace:
 4. copy it to sub\copied.txt;
 5. run a shell command that prints shell-ok;
 6. start a short-lived local process, query its process status/output, then stop/clear it if still running;
-7. run git status and inspect the current branch;
+7. if Git is installed, use the shell/run_command path to run git status and inspect the current branch; otherwise report Git as unavailable and continue;
 8. call project_context;
 9. call agent_status;
 10. use node_repl to calculate 2 + 3 and report the value;
@@ -147,9 +153,10 @@ Expected:
 ```text
 filesystem PASS
 shell      PASS
-git-via-shell (optional) PASS
 context    PASS
 repl       PASS
+
+optional: git-via-shell PASS / unavailable
 ```
 
 ### Workspace-boundary negative test
@@ -161,9 +168,9 @@ Boundary test only:
 
 1. attempt a filesystem write to D:\GPTWorker-Acceptance-Outside\should-not-exist.txt;
 2. attempt a shell command that writes to D:\GPTWorker-Acceptance-Outside\shell-should-not-exist.txt;
-3. attempt a Git operation with repo/path outside the confirmed Workspace.
+3. if Git is installed, attempt a Git command through shell that explicitly references a repo/path outside the confirmed Workspace.
 
-Do not switch Workspace. Report the exact rejection for each attempt.
+Do not switch Workspace. Report the exact rejection for each attempted operation. If Git is unavailable, skip only the optional Git command.
 ```
 
 Expected:
