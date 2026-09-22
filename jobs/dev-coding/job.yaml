@@ -1,9 +1,9 @@
 {
   "id": "dev-coding",
   "name": "Dev Coding",
-  "version": "1.4.0",
+  "version": "1.4.1",
   "status": "ready",
-  "description": "Professional code-execution job that reads the active planning bundle first, selects/updates executable tasks, plans execution, then performs targeted code changes using the GPTWorker execution core and its filesystem, shell, git, context, validation, and local execution capabilities.",
+  "description": "Professional code-execution job that reads the active planning bundle first, selects/updates executable tasks, plans execution, then performs targeted code changes using the GPTWorker execution core and its filesystem, shell, context, validation, and local execution capabilities.",
   "aliases": [
     "coding",
     "code",
@@ -85,8 +85,7 @@
   ],
   "permissions": {
     "filesystem": "read-write-after-confirm",
-    "shell": "allowed-after-confirm",
-    "git": "read-write-after-confirm",
+    "shell": "allowed-after-confirm; Git CLI commands may be run through shell when Git is installed and required by the task",
     "network": "only-when-required-by-task-and-available-through-existing-tools"
   },
   "confirmation": {
@@ -130,7 +129,6 @@
     "preload_families": [
       "filesystem",
       "shell",
-      "git",
       "context",
       "repl"
     ]

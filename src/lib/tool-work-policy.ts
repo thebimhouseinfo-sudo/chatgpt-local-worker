@@ -39,7 +39,6 @@ export function requiresWorkHandle(toolName: string): boolean {
 export function toolFamily(toolName: string): string {
   if (FILESYSTEM_TOOLS.has(toolName)) return "filesystem";
   if (SHELL_TOOLS.has(toolName)) return "shell";
-  if (toolName.startsWith("git_")) return "git";
   if (toolName.includes("repl")) return "repl";
   if (["project_context", "agent_status"].includes(toolName)) {
     return "context";

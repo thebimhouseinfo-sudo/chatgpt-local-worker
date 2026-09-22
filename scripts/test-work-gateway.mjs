@@ -30,13 +30,13 @@ try {
     throw new Error("nominated Job filesystem profile was not prepared");
   }
 
-  const preparedB = await resolver.prepareJob("job-b", ["git"]);
+  const preparedB = await resolver.prepareJob("job-b", ["context"]);
   status = resolver.status();
   if (
     preparedB.stale ||
     status.prepared_job !== "job-b" ||
     status.prepared_families.includes("filesystem") ||
-    !status.prepared_families.includes("git")
+    !status.prepared_families.includes("context")
   ) {
     throw new Error("replacement nomination did not reset/reload prepared profile");
   }
@@ -62,12 +62,6 @@ try {
   status = resolver.status();
   if (!status.loaded_families.includes("filesystem")) {
     throw new Error("same-family operation must reuse the loaded filesystem family");
-  }
-
-  await resolver.resolve("git_status");
-  status = resolver.status();
-  if (!status.loaded_families.includes("git")) {
-    throw new Error(`git must be available after preload/use: ${status.loaded_families}`);
   }
 
   const registered = new Map();

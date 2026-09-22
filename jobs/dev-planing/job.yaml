@@ -1,7 +1,7 @@
 {
   "id": "dev-planing",
   "name": "Dev Planing",
-  "version": "1.1.0",
+  "version": "1.1.1",
   "status": "ready",
   "description": "Repository-aware development planning job that reviews code and produces a durable planning bundle: architecture, general implementation plan, TODO backlog, and executable task list without modifying source code.",
   "aliases": [
@@ -57,8 +57,7 @@
   ],
   "permissions": {
     "filesystem": "read-project-write-planning-bundle-only-after-confirm",
-    "shell": "read-only-inspection-after-confirm",
-    "git": "read-only-after-confirm",
+    "shell": "read-only-inspection-after-confirm; non-mutating Git CLI inspection may run through shell when Git is installed",
     "network": "only-when-required-for-reference-research-through-existing-tools"
   },
   "confirmation": {
@@ -87,7 +86,6 @@
     "preload_families": [
       "filesystem",
       "shell",
-      "git",
       "context"
     ]
   }

@@ -193,17 +193,6 @@ assert.equal(
   path.resolve(workspace)
 );
 
-const gitSource = await fs.readFile("src/tools/git.ts", "utf8");
-assert.equal(
-  gitSource.includes("safeRepoPathspec"),
-  true,
-  "Git file/pathspec boundary guard is missing"
-);
-assert.equal(
-  gitSource.includes('args.push("--", ...files.map'),
-  true,
-  "git_add must separate validated file pathspecs from options"
-);
 
 await fs.rm(root, {
   recursive: true,

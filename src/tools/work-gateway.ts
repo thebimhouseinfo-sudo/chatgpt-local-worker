@@ -27,10 +27,6 @@ export const FAMILY_TOOLS = {
     "run_command", "shell_status", "shell_reset", "start_process",
     "process_status", "process_output", "stop_process", "clear_processes",
   ],
-  git: [
-    "git_status", "git_diff", "git_log", "git_add", "git_commit", "git_branch",
-    "git_checkout", "git_restore", "git_push", "git_pull", "git_stash", "git_reset",
-  ],
   context: ["project_context", "agent_status"],
   repl: ["node_repl"],
 } as const;
@@ -97,11 +93,6 @@ async function registerFamily(
     case "shell": {
       const module = await import("./shell.js");
       module.registerShellTools(server, workspaceRoot, shellTimeout);
-      return;
-    }
-    case "git": {
-      const module = await import("./git.js");
-      module.registerGitTools(server, workspaceRoot);
       return;
     }
     case "context": {

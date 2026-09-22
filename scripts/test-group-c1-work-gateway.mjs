@@ -42,12 +42,13 @@ for (const forbidden of [
 
 assert.deepEqual(
   TOOL_FAMILIES,
-  ["filesystem", "shell", "git", "context", "repl"],
+  ["filesystem", "shell", "context", "repl"],
   "runtime family set drifted"
 );
 assert.equal("rewind" in FAMILY_TOOLS, false);
 assert.equal(WORK_TOOL_OPERATIONS.includes("rewind"), false);
 assert.equal(WORK_TOOL_OPERATIONS.includes("remember"), false);
+assert.equal(WORK_TOOL_OPERATIONS.some((name) => name.startsWith("git_")), false);
 assert.equal(FAMILY_TOOLS.context.includes("remember"), false);
 
 const tmpDir = await fs.mkdtemp(path.join(os.tmpdir(), "gptworker-c1-"));

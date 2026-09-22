@@ -1,7 +1,7 @@
 {
   "id": "layla",
   "name": "Layla",
-  "version": "1.1.0",
+  "version": "1.1.1",
   "status": "ready",
   "description": "Universal adaptive Job for ad-hoc work across text files, Office documents, spreadsheets, presentations, PDFs, file/folder organization, and mixed local file sets. Layla first locks the confirmed workspace, performs read-only discovery, proposes an execution plan for user approval, and only then performs mutations.",
   "aliases": [
@@ -61,8 +61,7 @@
   ],
   "permissions": {
     "filesystem": "read-only-after-workspace-confirm-until-plan-confirmed-then-read-write-inside-confirmed-workspace",
-    "shell": "read-only-inspection-after-workspace-confirm; mutating commands allowed only after-plan-confirm-when-needed",
-    "git": "allowed only after-plan-confirm when the confirmed workspace is a repository and the task needs it",
+    "shell": "read-only-inspection-after-workspace-confirm; mutating commands, including Git CLI commands when needed, allowed only after-plan-confirm",
     "network": "only-when-required-by-the-user-task-and-available-through-existing-tools"
   },
   "confirmation": {
@@ -90,7 +89,6 @@
       "move",
       "delete",
       "mutating-shell",
-      "git-write",
       "output-generation"
     ],
     "template": "KẾ HOẠCH LAYLA:\n{plan}\n\nXác nhận thực hiện kế hoạch?"
@@ -107,7 +105,6 @@
     "preload_families": [
       "filesystem",
       "shell",
-      "git",
       "context"
     ]
   }

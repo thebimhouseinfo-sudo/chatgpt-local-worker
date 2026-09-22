@@ -1,7 +1,6 @@
 export const RUNTIME_FAMILIES = [
   "filesystem",
   "shell",
-  "git",
   "context",
   "repl",
 ] as const;
