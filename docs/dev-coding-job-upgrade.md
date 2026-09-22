@@ -242,7 +242,98 @@ Use `BLOCKED` when a required dependency, decision, environment, credential, or 
 
 ---
 
-## 6. Test-script generation capability
+
+## 6. Autonomous implementation loop
+
+Dev Coding must not execute the workflow only once. It needs an explicit bounded loop that continues until the task goal is proven, the task is blocked, or a safe stop condition is reached.
+
+```text
+START
+  ↓
+Load task + goal + acceptance signals
+  ↓
+Inspect relevant context/code
+  ↓
+Implement or repair
+  ↓
+Create/update tests if needed
+  ↓
+Run targeted QA/QC
+  ↓
+PASS?
+ ├─ no → classify failure → fix → repeat loop
+ └─ yes
+       ↓
+Run broader tests/build/CI-equivalent checks
+       ↓
+PASS?
+ ├─ no → classify failure → fix → repeat loop
+ └─ yes
+       ↓
+Runtime verification required?
+ ├─ no
+ └─ yes → run app/service
+              ↓
+        Browser verification required?
+        ├─ no  → inspect runtime result
+        └─ yes → use agent-browser
+                  open/snapshot/interact/screenshot
+              ↓
+        Runtime result matches expectation?
+        ├─ no → diagnose → fix → repeat loop
+        └─ yes
+              ↓
+Verify original GOAL
+       ↓
+GOAL PASS?
+ ├─ no → identify remaining gap → fix → repeat loop
+ └─ yes
+       ↓
+Final diff review + completion gate
+       ↓
+DONE
+```
+
+### Loop rules
+
+1. Every iteration must start from evidence from the previous iteration: test failure, runtime failure, browser observation, CI log, or goal gap.
+2. Do not repeat the same failing action without changing either the implementation, test, environment, or hypothesis.
+3. After each repair, rerun the **original failing check first** before broadening validation.
+4. A successful unit test does not end the loop if runtime behavior or the task goal is still unverified.
+5. A successful build does not end the loop if acceptance signals are not yet observed.
+6. Browser verification can send the loop back to implementation even when all automated tests are green.
+7. CI failure can send the loop back to implementation even when local tests are green.
+8. Goal verification is the final decision point before completion.
+
+### Loop state
+
+The Job should keep a small explicit state for the current task:
+
+```text
+iteration: N
+current_hypothesis:
+last_change:
+last_check:
+last_result:
+remaining_goal_gap:
+next_action:
+```
+
+This state may live in the active conversation/task notes; it does not require a new large orchestration subsystem.
+
+### Stop conditions
+
+The loop ends only in one of these states:
+
+- `DONE` — required QA/QC passes and the goal is verified;
+- `BLOCKED` — progress requires unavailable credentials, external service, missing product decision, inaccessible dependency, or another user decision;
+- `FAILED_VALIDATION` — a required validation cannot be made to pass within the allowed task scope and the remaining failure is reported with evidence;
+- `ENVIRONMENT_LIMIT` — the environment cannot execute a required check, and this limitation is explicitly reported.
+
+Do not stop merely because code was written, a patch was generated, or one test suite passed.
+
+
+## 7. Test-script generation capability
 
 Dev Coding should be allowed to create missing test infrastructure **inside the confirmed workspace** when required to verify the active task.
 
@@ -269,7 +360,7 @@ Generated tests/scripts must:
 
 ---
 
-## 7. CI validation loop
+## 8. CI validation loop
 
 Dev Coding should understand CI as a validation environment, not as a separate source of truth.
 
@@ -302,7 +393,7 @@ A green CI result is important evidence but does not replace goal verification.
 
 ---
 
-## 8. QA/QC gate model
+## 9. QA/QC gate model
 
 Introduce a clear Dev Coding completion gate with at least these states:
 
@@ -327,7 +418,7 @@ Do not equate `N/A` or `UNAVAILABLE` with PASS.
 
 ---
 
-## 9. Browser capability using Vercel agent-browser
+## 10. Browser capability using Vercel agent-browser
 
 Integrate **vercel-labs/agent-browser** as an optional GPTWorker backend capability for Dev Coding.
 
@@ -367,7 +458,7 @@ Browser verification is complementary to automated tests, not a replacement for 
 
 ---
 
-## 10. Optional installation in setup.bat
+## 11. Optional installation in setup.bat
 
 Agent-browser must remain optional.
 
@@ -393,7 +484,7 @@ Do not silently install it later during a Dev Coding task.
 
 ---
 
-## 11. Backend MCP gate
+## 12. Backend MCP gate
 
 The agent-browser MCP integration may exist permanently in GPTWorker backend code, but browser tools are exposed only when the capability is enabled and healthy.
 
@@ -417,7 +508,7 @@ Dev Coding consumes the capability when available; it does not own installation 
 
 ---
 
-## 12. Dev Coding browser fallback
+## 13. Dev Coding browser fallback
 
 If browser capability is unavailable:
 
@@ -429,7 +520,7 @@ If browser capability is unavailable:
 
 ---
 
-## 13. Harness upgrade
+## 14. Harness upgrade
 
 Review the existing Dev Coding harness and evolve it into a cohesive execution loop rather than adding duplicate frameworks.
 
@@ -492,7 +583,7 @@ When CI is part of delivery, record:
 
 ---
 
-## 14. Skill upgrade
+## 15. Skill upgrade
 
 Keep current specialist skills, but strengthen Dev Coding SOP around these behaviors:
 
@@ -508,7 +599,7 @@ Avoid adding dozens of narrow skills. Prefer a small number of strong operating 
 
 ---
 
-## 15. Safety and workspace boundaries
+## 16. Safety and workspace boundaries
 
 All existing GPTWorker workspace/path safety rules remain mandatory.
 
@@ -523,7 +614,7 @@ Especially for generated tests, scripts, browser launch commands, and CI edits:
 
 ---
 
-## 16. Implementation sequence
+## 17. Implementation sequence
 
 ### Phase 1 — Baseline audit
 
@@ -582,7 +673,7 @@ Run representative tasks across:
 
 ---
 
-## 17. Acceptance criteria
+## 18. Acceptance criteria
 
 The Dev Coding Job upgrade is successful when it can reliably execute a task such as:
 
@@ -605,7 +696,7 @@ A human may still review the final product, but should no longer be required to 
 
 ---
 
-## 18. Non-goals
+## 19. Non-goals
 
 This upgrade does not attempt to create:
 
@@ -622,6 +713,6 @@ The target is deliberately narrower:
 
 ---
 
-## 19. Final rule
+## 20. Final rule
 
 > **Passing code checks is not enough. Dev Coding completes a task only when the implementation is technically validated and the observed result satisfies the task goal.**
