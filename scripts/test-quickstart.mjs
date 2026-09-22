@@ -209,6 +209,10 @@ assert.ok(instructions.startsWith("# GPTWorker static control surface — HIGHES
 assert.ok(instructions.includes("gptworker_control once with surface=commands"));
 assert.ok(instructions.includes("gptworker_control once with surface=help"));
 assert.ok(instructions.includes("return the tool text verbatim and nothing else"));
+assert.ok(instructions.includes("Match the entire trimmed user turn. Never route a command by prefix alone."));
+assert.ok(instructions.includes("NEVER call gptworker_control for any gr/job"));
+assert.ok(instructions.includes("Exact gr/job stop or gptworker/job stop -> job_stop."));
+assert.ok(instructions.includes("Never return the root menu for job stop."));
 assert.ok(instructions.includes("Outside those immediately preceding choice lists, never interpret a bare number"));
 assert.ok(
   !instructions.includes(GPTWORKER_ROOT_MENU),

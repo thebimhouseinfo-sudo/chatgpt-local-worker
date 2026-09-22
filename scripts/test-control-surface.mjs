@@ -23,6 +23,14 @@ const fakeServer = {
 registerGptworkerControlTool(fakeServer);
 const control = registered.get("gptworker_control");
 assert.ok(control, "gptworker_control was not registered");
+assert.ok(
+  control.config.description.includes("Use ONLY when the entire trimmed user command is exactly"),
+  "gptworker_control must be restricted to exact root/help commands"
+);
+assert.ok(
+  control.config.description.includes("NEVER use this tool for gr/job"),
+  "gptworker_control must explicitly reject gr/job routing"
+);
 
 const commands = await control.callback({ surface: "commands" });
 assert.equal(commands.content.length, 1);

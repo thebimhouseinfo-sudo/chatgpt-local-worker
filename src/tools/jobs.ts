@@ -323,7 +323,7 @@ export function registerJobTools(
     {
       title: "Job List",
       description:
-        "List available Job Packs. For bare @gptworker, pass activation_request: the response returns the approved Welcome with fixed Default Jobs 1-3 plus existing eligible Custom Jobs; mto is hidden from Welcome. For explicit gr/job list or gptworker/job list, omit activation_request and return the full Job catalog. Do not call this tool merely because an ordinary chat request resembles a Job.",
+        "Direct target for exact gr/job list or gptworker/job list. Also list available Job Packs for bare @gptworker when activation_request is supplied: the response returns the approved Welcome with fixed Default Jobs 1-3 plus existing eligible Custom Jobs; mto is hidden from Welcome. For explicit job-list commands, omit activation_request and return the full Job catalog. Never route gr/job list through gptworker_control. Do not call this tool merely because an ordinary chat request resembles a Job.",
       inputSchema: {
         query: z
           .string()
@@ -378,7 +378,7 @@ export function registerJobTools(
     {
       title: "Job Create",
       description:
-        "Create a new custom Job Pack under %LOCALAPPDATA%/GPTWorker/jobs/<id>. Create from scratch with name+description, or set clone_from to clone an existing default/custom Job into a new unique custom id. Bundled repo Job ids are reserved and cannot be reused.",
+        "Dedicated creation tool for the gr/job create or gptworker/job create authoring flow once required definition fields are known. Create a new custom Job Pack under %LOCALAPPDATA%/GPTWorker/jobs/<id>. Create from scratch with name+description, or set clone_from to clone an existing default/custom Job into a new unique custom id. Bundled repo Job ids are reserved and cannot be reused. Never route the command to gptworker_control.",
       inputSchema: {
         id: z.string().min(1),
         clone_from: z.string().min(1).optional().describe("Optional existing Job id to clone into this new custom Job"),
@@ -433,7 +433,7 @@ export function registerJobTools(
     {
       title: "Job Update",
       description:
-        "Update an existing custom AppData Job Pack through staged copy + validation + replacement. Bundled repo defaults are read-only.",
+        "Dedicated update tool for gr/job update or gptworker/job update once the Job id and requested changes are known. Update an existing custom AppData Job Pack through staged copy + validation + replacement. Bundled repo defaults are read-only. Never route the command to gptworker_control.",
       inputSchema: {
         id: z.string().min(1),
         name: z.string().min(1).optional(),
@@ -466,7 +466,7 @@ export function registerJobTools(
     {
       title: "Job Remove",
       description:
-        "Two-phase custom Job removal. First call confirmed=false: GPTWorker verifies the Job is custom and reports whether it has active WorkRegistrations or active tool leases. After explicit user confirmation, retry with confirmed=true + confirmation_token. If the Job is active in this chat, pass its work_handle so GPTWorker can stop that owned work before removal. Work owned by another chat is never stopped implicitly.",
+        "Dedicated removal tool for gr/job remove or gptworker/job remove. Two-phase custom Job removal. First call confirmed=false: GPTWorker verifies the Job is custom and reports whether it has active WorkRegistrations or active tool leases. After explicit user confirmation, retry with confirmed=true + confirmation_token. If the Job is active in this chat, pass its work_handle so GPTWorker can stop that owned work before removal. Work owned by another chat is never stopped implicitly. Never route the command to gptworker_control.",
       inputSchema: {
         id: z.string().min(1).describe("Exact custom Job id to remove"),
         confirmed: z.boolean().optional().default(false).describe(
@@ -607,7 +607,7 @@ export function registerJobTools(
     {
       title: "Job Export",
       description:
-        "Export one custom AppData Job Pack as <id>.zip into an existing absolute local destination directory. Bundled repo Jobs cannot be exported.",
+        "Dedicated export tool for gr/job export or gptworker/job export once id/destination are known. Export one custom AppData Job Pack as <id>.zip into an existing absolute local destination directory. Bundled repo Jobs cannot be exported. Never route the command to gptworker_control.",
       inputSchema: {
         id: z.string().min(1).describe("Exact custom Job id to export"),
         destination: z
@@ -626,7 +626,7 @@ export function registerJobTools(
     {
       title: "Job Import",
       description:
-        "Import one custom Job Pack ZIP into AppData. Source must be an absolute local .zip path or an absolute directory containing exactly one .zip. Import validates first and never overwrites existing/default Jobs.",
+        "Dedicated import tool for gr/job import or gptworker/job import once source is known. Import one custom Job Pack ZIP into AppData. Source must be an absolute local .zip path or an absolute directory containing exactly one .zip. Import validates first and never overwrites existing/default Jobs. Never route the command to gptworker_control.",
       inputSchema: {
         source: z
           .string()
@@ -993,7 +993,7 @@ export function registerJobTools(
     {
       title: "Job Stop",
       description:
-        "Stop this MCP session and return it to idle. Pending/selected state can be cancelled without a work_handle. Active work requires this chat's current work_handle; never infer or stop another chat's Job/Workspace. Orphaned active work auto-stops after 10 minutes idle.",
+        "Direct target for exact gr/job stop or gptworker/job stop, and contextual shortcut 8 immediately after the root command menu. Stop this MCP session and return it to idle. Pending/selected state can be cancelled without a work_handle. Active work requires this chat's current work_handle; never infer or stop another chat's Job/Workspace. Orphaned active work auto-stops after 10 minutes idle. NEVER route job stop through gptworker_control.",
       inputSchema: {
         execution_id: z.string().optional().describe("Current work_handle.execution_id"),
         authority_token: z.string().optional().describe("Current work_handle.authority_token"),

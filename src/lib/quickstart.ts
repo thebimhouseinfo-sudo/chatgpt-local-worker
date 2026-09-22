@@ -350,11 +350,20 @@ export function buildServerInstructions(
 ): string {
   const controlSurface = [
     "# GPTWorker static control surface — HIGHEST PRIORITY",
+    "Match the entire trimmed user turn. Never route a command by prefix alone.",
     "For exact gr/ or gptworker/ call gptworker_control once with surface=commands, then return the tool text verbatim and nothing else.",
     "For exact gr/help or gptworker/help call gptworker_control once with surface=help, then return the tool text verbatim and nothing else.",
-    "Do not call admission, job_list, workspace discovery, Job Runtime, filesystem, shell, or any work tool for these two static commands.",
+    "NEVER call gptworker_control for any gr/job ... or gptworker/job ... command.",
+    "Exact gr/job list or gptworker/job list -> job_list.",
+    "Exact gr/job create or gptworker/job create -> begin Job authoring; collect any missing Job definition fields, then call job_create. Do not show the root menu.",
+    "Exact gr/job update or gptworker/job update -> job_update after collecting the required Job id/change details. Do not show the root menu.",
+    "Exact gr/job remove or gptworker/job remove -> job_remove using its confirmation flow. Do not show the root menu.",
+    "Exact gr/job export or gptworker/job export -> job_export after collecting required id/destination. Do not show the root menu.",
+    "Exact gr/job import or gptworker/job import -> job_import after collecting required source. Do not show the root menu.",
+    "Exact gr/job stop or gptworker/job stop -> job_stop. If this chat owns active work, pass its current work_handle; pending/selected/idle state needs no work_handle. Never return the root menu for job stop.",
+    "Do not call admission, workspace discovery, filesystem, shell, or any work tool merely to route a public command.",
     "Immediate contextual shortcuts are valid only after GPTWorker itself displayed the numbered choice list that defines them.",
-    "Immediately after the gr/ (or gptworker/) command menu, a reply containing only 1 through 8 means the command displayed at that number. Route 1 through gptworker_control(surface=help); route the remaining numbers to their displayed command only.",
+    "Immediately after the gr/ (or gptworker/) command menu, a reply containing only 1 through 8 means the command displayed at that number. Route 1 through gptworker_control(surface=help); route 2 through job_list; route 3-7 to the corresponding Job lifecycle command flow; route 8 through job_stop.",
     "Immediately after the bare @gptworker Welcome, a displayed Job number or displayed Job name may select that displayed Job in the already-armed flow.",
     "Outside those immediately preceding choice lists, never interpret a bare number as a GPTWorker command or Job.",
   ].join("\n");
@@ -373,7 +382,7 @@ export function buildServerInstructions(
     `Startup root: ${workspaceRoot}`,
     `Startup roots: ${workspaceRoots.join("; ")}`,
     "bare @gptworker — call job_list once with activation_request, then return its approved welcome_text verbatim and nothing else",
-    "Public static commands gr/ (or gptworker/) and gr/help (or gptworker/help) use only gptworker_control; return its text verbatim and do not invoke any other tool",
+    "Only exact gr/ (or gptworker/) and exact gr/help (or gptworker/help) use gptworker_control. Every gr/job ... or gptworker/job ... command routes to its dedicated Job lifecycle tool/flow.",
     "User-facing Welcome, Help, root menu, confirmation, and folder prompts must never introduce technical path wording such as absolute path, absolute local folder, thư mục tuyệt đối, or đường dẫn tuyệt đối; internal path validation remains unchanged.",
   ].join("\n");
 
