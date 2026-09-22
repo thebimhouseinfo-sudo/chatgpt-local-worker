@@ -6,7 +6,6 @@ import {
   createWorkToolResolver,
 } from "../dist/tools/work-gateway.js";
 import { RUNTIME_FAMILIES } from "../dist/lib/runtime-families.js";
-import { LOCAL_TOOL_CATALOG } from "../dist/lib/tool-profile.js";
 import { setDefaultCwd } from "../dist/lib/path-security.js";
 import os from "node:os";
 import path from "node:path";
@@ -28,7 +27,11 @@ assert.equal(
 assert.equal("repl" in FAMILY_TOOLS, false);
 assert.equal(RUNTIME_FAMILIES.includes("repl"), false);
 assert.equal(WORK_TOOL_OPERATIONS.includes("node_repl"), false);
-assert.equal(LOCAL_TOOL_CATALOG.includes("node_repl"), false);
+assert.equal(
+  await exists("src/lib/tool-profile.ts"),
+  false,
+  "retired tool-profile layer unexpectedly exists"
+);
 
 const tmpDir = await fs.mkdtemp(path.join(os.tmpdir(), "gptworker-repl-retired-"));
 try {
