@@ -400,47 +400,49 @@ Current `edit_file` and `multi_edit` are **two public operations in the same fil
 
 **Search-helper implementation result:** retired `glob-search.ts` and `grep-search.ts`; replaced them with shared `file-search.ts`, fixed `**/` root matching, and stopped blanket-skipping hidden paths such as `.github` while still skipping `.git` and `node_modules`. GitHub Actions CI #606 passed on commit `6f111d6b`.
 
-### Phase 5 — review strong inherited KEEP candidates for internal quality
+### Phase 5 — review strong inherited KEEP candidates for internal quality — COMPLETE / CI GREEN
 
 KEEP does not mean “never touch”. It means preserve the capability unless a better implementation has a concrete benefit.
 
 #### `src/lib/patch.ts`
 
-- [ ] Verify all currently supported patch formats are actually needed.
-- [ ] Check for parser branches that only supported retired compatibility flows.
-- [ ] Check whether diff generation belongs here or in filesystem edit helpers.
-- [ ] Keep the current implementation if simplification would add risk without reducing real complexity.
-- [ ] Rewrite only if a smaller implementation can preserve current patch behavior and Workspace validation with clear tests.
-- [ ] Avoid renaming while `filesystem.ts` is being rewritten unless the new responsibility becomes materially different.
+- [x] Verify supported patch formats against active runtime/instructions/tests.
+- [x] Removed unused multi-file standard unified-diff routing; explicit `*** Begin Patch` is now the only multi-file form.
+- [x] Kept `buildSimpleDiff()` in patch module because both exact edit and patch flows consume the same diff behavior.
+- [x] Kept the working single-file hunk engine and explicit GPT-style multi-file engine; simplified only unused compatibility routing.
+- [x] No wholesale rewrite; targeted simplification preserved Workspace validation and patch tests.
+- [x] Kept `patch.ts` filename/API because responsibility remains accurate.
 
 #### `src/lib/mcp-session-manager.ts`
 
-- [ ] Remove only confirmed dead exports first.
-- [ ] Map each recovery branch to current `src/index.ts` behavior before changing it.
-- [ ] Keep stale-session recovery/raw-header/protocol handling that current ChatGPT tunnel sessions actually need.
-- [ ] Do not rewrite wholesale merely because overlap with Local Coder is high.
-- [ ] Only consider a rewrite after runtime evidence shows complexity can be safely reduced.
+- [x] Session manager retained; removed only confirmed dead public/metadata surface (`touch`, `createdAt`, unused protocol constant).
+- [x] Mapped recovery branches to current `src/index.ts`; raw-header patch, protocol negotiation, loopback warm-up, pending recovery, serialization, DELETE grace and TTL cleanup are all active.
+- [x] Kept stale-session recovery/raw-header/protocol handling.
+- [x] No wholesale session-manager rewrite; active transport/recovery behavior is technically justified.
+- [x] Decision: KEEP with small dead-surface cleanup only.
 
 #### `src/lib/tool-result.ts`
 
-- [ ] Keep the shared structured result envelope if all current tools still benefit from it.
-- [ ] Replace stale Local Coder naming/comments.
-- [ ] Check whether `TOOL_RESULT_OUTPUT_SCHEMA` and `toolResult()` can be made smaller without changing server-factory/tool output behavior.
-- [ ] Keep filename/export names unless a rename has low blast radius.
+- [x] KEEP shared structured result envelope; server-factory and native tools still use it.
+- [x] Replaced stale Local Coder naming/comments with GPTWorker wording.
+- [x] Current schema/envelope is already small and shared; no further reduction justified.
+- [x] Kept filename/export names.
 
 #### `src/lib/tool-annotations.ts`
 
-- [ ] Verify current ChatGPT behavior still needs `CHATGPT_AUTO_APPROVE`.
-- [ ] If risk-specific annotations alone are sufficient, simplify and remove the environment toggle.
-- [ ] If the toggle still solves a real popup/session issue, keep it and document the reason.
-- [ ] Preserve correct read/edit/command/destructive hints.
+- [x] `CHATGPT_AUTO_APPROVE` remains an exposed `.env` UX option; no runtime dependency requires removing it.
+- [x] Did not remove the public toggle without a demonstrated UX benefit; annotations remain hints only.
+- [x] Kept toggle and clarified in code that annotations are presentation hints, not authority/security.
+- [x] Preserved existing read/edit/command/destructive annotation behavior.
 
 #### `src/lib/path-security.ts`
 
-- [ ] Treat confirmed-Workspace boundary as a locked invariant.
-- [ ] Review for dead inherited branches only.
-- [ ] Prefer targeted simplification over rewrite.
-- [ ] Do not rename unless every security caller can be updated in one controlled batch.
+- [x] Confirmed-Workspace boundary preserved as a locked invariant.
+- [x] Removed dead compatibility exports: `setAllowedRoots`, `getAllowedRoots`, `setFullDiskAccess`, `runWithWorkspaceCwd`, `getActiveWorkspaceBoundary`, `isWorkspaceBoundaryActive`.
+- [x] Kept path-security core and performed targeted dead-surface cleanup only.
+- [x] Kept `path-security.ts` name and active security APIs.
+
+**Phase 5 validation:** patch/tool-metadata simplification commit `28f44a00` passed CI #622. Path-security/session cleanup plus test-caller alignment through commit `b7ce3397` passed CI #627 (Linux full suite + Windows build/shell/tunnel/Worker smoke).
 
 ### Phase 6 — simplify integration files after lower layers settle
 
