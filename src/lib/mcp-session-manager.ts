@@ -209,7 +209,6 @@ export function createSessionManager(config: SessionManagerConfig): SessionManag
       config.workspaceRoot,
       config.shellTimeout,
       config.workspaceRoots,
-      true,
       config.controlPlaneInstructions
     );
 

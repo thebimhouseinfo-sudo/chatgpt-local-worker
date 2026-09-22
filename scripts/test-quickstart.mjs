@@ -200,7 +200,6 @@ assert.ok(!welcomeWithCustom.toLowerCase().includes("mto"));
 const instructions = buildServerInstructions(
   "C:\\GPTWorker",
   ["C:\\GPTWorker"],
-  true,
   "PROJECT CONTEXT SENTINEL"
 );
 
@@ -236,23 +235,22 @@ for (const text of [GPTWORKER_IDLE_PROMPT, GPTWORKER_HELP, GPTWORKER_ROOT_MENU])
   assert.ok(!text.includes("work_handle"));
 }
 
-// ChatGPT web defaults to slim. Its initialize prompt must stay control-plane
-// focused instead of injecting the whole repository/policy context before work.
-process.env.CHATGPT_TOOL_PROFILE = "slim";
+// Initialize instructions stay control-plane focused instead of injecting
+// repository/policy context before confirmed work.
 const repoRoot = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
-const slimContext = await buildInstructionContext({
+const runtimeContext = await buildInstructionContext({
   workspaceRoot: repoRoot,
   workspaceRoots: [repoRoot],
   pid: process.pid,
 });
-assert.ok(slimContext.contextText.includes("## GPTWorker control plane"));
-assert.ok(!slimContext.contextText.includes("# GPTWorker — Worker Policy"));
-assert.ok(!slimContext.contextText.includes("# ChatGPT Local Worker — Repository Agent Instructions"));
-assert.ok(!slimContext.contextText.includes("## Git"));
-assert.ok(!slimContext.contextText.includes("## Project memory"));
-assert.ok(!slimContext.instructionsText.includes(GPTWORKER_ROOT_MENU));
-assert.ok(!slimContext.instructionsText.includes(GPTWORKER_HELP));
-assert.ok(slimContext.instructionsText.includes("gptworker_control once with surface=commands"));
-assert.ok(slimContext.instructionsText.includes("gptworker_control once with surface=help"));
+assert.ok(runtimeContext.contextText.includes("## GPTWorker control plane"));
+assert.ok(!runtimeContext.contextText.includes("# GPTWorker — Worker Policy"));
+assert.ok(!runtimeContext.contextText.includes("# ChatGPT Local Worker — Repository Agent Instructions"));
+assert.ok(!runtimeContext.contextText.includes("## Git"));
+assert.ok(!runtimeContext.contextText.includes("## Project memory"));
+assert.ok(!runtimeContext.instructionsText.includes(GPTWORKER_ROOT_MENU));
+assert.ok(!runtimeContext.instructionsText.includes(GPTWORKER_HELP));
+assert.ok(runtimeContext.instructionsText.includes("gptworker_control once with surface=commands"));
+assert.ok(runtimeContext.instructionsText.includes("gptworker_control once with surface=help"));
 
 console.log("test-quickstart: ok");

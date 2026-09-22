@@ -343,7 +343,6 @@ The confirmed FOLDER is the active Job's local execution boundary. Structured pa
 export function buildServerInstructions(
   workspaceRoot: string,
   workspaceRoots: string[],
-  _fullDiskAccess: boolean,
   contextBlock?: string
 ): string {
   const controlSurface = [

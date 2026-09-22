@@ -72,7 +72,6 @@ const tests = [
   "scripts/test-activity-log.mjs",
   "scripts/test-runtime-log.mjs",
   "scripts/test-work-registration.mjs",
-  "scripts/test-tool-profile.mjs",
   "scripts/test-work-gateway.mjs",
   "scripts/test-workspace-discovery.mjs",
   "scripts/test-quickstart.mjs",

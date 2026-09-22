@@ -1,6 +1,5 @@
 import { z } from "zod";
 import type { McpServer, RegisteredTool } from "@modelcontextprotocol/sdk/server/mcp.js";
-import { shouldExposeWorkOperation } from "../lib/tool-profile.js";
 import { toolAnnotations } from "../lib/tool-annotations.js";
 import { RUNTIME_FAMILIES } from "../lib/runtime-families.js";
 
@@ -282,13 +281,7 @@ export function registerWorkGateway(
   shellTimeout: number
 ): WorkToolResolver {
   const resolver = createWorkToolResolver(workspaceRoot, shellTimeout);
-  const exposed = WORK_TOOL_OPERATIONS.filter((name) =>
-    shouldExposeWorkOperation(name)
-  );
-
-  if (exposed.length === 0) {
-    throw new Error("No work operations are enabled for the current tool profile.");
-  }
+  const exposed = WORK_TOOL_OPERATIONS;
 
   server.registerTool(
     "work_tool",

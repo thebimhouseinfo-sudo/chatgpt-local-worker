@@ -23,7 +23,6 @@ import {
   summarizeInstructionContext,
   type InstructionContext,
 } from "./lib/instruction-context.js";
-import { getChatGptToolProfile } from "./lib/tool-profile.js";
 import { buildLegacyDiscoverFallback } from "./lib/mcp-discover-compat.js";
 import { flushRuntimeLog } from "./lib/runtime-log.js";
 import { getWorkRegistrationCount } from "./lib/work-registration.js";
@@ -70,7 +69,6 @@ const instructionContext: InstructionContext = await buildInstructionContext({
 console.log(
   `[MCP] MCP instructions: ${Math.round(instructionContext.instructionBytes / 1024)}KB (control plane)`
 );
-console.log(`[MCP] Tool profile: ${getChatGptToolProfile()} (CHATGPT_TOOL_PROFILE)`);
 
 const sessionManager = createSessionManager({
   workspaceRoot,
@@ -349,7 +347,6 @@ const server = app.listen(PORT, HOST, () => {
       host: HOST,
       port: PORT,
       workspace: workspaceRoot,
-      tool_profile: getChatGptToolProfile(),
     },
   });
   console.log("");

@@ -1,6 +1,5 @@
 import path from "path";
 import { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
-import type { RegisteredTool } from "@modelcontextprotocol/sdk/server/mcp.js";
 import { z } from "zod";
 import { registerJobTools } from "./tools/jobs.js";
 import { registerGptworkerControlTool } from "./tools/control.js";
@@ -9,7 +8,6 @@ import { registerWorkGateway } from "./tools/work-gateway.js";
 import { registerWorkspaceDiscoveryTool } from "./tools/workspace-discovery.js";
 import { buildServerInstructions } from "./lib/quickstart.js";
 import { AdmissionRuntime } from "./lib/activation-policy.js";
-import { getChatGptToolProfile, shouldExposeTool } from "./lib/tool-profile.js";
 import { TOOL_RESULT_OUTPUT_SCHEMA } from "./lib/tool-result.js";
 import { JobRuntime } from "./jobs/job-runtime.js";
 import { runWithWorkspaceScope } from "./lib/path-security.js";
@@ -17,25 +15,11 @@ import { getCustomJobsRoot, getDefaultJobsRoot } from "./lib/worker-home.js";
 import { acquireToolLease, releaseToolLease } from "./lib/work-registration.js";
 import { requiresWorkHandle, toolFamily } from "./lib/tool-work-policy.js";
 
-const NOOP_TOOL = {
-  remove: () => {},
-  update: () => {},
-  enable: () => {},
-  disable: () => {},
-  handler: async () => ({ content: [] }),
-  enabled: false,
-} as unknown as RegisteredTool;
-
 function configureToolRegistration(server: McpServer): void {
-  const profile = getChatGptToolProfile();
   const original = server.registerTool.bind(server);
   server.registerTool = ((name, config, callback) => {
     const toolName = String(name);
     const requiresWork = requiresWorkHandle(toolName);
-
-    if (profile !== "full" && !shouldExposeTool(toolName, profile)) {
-      return NOOP_TOOL;
-    }
 
     const baseInputSchema = ((config as any).inputSchema || {}) as Record<string, unknown>;
     const inputSchema = requiresWork
@@ -115,7 +99,6 @@ export function createMcpServer(
   workspaceRoot: string,
   shellTimeout: number,
   workspaceRoots: string[] = [workspaceRoot],
-  fullDiskAccess = false,
   controlPlaneInstructions?: string
 ): McpServer {
   const server = new McpServer(
@@ -131,7 +114,6 @@ export function createMcpServer(
       instructions: buildServerInstructions(
         workspaceRoot,
         workspaceRoots,
-        fullDiskAccess,
         controlPlaneInstructions
       ),
     }

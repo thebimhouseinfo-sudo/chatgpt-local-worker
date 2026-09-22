@@ -7,15 +7,12 @@ import {
 } from "../dist/lib/instruction-context.js";
 
 const repoRoot = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
-process.env.CHATGPT_TOOL_PROFILE = "slim";
-
 const ctx = await buildInstructionContext({
   workspaceRoot: repoRoot,
   workspaceRoots: [repoRoot],
   pid: process.pid,
 });
 
-assert.equal(ctx.toolProfile, "slim");
 assert.equal(ctx.workspaceRoot, repoRoot);
 assert.deepEqual(ctx.workspaceRoots, [repoRoot]);
 
@@ -48,7 +45,6 @@ assert.equal(ctx.instructionBytes > 500, true);
 const summary = summarizeInstructionContext(ctx);
 assert.equal(summary.mode, "control-plane");
 assert.equal(summary.root, repoRoot);
-assert.equal(summary.tool_profile, "slim");
 assert.equal("memory_files" in summary, false);
 assert.equal("git" in summary, false);
 assert.equal("worker_policy" in summary, false);
