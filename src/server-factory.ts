@@ -6,7 +6,6 @@ import { registerGptworkerControlTool } from "./tools/control.js";
 import { registerAdmissionTool } from "./tools/admission.js";
 import { registerWorkGateway } from "./tools/work-gateway.js";
 import { registerWorkspaceDiscoveryTool } from "./tools/workspace-discovery.js";
-import { buildServerInstructions } from "./lib/quickstart.js";
 import { AdmissionRuntime } from "./lib/activation-policy.js";
 import { TOOL_RESULT_OUTPUT_SCHEMA } from "./lib/tool-result.js";
 import { JobRuntime } from "./jobs/job-runtime.js";
@@ -98,8 +97,7 @@ function configureToolRegistration(server: McpServer): void {
 export function createMcpServer(
   workspaceRoot: string,
   shellTimeout: number,
-  workspaceRoots: string[] = [workspaceRoot],
-  controlPlaneInstructions?: string
+  serverInstructions: string
 ): McpServer {
   const server = new McpServer(
     {
@@ -111,11 +109,7 @@ export function createMcpServer(
         logging: {},
         tools: { listChanged: true },
       },
-      instructions: buildServerInstructions(
-        workspaceRoot,
-        workspaceRoots,
-        controlPlaneInstructions
-      ),
+      instructions: serverInstructions,
     }
   );
 

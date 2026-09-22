@@ -74,9 +74,8 @@ export interface McpSession {
 export interface SessionManagerConfig {
   workspaceRoot: string;
   shellTimeout: number;
-  workspaceRoots: string[];
   port: number;
-  controlPlaneInstructions?: string;
+  serverInstructions: string;
 }
 
 export interface SessionManager {
@@ -208,8 +207,7 @@ export function createSessionManager(config: SessionManagerConfig): SessionManag
     const mcpServer = createMcpServer(
       config.workspaceRoot,
       config.shellTimeout,
-      config.workspaceRoots,
-      config.controlPlaneInstructions
+      config.serverInstructions
     );
 
     const transport = new StreamableHTTPServerTransport({

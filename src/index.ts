@@ -72,9 +72,8 @@ console.log(
 const sessionManager = createSessionManager({
   workspaceRoot,
   shellTimeout: SHELL_TIMEOUT,
-  workspaceRoots,
   port: PORT,
-  controlPlaneInstructions: instructionContext.contextText,
+  serverInstructions: instructionContext.instructionsText,
 });
 
 const app = express();
