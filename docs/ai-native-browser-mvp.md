@@ -1,145 +1,95 @@
-# AI-Native Browser — MVP Draft Implementation
+# AI-Native Browser — MVP
 
-Status: **Draft v0.1**
+Status: **Draft v0.2**
 
-Scope: Chromium-based browser runtime + Browser MCP + Gptworker bridge.
+## 1. Product thesis
 
-## 1. Purpose
+> **Not a browser with AI added to it, but a browser built to be operated by AI.**
 
-Build a minimal Chromium-based browser designed to be controlled by AI through a stable UI-oriented interface.
+AI-Native Browser is a lightweight Chromium-based browser designed primarily for AI agents.
 
-The browser itself contains no intelligence. ChatGPT Web, local AI, or another agent controls it through **Browser MCP**, which is registered as a reusable Gptworker capability and exposed to ChatGPT Web through the existing Gptworker tunnel.
+Humans can still use it for normal browsing, login, tab switching, inspection, and intervention, but human convenience features are secondary. The primary product requirement is that an AI agent can understand and operate the current browser UI directly through a native MCP control surface.
 
-The implementation should reuse an existing agent-browser codebase as the foundation, strip unnecessary features, replace only weak modules, and add as little new code as possible.
+The browser exists because mainstream browsers are designed for humans first. AI typically has to control them through extensions, Playwright/CDP wrappers, remote computer-use layers, or fake mouse/keyboard automation. This project makes agent control a first-class browser capability instead of an external attachment.
 
-## 2. Core design principles
+## 2. Product boundary
 
-1. **Reuse before rewrite.** Choose one repo as the base and modify it minimally.
-2. **AI interacts with the browser UI/control surface, not with Chromium internals.**
-3. Chromium backend implementation is invisible to ChatGPT and other AI clients.
-4. Semantic page state is the primary interaction channel; screenshots are complementary.
-5. Normal web interaction must not require OS-level fake mouse movement.
-6. The browser contains no LLM, agent loop, scheduler, or reasoning layer.
-7. Authenticated website sessions may persist, but credentials and payment secrets are never exposed to AI.
-8. Browser runtime, Gptworker job, and website login profile have independent lifecycles.
-9. Keep the Chromium web engine intact; cut the surrounding product surface, not the engine.
+AI-Native Browser is an **independent application and executable**, not a feature embedded inside Gptworker.
 
-> **Implementation rule:** Do not rewrite when strip, adapt, or replace a module is sufficient.
-
-## 3. Proposed foundation
-
-Use **AgentBrowser** as the initial base because it is closest to the MVP:
-
-- Chromium / Playwright runtime
-- tabs and navigation
-- browser actions
-- screenshot
-- session/profile handling
-- simplified DOM / accessibility-oriented observation
-- REST / WebSocket plumbing
-
-Other repositories are secondary sources:
-
-| Source | Role | Expected use |
-|---|---|---|
-| AgentBrowser | Primary base | Keep runtime, tabs, actions, screenshot, session; strip non-MVP layers |
-| Browser Use | Observation upgrade | Port/adapt mature DOM, iframe, shadow DOM, viewport and element handling if needed |
-| Stagehand | Context optimization | Adapt semantic/a11y trimming and resilient targeting concepts |
-| OpenBrowser | Visual/evaluation reference | Learn screenshot fallback and regression/evaluation patterns |
-| open-browser-use | Protocol/session reference | Learn AI-neutral commands and resumable browser-session semantics |
-
-The goal is **not** to merge multiple frameworks. Start from one base repo and only copy/replace individual modules when real tests show that the base is insufficient.
-
-## 4. Target architecture
+Long-term deployment model:
 
 ```text
-ChatGPT Web / Local AI
-        |
-        | tool call
-        v
-+----------------------+
-|      Gptworker       |
-| MCP registry/router  |
-+----------+-----------+
-           |
-           | existing tunnel / local routing
-           v
-+----------------------+
-|     Browser MCP      |
-|----------------------|
-| tool schema          |
-| session routing      |
-| security sanitizer   |
-| lifecycle control    |
-+----------+-----------+
-           |
-           v
-+----------------------+
-| Browser Runtime      |
-| AgentBrowser-derived |
-|----------------------|
-| Chromium/Playwright  |
-| tabs/navigation      |
-| actions              |
-| semantic observe     |
-| screenshots          |
-| profiles/session     |
-+----------+-----------+
-           |
-           v
-        Chromium
+AI-Browser.exe
+  ├─ Chromium runtime
+  ├─ minimal human browser UI
+  ├─ semantic observation engine
+  ├─ screenshot/visual observation
+  ├─ browser action controller
+  ├─ security firewall
+  ├─ persistent profiles/sessions
+  ├─ native MCP server
+  └─ optional AI sidebar
 ```
 
-Gptworker must not depend on AgentBrowser-specific APIs.
+The browser owns its MCP interface natively.
 
-**Browser MCP is the stable boundary.** If the runtime is replaced later, the MCP tool contract should remain unchanged.
+There is no separate MCP executable and no separate MCP mode. MCP is simply the browser's agent-control interface.
 
-## 5. MVP scope
+## 3. Core invariants
 
-### 5.1 Browser capabilities
+1. **Browser is agent-first, not human-first.**
+2. **Browser is an independent repo, build, executable, and process.**
+3. **MCP is native to the browser and ships with it.**
+4. **AI interacts with browser UI/control surface, not Chromium internals.**
+5. **Semantic observation is primary; screenshot is complementary.**
+6. **Normal UI interaction does not require OS-level fake mouse movement.**
+7. **Browser contains no required built-in LLM or reasoning engine.**
+8. **Authenticated sessions may persist; credentials/payment secrets are never exposed to AI.**
+9. **Chromium engine is reused, not rewritten.**
+10. **Reuse/strip/replace before rewriting.**
 
-The MVP browser must support:
+## 4. Human usage
 
-- open / navigate / reload URL
-- create, list, switch and close tabs
-- observe the current tab semantically
-- capture screenshot of the current tab
-- click an interactive element by stable element ID
-- type/fill text
-- press keys when required by web UI
-- scroll
-- hover
-- select dropdown options
-- check/uncheck controls
-- basic upload/download
-- persistent browser profile/session across browser restarts
+Humans can use the browser for:
 
-### 5.2 Explicit non-goals
+- entering URLs
+- opening and switching tabs
+- normal browsing
+- logging into websites
+- reviewing what the agent is doing
+- manually intervening when needed
+- choosing/connecting an AI through the sidebar
 
-The MVP does **not** include:
+The MVP does not aim to match Chrome/Edge human convenience.
 
-- built-in LLM
-- built-in reasoning or agent loop
-- scheduler / 24x7 automation engine
-- extension ecosystem
-- Firefox/WebKit support
-- cloud browser infrastructure
-- website-specific APIs such as `facebook.post()`
-- raw cookie/localStorage/auth-token APIs exposed to AI
-- arbitrary JavaScript execution exposed to AI
-- OS-level fake mouse for normal web interactions
-- deep Chromium fork unless later proven necessary
+Human-oriented features such as advanced bookmarks, sync, extension stores, themes, browser account systems, shopping features, and rich consumer settings are out of scope unless required later.
 
-## 6. Browser MCP contract
+## 5. Native MCP control surface
 
-Browser MCP is the public control surface visible to Gptworker and AI clients.
-
-Keep the toolset small, generic, and UI-oriented.
+The browser exposes MCP directly.
 
 ```text
-browser.start(profile?)
-browser.stop()
+AI Agent / Connector
+        |
+        | MCP
+        v
++-------------------------+
+|     AI-Browser.exe      |
+|-------------------------|
+| Native MCP server       |
+| Browser control surface |
+| Semantic observation    |
+| Screenshot              |
+| Security firewall       |
+| Chromium runtime        |
++-------------------------+
+```
 
+The public MCP surface should remain small and UI-oriented.
+
+Initial tool family:
+
+```text
 browser.open(url)
 browser.reload()
 browser.wait(...)
@@ -163,27 +113,15 @@ browser.upload(...)
 browser.download(...)
 ```
 
-The exact tool names may still change during Phase 0, but the public surface should remain minimal.
+The agent should never need to know whether the implementation uses Playwright, CDP, DOM snapshots, accessibility APIs, IPC, or other browser internals.
 
-## 7. Observation model
+## 6. Observation model
 
-AI should **not** receive an entire raw HTML document by default.
+The browser provides two complementary observation channels.
 
-`browser.observe()` returns a reduced semantic representation of the currently rendered tab.
+### 6.1 Semantic observation
 
-Internally the runtime may use:
-
-- DOM
-- accessibility tree
-- visible text
-- element roles
-- selected / checked / disabled state
-- focus state
-- bounding boxes
-- viewport information
-- rendering metadata
-
-But these are implementation details.
+`browser.observe()` returns a reduced representation of the current rendered tab.
 
 Example:
 
@@ -201,73 +139,38 @@ elements:
   e78  canvas    "Main chart" [visual-region]
 ```
 
-Element IDs should remain stable for the current page state.
+Internally the browser may derive this from:
 
-If a major DOM update invalidates an element, return a structured error such as:
+- DOM
+- accessibility tree
+- visible text
+- role/state
+- focus state
+- bounding boxes
+- viewport
+- rendering metadata
 
-```text
-ELEMENT_NOT_AVAILABLE
-```
+These remain implementation details.
 
-The AI then performs `browser.observe()` again.
+### 6.2 Visual observation
 
-## 8. Semantic + visual interaction
+`browser.screenshot()` captures the current tab for visual reasoning.
 
-The AI has two observation channels.
+Use it for:
 
-```text
-Current Tab
-   |
-   +--> Semantic snapshot --> buttons / textboxes / tabs / text / state
-   |
-   +--> Screenshot ---------> chart / canvas / images / layout / visual bugs
-                              |
-                              v
-                             AI
-                              |
-                              v
-                         browser action
-```
-
-### Semantic channel
-
-Use for precise interaction:
-
-- identify buttons
-- identify text fields
-- identify tabs
-- identify menus
-- inspect text/state
-- execute actions by element ID
-
-### Visual channel
-
-Use when the semantic representation is insufficient:
-
-- charts
-- canvas/WebGL
+- chart/canvas/WebGL
 - images
-- layout validation
-- popup overlap
-- visual bugs
-- markers/lines on TradingView
-- any UI whose meaning depends on rendered pixels
+- visual layout
+- UI overlap
+- rendering bugs
+- markers/lines/signals
+- cases where semantic structure is insufficient
 
-A screenshot should **not** be mandatory before every action.
+A screenshot is **not required before every click**.
 
-## 9. No fake mouse as the primary mechanism
+## 7. Interaction model
 
-Traditional external computer-use flow:
-
-```text
-screenshot
--> infer x,y
--> move OS mouse
--> click
--> screenshot again
-```
-
-Target browser-native flow:
+Primary interaction:
 
 ```text
 observe
@@ -276,322 +179,242 @@ observe
 -> observe/verify
 ```
 
-Coordinate interaction may remain as an **internal fallback** for canvas-only or unusual interfaces, but it must not be the primary AI-facing contract.
-
-## 10. Security boundary
-
-AI may control normal browser interactions broadly, while authentication and payment secrets remain protected.
-
-The user performs login/authentication.
-
-The browser preserves the resulting authenticated session.
+Not:
 
 ```text
-Human authenticates
-        |
-        v
-Browser profile keeps session
-        |
-        v
-AI uses the authenticated website
-        |
-        +--> credentials remain hidden
+screenshot
+-> infer x,y
+-> move OS mouse
+-> click
+-> screenshot
 ```
 
-Required protections:
+Coordinate actions may exist internally as a fallback for canvas-only interfaces, but are not the default public control model.
 
-- password values are never returned by `observe()`
-- PIN is protected
-- CVV is protected
-- OTP/payment authentication values are protected
-- recovery secrets are protected
-- raw cookies are not exposed as MCP tools
-- auth tokens are not exposed as MCP tools
-- raw profile/session databases are not exposed
-- sensitive fields are returned as `[PROTECTED]`
-- sanitization happens before data leaves the browser/MCP boundary
-- AI does not need explicit login/logout capability in MVP
+## 8. Security model
 
-The firewall must be enforced by code, not by model behavior.
+The user performs website login/authentication.
 
-## 11. Lifecycle model
+The browser persists the resulting session.
 
-Keep three lifecycles independent.
+```text
+Human login
+   |
+   v
+Browser profile/session
+   |
+   v
+AI operates authenticated site
+```
 
-| Lifecycle | Owner | Behavior |
-|---|---|---|
-| Gptworker job | Gptworker | Starts/ends with user work or job semantics |
-| Browser runtime | Browser MCP/runtime | Starts on demand, may idle or stop independently |
-| Website profile/session | Browser profile | Persists cookies/session state across runtime restarts |
+Protected data must never be exposed through MCP:
 
-A job may end without destroying the browser profile.
+- passwords
+- PIN
+- CVV
+- OTP/payment authentication values
+- recovery secrets
+- raw cookies
+- auth tokens
+- raw browser profile databases
 
-A browser process may stop and later reopen the same authenticated profile.
+Sensitive UI fields should be represented as:
 
-## 12. Base repo modification plan
+```text
+textbox "Password" [PROTECTED]
+```
 
-| Area | Action | Notes |
-|---|---|---|
-| Chromium/Playwright runtime | KEEP | Do not rewrite |
-| Tabs/navigation | KEEP | Simplify public surface only |
-| Click/type/scroll/select | KEEP | Expose through MCP element IDs |
-| Screenshot | KEEP | Return image result through MCP/tunnel |
-| Session/profile | KEEP + HARDEN | Persistent profiles; no raw session-store access |
-| Simplified DOM/a11y | KEEP initially | Upgrade only if real tests show weakness |
-| DOM/iframe/shadow handling | UPGRADE if needed | Prefer Browser Use implementation patterns/code |
-| Semantic trimming | ADD/ADAPT | Stagehand-inspired context reduction |
-| Built-in AI/agent loop | REMOVE | Reasoning belongs to ChatGPT/local AI |
-| Dashboard | REMOVE | Not needed for MVP |
-| DB/cloud/proxy extras | REMOVE unless required | Avoid unnecessary infrastructure |
-| Firefox/WebKit | REMOVE | Chromium only |
-| Raw evaluate/cookie/storage tools | REMOVE from public surface | May remain internal if runtime requires |
-| Browser MCP | ADD | Primary new integration layer |
-| Credential firewall | ADD | Primary new security layer |
-| Gptworker capability registration | ADD | Expose Browser MCP through existing tunnel |
+The firewall is enforced by browser code, not by model behavior.
 
-## 13. Gptworker integration
+AI does not need login/logout control in MVP.
 
-Browser should be a **reusable Gptworker capability**, not a dedicated job.
+## 9. Optional AI sidebar
 
-Possible callers:
+The browser may include a sidebar implemented as an internal web UI.
 
-- coding jobs
-- Layla
-- social-page management jobs
-- custom jobs
-- future local agents
+The sidebar is a **human-facing connection hub**, not the browser's reasoning core.
 
-Flow:
+```text
+AI Browser
+  ├─ Browser viewport
+  └─ Sidebar
+      ├─ ChatGPT
+      ├─ Local AI
+      └─ third-party provider connector slots
+```
+
+The sidebar allows the user to choose how the browser is connected to an AI.
+
+### 9.1 ChatGPT
+
+Officially supported through **Gptworker**.
 
 ```text
 ChatGPT Web
    |
-   | existing Gptworker tunnel
    v
-Gptworker MCP router
+Gptworker
    |
+   | MCP
    v
-Browser MCP
-   |
-   v
-Browser runtime / Chromium
+AI Browser
 ```
 
-The tunnel transports MCP calls and results.
+Gptworker acts as the official ChatGPT connector/bridge.
 
-It should **not** transport raw CDP traffic.
+The browser itself does not need to understand ChatGPT internals.
 
-Chromium/runtime implementation remains local.
+### 9.2 Local AI
 
-## 14. Suggested repository structure
+The project may provide an official local-AI connector/adapter.
 
-The browser may initially live inside the Gptworker repo during MVP development, but the runtime boundary should remain clean enough to split into its own repo later if needed.
+The local connector can connect a local model/agent runtime to Browser MCP.
+
+The exact local provider/model interface is implementation-dependent and should not affect Browser MCP.
+
+### 9.3 Claude and other providers
+
+No official Claude connector is required.
+
+The browser exposes a provider-neutral MCP contract. Users/developers who want Claude or another AI provider can build their own plugin/connector.
+
+This keeps browser core independent from provider ecosystems.
+
+## 10. Provider connection principle
+
+Logging into an AI provider UI is not enough to grant browser control.
+
+Each AI provider requires a connector capable of exposing/attaching Browser MCP tools to that provider session.
 
 ```text
-browser/
-  runtime/
-    src/
-      runtime/
-      actions/
-      observe/
-      profiles/
-      security/
-    vendor-or-derived/
-  mcp/
-    src/
-      tools/
-      schemas/
-      session-router/
-      sanitizer/
-      lifecycle/
-  tests/
-    mocked-sites/
-    integration/
-    security/
-    visual/
-
-docs/
-  ai-native-browser-mvp.md
+Provider UI/session
+      |
+      v
+Provider connector/plugin
+      |
+      | MCP
+      v
+AI Browser
 ```
 
-Exact placement should follow the existing Gptworker repository layout after implementation planning.
+For ChatGPT, the connector is Gptworker.
 
-## 15. Implementation phases
+For local AI, an official local connector may be provided.
 
-### Phase 0 — Foundation lock
+Other providers are third-party integrations.
 
-1. Freeze the exact AgentBrowser version/commit used as base.
-2. Verify license compatibility before copying code from secondary repos.
-3. Map base modules to KEEP / REMOVE / REPLACE / ADD.
-4. Run the base project unchanged and record working behavior.
-5. Freeze Browser MCP tool names and top-level schemas for MVP.
+## 11. Foundation and reuse strategy
 
-**Exit condition:** foundation and public control contract are agreed before major code changes.
+Use one existing project as the primary base and modify it minimally.
 
-### Phase 1 — Strip to minimal Chromium runtime
+Current preferred base: **AgentBrowser** because it is closest to the target runtime.
 
-1. Remove non-Chromium engines.
-2. Remove built-in LLM/agent logic.
-3. Remove dashboard/cloud/database/proxy features not required.
-4. Keep headed Chromium.
-5. Keep tabs/navigation.
-6. Keep actions.
-7. Keep screenshots.
-8. Keep persistent profiles.
-9. Confirm ordinary browsing performance remains close to base Chromium.
+Keep where possible:
 
-**Exit condition:** minimal headed Chromium runtime works without AI-specific logic.
+- Chromium/Playwright runtime
+- tabs/navigation
+- actions
+- screenshots
+- persistent sessions/profiles
+- basic semantic observation
+- existing local control plumbing useful to the runtime
 
-### Phase 2 — Browser MCP facade
+Use other repos only for targeted improvements:
 
-1. Implement MCP tools for start/stop.
-2. Implement open/reload.
-3. Implement tabs.
-4. Implement UI actions.
-5. Implement observe.
-6. Implement screenshot.
-7. Map MCP tools to existing runtime operations.
-8. Return stable structured errors.
-9. Keep backend implementation details out of responses.
-10. Support browser session/profile routing.
+| Source | Use |
+|---|---|
+| Browser Use | Better DOM/iframe/shadow/viewport observation when needed |
+| Stagehand | Semantic/a11y context trimming and resilient targeting concepts |
+| OpenBrowser | Visual fallback and evaluation/testing ideas |
+| open-browser-use | Provider-neutral protocol/session design ideas |
 
-**Exit condition:** a local MCP client can fully control the runtime through the public contract.
+Do not merge frameworks wholesale.
 
-### Phase 3 — Semantic observation
+> **Do not rewrite when strip, adapt, or replace is enough.**
 
-1. Start with the base repo's simplified DOM/a11y observation.
-2. Filter invisible and irrelevant nodes.
-3. Assign stable element IDs.
-4. Return visible text, semantic role and relevant state.
-5. Test real sites with complex DOM.
-6. Add Browser Use iframe/shadow/viewport improvements only where tests show gaps.
-7. Add Stagehand-style trimming if context becomes excessive.
+## 12. MVP scope
 
-**Exit condition:** AI can reliably identify and act on normal interactive controls without raw HTML.
+MVP must provide:
 
-### Phase 4 — Screenshot and visual verification
+- independent browser executable
+- Chromium rendering engine
+- minimal human UI
+- multi-tab browsing
+- persistent website profile/session
+- native MCP server
+- semantic `observe()`
+- screenshot
+- direct element actions
+- upload/download basics
+- security firewall
+- ChatGPT integration path through Gptworker
+- local-AI integration path
+- optional sidebar shell sufficient to choose/configure supported connectors
 
-1. Expose current-tab screenshot through MCP.
-2. Allow semantic observation and screenshot to be requested independently.
-3. Test chart/canvas-heavy pages.
-4. Test UI layout verification.
-5. Keep coordinate interaction only as an internal fallback.
+## 13. Explicit non-goals
 
-**Exit condition:** semantic + visual observation can cover both normal web UI and chart/canvas cases.
+Not required for MVP:
 
-### Phase 5 — Security firewall
+- built-in proprietary AI model
+- built-in general reasoning engine
+- 24x7 scheduler
+- Claude connector
+- broad provider marketplace
+- Chrome extension ecosystem
+- browser sync
+- advanced bookmarks
+- browser themes
+- Firefox/WebKit support
+- cloud browser service
+- website-specific automation APIs
+- raw CDP exposed to AI
+- raw cookie/session APIs exposed to AI
+- OS-level fake mouse as normal interaction
+- deep Chromium fork
 
-1. Detect and redact password fields.
-2. Detect other sensitive authentication inputs.
-3. Add payment-secret protection rules.
-4. Remove/block raw cookie/token/storage APIs from public MCP.
-5. Verify profile/session persistence across restart.
-6. Verify secrets remain inaccessible.
-7. Add security regression tests.
+## 14. Example: TradingView
 
-**Exit condition:** AI can use an authenticated session without obtaining protected credentials/secrets.
+The AI does not need TradingView backend access.
 
-### Phase 6 — Gptworker integration
-
-1. Register Browser MCP as a Gptworker capability.
-2. Route Browser MCP through the existing Gptworker tunnel.
-3. Wake/start browser runtime when a browser tool is actually called.
-4. Keep tunnel/driver lightweight when browser capability is idle.
-5. Release job ownership cleanly without destroying persistent profiles.
-6. Verify ChatGPT Web can complete a full `observe -> act -> verify` loop.
-
-**Exit condition:** ChatGPT Web controls the local browser end-to-end through Gptworker.
-
-## 16. MVP acceptance tests
-
-### Test A — Local web app
-
-Pass when ChatGPT can:
-
-1. open localhost
-2. receive meaningful controls from `observe()`
-3. click/type without OS fake mouse
-4. request screenshot when visual inspection is needed
-5. verify whether the requested UI goal was achieved
-
-Primary use case:
-
-```text
-code
--> run dev server
--> open localhost
--> observe
--> interact
--> screenshot if required
--> verify
--> fix
--> repeat
-```
-
-### Test B — TradingView-like workflow
-
-Pass when ChatGPT can:
-
-1. open a chart-heavy website
-2. use semantic controls for tabs, menus, search and text inputs
-3. use screenshot for chart/canvas analysis
-4. complete `observe -> act -> observe -> verify`
-5. do so without knowing the website backend or raw Chromium/CDP implementation
-
-Example:
+It uses UI only.
 
 ```text
 observe
--> identify "Symbol Search"
--> click
--> type symbol
--> select timeframe
--> open "Pine Editor"
--> open "Strategy Tester"
--> screenshot chart when visual inspection is required
+-> click "Symbol Search"
+-> type "AAPL"
+-> choose 1D
+-> click "Pine Editor"
+-> click "Strategy Tester"
+-> read semantic results
+-> screenshot chart when visual analysis is required
 ```
 
-### Test C — Authenticated website
+This demonstrates the key design goal:
 
-Pass when:
+> AI uses the rendered browser UI like a human, but with a native semantic control channel instead of external mouse emulation.
 
-1. user logs in manually
-2. browser runtime is closed
-3. browser runtime restarts
-4. profile remains authenticated
-5. AI can navigate and operate the website
-6. password/payment/authentication secrets remain inaccessible
+## 15. MVP acceptance criteria
 
-## 17. MVP completion criteria
+MVP is complete when:
 
-MVP is complete when all of the following are true:
-
-- ChatGPT Web can control the browser through Gptworker and Browser MCP.
-- AI can read semantic state of the current tab.
-- AI can request screenshots for visual understanding.
-- AI can perform common UI actions without OS-level fake mouse movement.
+- AI-Browser runs as its own executable/process.
+- Browser exposes MCP natively.
+- Human can browse/login normally.
+- AI can observe current-tab semantic UI.
+- AI can request current-tab screenshots.
+- AI can click/type/scroll/select using semantic element references.
+- Common actions do not require OS mouse emulation.
 - Multiple tabs work.
-- Browser profiles persist authenticated sessions.
-- Credential/payment secrets do not leave the protected browser boundary.
-- No built-in LLM or scheduler exists inside the browser.
-- Implementation is primarily derived from the selected base repo rather than rewritten from scratch.
-- Browser backend can later be replaced without changing the public MCP contract.
+- Website sessions survive browser restart.
+- Protected credentials/payment data are not exposed through MCP.
+- ChatGPT can control the browser through Gptworker.
+- A local AI connector can control the same MCP surface.
+- Browser core does not depend on Gptworker or any specific AI provider.
 
-## 18. Open decisions
+## 16. Product positioning
 
-These should be resolved during Phase 0 or early implementation:
+AI-Native Browser is **not a replacement for Chrome for normal users**.
 
-1. Exact AgentBrowser commit/version to freeze as base.
-2. Whether to keep the base repo's internal REST/WebSocket layer or call runtime modules directly from Browser MCP.
-3. How much Browser Use DOM code is actually required after real-world tests.
-4. Exact sensitive-field detection policy beyond obvious password/payment inputs.
-5. Whether a custom minimal browser shell is needed after the headed-Chromium prototype passes.
-6. How browser capability permissions should be declared per Gptworker job.
+It is:
 
-## 19. Final implementation rule
-
-> **Do not rewrite when strip, adapt, or replace a module is sufficient.**
-
-The purpose of this project is not to invent a new browser framework.
-
-The target is the **smallest reliable Chromium browser runtime that exposes a clean AI-native UI control surface through MCP and Gptworker**.
+> **A lightweight Chromium browser built primarily as an execution environment for AI agents, with a native MCP control surface and just enough human UI for login, inspection, and intervention.**
