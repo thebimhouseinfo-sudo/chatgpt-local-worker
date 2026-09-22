@@ -21,7 +21,8 @@ const retiredPaths = [
   "scripts/test-mcp-bridge-integration.mjs",
   "scripts/mock-http-mcp.mjs",
   "scripts/mock-stdio-mcp.mjs",
-  "scripts/init-claude-md.mjs"
+  "scripts/init-claude-md.mjs",
+  "src/tools/node-repl.ts"
 ];
 
 async function exists(path) {
@@ -69,13 +70,6 @@ const checks = {
     "getUpstreamManager",
     "upstream_mcp",
     ".codex/config.toml",
-  ],
-  "src/tools/node-repl.ts": [
-    "plugin-config",
-    "@oai/sky",
-    "codex-computer-use",
-    "globalThis.sky",
-    "OpenAI/Codex",
   ],
   "src/lib/quickstart.ts": ["mcp_servers", "mcp_tools", "mcp_call"],
   ".env.example": ["ADMIN_PORT", "ADMIN_TOKEN", "MCP_UPSTREAM_CONFIG"],
