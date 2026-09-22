@@ -42,7 +42,7 @@ for (const forbidden of [
 
 assert.deepEqual(
   TOOL_FAMILIES,
-  ["filesystem", "shell", "context", "repl"],
+  ["filesystem", "shell", "context"],
   "runtime family set drifted"
 );
 assert.equal("rewind" in FAMILY_TOOLS, false);
