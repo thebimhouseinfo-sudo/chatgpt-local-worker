@@ -56,3 +56,50 @@ Validation completed successfully, including build, Job Pack validation, the def
 The temporary quarantine has been removed. The quarantine-only regression checks are no longer part of the default test runner because the quarantine they guarded no longer exists.
 
 Dead compatibility cleanup is closed. Any next step is provenance rewrite of still-active implementation, not dead-code cleanup.
+
+## Provenance rewrite task list
+
+Goal: remove remaining upstream-derived implementation from the active runtime without changing verified GPTWorker behavior.
+
+### P0 — rewrite exact-upstream active modules
+
+- [ ] Rewrite `src/lib/tool-result.ts`.
+- [ ] Rewrite `src/lib/tool-annotations.ts`.
+- [ ] Rewrite `src/lib/audit.ts`.
+- [ ] Rewrite `src/lib/glob-search.ts`.
+- [ ] Rewrite `src/lib/grep-search.ts`.
+- [ ] Rewrite `src/lib/global-shell-state.ts`.
+- [ ] Rewrite `src/lib/checkpoint.ts`.
+
+### P1 — rewrite active execution core
+
+- [ ] Rewrite `src/lib/patch.ts`.
+- [ ] Rewrite `src/tools/filesystem.ts`.
+- [ ] Rewrite `src/tools/git.ts`.
+- [ ] Rewrite `src/lib/persistent-shell.ts`.
+- [ ] Rewrite `src/tools/shell.ts`.
+- [ ] Rewrite `src/lib/mcp-session-manager.ts`.
+- [ ] Review/rewrite remaining upstream-derived parts of `src/lib/activity-log.ts`.
+
+### P2 — provenance review, targeted edits only
+
+- [ ] Review `src/index.ts`.
+- [ ] Review `src/lib/instruction-context.ts`.
+- [ ] Review `src/lib/path-security.ts`.
+- [ ] Review `src/lib/quickstart.ts`.
+- [ ] Review `src/lib/tool-profile.ts`.
+- [ ] Review `src/server-factory.ts`.
+- [ ] Review `src/tools/context.ts`.
+- [ ] Review `src/tools/node-repl.ts`.
+- [ ] Review `openai-tunnel.ps1`.
+- [ ] Review `start.ps1`.
+
+### Final provenance gate
+
+- [ ] Re-compare active runtime against `hoangcoderr/chatgpt-local-coder`.
+- [ ] Confirm no active file remains byte-for-byte identical to upstream implementation.
+- [ ] Review substantial similarity in modified same-path files.
+- [ ] Run build, Job validation, default tests, and runtime acceptance.
+- [ ] Only after provenance passes, review `LICENSE`.
+- [ ] Only after provenance passes, remove Hoangcoder attribution from `package.json` if no longer required.
+- [ ] Define final packaging manifest excluding tests and development-only artifacts.
