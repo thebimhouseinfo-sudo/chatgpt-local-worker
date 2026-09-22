@@ -360,6 +360,21 @@ Validation evidence:
 - Windows PowerShell 5.1 tunnel-script parser check: **PASS**.
 - Detached Worker health smoke: **PASS**.
 
+
+### Shell rewrite completion — CI green
+
+- [x] Replaced inherited persistent-shell model with a stateless confirmed-Workspace executor.
+- [x] Deleted `src/lib/persistent-shell.ts`.
+- [x] Deleted `src/lib/global-shell-state.ts`.
+- [x] Retired `shell_status`, `shell_reset`, and `clear_processes`.
+- [x] Kept `run_command`, `start_process`, `process_status`, `process_output`, and `stop_process`.
+- [x] Shell commands now start from the confirmed Workspace root unless an absolute in-Workspace `working_directory` is supplied for that call.
+- [x] Removed persisted cwd and raw recent-command history.
+- [x] Added automatic pruning of finished background-process records.
+- [x] Preserved Workspace command/path guard and Windows PowerShell compatibility.
+- [x] Added cross-platform shell executor smoke coverage to CI.
+- [x] CI run #640 passed: Linux full suite 37/37 and Windows shell/worker smoke PASS.
+
 ### Phase 4 — rewrite filesystem around required primitives
 
 #### `src/tools/filesystem.ts`
