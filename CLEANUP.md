@@ -27,7 +27,7 @@ Development-only tests are not rewrite targets. `scripts/test-*.mjs` and other t
 - [x] Remove inert preload tokens `mcp`, `ponytail`, and `rewind` from runtime-family policy, Job runtime/tool schemas, and default Job configs.
 - [ ] Run local TypeScript build.
 - [ ] Run Job Pack validation.
-- [ ] Run runtime acceptance for filesystem, shell/process, git, context, node_repl, and workspace-boundary behavior.
+- [x] Run runtime acceptance for filesystem, shell/process, git, context, node_repl, and workspace-boundary behavior.
 - [ ] Hard-delete quarantine only after active runtime validation passes.
 
 ## Compatibility that remains active
