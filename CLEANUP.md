@@ -334,6 +334,32 @@ Treat these three files as **one subsystem review**, not three isolated rewrites
 
 **Implemented:** stateless/Workspace-first command executor + small in-memory background process registry; no disk shell state. GitHub Actions CI #601 passed on Windows and Linux.
 
+
+### Executed batch status — checkpoint/audit + shell
+
+- [x] Retired dedicated checkpoint subsystem and removed unusable restore/list/preview APIs.
+- [x] Removed duplicate `.mcp-audit.log` pipeline and unified active tool/runtime logging through activity/runtime log.
+- [x] Removed dead activity history/listener APIs that no active runtime consumer used.
+- [x] Fixed stale dedicated-Git quickstart/test expectations.
+- [x] Replaced inherited persistent shell state with a stateless confirmed-Workspace executor.
+- [x] Deleted `src/lib/persistent-shell.ts`.
+- [x] Deleted `src/lib/global-shell-state.ts`.
+- [x] Retired public `shell_status`, `shell_reset`, and `clear_processes`.
+- [x] Preserved `run_command`, `start_process`, `process_status`, `process_output`, and `stop_process`.
+- [x] Added automatic pruning for finished background-process records.
+- [x] Preserved Workspace command/path guard and absolute in-Workspace `working_directory`.
+- [x] Added Windows shell-executor smoke coverage.
+
+Validation evidence:
+
+- Baseline after Git/checkpoint/audit cleanup: CI #599 — **GREEN**.
+- Stateless shell batch: commit `3433711a`, CI #609 — **GREEN**.
+- Linux full suite: **PASS**.
+- Windows build: **PASS**.
+- Windows shell executor smoke: **PASS**.
+- Windows PowerShell 5.1 tunnel-script parser check: **PASS**.
+- Detached Worker health smoke: **PASS**.
+
 ### Phase 4 — rewrite filesystem around required primitives
 
 #### `src/tools/filesystem.ts`
