@@ -57,31 +57,70 @@ The temporary quarantine has been removed. The quarantine-only regression checks
 
 Dead compatibility cleanup is closed. Any next step is provenance rewrite of still-active implementation, not dead-code cleanup.
 
-## Provenance rewrite task list
+## Active inherited core review plan
 
-Goal: remove remaining upstream-derived implementation from the active runtime without changing verified GPTWorker behavior.
+### Goal
 
-### P0 — rewrite exact-upstream active modules
+Review the active Local Coder-derived core for technical fitness inside GPTWorker.
 
-- [ ] Rewrite `src/lib/tool-result.ts`.
-- [ ] Rewrite `src/lib/tool-annotations.ts`.
-- [ ] Rewrite `src/lib/audit.ts`.
-- [ ] Rewrite `src/lib/glob-search.ts`.
-- [ ] Rewrite `src/lib/grep-search.ts`.
-- [ ] Rewrite `src/lib/global-shell-state.ts`.
-- [ ] Rewrite `src/lib/checkpoint.ts`.
+There is **no goal to rewrite code merely to remove Hoangcoder attribution**. GPTWorker is allowed to remain built on useful Local Coder core. Attribution should remain wherever substantial inherited implementation remains.
 
-### P1 — rewrite active execution core
+Each inherited module must be classified by its current technical value:
 
-- [ ] Rewrite `src/lib/patch.ts`.
-- [ ] Rewrite `src/tools/filesystem.ts`.
-- [ ] Rewrite `src/tools/git.ts`.
-- [ ] Rewrite `src/lib/persistent-shell.ts`.
-- [ ] Rewrite `src/tools/shell.ts`.
-- [ ] Rewrite `src/lib/mcp-session-manager.ts`.
-- [ ] Review/rewrite remaining upstream-derived parts of `src/lib/activity-log.ts`.
+- **KEEP** — implementation is useful, stable, maintainable, and already satisfies GPTWorker requirements.
+- **SIMPLIFY / REMOVE** — implementation contains unused, legacy, duplicate, or unnecessary behavior.
+- **REFACTOR / REWRITE** — implementation is insufficient, unsafe for current GPTWorker architecture, unnecessarily complex, difficult to maintain, or blocks required functionality.
 
-### P2 — provenance review, targeted edits only
+A rewrite is justified only by a concrete technical need. Do not rewrite a working inherited subsystem solely for provenance.
+
+### Review invariants
+
+During this review:
+
+- preserve confirmed-Workspace isolation;
+- preserve work-handle / execution-authority boundaries;
+- preserve Job lifecycle behavior;
+- preserve lazy runtime-family loading;
+- preserve current public command behavior;
+- do not reintroduce retired Claude/Codex compatibility, rewind, Ponytail, upstream MCP bridge, or dead permission abstractions;
+- validate behavior after every material core change.
+
+### P0 — small inherited utilities
+
+Review these first because they are low-risk and reveal whether the existing implementation is still worth keeping:
+
+- [ ] Review `src/lib/tool-result.ts` → KEEP / SIMPLIFY / REFACTOR.
+- [ ] Review `src/lib/tool-annotations.ts` → KEEP / SIMPLIFY / REFACTOR.
+- [ ] Review `src/lib/audit.ts` → KEEP / SIMPLIFY / REFACTOR.
+- [ ] Review `src/lib/glob-search.ts` → KEEP / SIMPLIFY / REFACTOR.
+- [ ] Review `src/lib/grep-search.ts` → KEEP / SIMPLIFY / REFACTOR.
+- [ ] Review `src/lib/global-shell-state.ts` → KEEP / SIMPLIFY / REFACTOR.
+- [ ] Review `src/lib/checkpoint.ts` → KEEP / SIMPLIFY / REMOVE / REFACTOR.
+
+### P1 — active execution core
+
+These modules are more coupled and must be changed only when the review finds a real deficiency:
+
+- [ ] Review `src/lib/patch.ts`.
+- [ ] Review `src/tools/filesystem.ts`.
+- [ ] Review `src/tools/git.ts`.
+- [ ] Review `src/lib/persistent-shell.ts`.
+- [ ] Review `src/tools/shell.ts`.
+- [ ] Review `src/lib/mcp-session-manager.ts`.
+- [ ] Review `src/lib/activity-log.ts`.
+
+For each file, record:
+
+1. what GPTWorker still uses;
+2. what behavior is inherited but still valuable;
+3. what is obsolete or duplicated;
+4. what current GPTWorker requirement is not met, if any;
+5. decision: KEEP / SIMPLIFY-REMOVE / REFACTOR-REWRITE;
+6. validation required if changed.
+
+### P2 — integration review
+
+These files already contain substantial GPTWorker-specific architecture. Do not rewrite wholesale; inspect only for inherited behavior that is obsolete or technically limiting:
 
 - [ ] Review `src/index.ts`.
 - [ ] Review `src/lib/instruction-context.ts`.
@@ -94,12 +133,26 @@ Goal: remove remaining upstream-derived implementation from the active runtime w
 - [ ] Review `openai-tunnel.ps1`.
 - [ ] Review `start.ps1`.
 
-### Final provenance gate
+### Attribution and licensing
 
-- [ ] Re-compare active runtime against `hoangcoderr/chatgpt-local-coder`.
-- [ ] Confirm no active file remains byte-for-byte identical to upstream implementation.
-- [ ] Review substantial similarity in modified same-path files.
-- [ ] Run build, Job validation, default tests, and runtime acceptance.
-- [ ] Only after provenance passes, review `LICENSE`.
-- [ ] Only after provenance passes, remove Hoangcoder attribution from `package.json` if no longer required.
-- [ ] Define final packaging manifest excluding tests and development-only artifacts.
+- Keep Hoangcoder attribution while substantial Local Coder-derived implementation remains active.
+- Do not use attribution removal as a reason to rewrite working code.
+- If a subsystem is naturally replaced for technical reasons, reassess attribution only after the active codebase has materially changed.
+- Preserve third-party/framework license notices required by the actual upstream sources used.
+
+### Validation gate after any core change
+
+After any material SIMPLIFY / REMOVE / REFACTOR / REWRITE:
+
+- [ ] `npm run build`
+- [ ] `npm run validate:jobs`
+- [ ] `npm test`
+- [ ] runtime acceptance for filesystem, shell/process, git, context, node_repl, and workspace boundary
+- [ ] public command routing check, including `gr/job stop`
+
+### Completion condition
+
+This review is complete when every inherited active module has an explicit technical decision and there are no known unnecessary, unsafe, duplicated, or functionally inadequate inherited components.
+
+The desired end state is **the smallest reliable GPTWorker core**, not a from-scratch rewrite.
+
