@@ -43,7 +43,7 @@ const tests = [
   "scripts/test-group-a-retired.mjs",
   "scripts/test-group-b-retired.mjs",
   "scripts/test-group-c1-work-gateway.mjs",
-  "scripts/test-group-c2-node-repl.mjs",
+  "scripts/test-group-c2-repl-retired.mjs",
   "scripts/test-group-c3-context.mjs",
   "scripts/test-group-c4-instruction-context.mjs",
   "scripts/test-post-review-round2-mapping.mjs",

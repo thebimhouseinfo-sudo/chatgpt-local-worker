@@ -2,7 +2,6 @@ export const RUNTIME_FAMILIES = [
   "filesystem",
   "shell",
   "context",
-  "repl",
 ] as const;
 
 export type RuntimeFamily = (typeof RUNTIME_FAMILIES)[number];

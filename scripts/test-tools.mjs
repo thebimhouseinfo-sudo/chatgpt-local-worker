@@ -3,7 +3,6 @@ import path from "path";
 import { fileURLToPath } from "url";
 import { globFiles, grepSearch, globPatternToRegExp } from "../dist/lib/file-search.js";
 import { applyMultiFilePatch, applyUnifiedPatchToText, isMultiFilePatch } from "../dist/lib/patch.js";
-import { createWorkspaceProcessView, createWorkspaceRequire } from "../dist/tools/node-repl.js";
 import { validatePath } from "../dist/lib/path-security.js";
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
@@ -120,38 +119,6 @@ await run("relative filesystem path is rejected", async () => {
     blocked = /absolute path/i.test(String(error?.message || error));
   }
   if (!blocked) throw new Error("relative filesystem path should be rejected");
-});
-
-await run("node_repl blocks direct fs access", async () => {
-  const workspaceRequire = createWorkspaceRequire(tmpDir);
-  let blocked = false;
-  try {
-    workspaceRequire("fs");
-  } catch (error) {
-    blocked = /filesystem access is disabled/i.test(String(error?.message || error));
-  }
-  if (!blocked) throw new Error("node_repl fs require should be blocked");
-  const pathModule = workspaceRequire("path");
-  if (typeof pathModule.join !== "function") throw new Error("non-fs modules should remain available");
-});
-
-await run("node_repl process view is workspace-bound", async () => {
-  const hostCwd = process.cwd();
-  const view = createWorkspaceProcessView(tmpDir);
-  if (view.cwd() !== path.resolve(tmpDir)) {
-    throw new Error(`expected workspace cwd ${tmpDir}, got ${view.cwd()}`);
-  }
-  if (view.env.PWD !== path.resolve(tmpDir)) {
-    throw new Error(`expected PWD ${tmpDir}, got ${view.env.PWD}`);
-  }
-  let blocked = false;
-  try {
-    view.chdir(root);
-  } catch {
-    blocked = true;
-  }
-  if (!blocked) throw new Error("process.chdir should be blocked inside node_repl");
-  if (process.cwd() !== hostCwd) throw new Error("host process cwd was mutated");
 });
 
 await run("delete and move file", async () => {

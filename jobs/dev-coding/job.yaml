@@ -1,7 +1,7 @@
 {
   "id": "dev-coding",
   "name": "Dev Coding",
-  "version": "1.4.1",
+  "version": "1.4.2",
   "status": "ready",
   "description": "Professional code-execution job that reads the active planning bundle first, selects/updates executable tasks, plans execution, then performs targeted code changes using the GPTWorker execution core and its filesystem, shell, context, validation, and local execution capabilities.",
   "aliases": [
@@ -129,8 +129,7 @@
     "preload_families": [
       "filesystem",
       "shell",
-      "context",
-      "repl"
+      "context"
     ]
   }
 }

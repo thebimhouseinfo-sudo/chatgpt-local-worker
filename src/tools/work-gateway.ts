@@ -26,7 +26,6 @@ export const FAMILY_TOOLS = {
     "run_command", "start_process", "process_status", "process_output", "stop_process",
   ],
   context: ["project_context", "agent_status"],
-  repl: ["node_repl"],
 } as const;
 
 export type ToolFamily = keyof typeof FAMILY_TOOLS;
@@ -96,11 +95,6 @@ async function registerFamily(
     case "context": {
       const module = await import("./context.js");
       module.registerContextTools(server, workspaceRoot);
-      return;
-    }
-    case "repl": {
-      const module = await import("./node-repl.js");
-      module.registerNodeReplTool(server, workspaceRoot);
       return;
     }
   }

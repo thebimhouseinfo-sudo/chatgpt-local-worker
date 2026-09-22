@@ -286,7 +286,6 @@ Xác nhận bắt đầu?
 - Relative cd/Set-Location/pushd targets and parent-directory traversal are rejected; normal/obvious shell absolute-path escapes outside the confirmed FOLDER are rejected.
 - For multi-file apply_patch, supply an absolute base path inside the confirmed FOLDER; each patch target is boundary-checked.
 - Git is not a dedicated GPTWorker tool family. When Git is installed and needed, run ordinary \`git ...\` commands through work_tool tool=run_command from the confirmed Workspace.
-- node_repl may not access fs/fs-promises directly. Use dedicated filesystem tools inside the confirmed Workspace.
 - To work in another local folder, switch/reselect the Workspace and confirm again.
 
 ## Core tool workflow
@@ -295,7 +294,7 @@ After nomination, the Job's declared runtime.preload_families may warm in the ba
 After confirmation, all actual workspace execution goes through work_tool.
 1. When project context is actually needed, call work_tool with tool=project_context.
 2. Explore through work_tool using glob (file names), grep (content), then read_text_file.
-3. For file rename/move operations, dispatch move_file through work_tool. Do not fall back to node_repl for routine filesystem mutations.
+3. For file rename/move operations, dispatch move_file through work_tool.
 4. Edit through work_tool with apply_patch (preferred for structured/multiple edits), edit_file for one exact replacement, or write_file for create/overwrite.
 5. Run builds/tests through work_tool with run_command for short work or start_process + process_output for long-running work.
 6. When Git is installed and required, dispatch ordinary \`git ...\` CLI commands through work_tool with tool=run_command so they execute from the confirmed active Workspace.
@@ -335,7 +334,7 @@ All tools return JSON: { ok, tool, summary, data }
 - work_tool operations run_command / start_process / process_output / process_status / stop_process: execute
 - Git/GitHub repository operations are optional host CLI behavior: use work_tool tool=run_command with ordinary \`git ...\` commands when Git is installed.
 - work_tool operations project_context / agent_status: active-workspace context
-- when a dedicated operation is unavailable, dispatch run_command through work_tool; node_repl is not the fallback for routine filesystem mutation
+- when a dedicated operation is unavailable and shell execution is appropriate, dispatch run_command through work_tool
 
 ## Paths
 The confirmed FOLDER is the active Job's local execution boundary. Structured path-bearing operations are absolute-path-only and must remain inside that Workspace. Host-level Worker capability is not permission for a Job to touch another local folder.

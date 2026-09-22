@@ -6,7 +6,7 @@ export type ToolProfileName = "full" | "slim";
 export const LOCAL_TOOL_CATALOG = [
   "gptworker_control", "gptworker_admission", "job_list", "job_create", "job_update", "job_remove", "job_export", "job_import", "job_select", "job_status", "job_stop", "job_switch", "workspace_discover", "work_tool",
   "read_text_file", "write_file", "edit_file", "apply_patch", "glob", "grep", "list_directory", "move_file",
-  "run_command", "start_process", "process_status", "process_output", "stop_process", "node_repl",
+  "run_command", "start_process", "process_status", "process_output", "stop_process",
   "agent_status", "project_context",
 ];
 

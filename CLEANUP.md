@@ -128,7 +128,7 @@ The table below places **every remaining active runtime/root-script file with Lo
 | `src/tools/filesystem.ts` | **Dynamic callable tool target / caller** | `src/tools/work-gateway.ts` dynamically registers the filesystem family; instructions in `quickstart.ts` drive ChatGPT calls | `path-security.ts`, `audit.ts`, `patch.ts`, `checkpoint.ts`, `tool-annotations.ts`, `tool-result.ts`, `glob-search.ts`, `grep-search.ts` | Core capability is required, but implementation contains duplicate/dead surfaces and old checkpoint/audit coupling. | **REWRITE around only required primitives.** |
 | `src/tools/shell.ts` | **Dynamic callable tool target / caller** | `src/tools/work-gateway.ts` dynamically registers the shell family; Job instructions drive calls | `path-security.ts`, `shell-workspace-guard.ts`, `audit.ts`, `tool-annotations.ts`, `tool-result.ts`, `persistent-shell.ts` | Core shell/process capability is required, but persistent shell state and some management tools are unnecessary. | **REWRITE smaller Workspace-first shell/process core.** |
 | `src/tools/context.ts` | **Dynamic callable tool target / caller** | `src/tools/work-gateway.ts` dynamically registers context operations | `audit.ts`, `checkpoint.ts`, `path-security.ts`, `quickstart.ts`, `tool-annotations.ts`, `tool-result.ts`, GPTWorker project-context/worker-home helpers | `project_context` / `agent_status` are useful; checkpoint/audit-path reporting is obsolete if those subsystems are removed. | **KEEP; simplify status payload after cleanup.** |
-| `src/tools/node-repl.ts` | **Dynamic callable tool target / caller** | `src/tools/work-gateway.ts` dynamically registers repl family | `path-security.ts`, `tool-annotations.ts`, `tool-result.ts` | Distinct capability, already constrained from direct filesystem access. | **KEEP.** |
+| `src/tools/node-repl.ts` | **Retired** | no real Job/runtime consumer beyond self-tests | duplicated ad-hoc Node execution already available through Workspace-bound shell | Stateful REPL convenience was not required by any active workflow. | **REMOVE — retired; use Node CLI through `run_command` when needed.** |
 | `src/lib/persistent-shell.ts` | **Shell implementation target / caller** | `src/tools/shell.ts` | `global-shell-state.ts`, `path-security.ts`, GPTWorker `shell-workspace-guard.ts` | Command execution is active; disk cwd/history persistence is not justified by current architecture. | **REWRITE/REPLACE with smaller executor.** |
 | `src/lib/global-shell-state.ts` | **Persistent-shell storage target** | `src/lib/persistent-shell.ts` | filesystem + crypto only | `loadGlobalShellState()` / `saveGlobalShellState()` are called, but persisted state is not restored because `bootstrapShellSession()` has no active runtime caller. Effectively write-only state plus duplicate raw command history. | **REMOVE with shell rewrite.** |
 | `src/lib/patch.ts` | **Filesystem edit-engine target / caller** | `src/tools/filesystem.ts` | `path-security.ts` for multi-file targets | All imported patch/diff functions are actually used. Very strongly inherited, but not redundant. | **KEEP unless a concrete technical failure appears.** |
@@ -484,10 +484,12 @@ KEEP does not mean “never touch”. It means preserve the capability unless a 
 
 #### `src/tools/node-repl.ts`
 
-- [ ] Confirm it still provides a distinct useful capability beyond `run_command node ...`.
-- [ ] Compare why REPL exists: stateful JS evaluation, structured output, restricted fs access.
-- [ ] If those benefits are not actually used, consider retiring it like Git.
-- [ ] If kept, simplify implementation and preserve the no-direct-filesystem boundary.
+- [x] Confirmed no active Job/workflow requires the stateful REPL capability.
+- [x] Compared against `run_command`: Node CLI/script execution already covers the actual active use cases.
+- [x] Retire `node_repl` and the entire `repl` runtime family.
+- [x] Remove `repl` from Dev Coding preload, gateway, profile, policy, quickstart, acceptance docs, and tests.
+
+**Decision:** REMOVE. Node remains available as an optional host CLI through the Workspace-bound shell.
 
 ### Phase 7 — root scripts with inherited ancestry
 
@@ -534,7 +536,7 @@ After all batches:
 - [ ] `npm run build`
 - [ ] `npm run validate:jobs`
 - [ ] `npm test`
-- [ ] full runtime acceptance: filesystem / shell-process / context / repl / Workspace boundary;
+- [ ] full runtime acceptance: filesystem / shell-process / context / Workspace boundary;
 - [ ] optional Git-through-shell check when Git is installed;
 - [ ] public command routing smoke including `gr/job stop`;
 - [ ] update README and LICENSE to describe only the code/capabilities that actually remain.
@@ -629,7 +631,7 @@ After any material SIMPLIFY / REMOVE / REFACTOR / REWRITE:
 - [ ] `npm run build`
 - [ ] `npm run validate:jobs`
 - [ ] `npm test`
-- [ ] runtime acceptance for filesystem, shell/process, context, node_repl, and workspace boundary; optionally verify Git CLI through `run_command` when Git is installed
+- [ ] runtime acceptance for filesystem, shell/process, context, and workspace boundary; optionally verify Git CLI through `run_command` when Git is installed
 - [ ] public command routing check, including `gr/job stop`
 
 ### Completion condition

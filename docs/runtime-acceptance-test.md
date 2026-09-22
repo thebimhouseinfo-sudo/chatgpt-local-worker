@@ -11,7 +11,7 @@ GPT Web
 → MCP session/recovery
 → admission + Job + Workspace
 → work_tool
-→ filesystem / shell / context / repl
+→ filesystem / shell / context
 ```
 
 This test does not require reading source code.
@@ -139,13 +139,12 @@ Run the GPTWorker runtime acceptance sequence in this confirmed Workspace:
 7. if Git is installed, use the shell/run_command path to run git status and inspect the current branch; otherwise report Git as unavailable and continue;
 8. call project_context;
 9. call agent_status;
-10. use node_repl to calculate 2 + 3 and report the value;
 11. delete sub\copied.txt;
 12. verify the final files exist as expected.
 
 Do not touch anything outside the confirmed Workspace.
 Report each family as PASS/FAIL:
-filesystem, shell, context, repl. Git is optional and, when installed, is exercised through shell.
+filesystem, shell, context. Git and Node CLI commands are optional host capabilities exercised through shell when installed.
 ```
 
 Expected:
@@ -154,7 +153,6 @@ Expected:
 filesystem PASS
 shell      PASS
 context    PASS
-repl       PASS
 
 optional: git-via-shell PASS / unavailable
 ```
@@ -262,7 +260,7 @@ If everything passes, send:
 ```text
 A PASS
 B Connected
-D filesystem PASS / shell PASS / context PASS / repl PASS; optional Git-through-shell PASS when Git is installed
+D filesystem PASS / shell PASS / context PASS; optional Git/Node-through-shell PASS when installed
 D-boundary PASS
 E reconnect PASS
 ```
