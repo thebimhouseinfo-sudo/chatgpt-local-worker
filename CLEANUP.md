@@ -224,6 +224,291 @@ These instruction callers no longer match `src/tools/work-gateway.ts` and can ca
 7. **Leave MCP session/patch foundation alone** except for small confirmed dead exports.
 8. **Retest from a fresh HEAD** before marking any of these changes green.
 
+
+## Temporary inherited-core implementation checklist
+
+This is a **temporary execution checklist**, not a final architecture freeze. Its purpose is to remove/simplify/rewrite inherited code without breaking current GPTWorker behavior or caller connections.
+
+### Working rules for every inherited file
+
+- [ ] Re-read the file and all active callers from the caller map before mutation.
+- [ ] Classify the file/member as **REMOVE / SIMPLIFY / REWRITE / KEEP** based on current technical value, not provenance.
+- [ ] Remove only when no required runtime capability or caller depends on it.
+- [ ] When multiple public operations duplicate the same implementation, prefer one internal implementation and keep compatibility names temporarily if removing/renaming the public operation would create unnecessary blast radius.
+- [ ] Rename a file/function only when the new name materially improves responsibility clarity **and** the caller update is small/contained.
+- [ ] If renaming would touch many stable callers, keep the existing exported/file name and simplify/rewrite its internals instead.
+- [ ] Do not preserve dead behavior merely because the file itself is still active.
+- [ ] Do not split code merely to create more files; do not merge files merely to reduce file count. Group by responsibility.
+- [ ] Preserve confirmed-Workspace isolation, work-handle authority, Job lifecycle, lazy runtime loading, and public command behavior.
+- [ ] After each material subsystem change, update dispatcher/catalog/instructions in the same batch so runtime and guidance cannot drift.
+- [ ] Run targeted validation after each subsystem batch; run the full validation gate only after the batch is coherent.
+
+### Phase 0 — baseline and instruction consistency
+
+- [ ] Fix stale dedicated-Git instructions in `src/lib/quickstart.ts` before deeper refactors.
+- [ ] Confirm `work-gateway.ts`, `tool-profile.ts`, `tool-work-policy.ts`, Job YAML, README, and quickstart all describe the same currently available operation set.
+- [ ] Record the current exported operation list for filesystem/shell/context/repl so later removals are intentional.
+- [ ] Do not call current HEAD green until the post-Git-retirement retest has actually passed.
+
+### Phase 1 — remove obvious dead inherited surfaces first
+
+#### `src/lib/checkpoint.ts`
+
+- [ ] Confirm again that no active runtime caller uses restore/list/preview/clear APIs.
+- [ ] Remove dead exports: `listCheckpoints`, `getCheckpoint`, `previewRestore`, `restoreToCheckpoint`, `clearCheckpoints`, `checkpointFingerprint`.
+- [ ] Decide whether **any** automatic pre-mutation snapshot remains useful when GPTWorker has no restore workflow.
+- [ ] If no real consumer exists, remove `checkpointBefore()` and delete the whole checkpoint subsystem.
+- [ ] Remove checkpoint calls and `checkpoint_id` output fields from `src/tools/filesystem.ts`.
+- [ ] Remove checkpoint status/config from `src/tools/context.ts`.
+- [ ] Remove checkpoint-specific instruction/log summarization from other files.
+- [ ] Delete `.mcp-checkpoints` configuration/docs references if the subsystem is removed.
+- [ ] Validate all file mutations after removal.
+
+**Preferred temporary decision:** remove the subsystem entirely unless a concrete restore consumer is chosen before implementation.
+
+#### `src/lib/global-shell-state.ts`
+
+- [ ] Confirm persisted cwd/history still has no startup/runtime restore caller.
+- [ ] Remove `restoreShellFromDisk()` immediately if still unused.
+- [ ] During shell rewrite, remove disk persistence for raw recent commands.
+- [ ] Remove the file entirely if no remaining state genuinely needs cross-process persistence.
+- [ ] Remove obsolete `MCP_SHELL_STATE_DIR` / `.mcp-state` docs/config if no longer used.
+
+**Preferred temporary decision:** remove after the new shell executor no longer imports it.
+
+#### dead members inside otherwise-active files
+
+- [ ] Remove `isStaleSessionRequest()` from `src/lib/mcp-session-manager.ts` if no caller appears.
+- [ ] Remove `subscribeActivity()`, `getRecentActivity()`, `loadAuditHistory()`, `loadActivityHistory()` from `src/lib/activity-log.ts` unless a current operator/runtime caller is found.
+- [ ] Remove `initShellSession()`, `getShellCwd()`, `bootstrapShellSession()` when the shell rewrite no longer needs them.
+
+### Phase 2 — collapse duplicate logging
+
+#### `src/lib/audit.ts`
+
+- [ ] Verify that `.mcp-audit.log` contains no unique information required by current tooling.
+- [ ] Move the useful `audit()` call semantics into the activity/runtime logging path or replace callers with a small shared helper.
+- [ ] Preserve redaction and non-fatal logging behavior.
+- [ ] Update callers in `src/tools/filesystem.ts`, `src/tools/shell.ts`, and `src/tools/context.ts`.
+- [ ] Remove `getAuditPath()` and old audit-path exposure from `agent_status`.
+- [ ] Delete `src/lib/audit.ts` if it no longer has a distinct responsibility.
+
+#### `src/lib/activity-log.ts`
+
+- [ ] Keep MCP/session/work/tool event logging, redaction, console output, and JSONL persistence.
+- [ ] Remove old audit-history compatibility.
+- [ ] Remove Admin/UI listener/history APIs if still uncalled.
+- [ ] Check whether the file now has one clear responsibility; if not, split only by responsibility such as formatting/redaction vs persistence.
+- [ ] Keep the filename if renaming would create broad churn without architectural benefit.
+
+**Target state:** one logging pipeline, one persistent runtime log, no duplicate audit file.
+
+### Phase 3 — rewrite shell/process around current GPTWorker needs
+
+#### `src/tools/shell.ts`
+#### `src/lib/persistent-shell.ts`
+#### `src/lib/global-shell-state.ts`
+
+Treat these three files as **one subsystem review**, not three isolated rewrites.
+
+- [ ] Define the minimal required public shell operations:
+  - `run_command`
+  - `start_process`
+  - `process_status`
+  - `process_output`
+  - `stop_process`
+- [ ] Verify whether `shell_status` provides any value once cwd is explicit and Workspace is already known.
+- [ ] Verify whether `shell_reset` is needed at all without persistent cwd.
+- [ ] Remove `clear_processes` as a public operation if finished process records can be pruned automatically.
+- [ ] Make `working_directory` an explicit one-call option rooted inside the confirmed Workspace.
+- [ ] Decide whether commands should always start from Workspace root when `working_directory` is absent. Prefer this simple deterministic model unless a real workflow needs persistent `cd`.
+- [ ] Remove disk-persisted shell cwd/history if no real workflow needs it.
+- [ ] Preserve PowerShell selection/fallback behavior needed on Windows.
+- [ ] Preserve timeout behavior and Workspace command guard.
+- [ ] Preserve background-process ownership by Workspace.
+- [ ] Add internal auto-pruning for finished process records.
+- [ ] Consider merging command execution and process management into one implementation file **only if** the resulting file has a clear responsibility and remains maintainable.
+- [ ] If `persistent-shell.ts` becomes just a stateless executor, consider renaming it to something like `shell-executor.ts`; otherwise keep the current filename to avoid unnecessary caller churn.
+- [ ] If all useful code fits cleanly in `src/tools/shell.ts`, deleting `persistent-shell.ts` is acceptable.
+- [ ] Update `work-gateway.ts`, policy/catalog, quickstart, Job docs, and acceptance tests for removed shell operations.
+
+**Preferred temporary target:** stateless/Workspace-first command executor + small in-memory background process registry; no disk shell state.
+
+### Phase 4 — rewrite filesystem around required primitives
+
+#### `src/tools/filesystem.ts`
+
+- [ ] Define the smallest required public filesystem surface before coding.
+- [ ] Keep path validation centralized through `path-security.ts`.
+- [ ] Remove checkpoint coupling if Phase 1 removes checkpointing.
+- [ ] Remove old audit coupling after Phase 2.
+- [ ] Remove `search_files` because `grep` already covers the stronger content-search use case.
+- [ ] Remove `list_allowed_directories` because Workspace/authority status already exists elsewhere.
+- [ ] Decide whether `directory_tree` materially helps planning/discovery; remove if `list_directory + glob` is enough.
+- [ ] Verify Layla/binary workflows before deciding whether `read_file_base64` / `write_file_base64` stay.
+- [ ] Preserve core mutations: read/write/create/delete/copy/move.
+- [ ] Preserve `glob`, `grep`, and `apply_patch`.
+
+#### edit-operation consolidation
+
+Current `edit_file` and `multi_edit` are **two public operations in the same file**, not two separate files.
+
+- [ ] Compare actual semantics:
+  - `edit_file`: one exact replacement, optionally replace-all.
+  - `multi_edit`: ordered multiple exact replacements applied atomically to one file.
+- [ ] Decide whether both public names are genuinely useful to ChatGPT.
+- [ ] Prefer one internal helper such as `applyTextEdits(file, edits, options)`.
+- [ ] If compatibility is valuable, keep both public operations but make both thin adapters over the same helper.
+- [ ] If one operation can fully replace the other without degrading tool ergonomics, retire the redundant public operation and update quickstart/work-gateway/policy/tests in the same batch.
+- [ ] Review `replace_regex` the same way: keep only if regex editing is materially easier/safer than expressing the same edit through the chosen unified edit interface.
+- [ ] Do not force every edit style through `apply_patch` if exact replacement remains simpler and more reliable for non-code text.
+
+#### filesystem helper layout
+
+- [ ] Review whether `glob-search.ts` and `grep-search.ts` should remain separate helpers.
+- [ ] If both are small and share directory walking/filtering, consider one internal `file-search.ts` helper with distinct glob/grep functions.
+- [ ] Do not merge them if that makes the search helper harder to test/read.
+- [ ] Keep public operation names `glob` and `grep` unless changing them has a real benefit.
+
+### Phase 5 — review strong inherited KEEP candidates for internal quality
+
+KEEP does not mean “never touch”. It means preserve the capability unless a better implementation has a concrete benefit.
+
+#### `src/lib/patch.ts`
+
+- [ ] Verify all currently supported patch formats are actually needed.
+- [ ] Check for parser branches that only supported retired compatibility flows.
+- [ ] Check whether diff generation belongs here or in filesystem edit helpers.
+- [ ] Keep the current implementation if simplification would add risk without reducing real complexity.
+- [ ] Rewrite only if a smaller implementation can preserve current patch behavior and Workspace validation with clear tests.
+- [ ] Avoid renaming while `filesystem.ts` is being rewritten unless the new responsibility becomes materially different.
+
+#### `src/lib/mcp-session-manager.ts`
+
+- [ ] Remove only confirmed dead exports first.
+- [ ] Map each recovery branch to current `src/index.ts` behavior before changing it.
+- [ ] Keep stale-session recovery/raw-header/protocol handling that current ChatGPT tunnel sessions actually need.
+- [ ] Do not rewrite wholesale merely because overlap with Local Coder is high.
+- [ ] Only consider a rewrite after runtime evidence shows complexity can be safely reduced.
+
+#### `src/lib/tool-result.ts`
+
+- [ ] Keep the shared structured result envelope if all current tools still benefit from it.
+- [ ] Replace stale Local Coder naming/comments.
+- [ ] Check whether `TOOL_RESULT_OUTPUT_SCHEMA` and `toolResult()` can be made smaller without changing server-factory/tool output behavior.
+- [ ] Keep filename/export names unless a rename has low blast radius.
+
+#### `src/lib/tool-annotations.ts`
+
+- [ ] Verify current ChatGPT behavior still needs `CHATGPT_AUTO_APPROVE`.
+- [ ] If risk-specific annotations alone are sufficient, simplify and remove the environment toggle.
+- [ ] If the toggle still solves a real popup/session issue, keep it and document the reason.
+- [ ] Preserve correct read/edit/command/destructive hints.
+
+#### `src/lib/path-security.ts`
+
+- [ ] Treat confirmed-Workspace boundary as a locked invariant.
+- [ ] Review for dead inherited branches only.
+- [ ] Prefer targeted simplification over rewrite.
+- [ ] Do not rename unless every security caller can be updated in one controlled batch.
+
+### Phase 6 — simplify integration files after lower layers settle
+
+#### `src/tools/context.ts`
+
+- [ ] Keep `project_context` and `agent_status`.
+- [ ] Remove checkpoint fields if checkpoint subsystem is removed.
+- [ ] Remove audit-log path if duplicate audit subsystem is removed.
+- [ ] Ensure status reports only real current capabilities.
+
+#### `src/lib/quickstart.ts`
+
+- [ ] Remove stale Git-family guidance.
+- [ ] Remove instructions for any filesystem/shell operations retired by this cleanup.
+- [ ] Prefer small canonical workflows over a long cheat sheet that can drift from runtime.
+- [ ] Consider generating operation summaries from the runtime catalog only if doing so is simpler and less fragile than static text.
+
+#### `src/lib/tool-profile.ts`
+
+- [ ] Remove retired operation names.
+- [ ] Check whether full/slim + override logic is still necessary with one `work_tool` gateway.
+- [ ] Simplify only if current ChatGPT discovery/tool-list behavior remains intact.
+
+#### `src/server-factory.ts`
+
+- [ ] Update family/operation registrations only after lower-level decisions are frozen.
+- [ ] Remove compatibility wiring for retired operations.
+- [ ] Preserve work-handle and Workspace authority wrapping.
+
+#### `src/lib/instruction-context.ts`
+
+- [ ] Reassess only after quickstart/profile cleanup.
+- [ ] Keep if it still provides a clean assembly boundary.
+- [ ] Merge into another file only if it becomes a trivial pass-through with no independent responsibility.
+
+#### `src/index.ts`
+
+- [ ] Review last, after session/logging/instruction layers settle.
+- [ ] Remove only wiring made obsolete by earlier phases.
+- [ ] Preserve HTTP/MCP routes, health, session recovery, shutdown logging, and current tunnel behavior.
+
+#### `src/tools/node-repl.ts`
+
+- [ ] Confirm it still provides a distinct useful capability beyond `run_command node ...`.
+- [ ] Compare why REPL exists: stateful JS evaluation, structured output, restricted fs access.
+- [ ] If those benefits are not actually used, consider retiring it like Git.
+- [ ] If kept, simplify implementation and preserve the no-direct-filesystem boundary.
+
+### Phase 7 — root scripts with inherited ancestry
+
+#### `start.ps1`
+
+- [ ] Confirm every branch is used by setup, background launcher, tray, or manual recovery.
+- [ ] Remove obsolete launch modes/flags only when no caller uses them.
+- [ ] Keep filename if external scripts call it widely.
+
+#### `openai-tunnel.ps1`
+
+- [ ] Map setup/tray/manual callers before editing.
+- [ ] Identify doctor/init/run/recovery branches actually used by current setup.
+- [ ] Remove obsolete compatibility branches only with tunnel acceptance evidence.
+- [ ] Prefer targeted simplification; this is a connection-critical script.
+
+### Phase 8 — rename/merge pass only after behavior is stable
+
+- [ ] Do **not** rename during the first remove/rewrite pass unless required.
+- [ ] After runtime is green, inspect remaining filenames against actual responsibility.
+- [ ] Rename only when it reduces future confusion enough to justify caller churn.
+- [ ] Candidate review:
+  - `persistent-shell.ts` → remove entirely or rename to `shell-executor.ts` if it becomes stateless.
+  - `activity-log.ts` → keep unless responsibility materially changes.
+  - `glob-search.ts` + `grep-search.ts` → possibly merge into `file-search.ts`.
+  - `filesystem.ts` / `shell.ts` → keep public tool registration filenames unless there is a strong architectural reason to change.
+- [ ] Update imports, docs, caller map, and LICENSE attribution only after final names settle.
+
+### Per-batch safety gate
+
+For every subsystem batch:
+
+- [ ] caller map updated before mutation;
+- [ ] code mutation complete;
+- [ ] retired exports removed from dispatcher/catalog/profile/instructions;
+- [ ] no stale tool names remain in quickstart/README/Job docs;
+- [ ] TypeScript build passes;
+- [ ] relevant targeted test(s) pass;
+- [ ] Workspace-boundary behavior is preserved;
+- [ ] only then mark the batch complete and continue.
+
+After all batches:
+
+- [ ] `npm run build`
+- [ ] `npm run validate:jobs`
+- [ ] `npm test`
+- [ ] full runtime acceptance: filesystem / shell-process / context / repl / Workspace boundary;
+- [ ] optional Git-through-shell check when Git is installed;
+- [ ] public command routing smoke including `gr/job stop`;
+- [ ] update README and LICENSE to describe only the code/capabilities that actually remain.
+
 ## Active inherited core review plan
 
 ### Goal
