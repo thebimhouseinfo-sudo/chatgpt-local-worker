@@ -369,19 +369,145 @@ Required tests:
 
 Security failure blocks MVP release.
 
-## 8. Phase 4 — Sidebar
+## 8. Phase 4 — Docked AI sidebar
 
-Sidebar is optional convenience UI, not browser intelligence.
+The browser should provide a **docked sidebar inside the main browser window**, similar in UX to the Copilot/ChatGPT sidebar in Edge.
 
-MVP sidebar may provide:
+This is not a separate dashboard tab and not a second application.
 
-- Gptworker/ChatGPT connection status
-- local-AI connector settings
-- active connector display
-- connection/disconnection controls
-- link/help for third-party connectors
+Primary UX goal:
 
-The sidebar must use the same MCP control surface. It must not create a hidden privileged browser-control path.
+> **One browser window should be enough for browsing, AI conversation, and agent control.**
+
+Expected layout:
+
+```text
++--------------------------------------+------------------+
+| Tabs / address bar                   |                  |
++--------------------------------------+   AI Sidebar     |
+|                                      |                  |
+|                                      |  connector       |
+|          Browser viewport            |  conversation    |
+|                                      |  task/activity   |
+|                                      |  input           |
+|                                      |                  |
++--------------------------------------+------------------+
+```
+
+Required behavior:
+
+- sidebar is docked to the browser chrome, normally on the right;
+- opening the sidebar shrinks the web viewport rather than covering it;
+- sidebar can be opened/closed from browser UI;
+- sidebar width should be resizable;
+- switching web tabs does not destroy the sidebar conversation/session;
+- the sidebar stays available while the agent operates the active tab;
+- sidebar has its own header/status area and message/input area;
+- current connector/provider status is visible.
+
+### 8.1 ChatGPT UX
+
+With ChatGPT, the sidebar avoids forcing the user to switch between a work tab and a separate ChatGPT tab/app.
+
+Expected flow:
+
+```text
+Current website remains open
+        |
+        +-- right sidebar: ChatGPT conversation
+        |
+        v
+User gives task
+        |
+        v
+Gptworker bridges tool calls
+        |
+        v
+Browser MCP operates current tab
+        |
+        v
+Result returns to the same sidebar conversation
+```
+
+The official ChatGPT connector is Gptworker.
+
+### 8.2 Local AI UX
+
+With a local model, the sidebar should remove the need to install or operate a separate chat Web UI or control the model through a CLI for normal use.
+
+Expected flow:
+
+```text
+Browser sidebar
+   |
+   v
+Local AI connector
+   |
+   v
+Local model/agent runtime
+   |
+   | Browser MCP
+   v
+Current browser tab
+```
+
+The user may still use external local-model software for model hosting, but the browser should provide the normal conversation/control UI.
+
+### 8.3 Connector states
+
+At minimum the sidebar should support these states:
+
+```text
+ChatGPT
+Connected via Gptworker
+
+Local AI
+Connected via local connector
+
+No AI connected
+Choose connector
+```
+
+Third-party providers may add their own connectors later.
+
+### 8.4 Reuse strategy for sidebar UI
+
+The base repository's existing dashboard/chat UI may be reused for components, styles, activity display, connection indicators, or conversation UI where useful.
+
+However, the final product UX is a **native docked browser sidebar**, not a separate dashboard page.
+
+Do not rewrite existing dashboard components if they can be embedded or adapted cleanly.
+
+### 8.5 Control-path rule
+
+The sidebar is a human-facing UI only.
+
+It must not create a second privileged path into browser internals.
+
+All agent browser control follows:
+
+```text
+Sidebar / AI session
+        |
+        v
+Connector
+        |
+        v
+Browser MCP
+        |
+        v
+Browser control surface
+```
+
+Never:
+
+```text
+Sidebar
+   |
+   +--> private browser internal API
+```
+
+This ensures the same MCP behavior, security firewall, auditability, and tool semantics apply whether the browser is controlled from the sidebar, Gptworker, local AI, or another future connector.
 
 ## 9. Phase 5 — Gptworker integration
 
