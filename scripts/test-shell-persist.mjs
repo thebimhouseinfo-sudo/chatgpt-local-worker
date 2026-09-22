@@ -13,6 +13,11 @@ await fs.mkdir(sub, { recursive: true });
 setDefaultCwd(root);
 
 async function canonical(value) {
+  const real = await fs.realpath(value);
+  return process.platform === "win32" ? real.toLowerCase() : real;
+}
+
+async function canonical(value) {
   let resolved = path.resolve(value);
   try {
     resolved = await fs.realpath(resolved);
