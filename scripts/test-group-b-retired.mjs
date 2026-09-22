@@ -7,10 +7,6 @@ import {
   FAMILY_TOOLS,
   WORK_TOOL_OPERATIONS,
 } from "../dist/tools/work-gateway.js";
-import {
-  LOCAL_TOOL_CATALOG,
-  SLIM_CHATGPT_TOOLS,
-} from "../dist/lib/tool-profile.js";
 import { setDefaultCwd } from "../dist/lib/path-security.js";
 
 async function exists(file) {
@@ -62,8 +58,11 @@ assert.equal(gatewaySource.includes('./rewind.js'), false, "work gateway still i
 assert.equal("rewind" in FAMILY_TOOLS, false, "rewind must not be a runtime family");
 assert.equal(WORK_TOOL_OPERATIONS.includes("rewind"), false, "work_tool still exposes rewind");
 
-assert.equal(LOCAL_TOOL_CATALOG.includes("rewind"), false, "tool catalog still contains rewind");
-assert.equal(SLIM_CHATGPT_TOOLS.has("rewind"), false, "slim profile still exposes rewind");
+assert.equal(
+  await exists("src/lib/tool-profile.ts"),
+  false,
+  "obsolete full/slim tool-profile layer must remain retired"
+);
 
 const quickstart = await fs.readFile("src/lib/quickstart.ts", "utf8");
 assert.equal(

@@ -95,8 +95,11 @@ assert.equal(
 const gatewaySource = await fs.readFile("src/tools/work-gateway.ts", "utf8");
 assert.equal(gatewaySource.includes('"remember"'), false, "WorkGateway still exposes remember");
 
-const profileSource = await fs.readFile("src/lib/tool-profile.ts", "utf8");
-assert.equal(profileSource.includes('"remember"'), false, "tool profile still exposes remember");
+assert.equal(
+  await exists("src/lib/tool-profile.ts"),
+  false,
+  "retired tool-profile layer unexpectedly exists"
+);
 
 const policySource = await fs.readFile("src/lib/tool-work-policy.ts", "utf8");
 assert.equal(policySource.includes('"remember"'), false, "tool policy still classifies remember");

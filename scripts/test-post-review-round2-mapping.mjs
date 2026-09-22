@@ -7,7 +7,6 @@ import {
   TOOL_FAMILIES,
   WORK_TOOL_OPERATIONS,
 } from "../dist/tools/work-gateway.js";
-import { shouldExposeWorkOperation } from "../dist/lib/tool-profile.js";
 import {
   requiresWorkHandle,
   toolFamily,
@@ -33,12 +32,6 @@ try {
   const resolver = createWorkToolResolver(tmpDir, 30);
 
   for (const operation of WORK_TOOL_OPERATIONS) {
-    assert.equal(
-      shouldExposeWorkOperation(operation),
-      true,
-      `default work_tool surface unexpectedly disables ${operation}`
-    );
-
     const resolved = await resolver.resolve(operation);
     assert.equal(
       resolved.name,
