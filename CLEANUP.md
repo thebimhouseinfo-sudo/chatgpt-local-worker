@@ -25,22 +25,63 @@ Development-only tests are not rewrite targets. `scripts/test-*.mjs` and other t
 - [x] Move driver epoch runtime state out of the repository into `getWorkerDataRoot()` and quarantine the obsolete tracked root marker.
 - [x] Retire standalone `stop.ps1`; tray/reset-runtime remains the supported stop/reset path.
 - [x] Remove inert preload tokens `mcp`, `ponytail`, and `rewind` from runtime-family policy, Job runtime/tool schemas, and default Job configs.
-- [x] Run local TypeScript build.
-- [x] Run Job Pack validation.
-- [x] Run runtime acceptance for filesystem, shell/process, context, node_repl, and workspace-boundary behavior; Git CLI is optional and exercised through shell when installed.
-- [x] Remove quarantine after active runtime validation passed.
+- [x] Run local TypeScript build for the completed dead-compatibility cleanup round.
+- [x] Run Job Pack validation for the completed dead-compatibility cleanup round.
+- [x] Run runtime acceptance for the completed dead-compatibility cleanup round.
+- [x] Remove quarantine after that active runtime validation passed.
+
+> These PASS results predate the later retirement of the dedicated Git runtime family. They remain valid evidence for the earlier cleanup round, but they do **not** certify the current post-Git-retirement HEAD.
+
+## Post-Git-retirement cleanup
+
+The dedicated Git subsystem has now been removed from the active runtime:
+
+- [x] Delete `src/tools/git.ts`.
+- [x] Remove `git` from runtime families and lazy work-gateway registration.
+- [x] Remove dedicated `git_*` operations from the tool catalog.
+- [x] Remove `git` from bundled Job preload families.
+- [x] Update Dev Coding / Dev Planing / Layla policy so Git, when needed, is invoked through shell.
+- [x] Make Git optional in `setup.bat` and `setup-test.bat`.
+- [x] Document Git/GitHub as an optional external CLI capability in README.
+- [x] Update runtime acceptance instructions so Git-through-shell is optional rather than a required GPTWorker family.
+- [x] Remove Git tooling from the active-code attribution description in LICENSE.
+
+Reason: the former Git tools did not provide an independent Git implementation. They delegated to the host machine's `git` executable, so they failed when Git was absent and duplicated capabilities already available through the confirmed-Workspace shell.
+
+Current model: GPTWorker has no Git runtime family. If `git` is installed and available in `PATH`, Dev Coding may run ordinary Git commands through `run_command` from the confirmed Workspace, including commands that interact with configured GitHub remotes.
+
+### Validation status after Git retirement
+
+**RETEST REQUIRED — current post-Git-retirement HEAD has not yet been certified green.**
+
+The runtime and test expectations were changed during Git-family retirement, but no local validation run has been performed on the user's machine after those commits. Do not treat the earlier all-green acceptance result as validation of this newer HEAD.
+
+Required retest:
+
+- [ ] `npm run build`
+- [ ] `npm run validate:jobs`
+- [ ] `npm test`
+- [ ] runtime acceptance: filesystem
+- [ ] runtime acceptance: shell/process
+- [ ] runtime acceptance: context
+- [ ] runtime acceptance: node_repl
+- [ ] runtime acceptance: confirmed-Workspace boundary
+- [ ] optional, when Git is installed: run `git status` (and another harmless Git command if useful) through `run_command`
+- [ ] public command routing smoke, including `gr/job stop`
+
+Do not mark this subsection complete until the post-retirement build/tests/runtime acceptance have actually passed.
 
 ## Compatibility that remains active
 
 `src/lib/mcp-discover-compat.ts` is not dead legacy. It handles the real MCP `server/discover` probe/fallback needed by modern clients with the current stateful SDK/session implementation. Do not remove it unless the MCP/session transport is replaced and verified without it.
 
-## Remaining provenance rewrite candidates
+## Remaining inherited-core review candidates
 
 After dead compatibility cleanup, review only implementation that is still active. High-priority inherited areas include `src/tools/filesystem.ts`, `src/lib/patch.ts`, `src/lib/mcp-session-manager.ts`, `src/lib/checkpoint.ts`, and `src/tools/shell.ts` / `src/lib/persistent-shell.ts`. The dedicated Git wrapper family has been retired because it only delegated to the machine's external `git` executable; Git remains available through shell when installed.
 
 Smaller active utilities such as audit/search/tool-result/tool-annotations should be reviewed only if they remain part of the final runtime.
 
-Rewrite required behavior; do not rewrite dead code merely to make it look original.
+Rewrite only when the inherited implementation is technically inadequate, unnecessarily complex, or contains behavior GPTWorker no longer needs. Keep working inherited code when it remains the best fit.
 
 ## Packaging task
 
@@ -51,11 +92,11 @@ Finalize the exact manifest when the distribution format (source package, npm pa
 
 ## Cleanup closure
 
-Validation completed successfully, including build, Job Pack validation, the default test suite, the full runtime acceptance sequence, and public command routing. The previously failing `gr/job stop` route was fixed and confirmed working.
+The earlier dead-compatibility cleanup round was validated successfully, including build, Job Pack validation, the default test suite, the full runtime acceptance sequence, and public command routing. The previously failing `gr/job stop` route was fixed and confirmed working.
 
 The temporary quarantine has been removed. The quarantine-only regression checks are no longer part of the default test runner because the quarantine they guarded no longer exists.
 
-Dead compatibility cleanup is closed. Any next step is provenance rewrite of still-active implementation, not dead-code cleanup.
+That earlier cleanup round remains closed. A later technical cleanup has since retired the dedicated Git runtime family. Because that change touched active runtime/tool registration and test expectations, the **current HEAD requires a fresh validation run** before it can be called green.
 
 ## Active inherited core review plan
 
