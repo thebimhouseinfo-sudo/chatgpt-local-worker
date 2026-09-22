@@ -68,7 +68,6 @@ const tests = [
   "scripts/test-mto-harness.mjs",
   "scripts/test-patch.mjs",
   "scripts/test-tools.mjs",
-  "scripts/test-checkpoints.mjs",
   "scripts/test-activity-log.mjs",
   "scripts/test-runtime-log.mjs",
   "scripts/test-work-registration.mjs",

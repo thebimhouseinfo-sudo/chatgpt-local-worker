@@ -29,20 +29,32 @@ assert.equal(
 );
 assert.equal(
   await exists("src/lib/checkpoint.ts"),
-  true,
-  "checkpoint safety engine must remain active"
+  false,
+  "retired checkpoint subsystem must not remain in active src/"
 );
 
 const filesystemSource = await fs.readFile("src/tools/filesystem.ts", "utf8");
 assert.equal(
   filesystemSource.includes('from "../lib/checkpoint.js"'),
-  true,
-  "filesystem must keep the checkpoint safety engine"
+  false,
+  "filesystem must not import retired checkpoint subsystem"
 );
 assert.equal(
   filesystemSource.includes("checkpointBefore("),
-  true,
-  "filesystem mutations must still create automatic checkpoints"
+  false,
+  "filesystem mutations must not create unusable checkpoints"
+);
+assert.equal(
+  filesystemSource.includes("checkpoint_id"),
+  false,
+  "filesystem results must not expose retired checkpoint ids"
+);
+
+const contextSource = await fs.readFile("src/tools/context.ts", "utf8");
+assert.equal(
+  /checkpoint|getCheckpointConfig/.test(contextSource),
+  false,
+  "agent/context status must not advertise retired checkpoint behavior"
 );
 
 const gatewaySource = await fs.readFile("src/tools/work-gateway.ts", "utf8");
@@ -90,4 +102,4 @@ try {
   await fs.rm(tmpDir, { recursive: true, force: true });
 }
 
-console.log("test-group-b-retired: ok — rewind retired, checkpoint safety retained, active preload only");
+console.log("test-group-b-retired: ok — rewind/checkpoint retired, active preload only");
