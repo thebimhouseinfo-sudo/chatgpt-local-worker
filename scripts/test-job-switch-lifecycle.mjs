@@ -12,6 +12,7 @@ const {
   releaseWorkRegistration,
   validateWorkHandle,
 } = await import("../dist/lib/work-registration.js");
+const { flushRuntimeLog } = await import("../dist/lib/runtime-log.js");
 
 const registered = new Map();
 const server = {
@@ -134,6 +135,7 @@ releaseWorkRegistration(
   replacement.work_handle.execution_id,
   replacement.work_handle.authority_token
 );
+await flushRuntimeLog();
 await fs.rm(tempRoot, { recursive: true, force: true });
 
 console.log("test-job-switch-lifecycle: ok");
