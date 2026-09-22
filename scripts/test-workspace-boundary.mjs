@@ -7,12 +7,10 @@ const root = await fs.mkdtemp(path.join(os.tmpdir(), "gptworker-boundary-"));
 const workspace = path.join(root, "workspace");
 const outside = path.join(root, "outside");
 const supportRoot = path.join(root, "job-support");
-const stateDir = path.join(root, "shell-state");
 
 await fs.mkdir(workspace, { recursive: true });
 await fs.mkdir(outside, { recursive: true });
 await fs.mkdir(path.join(supportRoot, "harness"), { recursive: true });
-process.env.MCP_SHELL_STATE_DIR = stateDir;
 
 const pathSecurity = await import("../dist/lib/path-security.js");
 const {
@@ -22,13 +20,8 @@ const {
   applyMultiFilePatch,
 } = await import("../dist/lib/patch.js");
 const {
-  bootstrapShellSession,
-  getShellStatus,
-  resetAllShellSessionsForTests,
-} = await import("../dist/lib/persistent-shell.js");
-const {
-  saveGlobalShellState,
-} = await import("../dist/lib/global-shell-state.js");
+  runShellCommand,
+} = await import("../dist/tools/shell.js");
 
 const insideFile = path.join(workspace, "inside.txt");
 const outsideFile = path.join(outside, "outside.txt");
@@ -183,14 +176,26 @@ assert.throws(
   /WORKSPACE_BOUNDARY/
 );
 
-// Persisted shell cwd from an old/broken runtime must be clamped back into
-// its owning Workspace instead of being trusted.
-await saveGlobalShellState(workspace, outside, "legacy-bad-cwd", null);
-resetAllShellSessionsForTests();
-await bootstrapShellSession(workspace);
+// Shell execution is stateless and starts from the confirmed Workspace unless
+// an explicit absolute working_directory inside that Workspace is supplied.
+const shellResult = await runShellCommand(
+  'node -e "process.stdout.write(process.cwd())"',
+  workspace,
+  5000
+);
 assert.equal(
-  path.resolve(getShellStatus(workspace).cwd),
-  path.resolve(workspace)
+  pathSecurity.isPathInsideWorkspaceSync(shellResult.cwd, workspace),
+  true
+);
+await assert.rejects(
+  () =>
+    runShellCommand(
+      'node -e "process.stdout.write(process.cwd())"',
+      workspace,
+      5000,
+      outside
+    ),
+  /WORKSPACE_BOUNDARY/
 );
 
 

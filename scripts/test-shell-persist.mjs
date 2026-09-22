@@ -12,6 +12,14 @@ const sub = path.join(root, "sub");
 await fs.mkdir(sub, { recursive: true });
 setDefaultCwd(root);
 
+async function canonical(value) {
+  let resolved = path.resolve(value);
+  try {
+    resolved = await fs.realpath(resolved);
+  } catch {}
+  return process.platform === "win32" ? resolved.toLowerCase() : resolved;
+}
+
 const registered = new Map();
 const server = {
   registerTool(name, config, callback) {
@@ -46,21 +54,33 @@ const cwdScript = 'node -e "process.stdout.write(process.cwd())"';
 
 const rootResult = await runCommand({ command: cwdScript });
 assert.equal(rootResult.structuredContent.ok, true);
-assert.equal(path.resolve(rootResult.structuredContent.data.cwd), path.resolve(root));
-assert.equal(path.resolve(rootResult.structuredContent.data.stdout), path.resolve(root));
+assert.equal(
+  await canonical(rootResult.structuredContent.data.cwd),
+  await canonical(root)
+);
+assert.equal(
+  await canonical(rootResult.structuredContent.data.stdout),
+  await canonical(root)
+);
 
 const subResult = await runCommand({
   command: cwdScript,
   working_directory: sub,
 });
 assert.equal(subResult.structuredContent.ok, true);
-assert.equal(path.resolve(subResult.structuredContent.data.cwd), path.resolve(sub));
-assert.equal(path.resolve(subResult.structuredContent.data.stdout), path.resolve(sub));
+assert.equal(
+  await canonical(subResult.structuredContent.data.cwd),
+  await canonical(sub)
+);
+assert.equal(
+  await canonical(subResult.structuredContent.data.stdout),
+  await canonical(sub)
+);
 
 const rootAgain = await runCommand({ command: cwdScript });
 assert.equal(
-  path.resolve(rootAgain.structuredContent.data.cwd),
-  path.resolve(root),
+  await canonical(rootAgain.structuredContent.data.cwd),
+  await canonical(root),
   "working_directory must not persist into the next command"
 );
 
@@ -87,9 +107,14 @@ assert.equal(started.structuredContent.ok, true);
 const id = started.structuredContent.data.id;
 assert.equal(typeof id, "string");
 
-await new Promise((resolve) => setTimeout(resolve, 250));
+let status;
+const deadline = Date.now() + 5000;
+do {
+  status = await processStatus({ id });
+  if (status.structuredContent.data.processes[0]?.running === false) break;
+  await new Promise((resolve) => setTimeout(resolve, 100));
+} while (Date.now() < deadline);
 
-const status = await processStatus({ id });
 assert.equal(status.structuredContent.ok, true);
 assert.equal(status.structuredContent.data.processes.length, 1);
 assert.equal(status.structuredContent.data.processes[0].running, false);
