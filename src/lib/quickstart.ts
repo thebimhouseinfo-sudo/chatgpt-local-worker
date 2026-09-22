@@ -296,7 +296,7 @@ After confirmation, all actual workspace execution goes through work_tool.
 1. When project context is actually needed, call work_tool with tool=project_context.
 2. Explore through work_tool using glob (file names), grep (content), then read_text_file.
 3. For file rename/move operations, dispatch move_file through work_tool. Do not fall back to node_repl for routine filesystem mutations.
-4. Edit through work_tool with apply_patch (preferred), multi_edit, edit_file, or write_file.
+4. Edit through work_tool with apply_patch (preferred for structured/multiple edits), edit_file for one exact replacement, or write_file for create/overwrite.
 5. Run builds/tests through work_tool with run_command for short work or start_process + process_output for long-running work.
 6. When Git is installed and required, dispatch ordinary \`git ...\` CLI commands through work_tool with tool=run_command so they execute from the confirmed active Workspace.
 8. Families declared by the nominated Job may already be cached from confirmation-wait preload. Any other family is imported only on its first real work_tool call.
@@ -329,7 +329,7 @@ All tools return JSON: { ok, tool, summary, data }
 - workspace_discover: minimal read-only pre-confirmation discovery inside the user-supplied Workspace; requires ACTIVE admission_token
 - work_tool: the confirmed-work execution gateway; nominated Job families may be preloaded while waiting for confirmation, with lazy loading as fallback
 - work_tool operations glob / grep / read_text_file: explore
-- work_tool operations apply_patch / multi_edit / edit_file / write_file: edit
+- work_tool operations apply_patch / edit_file / write_file: edit
 - work_tool operation move_file: preferred rename/move operation inside the active workspace
 - work_tool operations create_directory / delete_directory / copy_file / delete_file: other filesystem operations
 - work_tool operations run_command / start_process / process_output / process_status / stop_process: execute

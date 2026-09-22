@@ -15,10 +15,9 @@ const CONTROL_TOOLS = new Set([
 ]);
 
 const FILESYSTEM_TOOLS = new Set([
-  "read_text_file", "read_file_base64", "write_file", "write_file_base64",
-  "edit_file", "multi_edit", "replace_regex", "apply_patch", "list_directory",
-  "glob", "grep", "delete_file", "create_directory", "delete_directory",
-  "copy_file", "move_file", "search_files", "directory_tree", "list_allowed_directories",
+  "read_text_file", "write_file", "edit_file", "apply_patch",
+  "list_directory", "glob", "grep", "delete_file",
+  "create_directory", "delete_directory", "copy_file", "move_file",
 ]);
 
 const SHELL_TOOLS = new Set([
