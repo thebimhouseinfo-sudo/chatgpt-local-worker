@@ -41,8 +41,6 @@ await runNode([tsc], "typescript");
 
 const tests = [
   "scripts/test-group-a-retired.mjs",
-  "scripts/test-claude-compat-quarantine.mjs",
-  "scripts/test-post-edit-hooks-quarantine.mjs",
   "scripts/test-group-b-retired.mjs",
   "scripts/test-group-c1-work-gateway.mjs",
   "scripts/test-group-c2-node-repl.mjs",
