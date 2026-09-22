@@ -54,11 +54,11 @@ await assert.rejects(
 
 const observed = [];
 await Promise.all([
-  pathSecurity.runWithWorkspaceCwd(wsA, async () => {
+  pathSecurity.runWithWorkspaceScope(wsA, [], async () => {
     await new Promise((resolve) => setTimeout(resolve, 25));
     observed.push(pathSecurity.getDefaultCwd());
   }),
-  pathSecurity.runWithWorkspaceCwd(wsB, async () => {
+  pathSecurity.runWithWorkspaceScope(wsB, [], async () => {
     await new Promise((resolve) => setTimeout(resolve, 5));
     observed.push(pathSecurity.getDefaultCwd());
   }),
