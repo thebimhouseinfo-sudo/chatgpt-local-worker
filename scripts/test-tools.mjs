@@ -1,8 +1,7 @@
 import fs from "fs/promises";
 import path from "path";
 import { fileURLToPath } from "url";
-import { globFiles } from "../dist/lib/glob-search.js";
-import { grepSearch } from "../dist/lib/grep-search.js";
+import { globFiles, grepSearch, globPatternToRegExp } from "../dist/lib/file-search.js";
 import { applyMultiFilePatch, applyUnifiedPatchToText, isMultiFilePatch } from "../dist/lib/patch.js";
 import { createWorkspaceProcessView, createWorkspaceRequire } from "../dist/tools/node-repl.js";
 import { validatePath } from "../dist/lib/path-security.js";
@@ -38,6 +37,12 @@ await fs.mkdir(tmpDir, { recursive: true });
 await run("glob finds typescript files", async () => {
   const matches = await globFiles(root, "src/**/*.ts", 50);
   if (!matches.some((m) => m.path.endsWith("filesystem.ts"))) throw new Error("filesystem.ts not found");
+});
+
+await run("glob double-star matches root and nested files", async () => {
+  const matcher = globPatternToRegExp("**/*.txt");
+  if (!matcher.test("root.txt")) throw new Error("**/*.txt must match root file");
+  if (!matcher.test("nested/file.txt")) throw new Error("**/*.txt must match nested file");
 });
 
 await run("grep content mode", async () => {

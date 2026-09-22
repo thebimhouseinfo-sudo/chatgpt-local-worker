@@ -14,8 +14,7 @@ import {
   buildSimpleDiff,
   isMultiFilePatch,
 } from "../lib/patch.js";
-import { globFiles } from "../lib/glob-search.js";
-import { grepSearch } from "../lib/grep-search.js";
+import { globFiles, grepSearch } from "../lib/file-search.js";
 import { toolAnnotations } from "../lib/tool-annotations.js";
 import { toolResult } from "../lib/tool-result.js";
 

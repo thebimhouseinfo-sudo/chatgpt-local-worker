@@ -3,8 +3,7 @@ import path from "node:path";
 import { z } from "zod";
 import type { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import type { AdmissionRuntime } from "../lib/activation-policy.js";
-import { globFiles } from "../lib/glob-search.js";
-import { grepSearch } from "../lib/grep-search.js";
+import { globFiles, grepSearch } from "../lib/file-search.js";
 import { toolAnnotations } from "../lib/tool-annotations.js";
 import { toolResult } from "../lib/tool-result.js";
 
