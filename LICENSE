@@ -26,11 +26,8 @@ SOFTWARE.
 Attribution notice
 
 GPTWorker incorporates and modifies substantial portions of
-hoangcoderr/chatgpt-local-coder. The original hoangcoderr copyright notice is
-retained for those inherited portions.
+hoangcoderr/chatgpt-local-coder. The hoangcoderr copyright notice is retained
+for those inherited portions.
 
 New and substantially modified GPTWorker code is copyright
 thebimhouseinfo-sudo and GPTWorker contributors.
-
-Third-party dependencies and separately sourced components remain subject to
-their own licenses and copyright notices.
