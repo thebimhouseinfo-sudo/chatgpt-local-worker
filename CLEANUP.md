@@ -365,12 +365,14 @@ Current `edit_file` and `multi_edit` are **two public operations in the same fil
 
 #### filesystem helper layout
 
-- [ ] Review whether `glob-search.ts` and `grep-search.ts` should remain separate helpers.
-- [ ] If both are small and share directory walking/filtering, consider one internal `file-search.ts` helper with distinct glob/grep functions.
+- [x] Review search helpers; merged `glob-search.ts` + `grep-search.ts` into one `file-search.ts` shared traversal.
+- [x] Implement one internal `file-search.ts` helper with distinct `globFiles()` / `grepSearch()` APIs.
 - [ ] Do not merge them if that makes the search helper harder to test/read.
-- [ ] Keep public operation names `glob` and `grep` unless changing them has a real benefit.
+- [x] Keep public operation names `glob` and `grep`; only internal helper layout changed.
 
 **Filesystem implementation result:** `src/tools/filesystem.ts` was rewritten around 12 Workspace-bound core operations. Retired operations: base64 read/write, `multi_edit`, `replace_regex`, `search_files`, `directory_tree`, and `list_allowed_directories`. GitHub Actions CI #604 passed on commit `5de5fb1a` (Linux full suite + Windows build/shell/tunnel/Worker smoke).
+
+**Search-helper implementation result:** retired `glob-search.ts` and `grep-search.ts`; replaced them with shared `file-search.ts`, fixed `**/` root matching, and stopped blanket-skipping hidden paths such as `.github` while still skipping `.git` and `node_modules`. GitHub Actions CI #606 passed on commit `6f111d6b`.
 
 ### Phase 5 — review strong inherited KEEP candidates for internal quality
 
