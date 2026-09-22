@@ -33,11 +33,6 @@ for (const operation of [
   "copy_file",
   "process_status",
   "stop_process",
-  "git_branch",
-  "git_push",
-  "git_pull",
-  "git_stash",
-  "git_reset",
   "project_context",
   "agent_status",
   "node_repl",
@@ -78,7 +73,6 @@ for (const tool of LOCAL_TOOL_CATALOG) {
 
 assert.equal(toolFamily("read_text_file"), "filesystem");
 assert.equal(toolFamily("run_command"), "shell");
-assert.equal(toolFamily("git_status"), "git");
 assert.equal(toolFamily("project_context"), "context");
 assert.equal(toolFamily("agent_status"), "context");
 assert.equal(requiresWorkHandle("agent_status"), true);
