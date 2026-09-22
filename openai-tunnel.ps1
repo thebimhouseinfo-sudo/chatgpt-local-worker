@@ -2,7 +2,6 @@
 param(
     [int]$Port = 0,
     [int]$HealthPort = 0,
-    [switch]$Install,
     [switch]$Doctor,
     [switch]$Init,
     [switch]$Force,
@@ -28,7 +27,6 @@ $ZipName = "tunnel-client-$TUNNEL_VERSION-windows-amd64.zip"
 $DownloadUrl = "https://github.com/openai/tunnel-client/releases/download/$TUNNEL_VERSION/$ZipName"
 $TunnelsUrl = "https://platform.openai.com/settings/organization/tunnels"
 $ApiKeysUrl = "https://platform.openai.com/settings/organization/api-keys"
-$ChatGPTUrl = "https://chatgpt.com/"
 
 function Get-DotEnvValue([string]$Name) {
     if (-not (Test-Path ".env")) { return $null }
@@ -197,7 +195,7 @@ function Test-McpServer([int]$TargetPort) {
     }
 }
 
-function Show-ConnectorGuide([string]$TunnelId, [int]$UiPort = 8080) {
+function Show-ConnectorGuide([int]$UiPort = 8080) {
     Write-Host ""
     Write-Host "=== ChatGPT Plugin (chi lam 1 lan) ===" -ForegroundColor Cyan
     Write-Host "1. Mo ChatGPT Settings -> Plugins va bat Developer mode."
@@ -513,18 +511,13 @@ function Invoke-TunnelInit {
     Write-Host ""
     Write-Host "[OK] Tunnel va API key da duoc cau hinh." -ForegroundColor Green
     Write-Host "Tunnel/API setup da hop le." -ForegroundColor Green
-    Show-ConnectorGuide -TunnelId $resolvedTunnelId
+    Show-ConnectorGuide
 }
 
 # --- Main ---
 
 if ($Init) {
     Invoke-TunnelInit
-    exit 0
-}
-
-if ($Install) {
-    Install-TunnelClient | Out-Null
     exit 0
 }
 
@@ -567,7 +560,7 @@ if ($existingPid -and (Test-TunnelHealthy $resolvedHealth)) {
         Write-Host "Khong can mo lai - chi chay 1 instance tunnel-client." -ForegroundColor Yellow
         Write-Host "Muon restart: .\openai-tunnel.ps1 -Force" -ForegroundColor DarkGray
         Write-Host "Hoac tat: Stop-Process -Id $existingPid -Force" -ForegroundColor DarkGray
-        Show-ConnectorGuide -TunnelId $tunnelId -UiPort $resolvedHealth
+        Show-ConnectorGuide -UiPort $resolvedHealth
         exit 0
     }
     Stop-ExistingTunnel -TargetHealthPort $resolvedHealth
@@ -637,7 +630,7 @@ if ($Detach) {
     exit 0
 }
 
-Show-ConnectorGuide -TunnelId $tunnelId -UiPort $resolvedHealth
+Show-ConnectorGuide -UiPort $resolvedHealth
 
 & $bin run --profile-file $ProfileFile
 exit $LASTEXITCODE

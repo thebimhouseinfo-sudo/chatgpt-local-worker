@@ -78,7 +78,7 @@ if ($ChatGptAutoApprove) {
 Write-Host ""
 Write-Host "=== GPTWorker ===" -ForegroundColor Cyan
 Write-Host "Port: $Port"
-Write-Host "Full machine access: ON"
+Write-Host "Job execution scope: confirmed Workspace only"
 Write-Host "Project workspace: selected from ChatGPT after JOB + FOLDER confirmation"
 Write-Host "State: $ScriptDir\worker-state.json"
 Write-Host ""
@@ -108,7 +108,7 @@ if (Test-WorkerBuildStale) {
 }
 
 Write-Host "Starting local Worker..." -ForegroundColor Green
-Write-Host "Use @gptworker in ChatGPT after run.bat starts the tunnel." -ForegroundColor DarkGray
+Write-Host "Use @gptworker in ChatGPT after the GPTWorker tray/tunnel runtime is connected." -ForegroundColor DarkGray
 Write-Host ""
 
 if ($Detach) {

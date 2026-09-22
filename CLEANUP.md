@@ -512,16 +512,21 @@ KEEP does not mean “never touch”. It means preserve the capability unless a 
 
 #### `start.ps1`
 
-- [ ] Confirm every branch is used by setup, background launcher, tray, or manual recovery.
-- [ ] Remove obsolete launch modes/flags only when no caller uses them.
-- [ ] Keep filename if external scripts call it widely.
+- [x] Confirmed all public switches are active: `Port` / `Force` are used by background/setup callers; `Detach` is used by tray and Windows CI.
+- [x] Kept all active launch modes/flags; no unnecessary public switch was found.
+- [x] Removed stale "Full machine access" wording and aligned startup text with confirmed-Workspace execution.
+- [x] Kept filename because background/tray/CI callers use it directly.
 
 #### `openai-tunnel.ps1`
 
-- [ ] Map setup/tray/manual callers before editing.
-- [ ] Identify doctor/init/run/recovery branches actually used by current setup.
-- [ ] Remove obsolete compatibility branches only with tunnel acceptance evidence.
-- [ ] Prefer targeted simplification; this is a connection-critical script.
+- [x] Mapped setup/tray/CI/manual callers before editing.
+- [x] Kept active `Port`, `HealthPort`, `Init`, `Force`, `WizardPreview`, `TunnelId`, `ApiKey`, `NoBrowser`, and `Detach` surfaces.
+- [x] Kept `Doctor`: README exposes it as a real manual tunnel diagnostic path.
+- [x] Retired standalone `Install` switch: both Init and normal runtime already install/upgrade tunnel-client when necessary.
+- [x] Removed unused `ChatGPTUrl` constant and unused `TunnelId` argument from `Show-ConnectorGuide`.
+- [x] Preserved tunnel init/doctor/run/recovery behavior; no wholesale rewrite performed.
+
+**Phase 7 validation pending:** GitHub Actions must pass PowerShell syntax, tunnel preview, Linux suite, Windows tunnel checks, and detached Worker smoke before this phase is closed.
 
 ### Phase 8 — rename/merge pass only after behavior is stable
 
