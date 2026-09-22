@@ -17,7 +17,7 @@ import { setDefaultCwd } from "../dist/lib/path-security.js";
 
 assert.deepEqual(
   TOOL_FAMILIES,
-  ["filesystem", "shell", "git", "context", "repl"],
+  ["filesystem", "shell", "context", "repl"],
   "runtime family registry drifted"
 );
 
