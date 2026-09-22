@@ -338,29 +338,29 @@ Treat these three files as **one subsystem review**, not three isolated rewrites
 
 #### `src/tools/filesystem.ts`
 
-- [ ] Define the smallest required public filesystem surface before coding.
-- [ ] Keep path validation centralized through `path-security.ts`.
-- [ ] Remove checkpoint coupling if Phase 1 removes checkpointing.
-- [ ] Remove old audit coupling after Phase 2.
-- [ ] Remove `search_files` because `grep` already covers the stronger content-search use case.
-- [ ] Remove `list_allowed_directories` because Workspace/authority status already exists elsewhere.
-- [ ] Decide whether `directory_tree` materially helps planning/discovery; remove if `list_directory + glob` is enough.
-- [ ] Verify Layla/binary workflows before deciding whether `read_file_base64` / `write_file_base64` stay.
-- [ ] Preserve core mutations: read/write/create/delete/copy/move.
-- [ ] Preserve `glob`, `grep`, and `apply_patch`.
+- [x] Define and implement the smallest required public filesystem surface: 12 operations.
+- [x] Keep path validation centralized through `path-security.ts`.
+- [x] Remove checkpoint coupling.
+- [x] Remove old audit coupling; filesystem now uses unified activity logging.
+- [x] Remove `search_files`; `grep` covers the stronger content-search use case.
+- [x] Remove `list_allowed_directories`; Workspace/authority status exists elsewhere.
+- [x] Remove `directory_tree`; `list_directory + glob` is sufficient.
+- [x] Remove base64 read/write operations from the core; binary workflows can use task-specific/system tooling instead of permanent filesystem API surface.
+- [x] Preserve core mutations: read/write/create/delete/copy/move.
+- [x] Preserve `glob`, `grep`, and `apply_patch`.
 
 #### edit-operation consolidation
 
 Current `edit_file` and `multi_edit` are **two public operations in the same file**, not two separate files.
 
-- [ ] Compare actual semantics:
+- [x] Compare actual edit semantics:
   - `edit_file`: one exact replacement, optionally replace-all.
   - `multi_edit`: ordered multiple exact replacements applied atomically to one file.
 - [ ] Decide whether both public names are genuinely useful to ChatGPT.
-- [ ] Prefer one internal helper such as `applyTextEdits(file, edits, options)`.
+- [x] Simplified edit surface instead: `edit_file` handles one exact replace/replace-all; `apply_patch` handles structured/multiple edits.
 - [ ] If compatibility is valuable, keep both public operations but make both thin adapters over the same helper.
-- [ ] If one operation can fully replace the other without degrading tool ergonomics, retire the redundant public operation and update quickstart/work-gateway/policy/tests in the same batch.
-- [ ] Review `replace_regex` the same way: keep only if regex editing is materially easier/safer than expressing the same edit through the chosen unified edit interface.
+- [x] Retire redundant `multi_edit` and update quickstart/work-gateway/policy/tests in the same batch.
+- [x] Retire `replace_regex`; patch/edit/shell cover current workflows without a dedicated permanent operation.
 - [ ] Do not force every edit style through `apply_patch` if exact replacement remains simpler and more reliable for non-code text.
 
 #### filesystem helper layout
@@ -369,6 +369,8 @@ Current `edit_file` and `multi_edit` are **two public operations in the same fil
 - [ ] If both are small and share directory walking/filtering, consider one internal `file-search.ts` helper with distinct glob/grep functions.
 - [ ] Do not merge them if that makes the search helper harder to test/read.
 - [ ] Keep public operation names `glob` and `grep` unless changing them has a real benefit.
+
+**Filesystem implementation result:** `src/tools/filesystem.ts` was rewritten around 12 Workspace-bound core operations. Retired operations: base64 read/write, `multi_edit`, `replace_regex`, `search_files`, `directory_tree`, and `list_allowed_directories`. GitHub Actions CI #604 passed on commit `5de5fb1a` (Linux full suite + Windows build/shell/tunnel/Worker smoke).
 
 ### Phase 5 — review strong inherited KEEP candidates for internal quality
 
