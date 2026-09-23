@@ -1,6 +1,7 @@
 name: CI
 
 on:
+  workflow_dispatch:
   push:
     branches:
       - main
@@ -138,3 +139,48 @@ jobs:
             $ownerPid = [int]$parts[-1]
             if ($ownerPid -gt 0) { Stop-Process -Id $ownerPid -Force -ErrorAction SilentlyContinue }
           }
+
+  windows-browser-e2e:
+    # Explicit one-shot verification on a marked main commit; also runnable
+    # manually without charging for a Chromium download on every code push.
+    if: github.event_name == 'workflow_dispatch' || contains(github.event.head_commit.message, '[browser-e2e]')
+    runs-on: windows-latest
+    timeout-minutes: 25
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node 24 for pinned upstream browser
+        uses: actions/setup-node@v4
+        with:
+          node-version: 24
+          cache: npm
+
+      - name: Install worker dependencies
+        run: npm ci
+
+      - name: Build GPTWorker
+        run: npm run build
+
+      - name: Install opt-in official agent-browser and verify MCP contract
+        shell: pwsh
+        run: |
+          node scripts/setup-agent-browser.mjs Y
+          if ($LASTEXITCODE -ne 0) { throw "Optional installer had a fatal error" }
+          $cfg = Join-Path $env:LOCALAPPDATA "GPTWorker\browser-capability.json"
+          if (-not (Test-Path $cfg)) { throw "Browser config missing after opt-in setup" }
+          $state = Get-Content $cfg -Raw | ConvertFrom-Json
+          if ($state.last_setup_status -ne "READY" -or $state.mcp_contract_version -ne 1) {
+            throw "Browser MCP contract was not verified: $($state.last_setup_status)"
+          }
+
+      - name: Actual upstream MCP localhost browser smoke
+        run: node scripts/test-browser-windows-smoke.mjs
+
+      - name: Revoke consent and prove disabled discovery
+        shell: pwsh
+        run: |
+          node scripts/setup-agent-browser.mjs N
+          if ($LASTEXITCODE -ne 0) { throw "Failed to revoke browser consent" }
+          node scripts/test-browser-capability.mjs
+          if ($LASTEXITCODE -ne 0) { throw "Browser OFF regression failed" }
