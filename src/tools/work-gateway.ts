@@ -2,6 +2,8 @@ import { z } from "zod";
 import type { McpServer, RegisteredTool } from "@modelcontextprotocol/sdk/server/mcp.js";
 import { toolAnnotations } from "../lib/tool-annotations.js";
 import { RUNTIME_FAMILIES } from "../lib/runtime-families.js";
+import { getBrowserCapability } from "../lib/browser-capability.js";
+import { BROWSER_OPERATIONS } from "../lib/browser-mcp-adapter.js";
 
 type ToolCallback = (args?: Record<string, unknown>, ...rest: unknown[]) => any;
 
@@ -25,6 +27,7 @@ export const FAMILY_TOOLS = {
     "run_command", "start_process", "process_status", "process_output", "stop_process",
   ],
   context: ["project_context", "agent_status"],
+  browser: BROWSER_OPERATIONS,
 } as const;
 
 export type ToolFamily = keyof typeof FAMILY_TOOLS;
@@ -93,6 +96,11 @@ async function registerFamily(
     case "context": {
       const module = await import("./context.js");
       module.registerContextTools(server);
+      return;
+    }
+    case "browser": {
+      const module = await import("./browser.js");
+      module.registerBrowserTools(server);
       return;
     }
   }
@@ -274,10 +282,15 @@ export function getWorkGatewayTelemetry() {
 
 export function registerWorkGateway(
   server: McpServer,
-  shellTimeout: number
+  shellTimeout: number,
+  options: { browserAdvertised?: boolean } = {}
 ): WorkToolResolver {
   const resolver = createWorkToolResolver(shellTimeout);
-  const exposed = WORK_TOOL_OPERATIONS;
+  // This is the ACTUAL tools/list schema; disabled/unhealthy browser operations
+  // are absent, not merely rejected at execution time. Each MCP session gets
+  // a fresh capability snapshot on registration.
+  const browserAdvertised = options.browserAdvertised ?? getBrowserCapability().advertised;
+  const exposed = WORK_TOOL_OPERATIONS.filter(tool => browserAdvertised || !BROWSER_OPERATIONS.includes(tool as any));
 
   server.registerTool(
     "work_tool",
@@ -300,6 +313,9 @@ export function registerWorkGateway(
       annotations: toolAnnotations("edit"),
     },
     async ({ tool, arguments: args }) => {
+      if (BROWSER_OPERATIONS.includes(tool as any) && !getBrowserCapability().advertised) {
+        throw new Error("BROWSER_UNAVAILABLE: browser support is disabled or unhealthy");
+      }
       const captured = await resolver.resolve(tool);
       const inputSchema = captured.config.inputSchema ?? {};
       const parsed = z.object(inputSchema).passthrough().parse(args ?? {});
