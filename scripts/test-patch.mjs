@@ -72,15 +72,15 @@ test("crlf preserved", () => {
 });
 
 test("numbered hunk rejects mismatched old lines", () => {
-  const original = "line1\\nline2\\nline3\\n";
-  const patch = "@@ -2,2 +2,2 @@\\n line2\\n-wrong\\n+replacement";
+  const original = "line1\nline2\nline3\n";
+  const patch = "@@ -2,2 +2,2 @@\n line2\n-wrong\n+replacement";
   if (!assertRejectsPatch(original, patch)) {
     throw new Error("numbered hunk silently overwrote unexpected content");
   }
 });
 
 test("empty or malformed patch is rejected", () => {
-  if (!assertRejectsPatch("a\\n", "not a patch")) {
+  if (!assertRejectsPatch("a\n", "not a patch")) {
     throw new Error("malformed patch unexpectedly accepted");
   }
 });
