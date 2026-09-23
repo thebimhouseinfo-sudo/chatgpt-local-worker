@@ -111,8 +111,8 @@ The group reflects the previous cleanup's provenance assessment, **not** an exac
 | `src/lib/patch.ts` | Patch parser, hunk matching, diff generation and multi-file mutation | **DESIGN REVIEW**; targeted runtime tests pending | **GREENFIELD REWRITE preferred candidate; not final** |
 | `src/lib/mcp-session-manager.ts` | MCP transport, sessions and recovery; identify indispensable state/compatibility paths | **SOURCE REVIEW COMPLETE**; protocol/integration acceptance pending | **KEEP baseline vs UPGRADE GREENFIELD REWRITE-IN-PLACE** |
 | `src/lib/tool-result.ts` | Shared result envelope/schema; enumerate consumers and minimum required contract | **SOURCE REVIEW COMPLETE** | **KEEP unchanged** |
-| `src/lib/tool-annotations.ts` | MCP annotations and presentation-only auto-approve hints | **SOURCE REVIEW COMPLETE**; client behavior tests pending | **KEEP baseline; targeted semantic review only** |
-| `src/lib/activity-log.ts` | Active tool/session/runtime logging; identify duplicate or unconsumed paths | NOT STARTED | UNDECIDED |
+| `src/lib/tool-annotations.ts` | MCP annotations and presentation-only auto-approve hints | **SOURCE REVIEW COMPLETE** | **KEEP unchanged** |
+| `src/lib/activity-log.ts` | Active tool/session/runtime logging; identify duplicate or unconsumed paths | **SOURCE REVIEW COMPLETE**; targeted log/lease integration tests pending | **KEEP baseline; targeted correctness/security fixes if verified** |
 | `src/tools/filesystem.ts` | Actual operation consumers, mutation guarantees and residual inherited implementation | NOT STARTED | UNDECIDED |
 | `src/tools/shell.ts` | Stateless command/process execution and Workspace escape limitations | NOT STARTED | UNDECIDED |
 | `src/lib/path-security.ts` | Absolute/canonical paths, symlink/junction behavior and scoped authority | NOT STARTED | UNDECIDED |
@@ -363,7 +363,35 @@ For a greenfield proposal, record a compact design spec **before coding**: requi
 
 **Design options:** **KEEP baseline** has a small, straightforward implementation and broad caller integration; a full GREENFIELD rewrite gives no demonstrated functional gain. If real approval UX or misleading metadata causes a material problem, prefer narrowly scoped in-place corrections to hint semantics and/or gateway metadata policy **only alongside a related caller group**, while preserving the existing authorization model. Avoid duplicate risk registries, extra modules and broad changes solely to reduce lines. In particular, do not label hints as security enforcement or infer that they guarantee client auto-approval.
 
+**User-approved decision: KEEP unchanged.** Preserve this module's source, filename, exported helpers and existing client-facing hint behavior. Do not rewrite or change annotation semantics as part of this cleanup merely because some hints are imperfect or rarely used. Only revisit if later real client integration tests demonstrate a material issue; authorization is still enforced independently by Work Registration and Workspace scope.
+
 **Acceptance tests for grouped work:** check every risk class with auto-approve ON/OFF and truthy/falsey environment variants; assert annotation values and tool registration in representative tool families; verify generic `work_tool` exposes what the client actually receives; observe real client approval UX if any metadata policy is changed; run Work Handle/Workspace/Tool Lease negative tests to prove hint variations never change actual authority.
+
+#### Review 05 — `src/lib/activity-log.ts`
+
+**Status: SOURCE REVIEW COMPLETE; focused runtime security, tool-lease/log correlation and logging-failure tests pending. No code changes.** Current GPTWorker blob `251ea07af89713d1bc29657b93344669f3a60c95`; accessible upstream `hoangcoderr/chatgpt-local-coder` blob `044bcb731098fdc3cf7b1ae0b12d85ef1d86e421`. Current source is substantially adapted from upstream: GPTWorker removed upstream's live in-memory subscriber/recent-audit model and writes through `runtime-log.ts`, added schema/work/lease metadata, sanitized persistent event payloads and improved status reporting. Accessible upstream HEAD is not the pinned historical fork point.
+
+**Confirmed direct integration and responsibilities:**
+- `src/tools/filesystem.ts` and `src/tools/shell.ts` import `logToolActivity` for tool-level action outcomes.
+- `src/lib/work-registration.ts` imports `appendActivity` and logs work registration/release, tool-lease acquisition/release/rejections and timeouts. This is the source of actual work/lease decision events.
+- `src/lib/mcp-session-manager.ts` imports `logSystemEvent` for transport and session events, including initialization, DELETE grace, recovery and expiry.
+- `src/index.ts` imports `logMcpHttpEvent`, `logMcpRequest` and `logSystemEvent` for HTTP, MCP and process lifecycle; it independently calls `flushRuntimeLog` from `runtime-log.ts` at shutdown.
+- `src/lib/activity-log.ts` imports `enqueueRuntimeLog` from `runtime-log.ts` and `requiresWorkHandle`/`toolFamily` from `tool-work-policy.ts`. **Keep responsibilities separate**: activity-log shapes, sanitizes and reports events; runtime-log owns queued JSONL persistence and rotation. The current implementation has no active in-memory history/subscription copy of upstream's former audit layer.
+
+**Public API to preserve if changes are necessary:** `ActivityKind`, `ActivityEntry`, `sanitizeActivityValue`, `summarizeToolArgs`, `appendActivity`, `logSystemEvent`, `ToolActivityEvent`, `logToolActivity`, `logMcpHttpEvent`, `logMcpRequest`. The canonical activity record includes `schema_version:1`, event ID/time, optional session/request IDs, `work_id`, `lease_id`, `job_id` and `tool_family`.
+
+**Observed strengths to keep:** consolidated event model; redaction by sensitive field and known token/assignment/credential-URL patterns including configured secrets; bounded detail traversal and summary lengths; useful console diagnostics; nonblocking queued runtime persistence; explicit Work ID and Tool Lease correlation. No demonstrated benefit from reintroducing another audit-history registry or a wholesale greenfield rewrite.
+
+**Targeted issues to test before proposing fixes:**
+1. `logMcpRequest` infers `NO_ACTIVE_WORK` when a `tools/call` request lacks outer `execution_id` or `authority_token`. Generic `work_tool` has nested `arguments` for the delegated tool and can be mistaken for an unauthorized delegated request; moreover, inferring rejection from the request shape/HTTP status is not equivalent to an actual `acquireToolLease` outcome. Prefer authoritative lease events for security verdicts and avoid duplicate/misleading blocked records after testing current flows.
+2. `summarizeToolArgs` may return raw `command`/`path` strings to its caller, but `appendActivity` sanitizes emitted summary, target and details. Test both helper behavior and emitted/persisted records to avoid accidental leaks through any future caller that bypasses `appendActivity`.
+3. `sanitizeActivityValue` uses bounded traversal and regex/configured-secret redaction; it is a useful best-effort mechanism, not proof that all possible secrets are removed. Test nested tool arguments, error strings, shell commands, work_handle tokens, credential URLs and actual log output.
+4. Current `logMcpRequest` classifies HTTP 2xx tool calls as `ok` unless an inferred work-handle rejection is detected, even though the MCP tool payload can represent `ok:false`. Avoid treating HTTP success as proof the tool action succeeded; actual Tool Lease and tool-result events should be correlated where possible.
+5. `runtime-log.ts` intentionally swallows persistence failures to keep execution uninterrupted. Test the failure/rotation paths and confirm acceptable observability loss; do not make synchronous logging a new dependency for tool execution. Its configured `ACTIVITY_LOG_PATH` belongs to worker logging, not an implicit permission to mutate Job support roots or arbitrary project paths.
+
+**KEEP vs rewrite options:** **KEEP baseline**. Small, real correctness/security gains may justify focused in-place edits to `activity-log.ts` along with any necessary narrowly scoped caller/lease event alignment in the shared logging cluster. GREENFIELD rewrite provides no proven advantage at this stage and risks changing widely consumed event fields or weakening secret redaction. Do not change the public event schema or add a duplicate ledger merely to reorganize code.
+
+**Existing tests and missing coverage:** `scripts/test-activity-log.mjs` checks persisted activity, MCP request records, missing-handle events and token redaction. `scripts/test-runtime-log.mjs` exercises redaction, rotation, truncation and fail-open persistence in a disposable temporary directory. These scripts were inspected, not executed in this review. Add integration coverage through actual `work_tool`, real `acquireToolLease` success/rejection, content-level `ok:false`, secret-bearing errors and cross-session isolation before any intentional behavior change.
 
 ### Working sequence and completion rule — review all, plan once, implement by dependency group
 
