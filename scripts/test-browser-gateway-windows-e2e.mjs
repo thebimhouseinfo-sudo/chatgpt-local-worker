@@ -27,6 +27,14 @@ const listen = () => new Promise((resolve, reject) => {
   server.listen(0, "127.0.0.1", () => resolve(server.address().port));
 });
 const log = { result: "FAIL", checks: {}, screenshot_paths: [], node: process.version };
+const bounded = async (promise, timeout = 8000) => {
+  let timer;
+  try {
+    return await Promise.race([promise, new Promise((_, reject) => {
+      timer = setTimeout(() => reject(new Error("E2E_TIMEOUT")), timeout);
+    })]);
+  } finally { clearTimeout(timer); }
+};
 let mcpServer, client, registration;
 let browserConfigPath, originalBrowserConfig;
 try {
@@ -40,7 +48,7 @@ try {
   const [clientTransport, serverTransport] = InMemoryTransport.createLinkedPair();
   mcpServer = createMcpServer(30, "browser end-to-end fixture");
   client = new Client({ name: "gptworker-browser-gateway-e2e", version: "1.0" });
-  await Promise.all([mcpServer.connect(serverTransport), client.connect(clientTransport)]);
+  await bounded(Promise.all([mcpServer.connect(serverTransport), client.connect(clientTransport)]), 15000);
   const tools = await client.listTools();
   const opEnum = tools.tools.find(x => x.name === "work_tool")?.inputSchema?.properties?.tool?.enum || [];
   for (const name of ["browser_open","browser_snapshot","browser_fill","browser_click","browser_get_url","browser_screenshot","browser_close"]) {
@@ -127,9 +135,10 @@ try {
     const work = await import("../dist/lib/work-registration.js");
     work.releaseWorkRegistration(registration.executionId, registration.authorityToken);
   }
-  await client?.close().catch(() => {});
-  await mcpServer?.close().catch(() => {});
-  await new Promise(resolve => server.close(() => resolve()));
+  await bounded(client?.close() ?? Promise.resolve(), 6000).catch(() => {});
+  await bounded(mcpServer?.close() ?? Promise.resolve(), 6000).catch(() => {});
+  server.closeAllConnections();
+  await bounded(new Promise(resolve => server.close(() => resolve())), 5000).catch(() => {});
   console.log(JSON.stringify(log, null, 2));
   await fs.rm(root, { recursive: true, force: true, maxRetries: 6, retryDelay: 250 }).catch(() => {});
 }
