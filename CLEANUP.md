@@ -50,26 +50,41 @@ Reason: the former Git tools did not provide an independent Git implementation. 
 
 Current model: GPTWorker has no Git runtime family. If `git` is installed and available in `PATH`, Dev Coding may run ordinary Git commands through `run_command` from the confirmed Workspace, including commands that interact with configured GitHub remotes.
 
-### Validation status after Git retirement
+### Validation status after inherited-core cleanup
 
-**POST-CLEANUP CI GREEN.** The current baseline after Git/checkpoint/audit cleanup and stateless shell rewrite is certified by GitHub Actions CI run #601 on commit `c7280a2a`.
+**INHERITED-CORE CLEANUP CLOSED / CI GREEN.**
 
-The runtime and test expectations were changed during Git-family retirement, but no local validation run has been performed on the user's machine after those commits. Do not treat the earlier all-green acceptance result as validation of this newer HEAD.
+The final code closure commit is `423764c4` (`refactor: close inherited integration cleanup`). GitHub Actions CI #646 passed:
 
-Required retest:
+- [x] TypeScript build
+- [x] Job Pack validation
+- [x] full Linux default test suite
+- [x] filesystem / context / work-gateway regression coverage
+- [x] confirmed-Workspace boundary checks
+- [x] stateless shell/process checks
+- [x] public Job lifecycle/routing tests, including stop behavior
+- [x] Windows build
+- [x] Windows shell executor smoke
+- [x] Windows PowerShell 5.1 tunnel parser check
+- [x] tunnel preview/setup checks
+- [x] detached Worker health smoke
 
-- [x] `npm run build`
-- [x] `npm run validate:jobs`
-- [x] `npm test`
-- [x] runtime acceptance: filesystem
-- [x] runtime acceptance: shell/process
-- [x] runtime acceptance: context
-- [x] runtime acceptance: node_repl
-- [x] runtime acceptance: confirmed-Workspace boundary
-- [x] optional, when Git is installed: run `git status` (and another harmless Git command if useful) through `run_command`
-- [x] public command routing smoke, including `gr/job stop`
+GitHub Actions is the authoritative automated gate for this cleanup. The optional Git CLI remains a host capability rather than a GPTWorker runtime dependency; it is available through `run_command` when installed.
 
-GitHub Actions CI is now the authoritative automated gate for each cleanup batch. CI #601 passed the full Linux suite, Windows shell executor smoke, Windows PowerShell/tunnel checks, and detached Worker health smoke.
+## Final inherited-core cleanup result
+
+The inherited-core cleanup is complete.
+
+Current decisions:
+
+- **REMOVED:** dedicated Git family, checkpoint/rewind, duplicate audit log, persistent shell state, node_repl, obsolete tool-profile layer, redundant filesystem operations, old glob/grep helper split, and dead compatibility exports.
+- **REWRITTEN / materially simplified:** filesystem execution surface, shell/process execution, search helper layout, Workspace/security integration, context/status surface, root launcher/tunnel surfaces.
+- **KEPT because technically justified:** patch engine, MCP session/recovery manager, tool-result envelope, MCP annotations, activity/runtime logging, MCP discover compatibility, instruction-context boundary, server/work authority integration, and active launcher/tunnel behavior.
+- **Attribution retained:** Hoangcoder/Local Coder remains credited for the substantial active inherited implementation that still exists. The LICENSE no longer attributes retired checkpoint/audit/Git subsystems as active code.
+
+No further rewrite is justified solely for provenance. Future changes to the remaining inherited modules should be driven by concrete functional, safety, maintainability, or architectural requirements.
+
+The separate **Packaging task** remains open until the final distribution format is frozen.
 
 ## Compatibility that remains active
 
@@ -548,13 +563,13 @@ For every subsystem batch:
 
 After all batches:
 
-- [ ] `npm run build`
-- [ ] `npm run validate:jobs`
-- [ ] `npm test`
-- [ ] full runtime acceptance: filesystem / shell-process / context / Workspace boundary;
-- [ ] optional Git-through-shell check when Git is installed;
-- [ ] public command routing smoke including `gr/job stop`;
-- [ ] update README and LICENSE to describe only the code/capabilities that actually remain.
+- [x] `npm run build` — covered by CI #646
+- [x] `npm run validate:jobs` — covered by CI #646
+- [x] `npm test` — full Linux suite passed in CI #646
+- [x] automated runtime acceptance: filesystem / shell-process / context / Workspace boundary
+- [x] Git remains optional and routed through `run_command` when installed; it is not a runtime-family dependency
+- [x] public command/Job lifecycle regression suite, including stop behavior
+- [x] README and LICENSE describe only the code/capabilities that currently remain.
 
 ## Original inherited core review plan — superseded by completed phases above
 
