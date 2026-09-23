@@ -67,6 +67,7 @@ const tests = [
   "scripts/test-dev-coding-checkpoint.mjs",
   "scripts/test-dev-coding-completion.mjs",
   "scripts/test-dev-coding-task-session.mjs",
+  "scripts/test-dev-coding-negative-control.mjs",
   "scripts/test-browser-capability.mjs",
   "scripts/test-browser-mcp-contract.mjs",
   "scripts/test-browser-work-gateway.mjs",
