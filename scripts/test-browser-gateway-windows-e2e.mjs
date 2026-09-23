@@ -28,6 +28,7 @@ const listen = () => new Promise((resolve, reject) => {
 });
 const log = { result: "FAIL", checks: {}, screenshot_paths: [], node: process.version };
 let mcpServer, client, registration;
+let browserConfigPath, originalBrowserConfig;
 try {
   const port = await listen();
   const { createMcpServer } = await import("../dist/server-factory.js");
@@ -96,9 +97,10 @@ try {
   registration = null;
   log.checks.job_stop_revokes = "PASS";
 
-  const cfg = path.join(process.env.LOCALAPPDATA, "GPTWorker", "browser-capability.json");
-  const current = JSON.parse(await fs.readFile(cfg, "utf8"));
-  await fs.writeFile(cfg, JSON.stringify({ ...current, enabled: false, last_setup_status: "DISABLED" }));
+  browserConfigPath = path.join(process.env.LOCALAPPDATA, "GPTWorker", "browser-capability.json");
+  originalBrowserConfig = await fs.readFile(browserConfigPath, "utf8");
+  const current = JSON.parse(originalBrowserConfig);
+  await fs.writeFile(browserConfigPath, JSON.stringify({ ...current, enabled: false, last_setup_status: "DISABLED" }));
   const [offClientT, offServerT] = InMemoryTransport.createLinkedPair();
   const offServer = createMcpServer(30, "disabled browser fixture");
   const offClient = new Client({ name: "gptworker-browser-disabled", version: "1.0" });
@@ -117,6 +119,10 @@ try {
   log.error = error instanceof Error ? error.stack : String(error);
   process.exitCode = 1;
 } finally {
+  // A smoke must never permanently revoke a user-owned consent setting.
+  if (browserConfigPath && originalBrowserConfig !== undefined) {
+    await fs.writeFile(browserConfigPath, originalBrowserConfig).catch(() => {});
+  }
   if (registration) {
     const work = await import("../dist/lib/work-registration.js");
     work.releaseWorkRegistration(registration.executionId, registration.authorityToken);
