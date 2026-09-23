@@ -111,7 +111,7 @@ The group reflects the previous cleanup's provenance assessment, **not** an exac
 | `src/lib/patch.ts` | Patch parser, hunk matching, diff generation and multi-file mutation | **DESIGN REVIEW**; targeted runtime tests pending | **GREENFIELD REWRITE preferred candidate; not final** |
 | `src/lib/mcp-session-manager.ts` | MCP transport, sessions and recovery; identify indispensable state/compatibility paths | **SOURCE REVIEW COMPLETE**; protocol/integration acceptance pending | **KEEP baseline vs UPGRADE GREENFIELD REWRITE-IN-PLACE** |
 | `src/lib/tool-result.ts` | Shared result envelope/schema; enumerate consumers and minimum required contract | **SOURCE REVIEW COMPLETE** | **KEEP unchanged** |
-| `src/lib/tool-annotations.ts` | MCP annotations and presentation-only auto-approve hints | NOT STARTED | UNDECIDED |
+| `src/lib/tool-annotations.ts` | MCP annotations and presentation-only auto-approve hints | **SOURCE REVIEW COMPLETE**; client behavior tests pending | **KEEP baseline; targeted semantic review only** |
 | `src/lib/activity-log.ts` | Active tool/session/runtime logging; identify duplicate or unconsumed paths | NOT STARTED | UNDECIDED |
 | `src/tools/filesystem.ts` | Actual operation consumers, mutation guarantees and residual inherited implementation | NOT STARTED | UNDECIDED |
 | `src/tools/shell.ts` | Stateless command/process execution and Workspace escape limitations | NOT STARTED | UNDECIDED |
@@ -346,6 +346,24 @@ For a greenfield proposal, record a compact design spec **before coding**: requi
 **User-approved decision: KEEP unchanged.** The shared envelope is compact and broadly used across active tools; rewriting, opportunistic hardening and removing rarely used code are out of scope for this cleanup. Retain the existing filename, public exports, call signatures, schema, text and structured-content behavior. If future integration tests confirm a materially consequential defect, document it as a separate, narrowly scoped fix rather than treating it as justification for this cleanup to rewrite the module.
 
 **Grouped acceptance:** verify successful and failed command results, Job `toolError`, optional summary/default summary, text JSON equality with structured content, default vs custom MCP output schemas, work-gateway forwarding, all active tool-family integrations and non-serializable input handling if it is in scope. Do not mark runtime validation complete from source inspection alone.
+
+#### Review 04 — `src/lib/tool-annotations.ts`
+
+**Status: SOURCE REVIEW COMPLETE; real client approval/presentation tests pending. No code changes.** Current GPTWorker blob `0b6fc50f5b5e79a2308b27ea420bb11455c6ed09`; currently accessible upstream `hoangcoderr/chatgpt-local-coder` blob `51a56b5f8d2db18429f3744a87721f3dad486f58`. Main code is effectively inherited; GPTWorker's comments correctly clarify that annotations do not confer authority. Upstream HEAD is not proof of a historical source baseline.
+
+**Public interface:** `isChatGptAutoApproveEnabled(): boolean`, `ToolRisk = "read" | "edit" | "command" | "destructive"`, `toolAnnotations(risk): ToolAnnotations`. The environment flag `CHATGPT_AUTO_APPROVE` defaults to true; `0`/`false`/`no`/`off` disable it. Keep existing filename and exported names/signatures if any changes are approved.
+
+**Confirmed static caller map:** `toolAnnotations()` is imported by the active tool modules `src/tools/filesystem.ts`, `shell.ts`, `jobs.ts`, `work-gateway.ts`, `context.ts`, `control.ts`, `admission.ts` and `workspace-discovery.ts` (nine modules). Their registered tool annotations cover filesystem reads/edits/deletes, shell commands/process controls, work gateway and control/Job flows. `src/server-factory.ts` independently enforces work-handle admission and scopes execution using existing Tool Lease; `src/lib/tool-work-policy.ts` owns the separate control/work family policy. Tool annotations do **not** enforce read-only, prevent deletion, grant work authority or bypass Workspace checks. Individual external ChatGPT clients control how or whether they consume hint metadata.
+
+**Behavioral review:**
+- `read` always returns `{readOnlyHint:true,openWorldHint:false}`.
+- With default auto-approve enabled, all non-read risk classes return `{readOnlyHint:false, destructiveHint:false,openWorldHint:false,idempotentHint:risk!=="command"}`, including `destructive` deletion and `edit` operations. This is explicitly low-friction presentation behavior, not a statement of actual destructive capability.
+- When disabled, `destructiveHint` is true only for `destructive`, and `idempotentHint` true for all `edit` calls. Real operations such as patching, copying/moving and repeated edits may not always be idempotent. Shell commands can access external/network resources despite `openWorldHint:false`; this flag should not be interpreted as a sandbox.
+- `work_tool` is annotated once as `edit` although its dynamic subtools range from read to shell to destructive. Per-subtool public metadata is not dynamically exposed by the current gateway, so annotation changes must consider this envelope-level mismatch rather than falsely asserting all work_tool operations have one risk type.
+
+**Design options:** **KEEP baseline** has a small, straightforward implementation and broad caller integration; a full GREENFIELD rewrite gives no demonstrated functional gain. If real approval UX or misleading metadata causes a material problem, prefer narrowly scoped in-place corrections to hint semantics and/or gateway metadata policy **only alongside a related caller group**, while preserving the existing authorization model. Avoid duplicate risk registries, extra modules and broad changes solely to reduce lines. In particular, do not label hints as security enforcement or infer that they guarantee client auto-approval.
+
+**Acceptance tests for grouped work:** check every risk class with auto-approve ON/OFF and truthy/falsey environment variants; assert annotation values and tool registration in representative tool families; verify generic `work_tool` exposes what the client actually receives; observe real client approval UX if any metadata policy is changed; run Work Handle/Workspace/Tool Lease negative tests to prove hint variations never change actual authority.
 
 ### Working sequence and completion rule — review all, plan once, implement by dependency group
 
