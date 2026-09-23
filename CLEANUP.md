@@ -84,7 +84,9 @@ The user pulled the current repository code and reports that local testing compl
 
 ## Follow-up: module-by-module inherited implementation audit
 
-**Status: OPEN — review each file sequentially.** This is a new technical-quality review, separate from the completed inherited-core dead-code cleanup. The original Local Coder implementation helped bootstrap GPTWorker, but the product now has its own Job lifecycle, confirmed-Workspace boundary, work handles, lazy work-gateway and runtime requirements. Review inherited implementations against those *current* needs rather than assuming that code which still works is either necessary or optimal.
+**Status: REVIEW COMPLETE — selective improvement only; no new full-module rewrites.** This is a new technical-quality review, separate from the completed inherited-core dead-code cleanup. The original Local Coder implementation helped bootstrap GPTWorker, but the product now has its own Job lifecycle, confirmed-Workspace boundary, work handles, lazy work-gateway and runtime requirements. Review inherited implementations against those *current* needs rather than assuming that code which still works is either necessary or optimal.
+
+**Final scope decision (2026-09-23, supersedes earlier proposals below):** keep the inherited architecture and existing module paths/APIs. **Do not implement any greenfield rewrite, rewrite-in-place, or wholesale redesign** from this audit. Improve **only** selected files where the completed source review identified a concrete safety/correctness benefit: `src/lib/patch.ts`, `src/tools/filesystem.ts`, and `src/lib/path-security.ts`. For `src/lib/mcp-session-manager.ts`, keep the present implementation; investigate protocol/recovery failures through integration tests and make a narrowly scoped fix **only if a defect is reproduced**. The remaining audited modules stay unchanged; optional focused tests for launcher/tunnel behavior are allowed without refactoring them. Existing proposals for greenfield patch engine, session-manager rewrite-in-place, and mutation-core replacement are **withdrawn**, not pending approvals. Reassess scope only if concrete test evidence reveals a blocker. Retain licensing/attribution for reused code.
 
 **Objective:** identify actual runtime usage; eliminate unused/duplicate functionality; simplify or redesign code where there is a concrete benefit; keep valuable inherited algorithms or infrastructure when replacing them would add risk without meaningful improvement. This is **not** a project to erase Hoangcoder's name or rewrite code solely for attribution. Preserve the original MIT attribution for any substantial inherited code still distributed; revisit the notices only after provenance has been audited.
 
@@ -108,8 +110,8 @@ The group reflects the previous cleanup's provenance assessment, **not** an exac
 
 | File | Current responsibility / review focus | Review state | Decision |
 |---|---|---|---|
-| `src/lib/patch.ts` | Patch parser, hunk matching, diff generation and multi-file mutation | **DESIGN REVIEW**; targeted runtime tests pending | **GREENFIELD REWRITE preferred candidate; not final** |
-| `src/lib/mcp-session-manager.ts` | MCP transport, sessions and recovery; identify indispensable state/compatibility paths | **SOURCE REVIEW COMPLETE**; protocol/integration acceptance pending | **KEEP baseline vs UPGRADE GREENFIELD REWRITE-IN-PLACE** |
+| `src/lib/patch.ts` | Patch parser, hunk matching, diff generation and multi-file mutation | **DESIGN REVIEW**; targeted runtime tests pending | **TARGETED CORRECTNESS IMPROVEMENTS ONLY; no rewrite** |
+| `src/lib/mcp-session-manager.ts` | MCP transport, sessions and recovery; identify indispensable state/compatibility paths | **SOURCE REVIEW COMPLETE**; protocol/integration acceptance pending | **KEEP; focused defect fix only if integration tests reproduce one** |
 | `src/lib/tool-result.ts` | Shared result envelope/schema; enumerate consumers and minimum required contract | **SOURCE REVIEW COMPLETE** | **KEEP unchanged** |
 | `src/lib/tool-annotations.ts` | MCP annotations and presentation-only auto-approve hints | **SOURCE REVIEW COMPLETE** | **KEEP unchanged** |
 | `src/lib/activity-log.ts` | Active tool/session/runtime logging; identify duplicate or unconsumed paths | **SOURCE REVIEW COMPLETE** | **KEEP unchanged** |
@@ -124,37 +126,26 @@ The group reflects the previous cleanup's provenance assessment, **not** an exac
 
 Add any newly discovered inherited file to this register with its **real callers**; do not silently expand or narrow scope.
 
-### Rewrite-in-place interface rule
+### Existing-module compatibility rule
 
-**Default for every reviewed file:** when other production files call its exports, retain the **same filename/path, exported function names and caller-visible signatures/results** and replace the implementation *inside* that module. This is a rewrite of the core, not a new parallel module plus a compatibility adapter. Track every actual caller first, including dynamic Job/work-tool contracts and test consumers. Preserve caller-visible behavior except for intentional, documented correctness/security improvements, which require regression tests and explicit error/result semantics. Add or rename a public entry point or create an adapter only when there is a demonstrated need and all callers can be migrated safely. Internal private functions, data structures and algorithms may be changed freely within the tested contract.
+**Default:** retain the existing file, public exports, signatures and caller-visible results. Make small internal corrections only where evidence requires them; do not replace the module core or introduce parallel implementations/adapters. Test existing Job/work-tool contracts and confirmed Workspace security before and after any change.
 
 ### Required assessment for every file
 
 1. **Pin evidence:** record the GPTWorker HEAD and the actual source/version of the inherited implementation where available. Compare implementations function-by-function; distinguish copied, modified and independently implemented code. Do not infer provenance from identical filenames alone.
 2. **Build a current caller/target map:** include static imports, dynamic `work_tool` dispatch, Job YAML, instructions/skills/harness, root scripts, CI and tests. Classify each public export, code path, parameter and configuration option as used, test-only, genuinely optional, or unconsumed. Tests by themselves do not prove production use.
 3. **Inspect actual behavior:** record input/output/error semantics, real workflow requirements, duplicate responsibilities, unnecessary layers, algorithmic complexity, performance/resource costs and security failure modes. Distinguish confirmed defects from plausible risks awaiting reproduction.
-4. **Compare options before deciding:** **KEEP** (real value; replacement unjustified), **SIMPLIFY** (retain behavior with a smaller implementation), **REFACTOR/REWRITE** (change an inherited implementation where its structure obstructs current requirements), **GREENFIELD REWRITE** (design and implement a new module from GPTWorker's requirements without using the old implementation as the design template), or **REMOVE** (no necessary caller/capability). Record the expected benefits, tradeoffs, implementation/test cost and failure risks of realistic options; do not automatically prefer retaining or replacing inherited code.
+4. **Select only evidence-backed outcomes:** **KEEP unchanged** (default), **TARGETED IMPROVEMENT** (small bug/security/performance fix with measured benefit), or **REMOVE** (only genuinely dead functionality with no active callers). **No new module rewrites or greenfield implementations** under this decision. Record concrete risk, minimum viable change and targeted tests.
 5. **Specify a safe migration:** preserve required public behavior or update all callers together. Add characterization, positive/negative, boundary and regression tests before material changes; use a disposable confirmed Workspace for real-file acceptance. Record any intentional API/behavior change explicitly.
 6. **Close with evidence:** report changed files, retired names, remaining call paths, build, `validate:jobs`, relevant targeted tests, full suite/CI and real-workflow results as applicable. Never call a file complete based only on static analysis or another commit's green CI.
 
 **Shared invariants:** every file/path binding and actual project mutation stays within the explicitly confirmed absolute Workspace; Job support roots are read/execute support, not mutation destinations. Maintain work-handle authority, Job lifecycle/stop behavior, lazy loading, current MCP compatibility, and the established public Job flow. Shell command string checks are not an OS sandbox: characterize their limitations and test indirect/path-constructed escapes rather than claiming guaranteed isolation.
 
-### Greenfield rewrite option — requirements-first design
+### Selective-improvement criteria
 
-For **every** inherited module, explicitly consider whether designing a small new GPTWorker-native implementation from requirements would produce a materially better result than incremental modification. This is an **alternative to evaluate**, not a mandate to replace working upstream code. Do not translate or restructure the old implementation line-by-line: derive the new design from required behavior, safety constraints and actual caller needs, then compare it with KEEP/SIMPLIFY/REFACTOR/REMOVE.
+Keep current modules and algorithms unless targeted tests demonstrate a defect or measurable overhead. Make the smallest change that resolves the issue, preserving API and current patch format semantics. Priorities: (1) Workspace and work-handle containment, (2) prevention of unintended file mutation and accurate errors, (3) regression coverage of the current local coding workflow, (4) maintainability without new abstractions. Do not pursue greenfield designs or rewrite internals merely to improve style or provenance.
 
-Design criteria, in order of practical relevance:
-
-1. **Real user workflow and minimal scope:** support local-first Dev Coding and other current Jobs; retain only proven inputs, outputs, formats and capabilities. No dedicated Git/GitHub skills or integration for the local coding core.
-2. **Correctness and fail-safe behavior:** validate preconditions and inputs, reject ambiguous or invalid requests, make error/partial-success semantics explicit, and avoid silent corruption. Where multi-step mutation is needed, specify preflight, commit and rollback/recovery semantics rather than assuming atomicity.
-3. **Authority and containment:** all target file paths must be explicit, absolute and scoped to the confirmed Workspace; canonicalize and check symlink/junction behavior, preserve support-root read-only rules and work-handle authority. Do not confuse a command-string guard with an OS sandbox.
-4. **Simple, coherent architecture:** narrow module responsibility, minimum useful public API, no parallel registries/duplicate helpers, separation of pure logic from disk I/O and authority checks where this improves testing and maintenance.
-5. **Reliability and observability:** deterministic outcomes where possible, useful structured results, actionable errors and appropriate activity logging without leaking sensitive content or retaining redundant logs.
-6. **Proportionate performance:** assess actual file sizes and workloads; select algorithms/dependencies from measured need, not speculative optimization. Avoid extra abstractions and external dependencies unless they demonstrably simplify or improve correctness.
-7. **Maintainability and testability:** characterization tests of required current behavior, negative and adversarial cases, temporary on-disk acceptance, and cross-platform coverage where relevant. Preserve or explicitly migrate active callers and Job contracts.
-8. **Provenance and licensing:** document any upstream implementation that is actually retained, re-used or independently replaced. Greenfield design does not by itself prove legal independence; preserve applicable copyright notices until the retained distribution has been audited.
-
-For a greenfield proposal, record a compact design spec **before coding**: required/non-required features; public contract; module boundaries; failure and mutation model; dependency choices; caller migration; acceptance tests; measurable comparison with the existing module. Compare **KEEP vs targeted REFACTOR vs GREENFIELD REWRITE** against the same criteria. A simpler design is not better if it loses essential behavior, degrades correctness or imposes disproportionate migration risk.
+**Approved candidates:** `patch.ts` (validate old/context content in numbered hunks; reject malformed or ambiguous patches; verify true diff needs before changing presentation), `filesystem.ts` (make multi-file preflight/partial-failure semantics safe and explicit without replacing the tool), `path-security.ts` (narrow hardening for proven symlink/junction or canonical-path gaps). `mcp-session-manager.ts` remains KEEP unless real SDK/protocol/recovery testing proves a specific defect. All other reviewed files remain KEEP; validation tests are not permission for broad refactoring.
 
 ### First candidate — `src/lib/patch.ts`
 
@@ -166,7 +157,7 @@ For a greenfield proposal, record a compact design spec **before coding**: requi
 - **Quality limitation:** `buildSimpleDiff` compares line positions rather than calculating insertions/deletions; a single insertion can produce misleadingly extensive output.
 - **Test gap:** the numbered-hunk fixture in `scripts/test-patch.mjs` has mismatched old text and only asserts that new text appears. It does not establish mismatch rejection.
 - **Questions before changing code:** which patch formats do real Job/coding callers generate; is multi-file all-or-nothing a required contract; should preview/diff be an accurate edit script or only a simple summary?
-- **Greenfield alternative to assess:** specify a small GPTWorker-native patch transaction from requirements: explicit supported formats, strict old/context validation, stage/preflight before any writes, clearly documented multi-file commit/recovery behavior, canonical Workspace checks on mutation, and truthful diff/preview. Compare this design with targeted refactoring of the inherited engine; no decision or implementation yet.
+- **Approved improvement scope:** strengthen existing numbered-hunk validation and malformed-patch rejection; verify existing multi-file caller/error semantics with isolated tests. Keep current module, exported API and supported patch formats.
 
 `patch.ts` review checklist:
 - [x] Preliminary inspection of current GPTWorker implementation, immediate filesystem integration, existing patch tests and accessible upstream implementation.
@@ -174,72 +165,17 @@ For a greenfield proposal, record a compact design spec **before coding**: requi
 - [ ] Pin precise upstream baseline; finish checking dynamic instructions/harness and any externally authored Custom Job consumers.
 - [ ] Reproduce numbered-hunk mismatch, multi-file partial failure, insertion/deletion diff, multi-hunk behavior and CRLF handling in isolated tests.
 - [ ] Run real-file create/edit/patch/rollback-related acceptance in a disposable confirmed Workspace; verify out-of-Workspace and symlink/junction mutation rejection.
-- [ ] Write a requirements-first greenfield design alternative and compare KEEP, targeted REFACTOR and GREENFIELD REWRITE for correctness, simplicity, safety, performance, compatibility and implementation/test cost.
-- [ ] Decide KEEP/SIMPLIFY/REFACTOR/GREENFIELD REWRITE/REMOVE and document contract, implementation scope and migration tests.
+- [x] Scope decision: retain the current engine and make only targeted corrections; greenfield and wholesale refactor proposals withdrawn.
+- [x] Decision: TARGETED IMPROVEMENTS ONLY. Record the precise fix and caller-facing compatibility before coding.
 - [ ] Implement the approved technical changes, update callers/docs/tests and capture fresh CI evidence before marking COMPLETE.
 
-#### Greenfield design proposal for `patch.ts`
+#### Approved targeted improvement plan for `patch.ts`
 
-**Provisional technical direction: GREENFIELD REWRITE is currently the strongest candidate, pending targeted runtime tests.** The reason is not provenance: the required GPTWorker behavior is narrower than a general-purpose patch engine, the current inherited implementation is small enough to replace safely, and several correctness properties should be designed explicitly rather than added incrementally around existing assumptions.
+**Keep the existing parser/engine and all active exports.** Add strict verification of expected old/context lines before numbered-hunk mutations; strengthen malformed-input rejection and existing tests. Characterize repeated context, multi-hunk behavior, LF/CRLF and EOF. Preserve current supported patch formats and `filesystem.ts` result contracts. Improve diff output only if a focused test demonstrates user-visible misleading results and a small local fix suffices. Coordinate multi-file preflight/error handling with `filesystem.ts` without rewriting either module. Test in a disposable confirmed Workspace, including outside-Workspace and symlink/junction negative cases. No replacement parser, new transaction engine or generalized Git patch support.
 
-**Required scope only:**
-- Apply exact structured text edits to UTF-8 local files in the confirmed Workspace.
-- Support single-file context hunks and numbered unified hunks only if they are strictly validated against the actual old/context content.
-- Support GPT-style explicit multi-file operations (`Update File`, `Add File`, `Delete File`) because the current filesystem tool exposes multi-file patching.
-- Preserve LF/CRLF behavior where practical.
-- Return structured per-file results and a truthful preview/diff suitable for the current filesystem tool.
-- No Git/GitHub-specific patch behavior and no generic VCS patch compatibility requirement.
+### Historical design discussions (retained as audit evidence; superseded)
 
-**Non-goals:**
-- Do not become a full `git apply` replacement.
-- Do not support arbitrary multi-file unified diffs merely for compatibility with the inherited implementation.
-- Do not add fuzzy matching that can silently choose a different location.
-- Do not add external diff/patch dependencies unless testing demonstrates a material correctness or maintenance advantage.
-
-**Proposed internal model:**
-1. `parsePatch(...)` converts input to a small typed plan without touching disk.
-2. `preparePatchPlan(...)` resolves every target, applies Workspace canonical-path validation, reads required originals, validates create/update/delete preconditions, and computes proposed new content entirely before mutation.
-3. Pure text logic applies each hunk only when all old/context lines match exactly at the selected location. Numbered hunks use the line number as an expected location, not authority to overwrite mismatched content. Context hunks must have a unique/explicitly deterministic match or fail.
-4. `commitPatchPlan(...)` performs writes only after the whole plan passes preflight. For multi-file mutation, retain enough original state to attempt rollback if a later filesystem write fails; return an explicit recovery result if rollback itself is incomplete. Do not claim filesystem-level atomicity.
-5. Diff/preview is generated from the prepared before/after content and must represent insertions/deletions coherently. If a simple summary is intentionally used instead of a true diff, name and document it as a summary rather than a diff.
-6. Filesystem authority remains outside or at the mutation boundary: the engine must not accept unchecked relative paths or bypass `validatePath`.
-
-**Mutation rules:**
-- `Add File`: fail if the target already exists unless a future API explicitly introduces overwrite semantics.
-- `Update File`: fail if the target is missing, not a regular file, or expected old/context content does not match.
-- `Delete File`: fail if the target is missing or not the expected supported file type; preflight captures original content/metadata needed for best-effort recovery.
-- Duplicate operations on the same canonical target in one patch must either be rejected or normalized by an explicitly tested rule; default design is reject for simplicity.
-- `dry_run` executes parse + authority + preflight + result generation but performs zero mutations.
-
-**Public API migration target:** preserve the current filesystem-facing behavior where useful, but do not preserve internal helper names merely for compatibility. The likely external surface can remain equivalent to patch detection/application plus preview results so `src/tools/filesystem.ts` requires minimal migration.
-
-**Why greenfield may be better than targeted refactor:**
-- The current numbered-hunk path performs positional splice without verifying old/context content.
-- Multi-file execution currently mixes parsing, authority validation, disk I/O and error accumulation, making stronger transaction semantics harder to reason about.
-- `buildSimpleDiff` is presentation logic coupled into the engine and is not a true insertion/deletion diff.
-- GPTWorker no longer needs upstream's broader patch-format compatibility, so a requirements-first implementation can be smaller while having stricter behavior.
-
-**Why greenfield is not yet final:** targeted tests must first characterize every patch form that current Dev Coding actually emits and any caller-visible result fields that Jobs/harness rely on. If these tests reveal substantial hidden compatibility requirements, a focused refactor may be lower-risk.
-
-**Decision comparison (current evidence):**
-
-| Option | Correctness potential | Simplicity | Migration risk | Current assessment |
-|---|---|---|---|---|
-| KEEP | Low without accepting known risks | High initially | Low | Not preferred |
-| Targeted REFACTOR | High | Medium | Medium | Viable fallback |
-| GREENFIELD REWRITE | High, with explicit preflight/recovery model | High after replacement | Medium | **Preferred candidate** |
-| REMOVE | N/A | High | Very high; removes core local editing capability | Reject |
-
-**Tests required before implementation decision is marked final:**
-- Exact mismatch rejection for numbered and context hunks.
-- Multiple hunks on one file, adjacent hunks and repeated identical context.
-- Add-existing, update-missing, delete-missing and duplicate-target operations.
-- Multi-file preflight failure with proof that no file changed.
-- Simulated commit failure followed by rollback/recovery reporting.
-- `dry_run` with proof of zero filesystem mutation.
-- LF, CRLF, UTF-8, empty file, trailing-newline and no-newline-at-EOF behavior.
-- Confirmed Workspace rejection including canonical symlink/junction escape cases.
-- Caller-contract tests through `filesystem.ts`, not only pure patch helpers.
+Sections below that discuss greenfield replacements, rewrite-in-place, or full mutation-core redesign describe **rejected earlier alternatives**, not current implementation tasks. Only the selective-improvement scope and review register above are authoritative.
 
 #### `patch.ts` integration impact and migration boundary
 
