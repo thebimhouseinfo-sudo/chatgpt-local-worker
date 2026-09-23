@@ -110,7 +110,7 @@ The group reflects the previous cleanup's provenance assessment, **not** an exac
 |---|---|---|---|
 | `src/lib/patch.ts` | Patch parser, hunk matching, diff generation and multi-file mutation | **DESIGN REVIEW**; targeted runtime tests pending | **GREENFIELD REWRITE preferred candidate; not final** |
 | `src/lib/mcp-session-manager.ts` | MCP transport, sessions and recovery; identify indispensable state/compatibility paths | **SOURCE REVIEW COMPLETE**; protocol/integration acceptance pending | **KEEP baseline vs UPGRADE GREENFIELD REWRITE-IN-PLACE** |
-| `src/lib/tool-result.ts` | Shared result envelope/schema; enumerate consumers and minimum required contract | **SOURCE REVIEW COMPLETE**; shared-schema regression tests pending | **KEEP; optional targeted hardening** |
+| `src/lib/tool-result.ts` | Shared result envelope/schema; enumerate consumers and minimum required contract | **SOURCE REVIEW COMPLETE** | **KEEP unchanged** |
 | `src/lib/tool-annotations.ts` | MCP annotations and presentation-only auto-approve hints | NOT STARTED | UNDECIDED |
 | `src/lib/activity-log.ts` | Active tool/session/runtime logging; identify duplicate or unconsumed paths | NOT STARTED | UNDECIDED |
 | `src/tools/filesystem.ts` | Actual operation consumers, mutation guarantees and residual inherited implementation | NOT STARTED | UNDECIDED |
@@ -343,7 +343,7 @@ For a greenfield proposal, record a compact design spec **before coding**: requi
 - Validate a real MCP SDK interaction to distinguish GPTWorker payload `ok:false` from protocol-level `isError` behavior; do not silently change the outward contract or add `isError` until caller/client expectations and schema are tested.
 - The open `data` schema is intentional: each tool has different structured fields. Replacing it with a single rigid schema would introduce cross-file coupling and is not justified by current evidence.
 
-**KEEP vs rewrite-in-place:** **KEEP** is the provisional design recommendation. A greenfield rewrite offers little inherent benefit for this compact, broadly shared module unless later reviews reveal a concrete cross-tool result-contract defect. Perform minor targeted hardening only alongside the shared-result/annotation/logging dependency group when there is demonstrable benefit. Preserve the existing filename, public exports, call signatures, envelope, content and structuredContent behavior.
+**User-approved decision: KEEP unchanged.** The shared envelope is compact and broadly used across active tools; rewriting, opportunistic hardening and removing rarely used code are out of scope for this cleanup. Retain the existing filename, public exports, call signatures, schema, text and structured-content behavior. If future integration tests confirm a materially consequential defect, document it as a separate, narrowly scoped fix rather than treating it as justification for this cleanup to rewrite the module.
 
 **Grouped acceptance:** verify successful and failed command results, Job `toolError`, optional summary/default summary, text JSON equality with structured content, default vs custom MCP output schemas, work-gateway forwarding, all active tool-family integrations and non-serializable input handling if it is in scope. Do not mark runtime validation complete from source inspection alone.
 
