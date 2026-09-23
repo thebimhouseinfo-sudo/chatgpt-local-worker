@@ -9,6 +9,12 @@ process.env.ACTIVITY_LOG_DISABLED = "true";
 
 const root = await fs.mkdtemp(path.join(os.tmpdir(), "gptworker-shell-stateless-"));
 const sub = path.join(root, "sub");
+
+async function canonical(value) {
+  const real = await fs.realpath(value);
+  const normalized = path.normalize(real);
+  return process.platform === "win32" ? normalized.toLowerCase() : normalized;
+}
 await fs.mkdir(sub, { recursive: true });
 setDefaultCwd(root);
 
