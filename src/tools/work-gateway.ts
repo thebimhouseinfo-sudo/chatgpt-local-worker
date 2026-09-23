@@ -1,7 +1,7 @@
 import { z } from "zod";
 import type { McpServer, RegisteredTool } from "@modelcontextprotocol/sdk/server/mcp.js";
 import { toolAnnotations } from "../lib/tool-annotations.js";
-import { RUNTIME_FAMILIES } from "../lib/runtime-families.js";
+import { RUNTIME_FAMILIES, JOB_PRELOAD_FAMILIES } from "../lib/runtime-families.js";
 import { getBrowserCapability } from "../lib/browser-capability.js";
 import { BROWSER_OPERATIONS } from "../lib/browser-mcp-adapter.js";
 
@@ -107,7 +107,9 @@ async function registerFamily(
 }
 
 function normalizePreloadFamilies(families: readonly string[]): ToolFamily[] {
-  const runtimeFamilies = new Set<ToolFamily>(TOOL_FAMILIES);
+  // Only the explicitly approved preload families may be warmed. Browser
+  // always remains lazy, even if a Custom Job or caller supplies "browser".
+  const runtimeFamilies = new Set<ToolFamily>(JOB_PRELOAD_FAMILIES);
   const normalized: ToolFamily[] = [];
 
   for (const family of families) {
