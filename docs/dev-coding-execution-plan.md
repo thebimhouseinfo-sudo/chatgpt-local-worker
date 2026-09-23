@@ -40,6 +40,28 @@ The current `jobs/dev-coding` pack has its own Job definition, SOP, specialist s
 
 P1–P4 can progress alongside B0–B3, but merge in dependency order. Do not create duplicate tool managers, test frameworks or a new general-purpose agent orchestrator.
 
+## 1A. Seven mandatory review amendments — implementation contract
+
+These conditions amend P0–P4 and B0 before code work; use the detailed policy in the parent implementation plan.
+
+| Review | Concrete decision | Primary acceptance check |
+| --- | --- | --- |
+| R1 — Persistence | Atomic task-local JSON checkpoint under confirmed Workspace `.gptworker/dev-coding/<task-id-or-execution-id>/state.json`, ignored by Git, written after each meaningful iteration and validated on resume against revision/workspace/dirty fingerprint. | Reset chat/resume without repeating old failed hypothesis; stale checkpoint fails closed. |
+| R2 — Test integrity | Red-green for reproducible bug fixes; documented negative control for new feature/refactor or unsafe pre-fix replay. Preserve test hashes and prior evidence when assertions change. | Seeded bug makes new test fail; fix makes it pass; weakening assertions is detected. |
+| R3 — Diff review | Machine-readable checklist and scoped revision-bound diff evidence, not subjective Coder self-rating. | Scope drift, disabled test, commented-out code or leaked secret fails review. |
+| R4 — Upstream compatibility | B0 must pin exact *verified* release and schemas in compatibility manifest, re-audit on version bumps/contract failure and quarterly. No unattended latest upgrade. | Schema drift returns UNAVAILABLE and browser disappears from fresh discovery. |
+| R5 — Effort | Relative work envelope + external risk per browser work package; adjust after B0, no speculative dates. | B0 risk/gate blocks adapter implementation. |
+| R6 — Rollback | Preserve partial agent edits and evidence by default; never destructive-reset a dirty Workspace. Rollback requires explicit approval and removes only verified agent-owned changes. | Budget exhaustion preserves existing user edits and offers scoped restore. |
+| R7 — Limits | Default max 8 meaningful iterations and 45 min active execution; 2 identical failures without new evidence require stop/change hypothesis; task-authorized configurable budget. | No indefinite loop; budget exhaustion has evidence-backed final status. |
+
+**Persistence details:** Minimum checkpoint fields are contract/acceptance IDs, execution ID/generation, Workspace identity, baseline SHA and dirty fingerprint, attempt history (bounded), current hypothesis, last change/check/result, evidence refs, remaining goal gap, elapsed time, remaining budget, stop reason and next action. No secrets, raw cookies or unredacted page text. Use GPTWorker-approved absolute paths, atomic replacement and path/symlink checks. Treat an old checkpoint as *untrusted state* until validated; preserve it as evidence but never execute its next_action automatically across changed Job, workspace, source revision or user edits.
+
+**Stopping/rollback semantics:** On repeated FAIL or budget exhaustion, save checkpoint and leave task `IN_PROGRESS` with explicit `FAILED_VALIDATION` report (or `BLOCKED`/`ENVIRONMENT_LIMIT` where appropriate). Retain agent-owned partial edits; no automatic `git reset --hard` or `git clean`. Existing dirty/untracked user files are always user-owned unless the active contract specifically authorizes editing them.
+
+**Test integrity:** A generated test that only demonstrates PASS is not sufficient regression evidence. For bug fixes, run it against pre-fix behavior before fixing when safe; for unreplayable/new/refactor cases record a negative control in an isolated test fixture. Any test rewrite after observing failure must retain before/after hashes, rationale, and refreshed negative proof.
+
+**Diff PASS evidence:** Capture changed path allowlist comparison, `git diff --check`, user-owned modifications check, test/lint/type/security rule delta, accidental debug/secret/generated output scan, caller/interface review and a recorded revision/diff fingerprint.
+
 ## 2. P0 — Audit and upstream contract
 
 **Inspect:** `AGENTS.md`, `WORKER.md`, `docs/dev-coding-job-upgrade.md`, `jobs/dev-coding/{job.yaml,JOB.md,SKILL.md,harness/*,skills/*}`, `src/{lib/runtime-families.ts,lib/tool-work-policy.ts,lib/work-registration.ts,lib/work-registration.ts,tools/work-gateway.ts,server-factory.ts}`, `setup.bat`, `.github/workflows/ci.yml` and existing relevant tests.
@@ -47,6 +69,7 @@ P1–P4 can progress alongside B0–B3, but merge in dependency order. Do not cr
 - [ ] Record clean/dirty state, baseline commit and baseline `npm run build`, `npm run validate:jobs`, `npm test`.
 - [ ] Trace the actual `work_tool` schema through registration, `tools/list`, activation, authorization, lease, lazy resolver, work stop/expiry and MCP session refresh.
 - [ ] Inventory exactly which existing quality/coverage/evidence gates can be improved instead of duplicated.
+- [ ] Freeze the actual **exact** tested upstream version and package install in `docs/browser-mcp-contract.md`; own re-audit on intentional version bump, failed compatibility and quarterly maintenance; fail closed without an automatic latest upgrade.
 - [ ] Verify **official upstream** target version, MCP protocol, `tools/list` (including pagination), tool names/typed schemas, `session`, `allowedDomains`, screenshot result/error formats and actual Windows installation/doctor behavior. Record in `docs/browser-mcp-contract.md`.
 - [ ] Check upstream install's Node compatibility against GPTWorker's existing Node 22 CI; keep global browser install optional and separate from mandatory GPTWorker dependency graph.
 - [ ] Build a deterministic fake upstream MCP stdio fixture to test the adapter without downloading Chrome or using network.
@@ -109,7 +132,7 @@ Freeze session isolation by execution ID, loopback + explicitly approved preview
 Install optional Vercel agent-browser support for Dev Coding? [Y/N]
 ```
 
-**YES:** Run verified **official upstream** commands, propagating Windows exit codes correctly:
+**YES:** Run verified **official upstream** commands, propagating Windows exit codes correctly. The first command below is a *candidate discovery command*; production setup MUST install the exact upstream version pinned in B0's manifest (e.g. `npm install -g agent-browser@<verified-version>`) instead of a floating latest release:
 
 ```powershell
 npm install -g agent-browser
@@ -188,8 +211,28 @@ If browser is disabled: continue all applicable non-browser checks. Optional bro
 | A18 | CI green for old SHA | Evidence invalidated on new code |
 | A19 | Windows Worker + tunnel/tray setup | Existing behavior preserved for YES and NO |
 | A20 | MCP session refresh after setting change | Actual schema reflects new capability, stale calls blocked |
+| A21 | Chat reset during fifth repair iteration | Checkpoint resumes with exact prior evidence, not a repeated failed action |
+| A22 | Checkpoint from changed SHA/workspace | Resume rejects stale action and demands revalidation |
+| A23 | Agent-generated regression test | Pre-fix red/post-fix green or documented isolated negative control |
+| A24 | Agent weakens test or comments out broken code | Test-integrity/diff review FAIL with recorded evidence |
+| A25 | Identical failure repeated or iteration/time cap hit | Bounded safe stop, checkpoint and partial code retained |
+| A26 | Failed Goal with dirty user worktree | No destructive reset; only user-approved scoped revert |
+| A27 | Unexpected upstream schema drift | Browser UNAVAILABLE and undiscoverable; last pinned release unchanged |
 
 **Test files to implement as needed:** `scripts/test-browser-capability.mjs`, `scripts/test-browser-mcp-adapter.mjs`, `scripts/test-browser-work-gateway.mjs`; expand `scripts/test-dev-coding-harness.mjs` and Windows setup smoke. Mock MCP/security/lifecycle tests run in required CI. Real browser download/launch acceptance is conditional/opt-in so CI does not fail for users who chose NO.
+
+## 9A. Browser work-package effort and dependency risk
+
+| Package | Relative effort | Risk | Dependency |
+| --- | --- | --- | --- |
+| B0 | M | HIGH: upstream contract uncertainty | P0; blocks B1/B2 |
+| B1 | M | MEDIUM: Windows setup and user preference | B0 |
+| B2 | L | HIGH: MCP transport, typed images and teardown | B0 |
+| B3 | L | HIGH: discovery schema, permissions/revocation | B1+B2 |
+| B4 | M | MEDIUM: evidence/Goal integration | P3+B3 |
+| B5 | L | HIGH: Windows real-browser environment | All B phases |
+
+M/L represent relative implementation effort, not calendar promises. Re-estimate B1–B5 after B0 contract verification and repo baseline; reserve explicit contingency for upstream API incompatibility. If the pinned upstream breaks, fail closed and continue non-browser Dev Coding while auditing the incompatibility.
 
 ## 10. Commit sequence, commands and final DoD
 
@@ -211,4 +254,4 @@ git diff --check
 
 With browser explicitly installed, additionally run `agent-browser doctor` and a real approved localhost MCP/browser smoke. With no browser, assert **zero browser operations** in a real MCP tools/list response.
 
-**Final DoD:** Existing GPTWorker tools, boundaries, work handles, Job lifecycle, tunnel/tray and tests remain working; Coder creates effective tests, repairs from evidence and proves Goal independently of green technical checks. Setup uses official optional Vercel installation, disabled/unhealthy browser is undiscoverable and uncallable, enabled/healthy browser starts lazily only for valid Dev Coding and fully cleans up. All required A01–A20 acceptance scenarios have genuine passing evidence or are explicitly reported as environment-limited, never silently relabeled PASS.
+**Final DoD:** Existing GPTWorker tools, boundaries, work handles, Job lifecycle, tunnel/tray and tests remain working; Coder creates effective tests, repairs from evidence and proves Goal independently of green technical checks. Setup uses official optional Vercel installation, disabled/unhealthy browser is undiscoverable and uncallable, enabled/healthy browser starts lazily only for valid Dev Coding and fully cleans up. All required A01–A27 acceptance scenarios have genuine passing evidence or are explicitly reported as environment-limited, never silently relabeled PASS.
