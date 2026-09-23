@@ -72,7 +72,7 @@ function parsePatch(patchText: string): ParsedHunk[] {
     if (hunk.lines.length > 0) hunks.push(hunk);
   }
 
-  if (hunks.length === 0 && normalized.includes("\n")) {
+  if (hunks.length === 0) {
     throw new Error("No valid patch hunks found. Use @@ header with +/- lines.");
   }
 
@@ -126,6 +126,16 @@ function applyHunkWithLineNumber(output: string[], hunk: ParsedHunk, delta: numb
   const targetIndex = hunk.oldStart - 1 + delta;
   const removeCount = hunk.lines.filter((l) => l.type === "context" || l.type === "remove").length;
   const replacement = hunkReplacement(hunk);
+  const expected = hunkSearchPattern(hunk);
+  if (
+    targetIndex < 0 ||
+    targetIndex > output.length ||
+    expected.some((line, offset) => output[targetIndex + offset] !== line)
+  ) {
+    throw new Error(
+      `Patch hunk mismatch at old line ${hunk.oldStart}: expected old/context lines do not match the current file.`
+    );
+  }
   output.splice(targetIndex, removeCount, ...replacement);
   return replacement.length - removeCount;
 }
@@ -273,32 +283,50 @@ export async function applyMultiFilePatch(
     op.path = await validatePath(op.path);
   }
 
+  // Validate every operation before any write. Unexpected commit-time I/O
+  // failures can still yield partial success; this is not an atomic transaction.
+  type PreparedOp = MultiPatchFileOp & { next?: string; diff: string };
+  const prepared: PreparedOp[] = [];
   const results: MultiPatchResult[] = [];
+  const seen = new Set<string>();
+  let preflightFailed = false;
 
   for (const op of ops) {
     try {
+      let identity: string;
+      try {
+        identity = await fs.realpath(op.path);
+      } catch (error) {
+        if ((error as NodeJS.ErrnoException).code !== "ENOENT") throw error;
+        identity = op.path;
+      }
+      const key = process.platform === "win32" ? identity.toLowerCase() : identity;
+      if (seen.has(key)) throw new Error("Duplicate target in multi-file patch");
+      seen.add(key);
+
       if (op.operation === "delete") {
-        if (!dryRun) await fs.unlink(op.path);
-        results.push({ path: op.path, operation: "delete", ok: true, diff: "[deleted]" });
-        continue;
-      }
-
-      if (op.operation === "create") {
-        const content = op.content ?? "";
-        if (!dryRun) {
-          await fs.mkdir(path.dirname(op.path), { recursive: true });
-          await fs.writeFile(op.path, content, "utf-8");
+        const stat = await fs.stat(op.path);
+        if (!stat.isFile()) throw new Error("Delete target is not a regular file");
+        prepared.push({ ...op, diff: "[deleted]" });
+      } else if (op.operation === "create") {
+        try {
+          await fs.lstat(op.path);
+          throw new Error("Add File target already exists");
+        } catch (error) {
+          if ((error as NodeJS.ErrnoException).code !== "ENOENT") throw error;
         }
-        results.push({ path: op.path, operation: "create", ok: true, diff: buildSimpleDiff("", content) });
-        continue;
+        const next = op.content ?? "";
+        prepared.push({ ...op, next, diff: buildSimpleDiff("", next) });
+      } else {
+        const stat = await fs.stat(op.path);
+        if (!stat.isFile()) throw new Error("Update target is not a regular file");
+        const original = await fs.readFile(op.path, "utf-8");
+        const next = applyUnifiedPatchToText(original, op.patch || "");
+        prepared.push({ ...op, next, diff: buildSimpleDiff(original, next) });
       }
-
-      const original = await fs.readFile(op.path, "utf-8");
-      const next = applyUnifiedPatchToText(original, op.patch || "");
-      const diff = buildSimpleDiff(original, next);
-      if (!dryRun) await fs.writeFile(op.path, next, "utf-8");
-      results.push({ path: op.path, operation: "update", ok: true, diff });
+      results.push({ path: op.path, operation: op.operation, ok: true });
     } catch (err) {
+      preflightFailed = true;
       results.push({
         path: op.path,
         operation: op.operation,
@@ -308,7 +336,55 @@ export async function applyMultiFilePatch(
     }
   }
 
-  return results;
+  if (preflightFailed) {
+    return results.map((result) =>
+      result.ok
+        ? { ...result, ok: false, error: "Not applied: multi-file preflight failed" }
+        : result
+    );
+  }
+
+  if (dryRun) {
+    return prepared.map(({ path: filePath, operation, diff }) => ({
+      path: filePath, operation, ok: true, diff,
+    }));
+  }
+
+  const committed: MultiPatchResult[] = [];
+  for (let i = 0; i < prepared.length; i++) {
+    const op = prepared[i];
+    try {
+      // Recheck authority just before mutation; a parent may have changed.
+      await validatePath(op.path);
+      if (op.operation === "delete") {
+        await fs.unlink(op.path);
+      } else if (op.operation === "create") {
+        await fs.mkdir(path.dirname(op.path), { recursive: true });
+        await validatePath(op.path);
+        await fs.writeFile(op.path, op.next ?? "", { encoding: "utf-8", flag: "wx" });
+      } else {
+        await fs.writeFile(op.path, op.next ?? "", "utf-8");
+      }
+      committed.push({ path: op.path, operation: op.operation, ok: true, diff: op.diff });
+    } catch (err) {
+      committed.push({
+        path: op.path,
+        operation: op.operation,
+        ok: false,
+        error: err instanceof Error ? err.message : String(err),
+      });
+      for (const skipped of prepared.slice(i + 1)) {
+        committed.push({
+          path: skipped.path,
+          operation: skipped.operation,
+          ok: false,
+          error: "Not applied: an earlier filesystem mutation failed",
+        });
+      }
+      break;
+    }
+  }
+  return committed;
 }
 
 export function buildSimpleDiff(oldContent: string, newContent: string): string {
