@@ -2,11 +2,18 @@ import path from "node:path";
 import { fileURLToPath } from "node:url";
 import { spawnSync } from "node:child_process";
 import { arg, exists, resolveCwd, emit } from "./lib/common.mjs";
+import { discoverCheckpoints } from "./lib/checkpoint.mjs";
 
 const cwd = resolveCwd();
 const harnessDir = path.dirname(fileURLToPath(import.meta.url));
 const planArg = arg("--plan", "");
 const architectureArg = arg("--architecture", "");
+// Discovery is read-only and requires a confirmed active Job execution.
+const activeExecutionId = arg("--active-execution-id", null);
+const resumeTaskId = arg("--task-id", null);
+const checkpoints = activeExecutionId
+  ? await discoverCheckpoints(cwd, resumeTaskId)
+  : [];
 
 function runJson(script, args = []) {
   const child = spawnSync(process.execPath, [path.join(harnessDir, script), "--cwd", cwd, ...args], {
@@ -95,6 +102,12 @@ emit({
   },
   validation_candidates: validationCandidates,
   planning_hints: planningHints,
+  checkpoint_discovery: {
+    scanned: Boolean(activeExecutionId),
+    unfinished: checkpoints,
+    action: checkpoints.length === 0 ? "START_NEW" : checkpoints.length === 1 ? "OFFER_RESUME_OR_NEW" : "REQUIRE_TASK_SELECTION",
+    note: "Never resume automatically; a fresh confirmed handle and explicit task selection are required.",
+  },
   note: "Deterministic root/context preflight only. Read plan/architecture first when supplied, then inspect only implementation-relevant code. This harness does not perform repository archaeology or generate a formal plan.",
   failures: [
     ...(!contextOk ? [{ harness: "context-files", status: 1, stderr: "One or more supplied context paths do not exist." }] : []),
