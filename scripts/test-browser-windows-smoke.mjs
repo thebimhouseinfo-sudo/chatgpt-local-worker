@@ -28,6 +28,15 @@ const listen = () => new Promise((resolve, reject) => {
   server.listen(0, "127.0.0.1", () => resolve(server.address().port));
 });
 let transport, client, session;
+let browserClosed = false;
+const bounded = async (promise, ms = 8000) => {
+  let timer;
+  try {
+    return await Promise.race([promise, new Promise((_, reject) => {
+      timer = setTimeout(() => reject(new Error("MCP cleanup/connection timeout")), ms);
+    })]);
+  } finally { clearTimeout(timer); }
+};
 const report = { os: process.platform, node: process.version, result: "NOT_RUN", evidence: output, checks: {} };
 try {
   const verified = await verifyBrowserMcp();
@@ -43,7 +52,8 @@ try {
     stderr: "pipe",
   });
   client = new Client({ name: "gptworker-win-smoke", version: "1.0.0" });
-  await client.connect(transport);
+  await bounded(client.connect(transport), 15000);
+  console.error("[browser-smoke] Upstream MCP connected");
   async function call(name, args = {}) {
     const result = await client.callTool({ name: "agent_browser_" + name, arguments: {
       ...args, session, allowedDomains: ["127.0.0.1", "localhost"],
@@ -52,8 +62,10 @@ try {
       result.content.filter(x => x.type === "text").map(x => x.text).join(" ").slice(0, 400));
     return result;
   }
+  console.error("[browser-smoke] Opening isolated localhost preview");
   await call("open", { url, webmcp: false });
   report.checks.localhost_navigation = "PASS";
+  console.error("[browser-smoke] Localhost opened");
   const tree = await call("snapshot", { interactive: true });
   if (!JSON.stringify(tree.content).includes("Go")) throw new Error("Snapshot does not contain Go button");
   report.checks.snapshot = "PASS";
@@ -70,6 +82,7 @@ try {
   if (!JSON.stringify(currentUrl.content).includes(url)) throw new Error("Current URL does not match localhost fixture");
   report.checks.current_url = "PASS";
   await call("close", { all: false });
+  browserClosed = true;
   report.checks.session_close = "PASS";
   report.result = "PASS";
 } catch (error) {
@@ -77,11 +90,16 @@ try {
   report.error = error instanceof Error ? error.message : String(error);
   process.exitCode = 1;
 } finally {
-  await client?.callTool({ name: "agent_browser_close", arguments: {
-    session, all: false,
-  } }).catch(() => {});
-  await client?.close().catch(() => {});
-  await transport?.close().catch(() => {});
-  await new Promise(resolve => server.close(() => resolve())).catch(() => {});
+  if (client && !browserClosed && session) {
+    await bounded(client.callTool({ name: "agent_browser_close",
+      arguments: { session, all: false } }, undefined, { timeout: 5000 }), 6000).catch(() => {});
+  }
+  await bounded(client?.close() ?? Promise.resolve(), 6000).catch(() => {});
+  await bounded(transport?.close() ?? Promise.resolve(), 6000).catch(() => {});
+  // A failed browser step can leave HTTP keep-alive sockets attached to our
+  // fixture. Close those connections so a failed smoke exits rather than
+  // hanging until GitHub's job timeout.
+  server.closeAllConnections();
+  await bounded(new Promise(resolve => server.close(() => resolve())), 5000).catch(() => {});
   console.log(JSON.stringify(report, null, 2));
 }
