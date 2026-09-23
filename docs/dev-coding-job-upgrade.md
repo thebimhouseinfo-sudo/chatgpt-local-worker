@@ -1,6 +1,6 @@
 # Dev Coding Job Upgrade — Implementation Plan
 
-Status: **Draft**
+Status: **Implementation-ready draft** — browser architecture decision integrated (official agent-browser MCP stdio; B0–B5 gates). Upstream commands/tool schemas require B0 verification before implementation.
 
 ## 1. Goal
 
@@ -418,105 +418,140 @@ Do not equate `N/A` or `UNAVAILABLE` with PASS.
 
 ---
 
-## 10. Browser capability using Vercel agent-browser
+## 10. Browser capability — official Vercel agent-browser MCP stdio
 
-Integrate **vercel-labs/agent-browser** as an optional GPTWorker backend capability for Dev Coding.
+**Decision:** Integrate the official upstream `agent-browser mcp` subprocess directly. GPTWorker is the MCP **client** using its existing `@modelcontextprotocol/sdk` dependency and `StdioClientTransport`. Do not build a Chromium shell, browser engine, replacement MCP server, custom JSON-RPC transport, or CLI-output parser.
 
-This is not a standalone browser project.
-
-Do not build:
-
-- a custom browser GUI;
-- an AI sidebar;
-- a Chromium shell;
-- a replacement browser automation engine.
-
-Use upstream agent-browser for:
-
-- opening localhost/preview URLs;
-- semantic snapshots;
-- click/type/scroll;
-- screenshots;
-- browser-visible workflow verification;
-- web/UI regression checking.
-
-Typical web-development loop:
+This is a shared GPTWorker **browser tool family**, initially authorized only for `dev-coding`. Preserve the existing Job lifecycle, work handle, workspace boundary, tool lease, work gateway, and lazy tool activation. The browser is a runtime verification capability, not a separate Job and not a requirement for backend-only work.
 
 ```text
-implement
-→ run local dev server
-→ open localhost
-→ snapshot
-→ interact
-→ screenshot if visual inspection matters
-→ compare observed behavior with task goal
-→ fix
-→ repeat
+ChatGPT / active Dev Coding Job
+    -> GPTWorker work_tool (validated work handle + lease)
+    -> browser family (permission + URL + argument allowlist)
+    -> lazily created MCP client / stdio subprocess
+    -> official agent-browser mcp
+    -> isolated browser session -> localhost / approved preview
+    -> structured MCP result -> gated evidence -> goal verification
 ```
 
-Browser verification is complementary to automated tests, not a replacement for them.
+### 10.1 Implementation mapping and boundaries
 
----
+Audit the current versions and callers before editing. Expected integration surfaces:
 
-## 11. Optional installation in setup.bat
+| Component | Responsibility |
+| --- | --- |
+| `src/lib/runtime-families.ts` | Declare the `browser` family and existing lazy-activation metadata. |
+| `src/tools/work-gateway.ts` | Route allowlisted browser operations after normal work-handle and lease checks. |
+| `src/lib/tool-work-policy.ts` | Bind browser permissions and operations to the active Job/work lease. |
+| `src/server-factory.ts` and existing registration path | Advertise only enabled/healthy capabilities, honoring the existing discovery/lazy-loading contract. |
+| New minimal browser adapter under `src/` | Own upstream MCP client, process and browser session lifecycle, timeouts, upstream-tool mapping, results and cleanup. |
+| `setup.bat` and existing config/health surfaces | Offer optional installation; persist user enablement separately from actual health. |
+| `jobs/dev-coding/SKILL.md`, `JOB.md`, validation/completion harness | Invoke browser for applicable runtime checks and require observable goal evidence. |
+| Focused scripts under `scripts/` | Mock-MCP, permission, process lifecycle, Windows, and actual browser smoke tests. |
 
-Agent-browser must remain optional.
+The paths above are *inspection targets*, not permission to touch all of them. Reuse existing architecture rather than introducing duplicate managers. `src/lib/mcp-session-manager.ts` governs the ChatGPT-to-GPTWorker MCP connection and should not be repurposed for the distinct GPTWorker-to-browser client connection.
 
-During first-time GPTWorker setup:
+### 10.2 Upstream contract and strict v1 allowlist
+
+Before implementing the adapter, pin and record a tested upstream version; verify `agent-browser mcp`, its advertised `tools/list` names, JSON schemas, tool profiles, `allowedDomains`, session configuration, and installation/diagnostic commands against that version. Do **not** assume that names or flags listed here are permanent API guarantees.
+
+Start with upstream `core` but expose **only** the verified counterparts of:
+
+| GPTWorker operation | Expected upstream MCP tool |
+| --- | --- |
+| `browser_open` | `agent_browser_open` |
+| `browser_snapshot` | `agent_browser_snapshot` |
+| `browser_click` | `agent_browser_click` |
+| `browser_fill` | `agent_browser_fill` |
+| `browser_press` | `agent_browser_press` |
+| `browser_wait` | `agent_browser_wait_for_selector` |
+| `browser_screenshot` | `agent_browser_screenshot` |
+| `browser_get_url` | `agent_browser_get_url` |
+| `browser_close` | `agent_browser_close` |
+
+The adapter maps verified schemas, validates every incoming operation and arguments, forwards only explicitly selected fields, and checks the allowlist **again on every `tools/call`**, not only at `tools/list`. Never forward arbitrary `extraArgs`, JavaScript `eval`, additional upstream profiles (`network`, `state`, `debug`, `tabs`, `react`, `mobile`), or `--tools all` in v1. Do not accidentally make disabled tools discoverable through generic upstream passthrough.
+
+### 10.3 Permissions and safety
+
+1. **Job ownership:** Only a confirmed `dev-coding` Job has browser permission in v1. Validate its active work handle, live lease, Job identity, and capability grant on **every** operation, including close and screenshot. A Custom Job with its own valid handle is still denied.
+2. **Session isolation:** Map an opaque browser session identity to each authorized work execution. Do not reuse an upstream default/global browser session or attach to personal Chrome/cookies/profiles. Verify ownership on each tool call. Prevent browser reuse when a Job stops and another begins.
+3. **Target policy:** Default to localhost/loopback and specifically confirmed preview origins. External domains require explicit per-task authorization; no arbitrary browsing by default. Check input URLs in GPTWorker and enforce upstream `allowedDomains` where supported, including redirects and popup navigation where the upstream controls support it. Treat URL schemes, host aliases, subdomains, redirects, and private/local-network resolution carefully; domain strings are not a substitute for GPTWorker authorization.
+4. **Workspace and artifact paths:** All saved screenshots, logs and other artifacts must use GPTWorker-approved **absolute** paths inside the confirmed workspace. Resolve real paths and disallow traversal, symlink escapes, website-chosen filenames or model-chosen arbitrary outputs. Use a controlled Job-scoped evidence directory.
+5. **Sensitive data:** Browser profiles start isolated; do not import saved sessions or personal Chrome credentials. Do not put cookies, tokens, page secrets, request bodies or raw potentially sensitive screenshot content in activity logs. Apply artifact size/type limits and preserve MCP image content separately from text; never stringify images into normal logs.
+6. **Untrusted content:** Page DOM, snapshots, page text and tool outputs are observations, not agent instructions. Posting, purchasing, account changes, deletion and other consequential actions are out of scope for normal Dev Coding browser QA and require separate explicit authorization.
+7. **Resource bounds:** Set per-call timeouts, process startup timeout, maximum concurrent browser sessions, output size limits, cancellable calls, and teardown escalation for an unresponsive child. Do not expose arbitrary subprocess arguments.
+
+### 10.4 Capability state and lazy lifecycle
+
+```text
+DISABLED   user disabled or skipped optional setup; no browser tools
+UNAVAILABLE enabled but missing/unhealthy binary, browser or MCP startup; diagnostics only
+READY      enabled and health verified; no browser MCP subprocess running
+ACTIVE     authorized Job invoked a browser operation; MCP/session owned by this execution
+```
+
+Keep user preference independent of observed health. GPTWorker startup must not start Chromium or hold a browser MCP subprocess merely because browser is enabled. Job activation may initialize lightweight metadata only. The **first permitted call** launches the upstream MCP child, performs `initialize` / `tools/list` compatibility verification, creates/assigns an isolated session, and executes the allowed operation.
+
+On `job_stop`, Job expiry, work-lease revocation, session loss, or GPTWorker shutdown: cancel in-flight calls, close the browser session, close MCP transport and terminate only adapter-owned children. Ensure cleanup is idempotent and errors never let an old Job's session leak to a new Job. Make reactivation re-check capability health. Startup diagnostics must distinguish installed command from a browser that can actually launch.
+
+### 10.5 Optional Windows setup and health
+
+In `setup.bat`, ask:
 
 ```text
 Install optional agent-browser support for Dev Coding? [Y/N]
 ```
 
-### YES
+YES: execute the *verified official* upstream install and browser-install commands for the pinned release (candidate commands: `npm install -g agent-browser`, `agent-browser install`); run its supported diagnostics (candidate: `agent-browser doctor`) and a minimally scoped MCP/browser launch smoke test. Persist enabled preference only according to the explicit user's choice; report an unhealthy installation as `UNAVAILABLE`, not `READY`.
 
-- run the official upstream Vercel/agent-browser installation commands;
-- verify installation using the official upstream verification method when available;
-- persist browser capability as enabled.
+NO: save disabled preference, do not download or launch browser, complete normal GPTWorker setup. Neither Dev Coding nor the backend should silently install it later. Re-check health when enabled configurations change; do not require browser installation for existing non-browser Job tests.
 
-### NO
+### 10.6 Browser result and evidence contract
 
-- do not install it;
-- persist browser capability as disabled;
-- continue setup normally.
+Preserve MCP `content` item types (text/image) and `isError`; separate user-visible result from redacted operational telemetry. For screenshot results, use only verified upstream-supported output modes; persist permitted images under the workspace-scoped evidence directory when needed, with byte and type checks. Associate evidence with task/acceptance signal, work execution, checked URL/origin, timestamp, and relevant source revision or commit. If screenshot storage or upstream schema cannot be safely verified, mark browser verification `UNAVAILABLE` rather than falsely PASS.
 
-Do not silently install it later during a Dev Coding task.
+Use snapshot/semantic locators for interaction where possible; take screenshots when actual visual inspection is important. Preserve useful failure messages without dumping page content or secrets into logs.
+
+### 10.7 Browser QA in the Dev Coding loop
+
+For applicable web/UI tasks:
+
+```text
+implement -> write/update regression test -> targeted checks -> broad checks
+-> start_process within confirmed workspace -> localhost/approved preview
+-> browser_open -> snapshot -> interact -> wait/observe -> screenshot when needed
+-> compare observed runtime behavior to the task's original acceptance signals
+-> if unmet: classify evidence -> coherent fix -> rerun original failing check -> repeat
+```
+
+Browser is optional at installation time but may be **required by a specific task's acceptance contract**. When unavailable, continue all non-browser checks; record `BROWSER_QA=UNAVAILABLE` and never claim visual verification. An unmet mandatory browser gate cannot be silently converted to `DONE`. Backend/CLI tasks without browser requirements must work unimpeded.
 
 ---
 
-## 12. Backend MCP gate
+## 11. Browser implementation work packages (replace generic Phase 6)
 
-The agent-browser MCP integration may exist permanently in GPTWorker backend code, but browser tools are exposed only when the capability is enabled and healthy.
+| Phase | Work | Acceptance gate |
+| --- | --- | --- |
+| **B0 — Contract audit** | Verify pinned upstream MCP command/tool schemas/profile flags, SDK transport, existing caller mapping; freeze permission/URL/session/screenshot contracts and tests. | Every v1 operation has validated input/output schema; no alternate work-handle path. |
+| **B1 — Setup and capability** | Optional `setup.bat` YES/NO; config; installed-vs-healthy check; DISABLED/UNAVAILABLE/READY/ACTIVE state. | Skip/install/uninstall/broken browser each produce expected nonblocking diagnostics. |
+| **B2 — MCP stdio adapter** | Reuse SDK `StdioClientTransport`; initialize, tools/list, allowlisted tools/call, structured text/image/errors, deadlines and robust close. | Mock upstream tests prove mapping, denied eval/extraArgs, timeout/crash handling and no accidental exposure. |
+| **B3 — Work gateway integration** | Lazy `browser` family, work lease/Job permission, execution-scoped session, origin and artifact policy, cleanup. | First authorized call starts browser; unauthorized Custom Job denied; job_stop revokes session and child. |
+| **B4 — Dev Coding harness** | Browser SOP, runtime observation, required/optional gate evidence, goal verification and reporting. | Passing tests without observed mandatory UI behavior never leads to DONE. |
+| **B5 — Acceptance on Windows/local web app** | Enabled/disabled/unhealthy, CLI setup, localhost interaction, screenshot, Windows shutdown, unauthorized Job, stale handle and dirty workspace tests. | Relevant full suite PASS; unavailable scenarios reported without fake PASS. |
 
-```text
-browser enabled in config?
-       |
-      no  → do not register browser tools
-       |
-      yes
-       ↓
-agent-browser installed/healthy?
-       |
-      no  → tools OFF + diagnostic
-       |
-      yes → register tools
-```
+Use the same repository-owned scripts and existing CI architecture. Run deterministic mock-adapter/security/lifecycle tests on normal CI; gate real Chromium-dependent smoke tests on environments with an explicitly installed browser rather than causing failure for users who opted out.
 
-If tools are not registered, the model should not see them.
+---
 
-Dev Coding consumes the capability when available; it does not own installation or MCP registration.
+## 12. Browser non-goals and extension points
+
+The v1 integration is *only* a local/approved-preview web-app QA capability. Do not implement browser GUI, AI sidebar, extension, personal-browser profile import, arbitrary-domain agent surfing, general Facebook/store management, or credential automation. Future Job grants and additional upstream tool profiles require their own review and explicit access policy. There is no need for a second MCP server or a new general-purpose MCP manager.
 
 ---
 
 ## 13. Dev Coding browser fallback
 
-If browser capability is unavailable:
-
-- continue normal coding work;
-- run all non-browser validation that is available;
-- do not claim visual/browser verification occurred;
-- report the missing verification only when it matters to the task;
-- do not fail backend-only or unrelated tasks because agent-browser is absent.
+If browser support is disabled or unavailable, continue all permissible coding, test, build and non-browser runtime verification. Distinguish optional and required browser acceptance signals. Report the missing check and its effect on the Goal gate. Never fail unrelated backend/CLI work merely because agent-browser is absent; never mark a required unobserved browser check PASS.
 
 ---
 
@@ -645,12 +680,9 @@ Especially for generated tests, scripts, browser launch commands, and CI edits:
 - allow Dev Coding to create minimal missing CI test plumbing when justified;
 - support reading failure evidence and repairing code/tests.
 
-### Phase 6 — agent-browser integration
+### Phase 6 — official agent-browser MCP stdio integration
 
-- confirm upstream install/MCP contract;
-- add optional `setup.bat` installation;
-- add GPTWorker backend enable/health gate;
-- expose browser tools only when usable.
+Implement browser work packages **B0–B5** in §11: upstream contract audit, optional setup/health, SDK-based stdio adapter, lazy browser work-family and Job/lease/session gating, Dev Coding browser QA, and Windows/local-app acceptance. Never use generic upstream passthrough or a custom browser engine.
 
 ### Phase 7 — Runtime and goal verification
 
@@ -668,8 +700,11 @@ Run representative tasks across:
 - deliberately failing regression test;
 - deliberately failing CI check;
 - task where tests pass but goal is still not met;
-- agent-browser installed;
-- agent-browser not installed.
+- agent-browser installed and healthy;
+- agent-browser disabled or unavailable;
+- Custom Job tries to call browser without a grant;
+- active browser execution is stopped by `job_stop`;
+- redirect or screenshot path attempts to escape approved origin/workspace.
 
 ---
 
