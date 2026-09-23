@@ -9,6 +9,7 @@ import os from "node:os";
 import path from "node:path";
 import { spawnSync } from "node:child_process";
 import { fileURLToPath } from "node:url";
+import { verifyBrowserMcp, BROWSER_MCP_CONTRACT_VERSION } from "./verify-browser-mcp.mjs";
 
 export const AGENT_BROWSER_VERSION = "0.38.1";
 export const AGENT_BROWSER_REQUIRED_NODE_MAJOR = 24;
@@ -41,6 +42,10 @@ async function writeConfig(file, settings) {
       enabled: settings.enabled,
       candidate_version: AGENT_BROWSER_VERSION,
       last_setup_status: settings.status,
+      ...(settings.status === "READY" ? {
+        mcp_contract_version: BROWSER_MCP_CONTRACT_VERSION,
+        mcp_verified_at: new Date().toISOString(),
+      } : {}),
       updated_at: new Date().toISOString(),
     }, null, 2) + "\n", { mode: 0o600 });
     await fs.rename(tmp, file);
@@ -53,6 +58,7 @@ export async function configureBrowser(choice, {
   configPath = browserConfigPath(),
   nodeMajor = Number.parseInt(process.versions.node.split(".")[0], 10),
   runCommand = (command, args) => runOfficialCommand(command, args),
+  verifyMcp = () => verifyBrowserMcp(),
 } = {}) {
   const enabled = String(choice).trim().toLowerCase() === "y";
   if (!enabled) {
@@ -82,10 +88,19 @@ export async function configureBrowser(choice, {
     }
   }
 
-  // Doctor is a preliminary setup check, NOT a proof of MCP schema/browser
-  // compatibility; B0/B3 live health will re-evaluate before advertising tools.
-  await writeConfig(configPath, { enabled: true, status: "PENDING_MCP_HEALTH" });
-  return { enabled: true, status: "PENDING_MCP_HEALTH", configPath };
+  // Doctor is not an MCP schema check. Verify the actual pinned upstream
+  // initialize/tools/list contract BEFORE any new session can advertise tools.
+  try {
+    const health = await verifyMcp();
+    if (!health?.ok || health.contract_version !== BROWSER_MCP_CONTRACT_VERSION)
+      throw new Error("MCP contract verification did not pass");
+    await writeConfig(configPath, { enabled: true, status: "READY" });
+    return { enabled: true, status: "READY", configPath, mcp: health };
+  } catch (error) {
+    await writeConfig(configPath, { enabled: true, status: "UNAVAILABLE" });
+    return { enabled: true, status: "UNAVAILABLE", configPath,
+      reason: "MCP contract check failed: " + (error instanceof Error ? error.message : String(error)) };
+  }
 }
 
 async function main() {
@@ -95,7 +110,7 @@ async function main() {
     const message = result.reason || (
       result.status === "DISABLED"
         ? "Optional agent-browser disabled; no browser installation attempted."
-        : "Optional browser installed/diagnosed; MCP runtime compatibility check remains required before tools can be exposed."
+        : "Optional browser installed; verified MCP schema at setup. Runtime consent, version and recency checks still apply."
     );
     console.log(`[agent-browser] ${result.status}: ${message}`);
     console.log(`[agent-browser] Config: ${result.configPath}`);
