@@ -10,10 +10,7 @@ import { toolAnnotations } from "../lib/tool-annotations.js";
 import { toolResult } from "../lib/tool-result.js";
 import { getWorkerDataRoot } from "../lib/worker-home.js";
 
-export function registerContextTools(
-  server: McpServer,
-  _startupWorkspaceRoot: string
-): void {
+export function registerContextTools(server: McpServer): void {
   server.registerTool(
     "project_context",
     {
@@ -91,6 +88,4 @@ export function registerContextTools(
       });
     }
   );
-
-
 }

@@ -266,7 +266,7 @@ FOLDER: D:\Projects\CAD-Agent
 Xác nhận bắt đầu?
 ```
 
-After confirmation, `D:\Projects\CAD-Agent` becomes the active workspace. Relative filesystem paths, persistent shell cwd, git defaults, project context, skills, and path rules anchor to that folder.
+After confirmation, `D:\Projects\CAD-Agent` becomes the active workspace. Filesystem operations, project context, skills, and shell working directories are constrained to that folder. Shell cwd is stateless between calls unless an explicit in-Workspace `working_directory` is supplied.
 
 To switch to another project during the same chat, provide the new local folder. GPTWorker uses the job-switch flow and asks for confirmation again.
 
@@ -289,7 +289,7 @@ Example:
 }
 ```
 
-This prevents job/workspace context from drifting during long chats or reconnects.
+`worker-state.json` is compatibility/diagnostic state only. Active work authority still comes from the current chat's confirmed work handle; the file is never used to resume or authorize another chat.
 
 `worker-state.json` is local machine state and is excluded from Git.
 
@@ -366,8 +366,7 @@ For every bundled or Custom Job:
 - structured filesystem/context paths must be absolute;
 - those absolute paths must stay inside the confirmed Workspace;
 - Git commands, when invoked through shell, run from the confirmed Workspace/repository;
-- `node_repl` has no direct filesystem access;
-- shell cwd and normal/obvious path references are checked against the same Workspace boundary;
+- each shell call starts from the confirmed Workspace root unless an absolute in-Workspace `working_directory` is supplied; normal/obvious path references are checked against the same Workspace boundary;
 - moving to another Workspace requires an explicit Job switch/reconfirmation.
 
 This is designed so an incorrect Job decision is contained inside the authorized Workspace instead of affecting an unrelated local project.

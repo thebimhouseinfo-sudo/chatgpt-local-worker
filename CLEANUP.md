@@ -77,9 +77,9 @@ GitHub Actions CI is now the authoritative automated gate for each cleanup batch
 
 ## Remaining inherited-core review candidates
 
-After dead compatibility cleanup, review only implementation that is still active. High-priority inherited areas include `src/tools/filesystem.ts`, `src/lib/patch.ts`, `src/lib/mcp-session-manager.ts`, `src/lib/checkpoint.ts`, and `src/tools/shell.ts` / `src/lib/persistent-shell.ts`. The dedicated Git wrapper family has been retired because it only delegated to the machine's external `git` executable; Git remains available through shell when installed.
+The major inherited-core review is now substantially complete. Dedicated Git, checkpoint/rewind, duplicate audit logging, persistent shell state, node_repl, legacy search helpers, and the obsolete tool-profile layer have been retired.
 
-Smaller active utilities such as audit/search/tool-result/tool-annotations should be reviewed only if they remain part of the final runtime.
+The strongest remaining Local Coder-derived implementation is intentionally kept where it still provides real value: `src/lib/patch.ts`, `src/lib/mcp-session-manager.ts`, `src/lib/tool-result.ts`, `src/lib/tool-annotations.ts`, parts of `src/lib/activity-log.ts`, and portions of the local runtime/tunnel foundation. Filesystem and shell were materially rewritten around GPTWorker's current Workspace-first architecture.
 
 Rewrite only when the inherited implementation is technically inadequate, unnecessarily complex, or contains behavior GPTWorker no longer needs. Keep working inherited code when it remains the best fit.
 
@@ -96,12 +96,12 @@ The earlier dead-compatibility cleanup round was validated successfully, includi
 
 The temporary quarantine has been removed. The quarantine-only regression checks are no longer part of the default test runner because the quarantine they guarded no longer exists.
 
-That earlier cleanup round remains closed. A later technical cleanup has since retired the dedicated Git runtime family. Because that change touched active runtime/tool registration and test expectations, the **current HEAD requires a fresh validation run** before it can be called green.
+That earlier cleanup round remains closed. The latest code baseline before this integration/documentation closure passed GitHub Actions CI #645: Linux full suite, Windows shell executor smoke, Windows PowerShell/tunnel checks, and detached Worker health all passed. Any new integration cleanup commit must still pass a fresh CI run before final closure.
 
 
-## Active inherited caller map — deep audit
+## Historical inherited caller map — pre-rewrite audit snapshot
 
-This map is based on the current `src/**` runtime after retirement of the dedicated Git family. Test-only callers are intentionally excluded unless they represent a shipping/runtime dependency.
+This section is preserved as audit evidence from the pre-rewrite stage. It is **not** the current runtime map: several targets below were subsequently removed or rewritten. Current-state decisions and validation evidence are recorded in the completed phases later in this file.
 
 A component can be active in three different ways:
 
@@ -459,45 +459,42 @@ KEEP does not mean “never touch”. It means preserve the capability unless a 
 
 **Phase 5 validation:** patch/tool-metadata simplification commit `28f44a00` passed CI #622. Path-security/session cleanup plus test-caller alignment through commit `b7ce3397` passed CI #627 (Linux full suite + Windows build/shell/tunnel/Worker smoke).
 
-### Phase 6 — simplify integration files after lower layers settle
+### Phase 6 — simplify integration files after lower layers settle — COMPLETE
 
 #### `src/tools/context.ts`
 
-- [ ] Keep `project_context` and `agent_status`.
-- [ ] Remove checkpoint fields if checkpoint subsystem is removed.
-- [ ] Remove audit-log path if duplicate audit subsystem is removed.
-- [ ] Ensure status reports only real current capabilities.
+- [x] Keep `project_context` and `agent_status`.
+- [x] Checkpoint and duplicate audit fields are gone.
+- [x] Status reports only current Workspace/runtime information.
+- [x] Removed the unused startup-workspace registration parameter.
 
 #### `src/lib/quickstart.ts`
 
-- [ ] Remove stale Git-family guidance.
-- [ ] Remove instructions for any filesystem/shell operations retired by this cleanup.
-- [ ] Prefer small canonical workflows over a long cheat sheet that can drift from runtime.
-- [ ] Consider generating operation summaries from the runtime catalog only if doing so is simpler and less fragile than static text.
+- [x] Removed stale Git-family guidance.
+- [x] Removed references to retired filesystem/shell/repl operations.
+- [x] Kept the canonical static workflow because the routing/confirmation copy is regression-tested and has no stale runtime names.
 
-#### `src/lib/tool-profile.ts`
+#### retired `src/lib/tool-profile.ts`
 
-- [ ] Remove retired operation names.
-- [ ] Check whether full/slim + override logic is still necessary with one `work_tool` gateway.
-- [ ] Simplify only if current ChatGPT discovery/tool-list behavior remains intact.
+- [x] Removed the obsolete profile/override layer after `work_tool` became the single execution gateway.
+- [x] Current operation exposure comes from the real family registry instead of a second profile catalog.
 
 #### `src/server-factory.ts`
 
-- [ ] Update family/operation registrations only after lower-level decisions are frozen.
-- [ ] Remove compatibility wiring for retired operations.
-- [ ] Preserve work-handle and Workspace authority wrapping.
+- [x] Registration reflects only current control/admission/workspace/Job/work-gateway surfaces.
+- [x] No retired tool compatibility wiring remains.
+- [x] Work-handle leases and confirmed-Workspace scope wrapping remain authoritative.
 
 #### `src/lib/instruction-context.ts`
 
-- [ ] Reassess only after quickstart/profile cleanup.
-- [ ] Keep if it still provides a clean assembly boundary.
-- [ ] Merge into another file only if it becomes a trivial pass-through with no independent responsibility.
+- [x] KEEP. It still owns control-plane environment assembly plus instruction summary telemetry.
+- [x] Do not merge it into `index.ts`; it is not a trivial pass-through.
 
 #### `src/index.ts`
 
-- [ ] Review last, after session/logging/instruction layers settle.
-- [ ] Remove only wiring made obsolete by earlier phases.
-- [ ] Preserve HTTP/MCP routes, health, session recovery, shutdown logging, and current tunnel behavior.
+- [x] Reviewed after lower-layer cleanup.
+- [x] Retired wiring is gone; server instructions are built once at startup.
+- [x] HTTP/MCP routes, health/status, session recovery, runtime logging, and shutdown behavior remain active.
 
 #### `src/tools/node-repl.ts`
 
@@ -526,19 +523,15 @@ KEEP does not mean “never touch”. It means preserve the capability unless a 
 - [x] Removed unused `ChatGPTUrl` constant and unused `TunnelId` argument from `Show-ConnectorGuide`.
 - [x] Preserved tunnel init/doctor/run/recovery behavior; no wholesale rewrite performed.
 
-**Phase 7 validation pending:** GitHub Actions must pass PowerShell syntax, tunnel preview, Linux suite, Windows tunnel checks, and detached Worker smoke before this phase is closed.
+**Phase 7 validation:** current CI #645 passed PowerShell syntax/tunnel checks, Linux full suite, Windows shell executor smoke, and detached Worker health. Phase 7 is closed.
 
-### Phase 8 — rename/merge pass only after behavior is stable
+### Phase 8 — rename/merge pass after behavior stabilized — COMPLETE
 
-- [ ] Do **not** rename during the first remove/rewrite pass unless required.
-- [ ] After runtime is green, inspect remaining filenames against actual responsibility.
-- [ ] Rename only when it reduces future confusion enough to justify caller churn.
-- [ ] Candidate review:
-  - `persistent-shell.ts` → remove entirely or rename to `shell-executor.ts` if it becomes stateless.
-  - `activity-log.ts` → keep unless responsibility materially changes.
-  - `glob-search.ts` + `grep-search.ts` → possibly merge into `file-search.ts`.
-  - `filesystem.ts` / `shell.ts` → keep public tool registration filenames unless there is a strong architectural reason to change.
-- [ ] Update imports, docs, caller map, and LICENSE attribution only after final names settle.
+- [x] Deleted `persistent-shell.ts` and `global-shell-state.ts` instead of keeping misleading names.
+- [x] Merged `glob-search.ts` + `grep-search.ts` into `file-search.ts`.
+- [x] Kept `activity-log.ts`, `filesystem.ts`, and `shell.ts`; their names still match their responsibilities.
+- [x] Avoided renames that would create caller churn without architectural benefit.
+- [x] Updated README and LICENSE attribution to match the runtime that actually remains.
 
 ### Per-batch safety gate
 
@@ -563,7 +556,7 @@ After all batches:
 - [ ] public command routing smoke including `gr/job stop`;
 - [ ] update README and LICENSE to describe only the code/capabilities that actually remain.
 
-## Active inherited core review plan
+## Original inherited core review plan — superseded by completed phases above
 
 ### Goal
 

@@ -29,12 +29,12 @@ GPTWorker is built in part on code from
 hoangcoderr/chatgpt-local-coder. Active reused and modified portions include
 the local coding runtime and supporting helpers, including:
 
-- filesystem tools and file-edit operations;
-- shell execution and background-process management;
-- patch application logic;
-- MCP session handling and recovery logic;
-- checkpoint, audit, and activity-related helpers;
-- related runtime utilities that remain in the current GPTWorker codebase.
+- the patch application engine;
+- MCP session/transport handling and recovery logic;
+- shared tool-result and MCP annotation helpers;
+- the activity/runtime logging foundation;
+- portions of the filesystem/search and local worker/tunnel runtime that
+  remain derived from Local Coder.
 
 These inherited portions have been modified and integrated into GPTWorker's
 current architecture.

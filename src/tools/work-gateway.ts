@@ -93,7 +93,7 @@ async function registerFamily(
     }
     case "context": {
       const module = await import("./context.js");
-      module.registerContextTools(server, workspaceRoot);
+      module.registerContextTools(server);
       return;
     }
   }
