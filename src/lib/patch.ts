@@ -126,7 +126,8 @@ function applyHunkWithLineNumber(output: string[], hunk: ParsedHunk, delta: numb
     throw new Error("Missing line number in hunk header");
   }
 
-  const targetIndex = hunk.oldStart - 1 + delta;
+  // Unified diffs use -0,0 for insertion before the first original line.
+  const targetIndex = (hunk.oldStart === 0 ? 0 : hunk.oldStart - 1) + delta;
   const removeCount = hunk.lines.filter((l) => l.type === "context" || l.type === "remove").length;
   const replacement = hunkReplacement(hunk);
   const expected = hunkSearchPattern(hunk);
