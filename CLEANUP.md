@@ -141,6 +141,16 @@ Add any newly discovered inherited file to this register with its **real callers
 
 **Shared invariants:** every file/path binding and actual project mutation stays within the explicitly confirmed absolute Workspace; Job support roots are read/execute support, not mutation destinations. Maintain work-handle authority, Job lifecycle/stop behavior, lazy loading, current MCP compatibility, and the established public Job flow. Shell command string checks are not an OS sandbox: characterize their limitations and test indirect/path-constructed escapes rather than claiming guaranteed isolation.
 
+### Three-file upgrade implementation record
+
+**Implemented on `main`, source and regression tests committed (2026-09-23):**
+- `src/lib/path-security.ts`: reject relative or malformed active Workspace/support roots and malformed path argument types; existing canonical/symlink boundary logic retained.
+- `src/lib/patch.ts`: numbered hunk old/context validation; reject invalid/empty hunks; support unified insertion at old line zero; preflight all multi-file operations and duplicate targets before mutations; prevent create overwrite; revalidate before filesystem mutation; explicitly report remaining operations skipped if a commit step fails. No rollback or full atomic guarantee.
+- `src/tools/filesystem.ts`: revalidate target (and source when applicable) immediately before write/edit/patch/copy/move after parent creation where relevant; no public tool or result schema removed.
+- Targeted tests: `scripts/test-patch.mjs`, `scripts/test-filesystem-core.mjs`, `scripts/test-workspace-boundary.mjs`.
+
+**Validation still pending:** The connected repository returned no status/check runs for the current commit. A direct local clone/build/test attempt could not run because the execution environment could not resolve github.com. Do not mark runtime tests, `npm run build`, `npm run validate:jobs`, `npm test`, CI, Windows junction/TOCTOU or operator acceptance as PASS without an actual result. New failures, if revealed, must be fixed within the approved narrow scope.
+
 ### Approved three-file upgrade plan (2026-09-23)
 
 **Scope:** preserve current module implementations, file names, public API, active callers and Job behavior. Change only `src/lib/path-security.ts`, `src/lib/patch.ts`, `src/tools/filesystem.ts` and their focused tests.
