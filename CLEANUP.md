@@ -129,11 +129,28 @@ Add any newly discovered inherited file to this register with its **real callers
 1. **Pin evidence:** record the GPTWorker HEAD and the actual source/version of the inherited implementation where available. Compare implementations function-by-function; distinguish copied, modified and independently implemented code. Do not infer provenance from identical filenames alone.
 2. **Build a current caller/target map:** include static imports, dynamic `work_tool` dispatch, Job YAML, instructions/skills/harness, root scripts, CI and tests. Classify each public export, code path, parameter and configuration option as used, test-only, genuinely optional, or unconsumed. Tests by themselves do not prove production use.
 3. **Inspect actual behavior:** record input/output/error semantics, real workflow requirements, duplicate responsibilities, unnecessary layers, algorithmic complexity, performance/resource costs and security failure modes. Distinguish confirmed defects from plausible risks awaiting reproduction.
-4. **Choose one outcome with justification:** **KEEP** (real value; replacement unjustified), **SIMPLIFY** (retain behavior with a smaller implementation), **REWRITE** (current design materially obstructs requirements), or **REMOVE** (no necessary caller/capability). A working inherited implementation is allowed to remain.
+4. **Compare options before deciding:** **KEEP** (real value; replacement unjustified), **SIMPLIFY** (retain behavior with a smaller implementation), **REFACTOR/REWRITE** (change an inherited implementation where its structure obstructs current requirements), **GREENFIELD REWRITE** (design and implement a new module from GPTWorker's requirements without using the old implementation as the design template), or **REMOVE** (no necessary caller/capability). Record the expected benefits, tradeoffs, implementation/test cost and failure risks of realistic options; do not automatically prefer retaining or replacing inherited code.
 5. **Specify a safe migration:** preserve required public behavior or update all callers together. Add characterization, positive/negative, boundary and regression tests before material changes; use a disposable confirmed Workspace for real-file acceptance. Record any intentional API/behavior change explicitly.
 6. **Close with evidence:** report changed files, retired names, remaining call paths, build, `validate:jobs`, relevant targeted tests, full suite/CI and real-workflow results as applicable. Never call a file complete based only on static analysis or another commit's green CI.
 
 **Shared invariants:** every file/path binding and actual project mutation stays within the explicitly confirmed absolute Workspace; Job support roots are read/execute support, not mutation destinations. Maintain work-handle authority, Job lifecycle/stop behavior, lazy loading, current MCP compatibility, and the established public Job flow. Shell command string checks are not an OS sandbox: characterize their limitations and test indirect/path-constructed escapes rather than claiming guaranteed isolation.
+
+### Greenfield rewrite option — requirements-first design
+
+For **every** inherited module, explicitly consider whether designing a small new GPTWorker-native implementation from requirements would produce a materially better result than incremental modification. This is an **alternative to evaluate**, not a mandate to replace working upstream code. Do not translate or restructure the old implementation line-by-line: derive the new design from required behavior, safety constraints and actual caller needs, then compare it with KEEP/SIMPLIFY/REFACTOR/REMOVE.
+
+Design criteria, in order of practical relevance:
+
+1. **Real user workflow and minimal scope:** support local-first Dev Coding and other current Jobs; retain only proven inputs, outputs, formats and capabilities. No dedicated Git/GitHub skills or integration for the local coding core.
+2. **Correctness and fail-safe behavior:** validate preconditions and inputs, reject ambiguous or invalid requests, make error/partial-success semantics explicit, and avoid silent corruption. Where multi-step mutation is needed, specify preflight, commit and rollback/recovery semantics rather than assuming atomicity.
+3. **Authority and containment:** all target file paths must be explicit, absolute and scoped to the confirmed Workspace; canonicalize and check symlink/junction behavior, preserve support-root read-only rules and work-handle authority. Do not confuse a command-string guard with an OS sandbox.
+4. **Simple, coherent architecture:** narrow module responsibility, minimum useful public API, no parallel registries/duplicate helpers, separation of pure logic from disk I/O and authority checks where this improves testing and maintenance.
+5. **Reliability and observability:** deterministic outcomes where possible, useful structured results, actionable errors and appropriate activity logging without leaking sensitive content or retaining redundant logs.
+6. **Proportionate performance:** assess actual file sizes and workloads; select algorithms/dependencies from measured need, not speculative optimization. Avoid extra abstractions and external dependencies unless they demonstrably simplify or improve correctness.
+7. **Maintainability and testability:** characterization tests of required current behavior, negative and adversarial cases, temporary on-disk acceptance, and cross-platform coverage where relevant. Preserve or explicitly migrate active callers and Job contracts.
+8. **Provenance and licensing:** document any upstream implementation that is actually retained, re-used or independently replaced. Greenfield design does not by itself prove legal independence; preserve applicable copyright notices until the retained distribution has been audited.
+
+For a greenfield proposal, record a compact design spec **before coding**: required/non-required features; public contract; module boundaries; failure and mutation model; dependency choices; caller migration; acceptance tests; measurable comparison with the existing module. Compare **KEEP vs targeted REFACTOR vs GREENFIELD REWRITE** against the same criteria. A simpler design is not better if it loses essential behavior, degrades correctness or imposes disproportionate migration risk.
 
 ### First candidate — `src/lib/patch.ts`
 
@@ -145,18 +162,20 @@ Add any newly discovered inherited file to this register with its **real callers
 - **Quality limitation:** `buildSimpleDiff` compares line positions rather than calculating insertions/deletions; a single insertion can produce misleadingly extensive output.
 - **Test gap:** the numbered-hunk fixture in `scripts/test-patch.mjs` has mismatched old text and only asserts that new text appears. It does not establish mismatch rejection.
 - **Questions before changing code:** which patch formats do real Job/coding callers generate; is multi-file all-or-nothing a required contract; should preview/diff be an accurate edit script or only a simple summary?
+- **Greenfield alternative to assess:** specify a small GPTWorker-native patch transaction from requirements: explicit supported formats, strict old/context validation, stage/preflight before any writes, clearly documented multi-file commit/recovery behavior, canonical Workspace checks on mutation, and truthful diff/preview. Compare this design with targeted refactoring of the inherited engine; no decision or implementation yet.
 
 `patch.ts` review checklist:
 - [x] Preliminary inspection of current GPTWorker implementation, immediate filesystem integration, existing patch tests and accessible upstream implementation.
 - [ ] Pin precise upstream baseline and complete direct/static/dynamic caller map.
 - [ ] Reproduce numbered-hunk mismatch, multi-file partial failure, insertion/deletion diff, multi-hunk behavior and CRLF handling in isolated tests.
 - [ ] Run real-file create/edit/patch/rollback-related acceptance in a disposable confirmed Workspace; verify out-of-Workspace and symlink/junction mutation rejection.
-- [ ] Decide KEEP/SIMPLIFY/REWRITE/REMOVE and document contract, implementation scope and migration tests.
+- [ ] Write a requirements-first greenfield design alternative and compare KEEP, targeted REFACTOR and GREENFIELD REWRITE for correctness, simplicity, safety, performance, compatibility and implementation/test cost.
+- [ ] Decide KEEP/SIMPLIFY/REFACTOR/GREENFIELD REWRITE/REMOVE and document contract, implementation scope and migration tests.
 - [ ] Implement the approved technical changes, update callers/docs/tests and capture fresh CI evidence before marking COMPLETE.
 
 ### Working sequence and completion rule
 
-Start with `patch.ts`; finish its evidence and decision before moving to the next file. Reorder the remainder based on newly discovered dependencies or safety risks, recording the reason here. A file can be closed as **KEEP** with documented evidence and no code change. A file closed as **SIMPLIFY/REWRITE/REMOVE** requires corresponding implementation, caller migration and validation. When all entries are closed, reconcile `LICENSE`/third-party notices with the actual retained code as part of Packaging; historic credit and legally required notices are distinct from unnecessary implementation dependencies.
+Start with `patch.ts`; finish its evidence and decision before moving to the next file. Reorder the remainder based on newly discovered dependencies or safety risks, recording the reason here. A file can be closed as **KEEP** with documented evidence and no code change. A file closed as **SIMPLIFY/REFACTOR/GREENFIELD REWRITE/REMOVE** requires corresponding implementation, caller migration and validation. When all entries are closed, reconcile `LICENSE`/third-party notices with the actual retained code as part of Packaging; historic credit and legally required notices are distinct from unnecessary implementation dependencies.
 
 ---
  
