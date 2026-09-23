@@ -268,9 +268,19 @@ For a greenfield proposal, record a compact design spec **before coding**: requi
 
 **Blast radius assessment:** **small at the direct import layer, moderate at the behavioral layer, high for file-integrity failure modes**. No justified need to rewrite MCP transport, Job Runtime or Work Gateway merely for this change. Runtime behavior through dynamic/externally authored Custom Jobs cannot be exhaustively proven from static repository inspection alone.
 
-### Working sequence and completion rule
+### Working sequence and completion rule — review all, plan once, implement by dependency group
 
-Start with `patch.ts`; finish its evidence and decision before moving to the next file. Reorder the remainder based on newly discovered dependencies or safety risks, recording the reason here. A file can be closed as **KEEP** with documented evidence and no code change. A file closed as **SIMPLIFY/REFACTOR/GREENFIELD REWRITE/REMOVE** requires corresponding implementation, caller migration and validation. When all entries are closed, reconcile `LICENSE`/third-party notices with the actual retained code as part of Packaging; historic credit and legally required notices are distinct from unnecessary implementation dependencies.
+**Do not finish or implement one file before reviewing the next.** Conduct the technical audit of **all 13 registered files first**, then consolidate a single implementation plan and task list before any rewrite/refactor/removal. The `patch.ts` assessment and proposed greenfield design are preliminary inputs to that shared plan, not an instruction to start coding immediately.
+
+**Phase 1 — repository-wide review:** for every registered file, identify real callers and targets, dynamic Job/harness usage, required public interfaces, necessary vs unused functionality, inherited vs GPTWorker-specific logic, correctness/safety risks and alternative implementation options. Complete the audit register with evidence. Keep source-level review and actual runtime validation status distinct.
+
+**Phase 2 — one integrated plan:** resolve overlap and dependencies across files; choose KEEP/SIMPLIFY/REFACTOR/GREENFIELD REWRITE/REMOVE for each with reasons. Partition changes into coherent dependency groups; identify affected files, ordering, stable filenames/exports/caller-visible contracts, expected intentional behavior changes, regression tests, Workspace-boundary tests and rollback/recovery steps. Write task list and acceptance gates **before coding**.
+
+**Phase 3 — grouped implementation and verification:** implement one or more closely related files **together** in the same change batch when they share responsibility/callers or would otherwise require repeated edits. Rewrite in place by default: keep existing file paths and externally called function names/signatures/results, replace internals, do not add adapters unless technically necessary. Run relevant targeted tests for each batch, then full applicable build, `validate:jobs`, regression tests and CI. Perform real-file acceptance only in a disposable confirmed absolute Workspace, including rejection of outside/symlink/junction mutation. Fix failures inside the same batch before advancing.
+
+**Suggested groups, provisional until all 13 reviews finish:** (A) patch + filesystem + path-security interactions; (B) tool-result + tool-annotations + activity-log and their callers; (C) MCP session + server-factory + index transport wiring; (D) instruction-context and associated callers; (E) shell and launcher/tunnel scripts. These are dependency *review clusters*, not automatic requirements to rewrite every file in a cluster. Revisit clustering after the caller maps are complete; avoid a broad concurrent rewrite of unrelated runtime subsystems.
+
+**Completion:** a file may be closed as KEEP based on documented technical evidence and adequate existing tests; changes under SIMPLIFY/REFACTOR/GREENFIELD REWRITE/REMOVE close only after implementation, dependent caller migration and verified tests. Mark the complete audit closed only when every registered file has a recorded decision and every approved change batch meets its acceptance gates. Reconcile `LICENSE`/third-party notices against actual retained/distributed code during Packaging; historical credit and legally required notices remain distinct from implementation choices.
 
 ---
  
