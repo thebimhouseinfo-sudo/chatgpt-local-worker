@@ -20,6 +20,11 @@ const FILESYSTEM_TOOLS = new Set([
   "create_directory", "delete_directory", "copy_file", "move_file",
 ]);
 
+const BROWSER_TOOLS = new Set([
+  "browser_open", "browser_snapshot", "browser_click", "browser_fill",
+  "browser_press", "browser_wait", "browser_screenshot", "browser_get_url", "browser_close",
+]);
+
 const SHELL_TOOLS = new Set([
   "run_command", "start_process", "process_status", "process_output", "stop_process",
 ]);
@@ -37,6 +42,7 @@ export function requiresWorkHandle(toolName: string): boolean {
 export function toolFamily(toolName: string): string {
   if (FILESYSTEM_TOOLS.has(toolName)) return "filesystem";
   if (SHELL_TOOLS.has(toolName)) return "shell";
+  if (BROWSER_TOOLS.has(toolName)) return "browser";
   if (["project_context", "agent_status"].includes(toolName)) {
     return "context";
   }
