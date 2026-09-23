@@ -63,6 +63,7 @@ const tests = [
   "scripts/test-worker-state.mjs",
   "scripts/test-mcp-discover-compat.mjs",
   "scripts/test-dev-coding-harness.mjs",
+  "scripts/test-setup-agent-browser.mjs",
   "scripts/test-dev-planing-harness.mjs",
   "scripts/test-layla-harness.mjs",
   "scripts/test-mto-harness.mjs",
