@@ -31,7 +31,16 @@ try {
   assert.equal(getBrowserCapability({ configPath: cfg, nodeMajor: 24, commandProbe: healthy }).advertised, true);
   assert.equal(getBrowserCapability({ configPath: cfg, nodeMajor: 24, commandProbe: () => ({ status: 0, stdout: "agent-browser 0.37.0" }) }).advertised, false);
 
-  // Version match without a completed MCP handshake is insufficient.\n  await fs.writeFile(cfg, JSON.stringify({ schema_version: 1, enabled: true,\n    candidate_version: "0.38.1", last_setup_status: "PENDING_MCP_HEALTH" }));\n  assert.equal(getBrowserCapability({ configPath: cfg, nodeMajor: 24, commandProbe: healthy }).advertised, false);\n  await fs.writeFile(cfg, JSON.stringify({ schema_version: 1, enabled: true,\n    candidate_version: "0.38.1", last_setup_status: "READY", mcp_contract_version: 1,\n    mcp_verified_at: new Date(Date.now() - 48 * 60 * 60_000).toISOString() }));\n  assert.equal(getBrowserCapability({ configPath: cfg, nodeMajor: 24, commandProbe: healthy }).advertised, false);\n\n  const capture = new Map();
+  // Version match without a completed MCP handshake is insufficient.
+  await fs.writeFile(cfg, JSON.stringify({ schema_version: 1, enabled: true,
+    candidate_version: "0.38.1", last_setup_status: "PENDING_MCP_HEALTH" }));
+  assert.equal(getBrowserCapability({ configPath: cfg, nodeMajor: 24, commandProbe: healthy }).advertised, false);
+  await fs.writeFile(cfg, JSON.stringify({ schema_version: 1, enabled: true,
+    candidate_version: "0.38.1", last_setup_status: "READY", mcp_contract_version: 1,
+    mcp_verified_at: new Date(Date.now() - 48 * 60 * 60_000).toISOString() }));
+  assert.equal(getBrowserCapability({ configPath: cfg, nodeMajor: 24, commandProbe: healthy }).advertised, false);
+
+  const capture = new Map();
   const serverStub = {
     registerTool(name, config, callback) {
       capture.set(name, { config, callback });
