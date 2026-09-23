@@ -124,6 +124,10 @@ The group reflects the previous cleanup's provenance assessment, **not** an exac
 
 Add any newly discovered inherited file to this register with its **real callers**; do not silently expand or narrow scope.
 
+### Rewrite-in-place interface rule
+
+**Default for every reviewed file:** when other production files call its exports, retain the **same filename/path, exported function names and caller-visible signatures/results** and replace the implementation *inside* that module. This is a rewrite of the core, not a new parallel module plus a compatibility adapter. Track every actual caller first, including dynamic Job/work-tool contracts and test consumers. Preserve caller-visible behavior except for intentional, documented correctness/security improvements, which require regression tests and explicit error/result semantics. Add or rename a public entry point or create an adapter only when there is a demonstrated need and all callers can be migrated safely. Internal private functions, data structures and algorithms may be changed freely within the tested contract.
+
 ### Required assessment for every file
 
 1. **Pin evidence:** record the GPTWorker HEAD and the actual source/version of the inherited implementation where available. Compare implementations function-by-function; distinguish copied, modified and independently implemented code. Do not infer provenance from identical filenames alone.
@@ -257,7 +261,7 @@ For a greenfield proposal, record a compact design spec **before coding**: requi
 
 **Recommended migration plan:**
 1. Capture current outward `filesystem.ts` contracts and job/harness patch instructions. Add tests for both single-file and explicit multi-file formats **through `work_tool`** as well as pure helpers.
-2. Implement new pure parse/apply/preview logic behind an adapter exporting the four current names. Keep the existing `filesystem.ts` MCP operation/schema, `work-gateway.ts` family mapping and `server-factory.ts` lease/Workspace wrapper unchanged initially.
+2. **Rewrite in place:** keep `src/lib/patch.ts` at its existing path and retain the exact externally used exported function names (`applyUnifiedPatchToText`, `applyMultiFilePatch`, `isMultiFilePatch`, `buildSimpleDiff`), callable signatures, return/result shapes and caller-relevant error behavior. Replace their internal implementations and private helpers directly; do not introduce a separate compatibility adapter unless a specific technical need is demonstrated. Keep the existing `filesystem.ts` MCP operation/schema, `work-gateway.ts` family mapping and `server-factory.ts` lease/Workspace wrapper unchanged except for any explicitly justified compatibility or safety fixes.
 3. Isolate on-disk multi-file staging/commit/recovery. Preflight all targets/content before mutation; detect changes between preflight and commit; validate the confirmed Workspace immediately before each mutation and address symlink/junction and path-swap race limitations. Do not promise unconditional atomicity or perfect rollback.
 4. Add real-file acceptance in a disposable confirmed absolute Workspace: positive add/update/delete, dry-run, mismatch, duplicate target, partial-write fault injection and recovery, outside path, symlink/junction. Test `edit_file` diff separately.
 5. Run targeted patch/filesystem/work-gateway/job tests, TypeScript build, `validate:jobs`, the default test suite and applicable CI. Only after these pass remove the old internal implementation. If unexpectedly broad compatibility requirements surface, revisit REFACTOR instead of forcing greenfield.
