@@ -88,7 +88,7 @@ Examples:
 - build;
 - dependency/API compatibility;
 - security checks where relevant;
-- `git diff --check`;
+- `git diff --check` for Git repositories; equivalent snapshot-based whitespace, scope and diff inspection for plain folders;
 - no unrelated accidental edits.
 
 ### B. Runtime/Product verification
@@ -321,7 +321,7 @@ remaining_goal_gap:
 next_action:
 ```
 
-This state MUST be persisted in the confirmed Workspace (not only in conversation/task notes) using a minimal atomic JSON checkpoint under `.gptworker/dev-coding/<task-id-or-execution-id>/state.json` (or a repository-consistent equivalent verified during P0). The corresponding folder must be ignored by Git by default. Persist after each meaningful iteration and before an external handoff; include task/goal and acceptance-signal IDs, baseline revision/dirty-worktree fingerprint, attempt count, last failing check and result, observed evidence references, current hypothesis, last code/test changes, remaining gaps, elapsed execution time, stop reason, and next action. Never persist secrets or raw browser data. On chat reset/resume, validate the active workspace, task ID, work-handle generation, source revision and changed-file fingerprint before trusting the checkpoint; detect drift and request a fresh check/replan rather than blindly replaying a stale action. Keep bounded history (e.g. last 8 attempts) and write atomically via temporary file plus rename with normal Workspace path protections. Do not build a second Job state/orchestration subsystem.
+This state MUST be persisted in the confirmed Workspace (not only in conversation/task notes) using a minimal atomic JSON checkpoint under `.gptworker/dev-coding/<task-id-or-execution-id>/state.json` (or a repository-consistent equivalent verified during P0). The corresponding folder must be ignored by Git by default **when Git exists**; the feature works without Git. Persist after each meaningful iteration and before an external handoff; include task/goal and acceptance-signal IDs, baseline content-hash manifest and original-file snapshots (plus Git SHA/dirty fingerprint only when Git exists), attempt count, last failing check and result, observed evidence references, current hypothesis, last code/test changes, remaining gaps, elapsed execution time, stop reason, and next action. Never persist secrets or raw browser data. On chat reset/resume, validate the active workspace, task ID, work-handle generation, current manifest/file hashes and work-handle generation (plus Git revision only if present) before trusting the checkpoint; detect drift and request a fresh check/replan rather than blindly replaying a stale action. Keep bounded history (e.g. last 8 attempts) and write atomically via temporary file plus rename with normal Workspace path protections. Do not build a second Job state/orchestration subsystem.
 
 ### Stop conditions
 
@@ -338,10 +338,24 @@ Default per-task execution budget: **8 meaningful implementation/repair iteratio
 
 ### Non-destructive rollback policy
 
-Before editing, record baseline commit and dirty/untracked state, then use the existing filesystem checkpoint safeguards where available. Track agent-owned changed paths and patches independently from user-owned changes. On Goal FAIL or budget exhaustion, **preserve partial work and evidence by default**; tell the user what changed, which checks failed, what remains, and the precise scoped restore options. Never run `git reset --hard`, `git clean`, mass revert, or automatic branch rollback against a dirty worktree. An explicit user-approved rollback may reverse only demonstrably agent-owned changes without destroying intervening user modifications; otherwise mark the case as needing manual conflict resolution.
+Before editing, ALWAYS record baseline file-content hashes and scoped pre-edit snapshots in a private, approved absolute path inside the confirmed Workspace. If the target is a Git repository, additionally record baseline commit and dirty/untracked state; Git is optional. Use the existing filesystem checkpoint safeguards where available. Track agent-owned changed paths and patches independently from user-owned changes. On Goal FAIL or budget exhaustion, **preserve partial work and evidence by default**; tell the user what changed, which checks failed, what remains, and the precise scoped restore options. Never run `git reset --hard`, `git clean`, mass revert, or automatic branch rollback against a dirty worktree. An explicit user-approved rollback may reverse only demonstrably agent-owned changes without destroying intervening user modifications; otherwise mark the case as needing manual conflict resolution.
 
 Do not stop merely because code was written, a patch was generated, or one test suite passed.
 
+
+### Git-optional local execution contract
+
+Dev Coding is a **local filesystem coding agent**; a target Workspace may be a plain folder with **no `.git` directory**, or a Git repository in which the agent has no permission to call Git. Neither case disables test authoring, execution, browser QA, goal verification, diff review, persistence or safe recovery. Audit repository availability **and authorization** independently at preflight; do not auto-run `git init`, `git stash`, `git reset`, `git clean` or `git push`.
+
+**Local revision and staleness:** Before editing, produce a scoped content-addressed manifest for the approved changed files, existing tests, relevant configuration and direct dependency/caller inputs. Record relative path, presence/absence, content hash (SHA-256), content size and checked file type, not timestamps as the sole correctness signal. Include the contract's accepted scope and hash this canonical manifest into `baseline_fingerprint`. After each check, bind evidence to a **post-check input manifest fingerprint** and test version/hash; before reuse/resume/claiming DONE, recompute the fingerprint. If relevant files drift, invalidate affected evidence and run the applicable checks again. Git SHA is supplementary only when Git exists and usage is authorized. Expanding the tracked scope requires recording the newly discovered files and invalidating relevant prior checks.
+
+**Snapshot diff and safe recovery:** Before the first agent edit to each permitted file, snapshot its original bytes/metadata inside the Workspace-controlled, gitignored task evidence folder. For new files, record absent baseline explicitly. Maintain a task-owned changed-path ledger with before/after hashes. Compute internal before/after file diffs, whitespace issues, scope violations and the DIFF_REVIEW checklist from these snapshots **without Git**. For large/binary files, store bounded safe backups or mark restoration unavailable before editing; never imply a recoverable snapshot exists if capture failed. Keep user-owned changes separate. On `FAILED_VALIDATION`, retain partial work and evidence by default. An explicitly approved scoped restore may only change an agent-owned path when its current hash matches the agent's recorded last-written hash, otherwise stop for manual reconciliation. Never silently overwrite edits made after the agent's last write.
+
+**Git/CI branching:** Use `git diff --check`, exact commit SHA, branch/push and hosted CI only if a Git repository exists, the Job is authorized to use Git, and delivery requires it. Without Git, run local project test/build commands as **CI-equivalent validation** but label them local (not hosted CI). Set hosted CI to `N/A` when not applicable; to `UNAVAILABLE` when required but inaccessible. Do not require a Git commit to complete a local-only task.
+
+**Preflight tests:** Cover a plain local folder, a Git folder with Git commands forbidden, a normal authorized Git repo, stale content hashes after manual edits, changed tests after a green run, and safe snapshot-based restore on partial failure.
+
+---
 
 ## 7. Test-script generation capability
 
@@ -427,7 +441,7 @@ A task may only be reported as complete when:
 
 Do not equate `N/A` or `UNAVAILABLE` with PASS.
 
-`DIFF_REVIEW=PASS` requires recorded evidence for every applicable item: all changed files are in approved scope; no user-owned or unrelated edits were overwritten; `git diff --check` succeeds; no disabled/relaxed/deleted tests or weakened lint/type/security config without explicit justification; no debug leftovers, secrets, accidental generated artifacts, broad formatting churn, or comment-out-instead-of-fix; changed callers/interfaces and dependency effects were inspected. A required failed or unchecked item yields FAIL/UNVERIFIED, not the agent's unsupported subjective PASS. Capture a compact machine-readable checklist and link it to the actual revision/diff fingerprint.
+`DIFF_REVIEW=PASS` requires recorded evidence for every applicable item: all changed files are in approved scope; no user-owned or unrelated edits were overwritten; snapshot-based whitespace/patch checks succeed (also `git diff --check` if Git is present); no disabled/relaxed/deleted tests or weakened lint/type/security config without explicit justification; no debug leftovers, secrets, accidental generated artifacts, broad formatting churn, or comment-out-instead-of-fix; changed callers/interfaces and dependency effects were inspected. A required failed or unchecked item yields FAIL/UNVERIFIED, not the agent's unsupported subjective PASS. Capture a compact machine-readable checklist and link it to the actual content-manifest/diff fingerprint (and Git SHA if present).
 
 ---
 
@@ -523,7 +537,7 @@ NO: save disabled preference, do not download or launch browser, complete normal
 
 ### 10.6 Browser result and evidence contract
 
-Preserve MCP `content` item types (text/image) and `isError`; separate user-visible result from redacted operational telemetry. For screenshot results, use only verified upstream-supported output modes; persist permitted images under the workspace-scoped evidence directory when needed, with byte and type checks. Associate evidence with task/acceptance signal, work execution, checked URL/origin, timestamp, and relevant source revision or commit. If screenshot storage or upstream schema cannot be safely verified, mark browser verification `UNAVAILABLE` rather than falsely PASS.
+Preserve MCP `content` item types (text/image) and `isError`; separate user-visible result from redacted operational telemetry. For screenshot results, use only verified upstream-supported output modes; persist permitted images under the workspace-scoped evidence directory when needed, with byte and type checks. Associate evidence with task/acceptance signal, work execution, checked URL/origin, timestamp, and relevant content-manifest fingerprint and optional Git SHA. If screenshot storage or upstream schema cannot be safely verified, mark browser verification `UNAVAILABLE` rather than falsely PASS.
 
 Use snapshot/semantic locators for interaction where possible; take screenshots when actual visual inspection is important. Preserve useful failure messages without dumping page content or secrets into logs.
 
