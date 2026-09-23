@@ -1,13 +1,12 @@
 import fs from "node:fs/promises";
 import path from "node:path";
-import { createHash } from "node:crypto";
+import { createHash, randomUUID } from "node:crypto";
 
 export const CHECKPOINT_SCHEMA = 1;
 const MAX_CHECKPOINTS = 40;
 const MAX_CHECKPOINT_BYTES = 256 * 1024;
 const MAX_SNAPSHOT_BYTES = 8 * 1024 * 1024;
 const TASK_ID = /^[a-zA-Z0-9][a-zA-Z0-9_-]{0,79}$/;
-const HASH = /^[a-f0-9]{64}$/;
 
 function digest(bytes) { return createHash("sha256").update(bytes).digest("hex"); }
 const currentIso = () => new Date().toISOString();
@@ -57,7 +56,7 @@ async function taskDir(workspace, taskId) {
 }
 
 async function atomicJson(file, data) {
-  const temp = file + "." + process.pid + "." + createHash("sha256").update(String(Date.now())).digest("hex").slice(0, 8) + ".tmp";
+  const temp = file + "." + process.pid + "." + randomUUID() + ".tmp";
   await fs.mkdir(path.dirname(file), { recursive: true });
   try {
     await fs.writeFile(temp, JSON.stringify(data, null, 2) + "\n", { flag: "wx", mode: 0o600 });
@@ -91,6 +90,11 @@ export async function createCheckpoint(workspace, taskId, { goal, acceptance = [
   const dir = await taskDir(root, taskId);
   const scope = await Promise.all(scopePaths.map(p => contained(root, p)));
   const manifest = await hashManifest(root, scope.map(x => x.absolute));
+  // Never truncate a checkpoint from a prior conversation or lose its snapshots.
+  // Users must explicitly resume an unfinished task or choose a fresh task ID.
+  const existing = path.join(dir, "state.json");
+  await fs.lstat(existing).then(() => { throw new Error("CHECKPOINT_EXISTS: resume or use a fresh task ID"); },
+    error => { if (error.code !== "ENOENT") throw error; });
   const state = {
     schema_version: CHECKPOINT_SCHEMA, task_id: taskId, workspace: root,
     goal, acceptance, scope_paths: scope.map(x => x.absolute),
@@ -106,6 +110,7 @@ export async function createCheckpoint(workspace, taskId, { goal, acceptance = [
 export async function readCheckpoint(workspace, taskId) {
   const root = await canonicalWorkspace(workspace);
   const dir = await taskDir(root, taskId);
+  await contained(root, path.join(dir, "state.json"));
   const state = await readJson(path.join(dir, "state.json"));
   if (state.schema_version !== CHECKPOINT_SCHEMA || state.task_id !== taskId || state.workspace !== root ||
       !Array.isArray(state.scope_paths) || !Array.isArray(state.history)) throw new Error("Checkpoint schema/Workspace mismatch");
@@ -115,13 +120,19 @@ export async function readCheckpoint(workspace, taskId) {
 export async function saveCheckpoint(workspace, taskId, state) {
   const existing = await readCheckpoint(workspace, taskId);
   if (existing.task_id !== state.task_id || existing.workspace !== state.workspace) throw new Error("Checkpoint identity changed");
+  if (!Array.isArray(state.history) || !Array.isArray(state.scope_paths) ||
+      JSON.stringify(existing.scope_paths) !== JSON.stringify(state.scope_paths))
+    throw new Error("CHECKPOINT_SCOPE_CHANGED: use separately approved scope expansion");
   const clean = { ...state, schema_version: CHECKPOINT_SCHEMA, history: state.history.slice(-8), updated_at: currentIso() };
-  await atomicJson(path.join(await taskDir(workspace, taskId), "state.json"), clean);
+  const file = path.join(await taskDir(workspace, taskId), "state.json");
+  await contained(workspace, file);
+  await atomicJson(file, clean);
   return clean;
 }
 export async function discoverCheckpoints(workspace, requestedId) {
   const root = await canonicalWorkspace(workspace);
   const container = path.join(root, ".gptworker", "dev-coding");
+  await contained(root, container);
   const entries = await fs.readdir(container, { withFileTypes: true }).catch(error => error.code === "ENOENT" ? [] : Promise.reject(error));
   const candidates = [];
   for (const entry of entries.slice(0, MAX_CHECKPOINTS)) {
@@ -166,6 +177,7 @@ export async function snapshotBeforeEdit(workspace, taskId, absoluteFile) {
     const dest = path.join(await taskDir(workspace, taskId), "snapshots", digest(relative));
     await contained(workspace, dest);
     await fs.mkdir(path.dirname(dest), { recursive: true });
+    await contained(workspace, dest);
     await fs.writeFile(dest, bytes, { flag: "wx", mode: 0o600 });
     record.snapshot = dest;
   }
@@ -194,9 +206,10 @@ export async function restoreAgentEdit(workspace, taskId, absoluteFile, { approv
   const nowHash = current === null ? null : digest(current);
   if (nowHash !== record.last_written_hash) throw new Error("RESTORE_CONFLICT: user file changed after agent write");
   if (record.existed) {
+    await contained(workspace, record.snapshot);
     const previous = await fs.readFile(record.snapshot);
     if (digest(previous) !== record.before_hash) throw new Error("Snapshot integrity failure");
-    const temp = absolute + ".gptworker-restore-" + process.pid;
+    const temp = absolute + ".gptworker-restore-" + randomUUID();
     await fs.writeFile(temp, previous, { flag: "wx" });
     await fs.rename(temp, absolute);
   } else {
