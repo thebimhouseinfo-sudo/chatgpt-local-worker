@@ -54,7 +54,7 @@ export async function runNegativeControl({
   workspace, implementationFile, mutantFile, testFile, supportFiles = [],
   acceptanceId, failureMarker, timeoutMs = MAX_TEST_MS,
 }) {
-  if (typeof acceptanceId !== "string" || !/^[\\w-]{2,80}$/.test(acceptanceId))
+  if (typeof acceptanceId !== "string" || !/^[\w-]{2,80}$/.test(acceptanceId))
     throw new Error("CONTROL_DENIED: named acceptance ID required");
   if (typeof failureMarker !== "string" || failureMarker.length < 5 || failureMarker.length > 200)
     throw new Error("CONTROL_DENIED: relevant failing assertion marker required");
@@ -69,7 +69,7 @@ export async function runNegativeControl({
   const [target, mutant, test, ...support] = canonical;
   if (new Set(canonical).size !== canonical.length)
     throw new Error("CONTROL_DENIED: target, mutant, unchanged test and support must differ");
-  if (!/\\.(?:test|spec)\\.[cm]?[jt]sx?$/i.test(test))
+  if (!/\.(?:test|spec)\.[cm]?[jt]sx?$/i.test(test))
     throw new Error("CONTROL_DENIED: require a project test file");
   const [original, faulty, testBytes] = await Promise.all([
     fs.readFile(target), fs.readFile(mutant), fs.readFile(test),
