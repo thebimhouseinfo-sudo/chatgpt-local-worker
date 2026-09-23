@@ -115,9 +115,9 @@ The group reflects the previous cleanup's provenance assessment, **not** an exac
 | `src/lib/activity-log.ts` | Active tool/session/runtime logging; identify duplicate or unconsumed paths | **SOURCE REVIEW COMPLETE** | **KEEP unchanged** |
 | `src/tools/filesystem.ts` | Actual operation consumers, mutation guarantees and residual inherited implementation | **SOURCE REVIEW COMPLETE**; grouped mutation/boundary tests pending | **TARGETED IMPROVEMENTS approved; NO wholesale rewrite** |
 | `src/tools/shell.ts` | Stateless command/process execution and Workspace escape limitations | **SOURCE REVIEW COMPLETE** | **KEEP unchanged** |
-| `src/lib/path-security.ts` | Absolute/canonical paths, symlink/junction behavior and scoped authority | **SOURCE REVIEW COMPLETE**; Windows/TOCTOU integration pending | **KEEP architecture; targeted boundary hardening candidate** |
-| `src/index.ts` | HTTP/MCP entry, startup/shutdown and any remaining unnecessary inherited wiring | **SOURCE REVIEW COMPLETE**; HTTP/session shutdown integration pending | **KEEP entrypoint; targeted error/shutdown/health hardening candidate** |
-| `src/server-factory.ts` | Tool registration, leases and scope/authority wiring | **SOURCE REVIEW COMPLETE**; actual lease/caller negative tests pending | **KEEP core architecture; test-first narrow fixes only** |
+| `src/lib/path-security.ts` | Absolute/canonical paths, symlink/junction behavior and scoped authority | **SOURCE REVIEW COMPLETE**; Windows/TOCTOU integration pending | **TARGETED SECURITY HARDENING approved; no rewrite** |
+| `src/index.ts` | HTTP/MCP entry, startup/shutdown and any remaining unnecessary inherited wiring | **SOURCE REVIEW COMPLETE** | **KEEP unchanged** |
+| `src/server-factory.ts` | Tool registration, leases and scope/authority wiring | **SOURCE REVIEW COMPLETE** | **KEEP unchanged** |
 | `src/lib/instruction-context.ts` | Instruction assembly and consumer-specific runtime context | NOT STARTED | UNDECIDED |
 | `start.ps1` | Actual launcher modes/callers; remaining complexity versus operator needs | NOT STARTED | UNDECIDED |
 | `openai-tunnel.ps1` | Active tunnel setup, diagnostics and recovery; remove only provably unnecessary branches | NOT STARTED | UNDECIDED |
@@ -492,6 +492,11 @@ For a greenfield proposal, record a compact design spec **before coding**: requi
 **Tests:** `scripts/test-work-registration.mjs` verifies work handles, generation, lease counts and idle behavior; `scripts/test-post-review-round2-mapping.mjs` verifies operation routing, `scripts/test-work-gateway.mjs` verifies lazy gateway; full MCP coverage is in `run-all-tests.mjs`. None of these inspected scripts proves all cross-session and negative paths. Add direct wrapper tests for missing/wrong handle, concurrent sessions, Job switch/stop while a tool executes, workspace/support-root boundaries, delegated work_tool and lease count zero after failures.
 
 **Provisional decision:** KEEP the GPTWorker-specific server factory and Tool Lease boundary. Only narrowly scoped bug fixes justified by tests; full greenfield rewrite would risk disrupting the core admission/authority model without a demonstrated benefit.
+
+**User-approved final decisions after Reviews 08–10 (2026-09-23):**
+- **`src/lib/path-security.ts`: KEEP architecture; approve targeted security hardening only.** Strengthen canonical path containment, symlink/junction and nonexistent descendant handling, correct Windows path-edge behavior and mutation-boundary verification, with real tests. Keep current exports, signatures, absolute path requirement, AsyncLocalStorage per-work scope, confirmed Workspace write authority and separate read-only active Job support roots. Do not claim this is an OS sandbox. Coordinate only directly necessary calls in the already approved patch/filesystem security group; do not rewrite unrelated modules.
+- **`src/index.ts`: KEEP unchanged.** Error-handling, /health exposure and shutdown ideas from the review remain observations for tests only, not an authorization to refactor or change this file. If a severe defect is discovered, document it separately before proposing any change.
+- **`src/server-factory.ts`: KEEP unchanged.** Retain existing Tool Lease and Work Handle gate, registration contracts, lazy gateway and session-scoped Job/admission boundaries. Tests may exercise this module, but no changes are approved here; any necessary serious defect fix requires a separately documented decision.
 
 ### Working sequence and completion rule — review all, plan once, implement by dependency group
 
