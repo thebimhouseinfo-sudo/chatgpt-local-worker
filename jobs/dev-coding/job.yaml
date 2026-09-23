@@ -112,6 +112,8 @@
       "harness/planning-bundle-check.mjs",
       "harness/inspect-repo.mjs",
       "harness/execution-preflight.mjs",
+      "harness/task-session.mjs",
+      "harness/negative-control.mjs",
       "harness/task-plan-lint.mjs",
       "harness/quality-gate.mjs",
       "harness/diff-gate.mjs",
