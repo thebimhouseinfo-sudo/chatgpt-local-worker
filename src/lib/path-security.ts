@@ -63,6 +63,9 @@ function pathIsInside(root: string, candidate: string): boolean {
 }
 
 function requireAbsolute(inputPath: string): string {
+  if (typeof inputPath !== "string") {
+    throw new Error("Absolute path must be a string");
+  }
   const trimmed = inputPath.trim();
   if (!trimmed) throw new Error("Path is empty");
   if (!path.isAbsolute(trimmed)) {
@@ -92,8 +95,8 @@ export function runWithWorkspaceScope<T>(
   fn: () => T
 ): T {
   const scope: ExecutionScope = {
-    workspace: path.resolve(cwd),
-    supportRoots: [...new Set(supportRoots.map((root) => path.resolve(root)))],
+    workspace: requireAbsolute(cwd),
+    supportRoots: [...new Set(supportRoots.map(requireAbsolute))],
   };
   return callScope.run(scope, fn);
 }
@@ -120,7 +123,7 @@ export function assertPathInsideWorkspaceSync(
   workspaceRoot: string
 ): string {
   const resolved = requireAbsolute(inputPath);
-  const root = path.resolve(workspaceRoot);
+  const root = requireAbsolute(workspaceRoot);
   const canonicalRoot = canonicalPotentialPathSync(root);
   const canonicalCandidate = canonicalPotentialPathSync(resolved);
 
