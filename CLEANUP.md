@@ -285,8 +285,8 @@ This is a **temporary execution checklist**, not a final architecture freeze. It
 
 - [ ] Confirm persisted cwd/history still has no startup/runtime restore caller.
 - [ ] Remove `restoreShellFromDisk()` immediately if still unused.
-- [ ] During shell rewrite, remove disk persistence for raw recent commands.
-- [ ] Remove the file entirely if no remaining state genuinely needs cross-process persistence.
+- [x] Remove disk persistence for raw recent commands.
+- [x] Remove `src/lib/global-shell-state.ts`; no remaining shell state requires persistence.
 - [ ] Remove obsolete `MCP_SHELL_STATE_DIR` / `.mcp-state` docs/config if no longer used.
 
 **Preferred temporary decision:** remove after the new shell executor no longer imports it.
