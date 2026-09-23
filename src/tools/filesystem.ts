@@ -165,6 +165,7 @@ export function registerFilesystemTools(server: McpServer): void {
     async ({ path: filePath, content }) => {
       const validPath = await validatePath(filePath);
       await fs.mkdir(path.dirname(validPath), { recursive: true });
+      await validatePath(validPath);
       await fs.writeFile(validPath, content, "utf-8");
       const bytes = Buffer.byteLength(content, "utf-8");
 
@@ -207,6 +208,7 @@ export function registerFilesystemTools(server: McpServer): void {
       const diff = buildSimpleDiff(original, next);
 
       if (!dry_run) {
+        await validatePath(validPath);
         await fs.writeFile(validPath, next, "utf-8");
       }
 
@@ -315,6 +317,7 @@ export function registerFilesystemTools(server: McpServer): void {
       const diff = buildSimpleDiff(original, next);
 
       if (!dry_run) {
+        await validatePath(validPath);
         await fs.writeFile(validPath, next, "utf-8");
       }
 
@@ -611,6 +614,8 @@ export function registerFilesystemTools(server: McpServer): void {
       const dest = await validatePath(destination);
       await requireFile(src);
       await fs.mkdir(path.dirname(dest), { recursive: true });
+      await validateReadPath(src);
+      await validatePath(dest);
       await fs.copyFile(src, dest);
 
       logToolActivity({
@@ -650,6 +655,8 @@ export function registerFilesystemTools(server: McpServer): void {
 
       await fs.stat(src);
       await fs.mkdir(path.dirname(dest), { recursive: true });
+      await validatePath(src);
+      await validatePath(dest);
       await fs.rename(src, dest);
 
       logToolActivity({
