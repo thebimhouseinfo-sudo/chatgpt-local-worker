@@ -177,6 +177,9 @@ jobs:
       - name: Actual upstream MCP localhost browser smoke
         run: node scripts/test-browser-windows-smoke.mjs
 
+      - name: Full GPTWorker work_tool browser E2E and cross-Job security
+        run: node scripts/test-browser-gateway-windows-e2e.mjs
+
       - name: Revoke consent and prove disabled discovery
         shell: pwsh
         run: |
