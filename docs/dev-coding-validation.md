@@ -2,6 +2,36 @@
 
 **Status:** Automated source tests cover the new checkpoint, task-evidence gate, setup state and MCP schema checks. **Actual installed agent-browser on the user's Windows machine and the full A01–A36 matrix must still be verified before declaring the complete upgrade DONE.** A successful GitHub CI run on Node 22 does not constitute browser E2E on Windows/Node 24.
 
+## One-command regression and evidence report
+
+The preferred source validation command from this repo is:
+
+```powershell
+npm ci
+node scripts/run-dev-coding-acceptance.mjs
+```
+
+The script executes the build, Job validation, checkpoint/CLI/negative-control/Goal/browser-contract focused checks, default suite and runtime suite, **stopping on the first failure**. It writes a concise JSON result into the local ignored `.gptworker/dev-coding/acceptance/source-validation.json`. Expected automated source-only outcome: `SOURCE_PASS_BROWSER_AND_MANUAL_ACCEPTANCE_PENDING`. This is not full Goal or 36-case acceptance. To additionally run *real* optional pinned Vercel browser on Windows/Node 24, first explicitly enable with `node scripts/setup-agent-browser.mjs Y` and then use:
+
+```powershell
+node scripts/run-dev-coding-acceptance.mjs --browser
+```
+
+Expected browser automation outcome (if all real upstream and gateway checks pass): `AUTOMATED_BROWSER_PASS_MANUAL_ACCEPTANCE_PENDING`. This mode performs real local Chromium actions; it does not attach to personal Chrome profiles.
+
+For a specific task, the new session harness exposes explicit steps. Supply only **confirmed absolute Workspace paths** and never re-use an old work authority token:
+
+```powershell
+node jobs/dev-coding/harness/task-session.mjs discover --cwd "D:\\MyProject"
+node jobs/dev-coding/harness/task-session.mjs begin --cwd "D:\\MyProject" --task-id TASK-001 --goal "Fix concrete behavior" --scope '["D:\\\\MyProject\\\\app.js"]' --acceptance '["observed-behavior"]'
+node jobs/dev-coding/harness/task-session.mjs capture --cwd "D:\\MyProject" --task-id TASK-001 --file "D:\\MyProject\\app.js"
+# Only now may the confirmed Job edit the approved file.
+node jobs/dev-coding/harness/task-session.mjs wrote --cwd "D:\\MyProject" --task-id TASK-001 --file "D:\\MyProject\\app.js"
+node jobs/dev-coding/harness/task-session.mjs diff --cwd "D:\\MyProject" --task-id TASK-001
+```
+
+PowerShell JSON quoting and path escaping depend on the shell; verify the parsed `--scope` array rather than copying an unadjusted example into another drive. For behavior-specific negative-control evidence, use `jobs/dev-coding/harness/negative-control.mjs` with an approved existing target file, *separate* faulty implementation fixture, unchanged `*.test.mjs` and an assertion marker that appears **only in the failing behavioral assertion**.
+
 ## 1. Source validation (any supported local development host)
 
 Open PowerShell in an up-to-date clone of `thebimhouseinfo-sudo/chatgpt-local-worker`:
@@ -14,6 +44,8 @@ npm run build
 npm run validate:jobs
 node scripts/test-dev-coding-checkpoint.mjs
 node scripts/test-dev-coding-completion.mjs
+node scripts/test-dev-coding-task-session.mjs
+node scripts/test-dev-coding-negative-control.mjs
 node scripts/test-setup-agent-browser.mjs
 node scripts/test-browser-capability.mjs
 node scripts/test-browser-mcp-contract.mjs
@@ -55,6 +87,7 @@ node scripts/setup-agent-browser.mjs Y
 agent-browser --version
 agent-browser doctor
 node scripts/test-browser-windows-smoke.mjs
+node scripts/test-browser-gateway-windows-e2e.mjs
 ```
 
 **Expected:** setup reports `READY` only after pinned install, Chrome installation, doctor, real SDK MCP initialize and live paginated `tools/list` schema verification. A mismatch or failed command reports `UNAVAILABLE` and **no browser tool is advertised**. The smoke command runs a temporary localhost HTML fixture and performs `open → snapshot → fill → click → get_text → screenshot → get_url → close` through **actual upstream MCP stdio**, returning JSON `result: PASS`, seven PASS checks and a nonempty screenshot under `.gptworker/dev-coding/windows-browser-smoke/`. Any failure should exit nonzero and preserve the error and partial report. **This smoke verifies upstream MCP, not the entire GPTWorker authorization/lifecycle layer.**
