@@ -109,7 +109,7 @@ The group reflects the previous cleanup's provenance assessment, **not** an exac
 | File | Current responsibility / review focus | Review state | Decision |
 |---|---|---|---|
 | `src/lib/patch.ts` | Patch parser, hunk matching, diff generation and multi-file mutation | **DESIGN REVIEW**; targeted runtime tests pending | **GREENFIELD REWRITE preferred candidate; not final** |
-| `src/lib/mcp-session-manager.ts` | MCP transport, sessions and recovery; identify indispensable state/compatibility paths | **SOURCE REVIEW COMPLETE**; runtime concurrency/SDK acceptance pending | **KEEP capabilities; REFACTOR vs GREENFIELD undecided** |
+| `src/lib/mcp-session-manager.ts` | MCP transport, sessions and recovery; identify indispensable state/compatibility paths | **SOURCE REVIEW COMPLETE**; targeted transport regression tests pending | **KEEP; targeted fixes only for demonstrated defects** |
 | `src/lib/tool-result.ts` | Shared result envelope/schema; enumerate consumers and minimum required contract | NOT STARTED | UNDECIDED |
 | `src/lib/tool-annotations.ts` | MCP annotations and presentation-only auto-approve hints | NOT STARTED | UNDECIDED |
 | `src/lib/activity-log.ts` | Active tool/session/runtime logging; identify duplicate or unconsumed paths | NOT STARTED | UNDECIDED |
@@ -313,7 +313,7 @@ For a greenfield proposal, record a compact design spec **before coding**: requi
 
 **Acceptance tests before final decision:** initialize and normal request flow; concurrent POST/DELETE; long-lived GET/SSE plus concurrent POST; explicit DELETE grace with in-flight tool; TTL expiry; recovery enabled/disabled and concurrent stale-ID requests; loopback init/notification failure; duplicate/invalid protocol headers; session cleanup/shutdown; no leaked pending recovery or timers; modern `server/discover` fallback; separation of transport recovery from Job authority. Include real HTTP/SDK integration, not just source-string tests.
 
-**Provisional decision:** **KEEP functional capabilities; REFACTOR vs GREENFIELD REWRITE undecided** pending transport-level evidence. This module is more protocol-coupled than `patch.ts`; implementation replacement is warranted only if requirements-first design demonstrably reduces complexity without degrading client compatibility.
+**User-approved decision: KEEP the existing module and its implementation as the baseline.** MCP session handling and client compatibility are core capabilities; do not undertake greenfield rewriting, broad refactoring or small dead-code cleanups merely to reduce line count. Retain rarely used recovery/compatibility paths when they provide useful resilience. The DELETE grace, concurrent recovery, cleanup/shutdown and transport-resource concerns above remain **test hypotheses**, not confirmed defects. Include focused regression tests in the eventual related integration test batch; make narrowly scoped changes only when a defect or substantial technical benefit is demonstrated. Preserve existing file path/exports and the separation from Tool Lease. Existing provenance and applicable license notices remain in place.
 
 ### Working sequence and completion rule — review all, plan once, implement by dependency group
 
