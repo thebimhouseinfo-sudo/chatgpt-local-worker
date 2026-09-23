@@ -33,6 +33,16 @@ await fs.writeFile(outsideFile, "outside\n", "utf8");
 await fs.writeFile(supportSkill, "# support skill\n", "utf8");
 await fs.writeFile(supportHarness, "console.log('support harness');\n", "utf8");
 
+// A scoped Job must never silently accept a relative or malformed root.
+assert.throws(
+  () => pathSecurity.runWithWorkspaceScope("relative-workspace", [], () => {}),
+  /Absolute path required/
+);
+assert.throws(
+  () => pathSecurity.runWithWorkspaceScope(workspace, ["relative-support"], () => {}),
+  /Absolute path required/
+);
+
 // Pre-confirm/control-plane absolute path validation remains possible without
 // granting active Job authority.
 assert.equal(
