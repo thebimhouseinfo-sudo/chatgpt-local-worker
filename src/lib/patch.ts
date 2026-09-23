@@ -46,6 +46,9 @@ function parsePatch(patchText: string): ParsedHunk[] {
     }
 
     const headerMatch = line.match(/^@@\s*-(\d+)(?:,(\d+))?\s+\+(\d+)(?:,(\d+))?\s+@@/);
+    if (line !== "@@" && !headerMatch) {
+      throw new Error(`Invalid patch hunk header: ${line}`);
+    }
     const hunk: ParsedHunk = {
       oldStart: headerMatch ? Number(headerMatch[1]) : undefined,
       lines: [],
