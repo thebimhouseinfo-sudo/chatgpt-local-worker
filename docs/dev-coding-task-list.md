@@ -6,6 +6,15 @@
 **Current Job:** `jobs/dev-coding/job.yaml` (`1.4.2` at planning time).  
 **Status vocabulary:** `TODO` → `READY` → `IN_PROGRESS` → `DONE`; use `BLOCKED` with a specific dependency, and `FAILED_VALIDATION` / `ENVIRONMENT_LIMIT` in evidence where applicable.
 
+## Implementation progress — 2026-09-23
+
+**Partially implemented; no completion claim for B0/B1/B3.**
+
+- P0 code/caller audit: inspected work-gateway's static `z.enum`, server work-handle/lease wrapper, runtime families and upstream integration points. Baseline CI for initial documentation and new setup helper passed, but the full upgrade acceptance suite is not implemented.
+- B0 source audit: created [`browser-mcp-contract.md`](./browser-mcp-contract.md) with pinned **candidate** `agent-browser@0.38.1`. Its npm package requires Node >=24 while GPTWorker's current CI includes Node 22. Real Windows MCP/browser compatibility remains **PENDING**.
+- B1 partial implementation: `setup.bat` now offers opt-in YES/NO and calls `scripts/setup-agent-browser.mjs`, which uses the pinned official install/Chrome-install/doctor sequence on compatible Node, otherwise marks browser `UNAVAILABLE`; NO marks `DISABLED`. Added `scripts/test-setup-agent-browser.mjs` to the default test suite. **Not DONE:** runtime health, MCP schema gating and Windows interactive smoke.
+- **Important fail-closed current behavior:** Browser family/operations have **not** been registered in `work_tool` yet. Until B2/B3 implement the adapter and real discovery/authorization gates, new setup only records preference/diagnostic state; installed browser is not exposed to ChatGPT.
+
 ## 0. Execution rules
 
 - Only one implementation batch should be `IN_PROGRESS` at a time unless its files and gates are independent. Complete its focused regression checks and record evidence before moving on.
