@@ -113,7 +113,7 @@ assert.equal(active.state.phase, "active");
 assert.equal(active.job.id, "dev-coding");
 assert.equal(active.job.status, "ready");
 assert.equal(active.skills.length, 13);
-assert.equal(active.harness.length, 10);
+assert.equal(active.harness.length, 12);
 assert.equal(active.validators.length, 2);
 
 runtime.stop();
