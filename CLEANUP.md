@@ -88,6 +88,20 @@ The user pulled the current repository code and reports that local testing compl
 
 **Objective:** identify actual runtime usage; eliminate unused/duplicate functionality; simplify or redesign code where there is a concrete benefit; keep valuable inherited algorithms or infrastructure when replacing them would add risk without meaningful improvement. This is **not** a project to erase Hoangcoder's name or rewrite code solely for attribution. Preserve the original MIT attribution for any substantial inherited code still distributed; revisit the notices only after provenance has been audited.
 
+### Dev Coding scope: local-first; Git/GitHub optional
+
+**Dev Coding is a local coding agent, not a GitHub agent.** Its primary workflow is to inspect, create, edit, refactor, debug, build and test code **inside the user's explicitly confirmed absolute local Workspace**. It may use the Job's existing local skills/harness and available host programming tools. Preserve the confirmed-Workspace mutation boundary and work-handle authority for all Jobs, including Custom Jobs.
+
+Git and GitHub are **optional external CLI conveniences**, not GPTWorker core capabilities or required dependencies:
+
+- When the machine has `git` and/or `gh` installed and a task actually requires them, Dev Coding may run ordinary commands through the existing Workspace-bound `run_command` shell surface, subject to its normal path and execution safeguards.
+- Local coding, editing, debugging, build and tests must work even when neither CLI is installed or authenticated.
+- Do not rebuild a dedicated Git/GitHub MCP family, duplicate shell-backed Git operations, add GitHub-specific coding skills/harness solely for integration, or add automatic GitHub workflows to the Dev Coding core.
+- Do not infer permission to commit, push, create PRs or otherwise mutate a remote merely from CLI availability; such operations must be within the user's actual task and authority.
+- During each inherited-module review, treat behavior that exists *only* for a specialized Git/GitHub workflow as a candidate for removal unless it serves another demonstrated current requirement. Keep any useful general local coding capability regardless of its origin.
+
+This scope is the evaluation baseline for the module-by-module audit. It does not prohibit Git/GitHub CLI usage when explicitly relevant; it prevents optional remote workflows from determining GPTWorker's local runtime architecture.
+
 ### Review register — one file at a time
 
 The group reflects the previous cleanup's provenance assessment, **not** an exact line-by-line copyright comparison. A review marked `NOT STARTED` has no new conclusion.
