@@ -302,14 +302,14 @@ export function registerJobTools(
       : null;
 
     if (phase === "idle") {
-      sessionRuntime = new JobRuntime(workspace);
+      sessionRuntime = new JobRuntime();
       return workspace;
     }
 
     if (currentWorkspace === workspace) return workspace;
 
     if (allowReplace) {
-      sessionRuntime = new JobRuntime(workspace);
+      sessionRuntime = new JobRuntime();
       return workspace;
     }
 
