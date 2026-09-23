@@ -87,6 +87,54 @@ await runWithWorkspaceScope(root, [], async () => {
   });
   assert.equal(result.structuredContent.ok, true);
 
+  // Multi-file preflight must prevent any earlier successful mutation if a
+  // later operation is invalid; dry-run must also leave files untouched.
+  const groupedNew = path.join(root, "grouped-new.txt");
+  const groupedPatch = [
+    "*** Begin Patch",
+    "*** Add File: grouped-new.txt",
+    "+created",
+    "*** Update File: sample.txt",
+    "@@",
+    "-wrong-old-line",
+    "+should-not-apply",
+    "*** End Patch",
+  ].join("\n");
+  result = await call("apply_patch", {
+    path: root,
+    patch: groupedPatch,
+  });
+  assert.equal(result.structuredContent.ok, false);
+  await assert.rejects(() => fs.stat(groupedNew), { code: "ENOENT" });
+  assert.match(await fs.readFile(file, "utf-8"), /delta/);
+
+  const createPatch = [
+    "*** Begin Patch",
+    "*** Add File: grouped-new.txt",
+    "+created",
+    "*** End Patch",
+  ].join("\n");
+  result = await call("apply_patch", {
+    path: root,
+    patch: createPatch,
+    dry_run: true,
+  });
+  assert.equal(result.structuredContent.ok, true);
+  await assert.rejects(() => fs.stat(groupedNew), { code: "ENOENT" });
+
+  result = await call("apply_patch", { path: root, patch: createPatch });
+  assert.equal(result.structuredContent.ok, true);
+  assert.equal(await fs.readFile(groupedNew, "utf-8"), "created");
+  result = await call("apply_patch", { path: root, patch: createPatch });
+  assert.equal(result.structuredContent.ok, false);
+  assert.equal(await fs.readFile(groupedNew, "utf-8"), "created");
+
+  const outside = path.join(root, "..", "gptworker-outside-do-not-create.txt");
+  await assert.rejects(
+    () => call("write_file", { path: outside, content: "escape" }),
+    /WORKSPACE_BOUNDARY/
+  );
+
   result = await call("copy_file", {
     source: file,
     destination: copy,
