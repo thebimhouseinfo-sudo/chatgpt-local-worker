@@ -24,7 +24,7 @@ test("codex-style patch without line numbers", () => {
 
 test("unified diff with line numbers", () => {
   const original = "line1\nline2\nline3\nline4\n";
-  const patch = "@@ -2,2 +2,3 @@\n line2\n-old\n+new\n+extra\n line4\n";
+  const patch = "@@ -2,2 +2,3 @@\n line2\n-line3\n+new\n+extra\n";
   const result = applyUnifiedPatchToText(original, patch);
   if (!result.includes("new")) throw new Error("replacement missing");
   if (result.includes("old")) throw new Error("old line still present");
@@ -70,6 +70,25 @@ test("crlf preserved", () => {
   const result = applyUnifiedPatchToText(original, patch);
   if (!result.includes("c2\r\n")) throw new Error("crlf patch failed");
 });
+
+test("numbered hunk rejects mismatched old lines", () => {
+  const original = "line1\\nline2\\nline3\\n";
+  const patch = "@@ -2,2 +2,2 @@\\n line2\\n-wrong\\n+replacement";
+  if (!assertRejectsPatch(original, patch)) {
+    throw new Error("numbered hunk silently overwrote unexpected content");
+  }
+});
+
+test("empty or malformed patch is rejected", () => {
+  if (!assertRejectsPatch("a\\n", "not a patch")) {
+    throw new Error("malformed patch unexpectedly accepted");
+  }
+});
+
+function assertRejectsPatch(original, patch) {
+  try { applyUnifiedPatchToText(original, patch); return false; }
+  catch { return true; }
+}
 
 console.log(`\n${passed} passed, ${failed} failed`);
 process.exit(failed > 0 ? 1 : 0);
