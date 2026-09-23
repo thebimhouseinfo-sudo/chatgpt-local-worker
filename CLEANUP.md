@@ -82,6 +82,70 @@ The user pulled the current repository code and reports that local testing compl
 
 **Status:** Local operation is user-confirmed; real-file editing and boundary-negative mutation tests remain **PENDING**. This manual result supplements, but does not replace, the previously recorded CI #646 evidence for commit `423764c4` or establish CI status for later commits. Packaging remains a separate open task.
 
+## Follow-up: module-by-module inherited implementation audit
+
+**Status: OPEN — review each file sequentially.** This is a new technical-quality review, separate from the completed inherited-core dead-code cleanup. The original Local Coder implementation helped bootstrap GPTWorker, but the product now has its own Job lifecycle, confirmed-Workspace boundary, work handles, lazy work-gateway and runtime requirements. Review inherited implementations against those *current* needs rather than assuming that code which still works is either necessary or optimal.
+
+**Objective:** identify actual runtime usage; eliminate unused/duplicate functionality; simplify or redesign code where there is a concrete benefit; keep valuable inherited algorithms or infrastructure when replacing them would add risk without meaningful improvement. This is **not** a project to erase Hoangcoder's name or rewrite code solely for attribution. Preserve the original MIT attribution for any substantial inherited code still distributed; revisit the notices only after provenance has been audited.
+
+### Review register — one file at a time
+
+The group reflects the previous cleanup's provenance assessment, **not** an exact line-by-line copyright comparison. A review marked `NOT STARTED` has no new conclusion.
+
+| File | Current responsibility / review focus | Review state | Decision |
+|---|---|---|---|
+| `src/lib/patch.ts` | Patch parser, hunk matching, diff generation and multi-file mutation | **PRELIMINARY STATIC REVIEW**; tests/mutation acceptance pending | **UNDECIDED** |
+| `src/lib/mcp-session-manager.ts` | MCP transport, sessions and recovery; identify indispensable state/compatibility paths | NOT STARTED | UNDECIDED |
+| `src/lib/tool-result.ts` | Shared result envelope/schema; enumerate consumers and minimum required contract | NOT STARTED | UNDECIDED |
+| `src/lib/tool-annotations.ts` | MCP annotations and presentation-only auto-approve hints | NOT STARTED | UNDECIDED |
+| `src/lib/activity-log.ts` | Active tool/session/runtime logging; identify duplicate or unconsumed paths | NOT STARTED | UNDECIDED |
+| `src/tools/filesystem.ts` | Actual operation consumers, mutation guarantees and residual inherited implementation | NOT STARTED | UNDECIDED |
+| `src/tools/shell.ts` | Stateless command/process execution and Workspace escape limitations | NOT STARTED | UNDECIDED |
+| `src/lib/path-security.ts` | Absolute/canonical paths, symlink/junction behavior and scoped authority | NOT STARTED | UNDECIDED |
+| `src/index.ts` | HTTP/MCP entry, startup/shutdown and any remaining unnecessary inherited wiring | NOT STARTED | UNDECIDED |
+| `src/server-factory.ts` | Tool registration, leases and scope/authority wiring | NOT STARTED | UNDECIDED |
+| `src/lib/instruction-context.ts` | Instruction assembly and consumer-specific runtime context | NOT STARTED | UNDECIDED |
+| `start.ps1` | Actual launcher modes/callers; remaining complexity versus operator needs | NOT STARTED | UNDECIDED |
+| `openai-tunnel.ps1` | Active tunnel setup, diagnostics and recovery; remove only provably unnecessary branches | NOT STARTED | UNDECIDED |
+
+Add any newly discovered inherited file to this register with its **real callers**; do not silently expand or narrow scope.
+
+### Required assessment for every file
+
+1. **Pin evidence:** record the GPTWorker HEAD and the actual source/version of the inherited implementation where available. Compare implementations function-by-function; distinguish copied, modified and independently implemented code. Do not infer provenance from identical filenames alone.
+2. **Build a current caller/target map:** include static imports, dynamic `work_tool` dispatch, Job YAML, instructions/skills/harness, root scripts, CI and tests. Classify each public export, code path, parameter and configuration option as used, test-only, genuinely optional, or unconsumed. Tests by themselves do not prove production use.
+3. **Inspect actual behavior:** record input/output/error semantics, real workflow requirements, duplicate responsibilities, unnecessary layers, algorithmic complexity, performance/resource costs and security failure modes. Distinguish confirmed defects from plausible risks awaiting reproduction.
+4. **Choose one outcome with justification:** **KEEP** (real value; replacement unjustified), **SIMPLIFY** (retain behavior with a smaller implementation), **REWRITE** (current design materially obstructs requirements), or **REMOVE** (no necessary caller/capability). A working inherited implementation is allowed to remain.
+5. **Specify a safe migration:** preserve required public behavior or update all callers together. Add characterization, positive/negative, boundary and regression tests before material changes; use a disposable confirmed Workspace for real-file acceptance. Record any intentional API/behavior change explicitly.
+6. **Close with evidence:** report changed files, retired names, remaining call paths, build, `validate:jobs`, relevant targeted tests, full suite/CI and real-workflow results as applicable. Never call a file complete based only on static analysis or another commit's green CI.
+
+**Shared invariants:** every file/path binding and actual project mutation stays within the explicitly confirmed absolute Workspace; Job support roots are read/execute support, not mutation destinations. Maintain work-handle authority, Job lifecycle/stop behavior, lazy loading, current MCP compatibility, and the established public Job flow. Shell command string checks are not an OS sandbox: characterize their limitations and test indirect/path-constructed escapes rather than claiming guaranteed isolation.
+
+### First candidate — `src/lib/patch.ts`
+
+**Evidence so far:** preliminary code-level comparison with the currently accessible upstream `hoangcoderr/chatgpt-local-coder/src/lib/patch.ts`, the GPTWorker file, `src/tools/filesystem.ts` and `scripts/test-patch.mjs`. This is **not** yet a pinned historical upstream diff or a completed runtime test.
+
+- Active integration: `filesystem.ts` calls `applyUnifiedPatchToText`, `applyMultiFilePatch`, `buildSimpleDiff` and `isMultiFilePatch` for current edit/patch operations. GPTWorker has dropped upstream's multi-file standard unified-diff route and added Workspace path validation.
+- **Risk to reproduce:** numbered hunks currently splice at the computed index without validating the purported old/context lines; this may overwrite unexpected content if the file differs from the patch.
+- **Risk to reproduce:** multi-file operations are applied in sequence and report per-file failures; a later failure may leave earlier files modified. Do not describe this as atomic.
+- **Quality limitation:** `buildSimpleDiff` compares line positions rather than calculating insertions/deletions; a single insertion can produce misleadingly extensive output.
+- **Test gap:** the numbered-hunk fixture in `scripts/test-patch.mjs` has mismatched old text and only asserts that new text appears. It does not establish mismatch rejection.
+- **Questions before changing code:** which patch formats do real Job/coding callers generate; is multi-file all-or-nothing a required contract; should preview/diff be an accurate edit script or only a simple summary?
+
+`patch.ts` review checklist:
+- [x] Preliminary inspection of current GPTWorker implementation, immediate filesystem integration, existing patch tests and accessible upstream implementation.
+- [ ] Pin precise upstream baseline and complete direct/static/dynamic caller map.
+- [ ] Reproduce numbered-hunk mismatch, multi-file partial failure, insertion/deletion diff, multi-hunk behavior and CRLF handling in isolated tests.
+- [ ] Run real-file create/edit/patch/rollback-related acceptance in a disposable confirmed Workspace; verify out-of-Workspace and symlink/junction mutation rejection.
+- [ ] Decide KEEP/SIMPLIFY/REWRITE/REMOVE and document contract, implementation scope and migration tests.
+- [ ] Implement the approved technical changes, update callers/docs/tests and capture fresh CI evidence before marking COMPLETE.
+
+### Working sequence and completion rule
+
+Start with `patch.ts`; finish its evidence and decision before moving to the next file. Reorder the remainder based on newly discovered dependencies or safety risks, recording the reason here. A file can be closed as **KEEP** with documented evidence and no code change. A file closed as **SIMPLIFY/REWRITE/REMOVE** requires corresponding implementation, caller migration and validation. When all entries are closed, reconcile `LICENSE`/third-party notices with the actual retained code as part of Packaging; historic credit and legally required notices are distinct from unnecessary implementation dependencies.
+
+---
+ 
 ## Final inherited-core cleanup result
 
 The inherited-core cleanup is complete.
