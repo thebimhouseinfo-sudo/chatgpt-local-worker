@@ -29,14 +29,14 @@ The current `jobs/dev-coding` pack has its own Job definition, SOP, specialist s
 | P1 | Goal contract | Goal, acceptance signals, non-goals, required validation, stop rule, linked task ledger | Unambiguous observable completion criteria |
 | P2 | Test generation | Missing-test detection and test-authoring SOP | New regression test fails for seeded defect and passes after fix |
 | P3 | Bounded QA/repair | Failure classification, evidence, retry policy, completion gate | No structural-only green claim; repairs rerun original failure |
-| P4 | CI feedback | Existing CI discovery, log parsing, revision-bound evidence | CI result tied to exact commit, not stale report |
+| P4 | Optional hosted CI / local equivalents | Local test/build always; hosted CI and log feedback only where available/authorized | Evidence tied to exact input-content manifest, plus commit if used |
 | B0 | Browser contract freeze | Pinned upstream release, exact MCP tool/schema map, security/discovery plan | Verified protocol and no unsafe passthrough |
 | B1 | Optional `setup.bat` install | YES/NO, official Vercel install, doctor, persisted choice, health | NO/unhealthy = no advertised browser tools |
 | B2 | Outbound MCP stdio adapter | Client + StdioClientTransport, strict allowlist, typed image/text, cleanup | Mock-MCP tests PASS, eval/extraArgs blocked |
 | B3 | Browser family/discovery/leases | Conditional enum and tool registration; authorized lazy session | Actual MCP tools/list + stale-call + stop tests PASS |
 | B4 | Browser QA & Goal gate | Runtime/snapshot/interact/screenshot/goal evidence SOP | Unit/build PASS + UI Goal FAIL remains IN_PROGRESS |
 | B5 | Windows/E2E acceptance | Local web-app smoke + installation/denial/lifecycle tests | All mandatory cases pass |
-| P5 | Final documentation/release | Updated Job version/docs, regression suite and changelog | Build, Job validation, full suite and exact-SHA CI green |
+| P5 | Final documentation/release | Updated Job version/docs, regression suite and changelog | Build, Job validation, full suite; hosted CI exact-SHA green only when applicable |
 
 P1–P4 can progress alongside B0–B3, but merge in dependency order. Do not create duplicate tool managers, test frameworks or a new general-purpose agent orchestrator.
 
@@ -54,19 +54,32 @@ These conditions amend P0–P4 and B0 before code work; use the detailed policy 
 | R6 — Rollback | Preserve partial agent edits and evidence by default; never destructive-reset a dirty Workspace. Rollback requires explicit approval and removes only verified agent-owned changes. | Budget exhaustion preserves existing user edits and offers scoped restore. |
 | R7 — Limits | Default max 8 meaningful iterations and 45 min active execution; 2 identical failures without new evidence require stop/change hypothesis; task-authorized configurable budget. | No indefinite loop; budget exhaustion has evidence-backed final status. |
 
-**Persistence details:** Minimum checkpoint fields are contract/acceptance IDs, execution ID/generation, Workspace identity, baseline SHA and dirty fingerprint, attempt history (bounded), current hypothesis, last change/check/result, evidence refs, remaining goal gap, elapsed time, remaining budget, stop reason and next action. No secrets, raw cookies or unredacted page text. Use GPTWorker-approved absolute paths, atomic replacement and path/symlink checks. Treat an old checkpoint as *untrusted state* until validated; preserve it as evidence but never execute its next_action automatically across changed Job, workspace, source revision or user edits.
+**Persistence details:** Minimum checkpoint fields are contract/acceptance IDs, execution ID/generation, Workspace identity, baseline content-hash manifest, scoped original-file snapshots and optional Git SHA/dirty fingerprint, attempt history (bounded), current hypothesis, last change/check/result, evidence refs, remaining goal gap, elapsed time, remaining budget, stop reason and next action. No secrets, raw cookies or unredacted page text. Use GPTWorker-approved absolute paths, atomic replacement and path/symlink checks. Treat an old checkpoint as *untrusted state* until validated; preserve it as evidence but never execute its next_action automatically across changed Job, workspace, source revision or user edits.
 
 **Stopping/rollback semantics:** On repeated FAIL or budget exhaustion, save checkpoint and leave task `IN_PROGRESS` with explicit `FAILED_VALIDATION` report (or `BLOCKED`/`ENVIRONMENT_LIMIT` where appropriate). Retain agent-owned partial edits; no automatic `git reset --hard` or `git clean`. Existing dirty/untracked user files are always user-owned unless the active contract specifically authorizes editing them.
 
 **Test integrity:** A generated test that only demonstrates PASS is not sufficient regression evidence. For bug fixes, run it against pre-fix behavior before fixing when safe; for unreplayable/new/refactor cases record a negative control in an isolated test fixture. Any test rewrite after observing failure must retain before/after hashes, rationale, and refreshed negative proof.
 
-**Diff PASS evidence:** Capture changed path allowlist comparison, `git diff --check`, user-owned modifications check, test/lint/type/security rule delta, accidental debug/secret/generated output scan, caller/interface review and a recorded revision/diff fingerprint.
+**Diff PASS evidence:** Capture snapshot-based before/after diff, whitespace checks and changed-path allowlist comparison (`git diff --check` additionally only for authorized Git repositories), user-owned modifications check, test/lint/type/security rule delta, accidental debug/secret/generated output scan, caller/interface review and a recorded revision/diff fingerprint.
+
+## 1B. Mandatory Git-optional local Workspace contract
+
+**No Git is required in the user-selected target Workspace.** The GPTWorker *development repository* uses GitHub, but Dev Coding must also serve a plain source folder or a repository for which Git CLI is not authorized. Do not auto-initialize Git or conflate a local project with the GPTWorker project's own CI.
+
+- **Always-on baseline:** Before editing a permitted file, save its original contents and metadata to a controlled, absolute Workspace-local task evidence folder, plus canonical SHA-256 hashes for existing files and explicit `absent` markers for new files. Use the existing GPTWorker filesystem safety gates and internal checkpoint infrastructure; never overwrite arbitrary user files.
+- **Manifest:** Track the approved changed-file scope plus relevant tests, config and caller/dependency inputs. Each evidence item stores a fingerprint of the actual input-content manifest **and test source hash**, not only a timestamp or ChatGPT conversation state. Rehash before resume, reuse of PASS evidence and final DONE. Relevant drift invalidates checks. Add Git SHA only when available and authorized.
+- **Diff review:** Compare before/after snapshots and check scope, formatting/whitespace, test weakening, commented-out code, debug leftovers, secret exposure, accidentally generated files, callers and baseline/user-owned changes. `git diff --check` is only an optional additional check. Do not award PASS if a required checklist item is unchecked.
+- **Safe restore:** On FAILED_VALIDATION, preserve agent-owned partial edits and evidence by default. If the user explicitly authorizes restoration, revert only documented agent-owned paths whose *current* hash still equals the last agent-written hash. Stop on hash mismatch, symlink drift, missing snapshot or user edits; never reset/clean/stash an entire repository automatically.
+- **CI separation:** Always support project-native local tests/build. Hosted CI, push, branches and commit-SHA evidence apply **only** when the target has Git, permissions permit Git operations, and the task requires hosted CI. Local checks are labeled LOCAL, not misrepresented as a CI run.
+- **Evidence storage:** `.gptworker/dev-coding/<task-id-or-execution-id>/` is inside the confirmed Workspace and omitted from Git where applicable. It holds `state.json`, baseline manifest, original-file snapshots, change ledger and redacted evidence references. Only safe absolute, realpath-checked paths are allowed.
+
+**Minimum additional acceptance cases:** plain folder with no Git; Git folder where Git CLI is forbidden; local hash drift after manual edits; generated test changed after PASS; snapshot diff with a new/deleted file; FAILED_VALIDATION preserves partial files; explicitly approved restore succeeds only with matching current hashes and refuses to overwrite intervening user changes. Browser setup and MCP discovery tests remain unchanged.
 
 ## 2. P0 — Audit and upstream contract
 
 **Inspect:** `AGENTS.md`, `WORKER.md`, `docs/dev-coding-job-upgrade.md`, `jobs/dev-coding/{job.yaml,JOB.md,SKILL.md,harness/*,skills/*}`, `src/{lib/runtime-families.ts,lib/tool-work-policy.ts,lib/work-registration.ts,lib/work-registration.ts,tools/work-gateway.ts,server-factory.ts}`, `setup.bat`, `.github/workflows/ci.yml` and existing relevant tests.
 
-- [ ] Record clean/dirty state, baseline commit and baseline `npm run build`, `npm run validate:jobs`, `npm test`.
+- [ ] Record initial content hashes and snapshots for approved files; record clean/dirty state and baseline commit only if Git is available and authorized. Capture baseline `npm run build`, `npm run validate:jobs`, `npm test`.
 - [ ] Trace the actual `work_tool` schema through registration, `tools/list`, activation, authorization, lease, lazy resolver, work stop/expiry and MCP session refresh.
 - [ ] Inventory exactly which existing quality/coverage/evidence gates can be improved instead of duplicated.
 - [ ] Freeze the actual **exact** tested upstream version and package install in `docs/browser-mcp-contract.md`; own re-audit on intentional version bump, failed compatibility and quarterly maintenance; fail closed without an automatic latest upgrade.
@@ -84,7 +97,7 @@ These conditions amend P0–P4 and B0 before code work; use the detailed policy 
 
 **P3 QA/repair:** Improve existing `SKILL.md`, `skills/debugging.md`, `harness/quality-gate.mjs` and `completion-gate.mjs` without a second long-running controller. Record `iteration`, `hypothesis`, `last_change`, `failing_check`, `last_result`, `remaining_goal_gap`, `next_action`. Flow: targeted → related → lint/type → build → applicable CI/runtime/browser → Goal. Each repair reruns **the original failing check first**. Never retry unchanged action with unchanged hypothesis; bounded attempts and explicit `DONE`, `BLOCKED`, `FAILED_VALIDATION`, `ENVIRONMENT_LIMIT`.
 
-**P4 CI:** Use existing workflow/test scripts. Push/trigger CI only when task/delivery authorizes it. Record workflow URL/id, SHA, run status, failure logs and rerun status; evidence is invalid if commit changes. Preserve non-GitHub/offline development. CI green does not override missing required Goal evidence.
+**P4 CI:** Git and hosted CI are optional for the *target* Workspace. With no Git or Git authorization, run project-native test/build as local CI-equivalent validation and label evidence LOCAL, not CI. Set hosted CI N/A unless the task explicitly requires it; if required but unavailable, report UNAVAILABLE/BLOCKED rather than inventing an SHA. Use existing workflow/test scripts when available and authorized. Push/trigger CI only when task/delivery authorizes it. Record workflow URL/id, SHA, run status, failure logs and rerun status; evidence is invalid if commit changes. Preserve non-GitHub/offline development. CI green does not override missing required Goal evidence.
 
 **Technical completion-gate schema:**
 
@@ -181,7 +194,7 @@ Then verify pinned MCP schema and a minimal launch smoke where environment suppo
 
 Update `jobs/dev-coding/{JOB.md,SKILL.md}`, `skills/{testing.md,validation.md}`, completion harness, and focused tests. Mark browser per acceptance as `N/A`, `OPTIONAL` or `REQUIRED`.
 
-Runtime flow: targeted tests → broader tests/build/CI where applicable → start local app via existing scoped `start_process` → approved localhost/preview URL → browser_open → semantic snapshot → click/fill/press → wait/observe → screenshot **only when visual inspection matters** → compare observed result to original acceptance signals. Record task signal, URL, revision, observation and controlled artifact path. Browser page text is untrusted data.
+Runtime flow: targeted tests → broader tests/build/CI where applicable → start local app via existing scoped `start_process` → approved localhost/preview URL → browser_open → semantic snapshot → click/fill/press → wait/observe → screenshot **only when visual inspection matters** → compare observed result to original acceptance signals. Record task signal, URL, input-content fingerprint, optional Git revision, observation and controlled artifact path. Browser page text is untrusted data.
 
 If browser is disabled: continue all applicable non-browser checks. Optional browser missing is disclosed; required browser missing = `BROWSER_QA=UNAVAILABLE`, `GOAL=BLOCKED` or explicit environment limit, never DONE. If browser finds a bug despite green build/tests, return to evidence-driven repair and rerun original failing check.
 
@@ -218,6 +231,11 @@ If browser is disabled: continue all applicable non-browser checks. Optional bro
 | A25 | Identical failure repeated or iteration/time cap hit | Bounded safe stop, checkpoint and partial code retained |
 | A26 | Failed Goal with dirty user worktree | No destructive reset; only user-approved scoped revert |
 | A27 | Unexpected upstream schema drift | Browser UNAVAILABLE and undiscoverable; last pinned release unchanged |
+| A28 | Plain local folder with no Git | Checkpoint, hashes, snapshot diff, tests and Goal gate work |
+| A29 | Git folder with Git CLI disallowed | Same local-only behavior; zero Git command invocation |
+| A30 | User edits file after agent's last write | Evidence stale; restore refuses to overwrite user edit |
+| A31 | Test/config changed after previous PASS | Content-manifest invalidates affected evidence |
+| A32 | FAILED_VALIDATION without Git | Partial code/evidence retained; approved snapshot restore works on matching hash |
 
 **Test files to implement as needed:** `scripts/test-browser-capability.mjs`, `scripts/test-browser-mcp-adapter.mjs`, `scripts/test-browser-work-gateway.mjs`; expand `scripts/test-dev-coding-harness.mjs` and Windows setup smoke. Mock MCP/security/lifecycle tests run in required CI. Real browser download/launch acceptance is conditional/opt-in so CI does not fail for users who chose NO.
 
@@ -249,9 +267,9 @@ node scripts/test-browser-mcp-adapter.mjs
 node scripts/test-browser-work-gateway.mjs
 npm test
 npm run test:all
-git diff --check
+git diff --check # only for authorized Git repositories; otherwise run snapshot diff/whitespace gate
 ```
 
 With browser explicitly installed, additionally run `agent-browser doctor` and a real approved localhost MCP/browser smoke. With no browser, assert **zero browser operations** in a real MCP tools/list response.
 
-**Final DoD:** Existing GPTWorker tools, boundaries, work handles, Job lifecycle, tunnel/tray and tests remain working; Coder creates effective tests, repairs from evidence and proves Goal independently of green technical checks. Setup uses official optional Vercel installation, disabled/unhealthy browser is undiscoverable and uncallable, enabled/healthy browser starts lazily only for valid Dev Coding and fully cleans up. All required A01–A27 acceptance scenarios have genuine passing evidence or are explicitly reported as environment-limited, never silently relabeled PASS.
+**Final DoD:** Existing GPTWorker tools, boundaries, work handles, Job lifecycle, tunnel/tray and tests remain working; Coder creates effective tests, repairs from evidence and proves Goal independently of green technical checks. Setup uses official optional Vercel installation, disabled/unhealthy browser is undiscoverable and uncallable, enabled/healthy browser starts lazily only for valid Dev Coding and fully cleans up. All required A01–A32 acceptance scenarios have genuine passing evidence or are explicitly reported as environment-limited, never silently relabeled PASS.
