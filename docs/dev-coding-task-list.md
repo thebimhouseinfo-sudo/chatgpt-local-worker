@@ -1,6 +1,6 @@
 # Dev Coding Upgrade — TASK LIST
 
-**Status:** PLANNED. No source changes or acceptance tests for the upgrade have been executed yet.  
+**Status:** IMPLEMENTATION IN PROGRESS. Source, harness and focused regression tests have been added; full Windows/browser E2E and A01–A36 acceptance remain outstanding.  
 **Source of truth:** [Execution Plan](./dev-coding-execution-plan.md) and [Architecture / Upgrade Plan](./dev-coding-job-upgrade.md).  
 **Scope:** Upgrade existing Dev Coding Job and optionally integrate the official Vercel `agent-browser mcp` through GPTWorker's existing runtime. Do not create an alternate browser engine, MCP server, execution core, job orchestrator or mandatory Git dependency.  
 **Current Job:** `jobs/dev-coding/job.yaml` (`1.4.2` at planning time).  
@@ -8,12 +8,24 @@
 
 ## Implementation progress — 2026-09-23
 
-**Partially implemented; no completion claim for B0/B1/B3.**
+**Implementation is partial; no full release/acceptance claim.** [Reproducible validation and expected evidence](./dev-coding-validation.md).
 
-- P0 code/caller audit: inspected work-gateway's static `z.enum`, server work-handle/lease wrapper, runtime families and upstream integration points. Baseline CI for initial documentation and new setup helper passed, but the full upgrade acceptance suite is not implemented.
-- B0 source audit: created [`browser-mcp-contract.md`](./browser-mcp-contract.md) with pinned **candidate** `agent-browser@0.38.1`. Its npm package requires Node >=24 while GPTWorker's current CI includes Node 22. Real Windows MCP/browser compatibility remains **PENDING**.
-- B1 partial implementation: `setup.bat` now offers opt-in YES/NO and calls `scripts/setup-agent-browser.mjs`, which uses the pinned official install/Chrome-install/doctor sequence on compatible Node, otherwise marks browser `UNAVAILABLE`; NO marks `DISABLED`. Added `scripts/test-setup-agent-browser.mjs` to the default test suite. **Not DONE:** runtime health, MCP schema gating and Windows interactive smoke.
-- **Important fail-closed current behavior:** Browser family/operations have **not** been registered in `work_tool` yet. Until B2/B3 implement the adapter and real discovery/authorization gates, new setup only records preference/diagnostic state; installed browser is not exposed to ChatGPT.
+| Package | Implemented | Still required for DONE |
+| --- | --- | --- |
+| P0 | Audited runtime family, static schema, work-handle/lease, Job harness, existing tests | Close remaining caller/scope audit and prove no regressions |
+| P1 | Git-optional atomic checkpoint, content hashes, original-file snapshots, read-only task discovery, fresh-execution resume and safe restore | Wire first-edit snapshots/iteration ledger to the actual Dev Coding execution flow automatically |
+| P2 | Plan and SOP specify red-green and relevant unchanged-test negative controls | Behavioral test generator and mutation-integrity automation (not just written policy) |
+| P3 | Snapshot reviewer, seven-item evidence checklist, Goal-specific completion verification; legacy structural mode explicitly cannot claim DONE | Close actual end-to-end Coder repair loop and verify all production gate paths |
+| P4 | Existing source repository GitHub Actions and project-native local test discovery | Optional hosted-CI evidence/replay on actual target tasks |
+| B0 | Audited pinned upstream `agent-browser@0.38.1`; created contract plus real SDK MCP schema verifier and mock transport regression | Verify the pinned package on actual Windows/Node 24 and document verified screenshots/cleanup |
+| B1 | Optional setup YES/NO, Node compatibility gate, official install/doctor, actual MCP schema check, fresh attested capability, fail-closed version and consent | Interactive YES/NO Windows testing and setup lifecycle edge cases |
+| B2 | Lazy outbound SDK stdio adapter with tool allowlist, scoped sessions, typed MCP results, origin/path checks, cleanup on work release | Real Chromium integration, timeout/crash/leak and upstream behavior tests |
+| B3 | Conditional actual work_tool schema, dev-coding-only live lease gate, no unconditional browser preloads, disabled discovery test, Custom Job/stale lease negative tests | Full real-session ON/OFF/reconnect, revocation-race and process ownership acceptance |
+| B4 | Job and Worker SOP updated for browser REQUIRED/OPTIONAL/N/A and evidence-bound Goal | Real frontend repair/observation loop with browser and recorded acceptance |
+| B5 | Focused tests for checkpoint, Goal fake-PASS/stale evidence, setup, live in-memory MCP discovery and schema drift; Windows real-browser localhost smoke script added | Execute the **full A01–A36 matrix**, including live Windows E2E and user-facing outcome |
+| P5 | Test commands and expected evidence documented | Complete final security/diff review, run all gates and only then bump Job metadata |
+
+**Latest tested evidence:** GitHub CI passed for the checkpoint/Goal/source/contract test batches; the full final source and **actual Windows Node 24 browser acceptance remain subject to their own recorded results**. A new script existing in the repo is not proof it ran on the user's machine. Never label an unexecuted or partially verified task DONE.
 
 ## 0. Execution rules
 
