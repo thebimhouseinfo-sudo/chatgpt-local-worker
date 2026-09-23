@@ -129,6 +129,19 @@ await runWithWorkspaceScope(root, [], async () => {
   assert.equal(result.structuredContent.ok, false);
   assert.equal(await fs.readFile(groupedNew, "utf-8"), "created");
 
+  const duplicatePatch = [
+    "*** Begin Patch",
+    "*** Update File: grouped-new.txt",
+    "@@",
+    "-created",
+    "+first",
+    "*** Delete File: grouped-new.txt",
+    "*** End Patch",
+  ].join("\n");
+  result = await call("apply_patch", { path: root, patch: duplicatePatch });
+  assert.equal(result.structuredContent.ok, false);
+  assert.equal(await fs.readFile(groupedNew, "utf-8"), "created");
+
   const outside = path.join(root, "..", "gptworker-outside-do-not-create.txt");
   await assert.rejects(
     () => call("write_file", { path: outside, content: "escape" }),
