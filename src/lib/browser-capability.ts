@@ -33,8 +33,15 @@ export function getBrowserCapability(options: {
   if (config.schema_version !== 1 || config.candidate_version !== PINNED_AGENT_BROWSER_VERSION) {
     return { status: "UNAVAILABLE", enabled: true, advertised: false, reason: "Unrecognized browser config/version" };
   }
-  if (config.last_setup_status !== "PENDING_MCP_HEALTH" && config.last_setup_status !== "READY") {
-    return { status: "UNAVAILABLE", enabled: true, advertised: false, reason: "Browser setup/doctor incomplete" };
+  if (config.last_setup_status !== "READY" || config.mcp_contract_version !== 1) {
+    return { status: "UNAVAILABLE", enabled: true, advertised: false,
+      reason: "Pinned browser MCP schema has not passed verified setup" };
+  }
+  const checked = Date.parse(config.mcp_verified_at);
+  if (!Number.isFinite(checked) || checked > Date.now() + 60_000 ||
+      Date.now() - checked > 24 * 60 * 60_000) {
+    return { status: "UNAVAILABLE", enabled: true, advertised: false,
+      reason: "Browser MCP schema verification is missing or stale; rerun setup" };
   }
   const major = options.nodeMajor ?? Number.parseInt(process.versions.node.split(".")[0], 10);
   if (major < MIN_NODE_MAJOR) {
