@@ -5,6 +5,7 @@ import {
   createWorkToolResolver,
   registerWorkGateway,
   WORK_TOOL_OPERATIONS,
+  FAMILY_TOOLS,
 } from "../dist/tools/work-gateway.js";
 import { setDefaultCwd } from "../dist/lib/path-security.js";
 
@@ -86,17 +87,21 @@ try {
   if (!gateway) throw new Error("work_tool was not registered");
 
   const exposedOperations = gateway.config.inputSchema.tool.options;
-  if (exposedOperations.length !== WORK_TOOL_OPERATIONS.length) {
+  const expected = WORK_TOOL_OPERATIONS.filter(name => !FAMILY_TOOLS.browser.includes(name));
+  if (exposedOperations.length !== expected.length) {
     throw new Error(
-      `work_tool schema lost operations: expected ${WORK_TOOL_OPERATIONS.length}, got ${exposedOperations.length}`
+      `work_tool schema lost operations: expected ${expected.length}, got ${exposedOperations.length}`
     );
   }
-  for (const operation of WORK_TOOL_OPERATIONS) {
+  for (const operation of expected) {
     if (!exposedOperations.includes(operation)) {
       throw new Error(`work_tool schema is missing operation: ${operation}`);
     }
   }
 
+  for (const operation of FAMILY_TOOLS.browser) {
+    if (exposedOperations.includes(operation)) throw new Error("disabled browser tool visible in MCP schema: " + operation);
+  }
   const result = await gateway.callback({
     tool: "read_text_file",
     arguments: { path: file },
