@@ -31,7 +31,7 @@ It may use the GPTWorker local execution core for:
 - project-local skills;
 - local `node_repl` when useful.
 
-Automatic filesystem checkpoints are an internal safety mechanism. They are not a callable rewind workflow. Upstream MCP servers are not part of the active GPTWorker architecture.
+Automatic filesystem checkpoints are internal safety, not a callable rewind workflow. The **sole sanctioned outbound MCP exception** is the user-opted-in, pinned Vercel agent-browser for dev-coding localhost UI QA. It is disabled by default, never a Job preload, and is not exposed to Custom Jobs, Layla or other Jobs. Git and hosted CI are optional for user Workspaces; local SHA-256 checkpoint/snapshot review works without Git.
 
 ## Context-loading order
 
@@ -87,8 +87,18 @@ A dev-coding task is complete only when:
 5. The implementation path and execution sequence are understood well enough to explain why the change is appropriate.
 6. Changes are scoped and internally reviewed.
 7. Appropriate validation was run: targeted checks first, then broader checks when practical.
-8. `git diff --check` is clean for Git repositories.
+8. Local checkpoint/snapshot DIFF_REVIEW passes against the task scope; `git diff --check` is an additional check only when Git exists and its use is authorized.
 9. The final diff contains no known unrelated edits, debug leftovers, credentials, or accidental generated artifacts.
 10. `TASKS.md` reflects real progress/status when a planning bundle is active.
 11. Any failed, skipped, unavailable checks or planning blockers are reported explicitly.
 12. The final response names what changed, what was validated, and any remaining risk.
+
+## Browser QA and Goal evidence contract
+
+A browser is **OPTIONAL** for this Job and is used only where the acceptance contract calls for UI behavior or visual inspection. Only localhost/loopback preview origins are supported in v1; no personal Chrome profile, cookie sharing, arbitrary web browsing, JavaScript evaluation, generic upstream MCP calls or uncontrolled screenshot paths. Other Jobs cannot enable browser by declaring a preload family.
+
+Use `harness/execution-preflight.mjs --cwd <absolute-workspace> --active-execution-id <confirmed-id>` to discover unfinished checkpoints after a fresh confirmed Job activation. Present sanitized candidates and require the user's resume/new choice. Never auto-reuse a saved authority token or execute a saved next action without authorization.
+
+The existing `completion-gate.mjs` defaults to **structural-only** output and must not be interpreted as Goal PASS. For an actual task completion claim, provide `--task-id <task> --evidence <absolute-JSON-file-inside-workspace>`. Each required gate, acceptance signal, input-content fingerprint and snapshot-based diff checklist must be supplied and current; missing/failed/UNAVAILABLE required checks block DONE. `BROWSER_QA=N/A` requires a reason when browser verification is unnecessary. Generated tests require red-green or a behaviorally meaningful negative control; neither proves exhaustive coverage.
+
+Preserve partial edits on failed validation. Any restore requires explicit approval, agent-owned snapshots and matching current last-written hashes; never overwrite intervening user modifications.
