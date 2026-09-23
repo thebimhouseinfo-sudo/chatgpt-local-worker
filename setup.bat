@@ -46,6 +46,24 @@ call npm install
 if errorlevel 1 goto :failed
 
 echo.
+echo ========================================
+echo   Optional Vercel agent-browser for Dev Coding
+echo ========================================
+echo The browser is optional and stays hidden from GPTWorker MCP
+echo discovery until explicitly enabled AND verified healthy.
+echo.
+choice /C YN /N /D N /T 30 /M "Install optional Vercel agent-browser? [Y/N] "
+if errorlevel 2 (
+  node "%~dp0scripts\setup-agent-browser.mjs" N
+) else (
+  node "%~dp0scripts\setup-agent-browser.mjs" Y
+)
+if errorlevel 1 (
+  echo [WARN] Browser preference could not be saved. No browser capability will be enabled.
+  echo        The rest of GPTWorker setup can continue.
+)
+
+echo.
 echo [2/4] Building...
 call npm run build
 if errorlevel 1 goto :failed
