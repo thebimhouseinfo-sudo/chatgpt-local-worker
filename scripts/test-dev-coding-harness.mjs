@@ -17,7 +17,7 @@ assert.equal(validation.ok, true);
 assert.equal(validation.id, "dev-coding");
 assert.equal(validation.status, "ready");
 assert.equal(validation.dev_coding.skills, 13);
-assert.equal(validation.dev_coding.harness_entrypoints, 10);
+assert.equal(validation.dev_coding.harness_entrypoints, 12);
 assert.equal(validation.dev_coding.execution_planning, true);
 assert.equal(validation.dev_coding.context_first, true);
 assert.equal(validation.dev_coding.planning_bundle_reader, true);
