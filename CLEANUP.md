@@ -110,7 +110,7 @@ The group reflects the previous cleanup's provenance assessment, **not** an exac
 |---|---|---|---|
 | `src/lib/patch.ts` | Patch parser, hunk matching, diff generation and multi-file mutation | **DESIGN REVIEW**; targeted runtime tests pending | **GREENFIELD REWRITE preferred candidate; not final** |
 | `src/lib/mcp-session-manager.ts` | MCP transport, sessions and recovery; identify indispensable state/compatibility paths | **SOURCE REVIEW COMPLETE**; protocol/integration acceptance pending | **KEEP baseline vs UPGRADE GREENFIELD REWRITE-IN-PLACE** |
-| `src/lib/tool-result.ts` | Shared result envelope/schema; enumerate consumers and minimum required contract | NOT STARTED | UNDECIDED |
+| `src/lib/tool-result.ts` | Shared result envelope/schema; enumerate consumers and minimum required contract | **SOURCE REVIEW COMPLETE**; shared-schema regression tests pending | **KEEP; optional targeted hardening** |
 | `src/lib/tool-annotations.ts` | MCP annotations and presentation-only auto-approve hints | NOT STARTED | UNDECIDED |
 | `src/lib/activity-log.ts` | Active tool/session/runtime logging; identify duplicate or unconsumed paths | NOT STARTED | UNDECIDED |
 | `src/tools/filesystem.ts` | Actual operation consumers, mutation guarantees and residual inherited implementation | NOT STARTED | UNDECIDED |
@@ -326,6 +326,26 @@ For a greenfield proposal, record a compact design spec **before coding**: requi
 8. **Proof of improvement:** compare KEEP, targeted REFACTOR and UPGRADE GREENFIELD in a test matrix: initial handshake and normal requests; long GET/SSE plus POST; concurrent stale-ID recovery; failed loopback init/notification; repeated DELETE/late request; TTL/stop and resource cleanup; protocol versions and discovery fallback; disconnect while an active Tool Lease executes; no duplicate tool execution or accidental Job authority restoration. Prefer full rewrite only when it demonstrates a material functional/reliability gain relative to the baseline, not because of provenance or minor unused code.
 
 **Evidence limit:** DELETE grace, race, cleanup and reconnect weaknesses above are source-level risks pending runtime reproduction, not established production failures. Keep substantial inherited code attribution until actual retained distribution is audited.
+
+#### Review 03 — `src/lib/tool-result.ts`
+
+**Status: SOURCE REVIEW COMPLETE; targeted helper and actual MCP output-schema integration tests pending. No code changes.** Current GPTWorker blob `7b3d352c42cda22ed2580344ff19d5bfb283205a`; accessible upstream `hoangcoderr/chatgpt-local-coder` blob `bde6e40866ac03f1ce0c87c39f14dc17d87a76c4`. Their small implementations are substantially the same, with GPTWorker-specific labeling. Current upstream is not proof of historical fork provenance.
+
+**Public exports to keep:** `ToolResultPayload<T>`, `TOOL_RESULT_OUTPUT_SCHEMA`, `toolResult<T>(tool,data,options?)` and `toolError(tool,message,data?)`. The stable envelope is `{ok:boolean,tool:string,summary:string,data:object}`, returned both as readable JSON text in `content` and structured JSON in `structuredContent`. `defaultSummary` is private.
+
+**Caller and integration map:** Direct imports of `toolResult` occur in `src/tools/filesystem.ts`, `shell.ts`, `context.ts`, `admission.ts`, `workspace-discovery.ts`, and `jobs.ts`; `jobs.ts` also calls `toolError` to return recoverable Job-control errors. `src/server-factory.ts` imports `TOOL_RESULT_OUTPUT_SCHEMA` and advertises it by default for registered tools without a custom output schema. The generic `work_tool` dispatches the selected captured callback and returns its result unchanged; it does not independently rewrap tool-result envelopes. An intentional exception is `gptworker_control`, which declares and returns its own `{text}` output schema. Other direct MCP tool callback and test consumers must preserve this distinction.
+
+**Behavioral dependencies:** `scripts/test-filesystem-core.mjs` explicitly reads `result.structuredContent.ok` and fields under `data`. `scripts/test-work-gateway.mjs` exercises deferred callback forwarding. `src/tools/shell.ts` sets `ok` from the command's exit code; `jobs.ts` translates caught exceptions through `toolError`. Changing the shared envelope or `ok` interpretation would affect multiple active Job families and the MCP output schema, so retain it.
+
+**Concrete low-cost improvement opportunities:**
+- `toolError(tool,message,data)` currently constructs `{error:message,...data}`, permitting a supplied `data.error` property to overwrite the original message. Consider `{...data,error:message}` only if existing caller semantics support it, with a focused regression test.
+- `toolResult` calls `JSON.stringify(payload)`; non-JSON-safe or cyclic data would throw during text generation. Assess whether any active tool produces such values before adding sanitization or dependencies; favor simple explicit serialization failure reporting if needed.
+- Validate a real MCP SDK interaction to distinguish GPTWorker payload `ok:false` from protocol-level `isError` behavior; do not silently change the outward contract or add `isError` until caller/client expectations and schema are tested.
+- The open `data` schema is intentional: each tool has different structured fields. Replacing it with a single rigid schema would introduce cross-file coupling and is not justified by current evidence.
+
+**KEEP vs rewrite-in-place:** **KEEP** is the provisional design recommendation. A greenfield rewrite offers little inherent benefit for this compact, broadly shared module unless later reviews reveal a concrete cross-tool result-contract defect. Perform minor targeted hardening only alongside the shared-result/annotation/logging dependency group when there is demonstrable benefit. Preserve the existing filename, public exports, call signatures, envelope, content and structuredContent behavior.
+
+**Grouped acceptance:** verify successful and failed command results, Job `toolError`, optional summary/default summary, text JSON equality with structured content, default vs custom MCP output schemas, work-gateway forwarding, all active tool-family integrations and non-serializable input handling if it is in scope. Do not mark runtime validation complete from source inspection alone.
 
 ### Working sequence and completion rule — review all, plan once, implement by dependency group
 
