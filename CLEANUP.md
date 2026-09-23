@@ -71,6 +71,17 @@ The final code closure commit is `423764c4` (`refactor: close inherited integrat
 
 GitHub Actions is the authoritative automated gate for this cleanup. The optional Git CLI remains a host capability rather than a GPTWorker runtime dependency; it is available through `run_command` when installed.
 
+## Manual local verification — 2026-09-23
+
+The user pulled the current repository code and reports that local testing completed successfully and GPTWorker continues to operate normally. This is user-reported functional validation, not an independently inspected test log and not a claim that every test command or every runtime path passed.
+
+- [x] User-reported local functional testing after pulling the latest code: no operational problem observed.
+- [ ] Perform a real-file mutation acceptance test in an explicitly confirmed disposable Workspace: create a test file, read it back, perform one exact edit, apply a multi-change patch, verify the content, and clean up only the test artifacts.
+- [ ] In that acceptance test, verify that mutation attempts targeting an absolute path outside the confirmed Workspace are rejected and leave the outside file unchanged. Also check an in-Workspace symlink/junction pointing outside if supported by the host.
+- [ ] Capture the exact local commands/results and the applicable GitHub Actions status for the tested HEAD before marking this latest verification round fully closed.
+
+**Status:** Local operation is user-confirmed; real-file editing and boundary-negative mutation tests remain **PENDING**. This manual result supplements, but does not replace, the previously recorded CI #646 evidence for commit `423764c4` or establish CI status for later commits. Packaging remains a separate open task.
+
 ## Final inherited-core cleanup result
 
 The inherited-core cleanup is complete.
