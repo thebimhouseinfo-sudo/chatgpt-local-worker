@@ -13,6 +13,8 @@ import { runWithWorkspaceScope } from "./lib/path-security.js";
 import { getCustomJobsRoot, getDefaultJobsRoot } from "./lib/worker-home.js";
 import { acquireToolLease, releaseToolLease } from "./lib/work-registration.js";
 import { requiresWorkHandle, toolFamily } from "./lib/tool-work-policy.js";
+import { getBrowserCapability } from "./lib/browser-capability.js";
+import { runWithBrowserLease } from "./lib/browser-mcp-adapter.js";
 
 function configureToolRegistration(server: McpServer): void {
   const original = server.registerTool.bind(server);
@@ -57,12 +59,20 @@ function configureToolRegistration(server: McpServer): void {
             toolName === "work_tool" && typeof args.tool === "string"
               ? args.tool
               : toolName;
+          // Check Job identity before lazy resolution/upstream process creation.
+          // Do not confer browser access merely because a Custom Job has a
+          // valid work handle for its own Workspace.
           const lease = acquireToolLease(
             effectiveTool,
             toolFamily(effectiveTool),
             executionId,
             authorityToken
           );
+          if (toolFamily(effectiveTool) === "browser" &&
+              (lease.jobId !== "dev-coding" || !getBrowserCapability().advertised)) {
+            releaseToolLease(lease, "error", "BROWSER_DENIED: Job or capability");
+            throw new Error("BROWSER_DENIED: only an enabled, healthy Dev Coding Job can use browser tools");
+          }
           const toolArgs = { ...args };
           delete toolArgs.execution_id;
           delete toolArgs.authority_token;
@@ -75,7 +85,7 @@ function configureToolRegistration(server: McpServer): void {
             const result = await runWithWorkspaceScope(
               lease.workspace,
               supportRoots,
-              () => (callback as any)(toolArgs, ...rest)
+              () => runWithBrowserLease(lease, () => (callback as any)(toolArgs, ...rest))
             );
             releaseToolLease(lease, "ok");
             return result;
@@ -129,7 +139,8 @@ export function createMcpServer(
   const jobRuntime = new JobRuntime();
   const workResolver = registerWorkGateway(
     server,
-    shellTimeout
+    shellTimeout,
+    { browserAdvertised: getBrowserCapability().advertised }
   );
 
   // workspace_discover is the minimal read-only pre-confirmation probe used
