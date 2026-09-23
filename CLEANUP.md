@@ -108,7 +108,7 @@ The group reflects the previous cleanup's provenance assessment, **not** an exac
 
 | File | Current responsibility / review focus | Review state | Decision |
 |---|---|---|---|
-| `src/lib/patch.ts` | Patch parser, hunk matching, diff generation and multi-file mutation | **PRELIMINARY STATIC REVIEW**; tests/mutation acceptance pending | **UNDECIDED** |
+| `src/lib/patch.ts` | Patch parser, hunk matching, diff generation and multi-file mutation | **DESIGN REVIEW**; targeted runtime tests pending | **GREENFIELD REWRITE preferred candidate; not final** |
 | `src/lib/mcp-session-manager.ts` | MCP transport, sessions and recovery; identify indispensable state/compatibility paths | NOT STARTED | UNDECIDED |
 | `src/lib/tool-result.ts` | Shared result envelope/schema; enumerate consumers and minimum required contract | NOT STARTED | UNDECIDED |
 | `src/lib/tool-annotations.ts` | MCP annotations and presentation-only auto-approve hints | NOT STARTED | UNDECIDED |
@@ -172,6 +172,69 @@ For a greenfield proposal, record a compact design spec **before coding**: requi
 - [ ] Write a requirements-first greenfield design alternative and compare KEEP, targeted REFACTOR and GREENFIELD REWRITE for correctness, simplicity, safety, performance, compatibility and implementation/test cost.
 - [ ] Decide KEEP/SIMPLIFY/REFACTOR/GREENFIELD REWRITE/REMOVE and document contract, implementation scope and migration tests.
 - [ ] Implement the approved technical changes, update callers/docs/tests and capture fresh CI evidence before marking COMPLETE.
+
+#### Greenfield design proposal for `patch.ts`
+
+**Provisional technical direction: GREENFIELD REWRITE is currently the strongest candidate, pending targeted runtime tests.** The reason is not provenance: the required GPTWorker behavior is narrower than a general-purpose patch engine, the current inherited implementation is small enough to replace safely, and several correctness properties should be designed explicitly rather than added incrementally around existing assumptions.
+
+**Required scope only:**
+- Apply exact structured text edits to UTF-8 local files in the confirmed Workspace.
+- Support single-file context hunks and numbered unified hunks only if they are strictly validated against the actual old/context content.
+- Support GPT-style explicit multi-file operations (`Update File`, `Add File`, `Delete File`) because the current filesystem tool exposes multi-file patching.
+- Preserve LF/CRLF behavior where practical.
+- Return structured per-file results and a truthful preview/diff suitable for the current filesystem tool.
+- No Git/GitHub-specific patch behavior and no generic VCS patch compatibility requirement.
+
+**Non-goals:**
+- Do not become a full `git apply` replacement.
+- Do not support arbitrary multi-file unified diffs merely for compatibility with the inherited implementation.
+- Do not add fuzzy matching that can silently choose a different location.
+- Do not add external diff/patch dependencies unless testing demonstrates a material correctness or maintenance advantage.
+
+**Proposed internal model:**
+1. `parsePatch(...)` converts input to a small typed plan without touching disk.
+2. `preparePatchPlan(...)` resolves every target, applies Workspace canonical-path validation, reads required originals, validates create/update/delete preconditions, and computes proposed new content entirely before mutation.
+3. Pure text logic applies each hunk only when all old/context lines match exactly at the selected location. Numbered hunks use the line number as an expected location, not authority to overwrite mismatched content. Context hunks must have a unique/explicitly deterministic match or fail.
+4. `commitPatchPlan(...)` performs writes only after the whole plan passes preflight. For multi-file mutation, retain enough original state to attempt rollback if a later filesystem write fails; return an explicit recovery result if rollback itself is incomplete. Do not claim filesystem-level atomicity.
+5. Diff/preview is generated from the prepared before/after content and must represent insertions/deletions coherently. If a simple summary is intentionally used instead of a true diff, name and document it as a summary rather than a diff.
+6. Filesystem authority remains outside or at the mutation boundary: the engine must not accept unchecked relative paths or bypass `validatePath`.
+
+**Mutation rules:**
+- `Add File`: fail if the target already exists unless a future API explicitly introduces overwrite semantics.
+- `Update File`: fail if the target is missing, not a regular file, or expected old/context content does not match.
+- `Delete File`: fail if the target is missing or not the expected supported file type; preflight captures original content/metadata needed for best-effort recovery.
+- Duplicate operations on the same canonical target in one patch must either be rejected or normalized by an explicitly tested rule; default design is reject for simplicity.
+- `dry_run` executes parse + authority + preflight + result generation but performs zero mutations.
+
+**Public API migration target:** preserve the current filesystem-facing behavior where useful, but do not preserve internal helper names merely for compatibility. The likely external surface can remain equivalent to patch detection/application plus preview results so `src/tools/filesystem.ts` requires minimal migration.
+
+**Why greenfield may be better than targeted refactor:**
+- The current numbered-hunk path performs positional splice without verifying old/context content.
+- Multi-file execution currently mixes parsing, authority validation, disk I/O and error accumulation, making stronger transaction semantics harder to reason about.
+- `buildSimpleDiff` is presentation logic coupled into the engine and is not a true insertion/deletion diff.
+- GPTWorker no longer needs upstream's broader patch-format compatibility, so a requirements-first implementation can be smaller while having stricter behavior.
+
+**Why greenfield is not yet final:** targeted tests must first characterize every patch form that current Dev Coding actually emits and any caller-visible result fields that Jobs/harness rely on. If these tests reveal substantial hidden compatibility requirements, a focused refactor may be lower-risk.
+
+**Decision comparison (current evidence):**
+
+| Option | Correctness potential | Simplicity | Migration risk | Current assessment |
+|---|---|---|---|---|
+| KEEP | Low without accepting known risks | High initially | Low | Not preferred |
+| Targeted REFACTOR | High | Medium | Medium | Viable fallback |
+| GREENFIELD REWRITE | High, with explicit preflight/recovery model | High after replacement | Medium | **Preferred candidate** |
+| REMOVE | N/A | High | Very high; removes core local editing capability | Reject |
+
+**Tests required before implementation decision is marked final:**
+- Exact mismatch rejection for numbered and context hunks.
+- Multiple hunks on one file, adjacent hunks and repeated identical context.
+- Add-existing, update-missing, delete-missing and duplicate-target operations.
+- Multi-file preflight failure with proof that no file changed.
+- Simulated commit failure followed by rollback/recovery reporting.
+- `dry_run` with proof of zero filesystem mutation.
+- LF, CRLF, UTF-8, empty file, trailing-newline and no-newline-at-EOF behavior.
+- Confirmed Workspace rejection including canonical symlink/junction escape cases.
+- Caller-contract tests through `filesystem.ts`, not only pure patch helpers.
 
 ### Working sequence and completion rule
 
