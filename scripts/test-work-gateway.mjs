@@ -42,6 +42,13 @@ try {
     throw new Error("replacement nomination did not reset/reload prepared profile");
   }
 
+  // Even a direct Custom Job preload request cannot eagerly load browser.
+  const deniedBrowserPreload = await resolver.prepareJob("custom-job", ["browser"]);
+  if (deniedBrowserPreload.requested_families.includes("browser") ||
+      resolver.status().loaded_families.includes("browser")) {
+    throw new Error("browser must never be a preloadable runtime family");
+  }
+
   resolver.clearPreparedJob();
   status = resolver.status();
   if (status.prepared_job !== null || status.prepared_families.length !== 0) {
