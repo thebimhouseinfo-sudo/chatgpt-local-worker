@@ -79,6 +79,13 @@ test("numbered hunk rejects mismatched old lines", () => {
   }
 });
 
+test("unified insertion before first line", () => {
+  const original = "second\\n";
+  const patch = "@@ -0,0 +1,1 @@\\n+first";
+  const actual = applyUnifiedPatchToText(original, patch);
+  if (actual !== "first\\nsecond\\n") throw new Error("start-of-file insertion failed");
+});
+
 test("empty or malformed patch is rejected", () => {
   if (!assertRejectsPatch("a\n", "not a patch")) {
     throw new Error("malformed patch unexpectedly accepted");
