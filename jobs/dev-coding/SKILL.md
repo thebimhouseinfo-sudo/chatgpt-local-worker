@@ -182,3 +182,17 @@ Report:
 If requested work belongs to `dev-planing`, say so explicitly and recommend opening a `dev-planing` chat rather than pretending the coding pack has the same specialist workflow.
 
 Do not claim `done`, `fixed`, `safe`, `fast`, or `passes` beyond the evidence actually obtained.
+
+## 13. Task-local checkpoint and resume (Git optional)
+
+After confirmed Workspace activation, run `harness/execution-preflight.mjs --cwd <absolute-workspace> --active-execution-id <fresh-confirmed-execution-id>` to **discover** valid unfinished checkpoints in the confirmed Workspace's `.gptworker/dev-coding/` tree. With one matching task offer resume or fresh start; with several ask for a specific task ID. Resume only after the user selects it and the checkpoint is validated and rebound to the **new** work handle. Source/test/config hash drift invalidates affected PASS evidence; do not silently resume a stored action.
+
+When starting a new substantial task, record a concrete Goal, named acceptance IDs, allowed absolute paths, expected local checks and whether browser is REQUIRED / OPTIONAL / N/A. Use the task-local checkpoint helper before first edit to capture snapshots, then record each agent write and evidence fingerprint. Default repair budget is eight meaningful attempts and 45 minutes of active execution; change approach or stop after two identical uninformative failures. Preserve partial work on FAIL; a snapshot restore needs explicit approval and matching last-written hash.
+
+## 14. Browser-enabled Goal verification and completion
+
+Only if enabled/healthy for the confirmed dev-coding execution, browser operations may run against loopback previews. Never treat installed browser/doctor success as proof of a healthy MCP toolset; the setup verifier must have checked the exact pinned upstream schemas. Browser v1 does **not** provide general Internet browsing or account automation.
+
+After targeted tests, rerun the original failure, run applicable build/runtime checks, and check browser behavior only if required. For bugfix tests retain pre-fix RED and post-fix GREEN; for features/refactors seed a relevant wrong behavior with the **same unchanged test** (PASS→behavior mutation FAIL→restore PASS). Do not manufacture failures by modifying the test runner. A meaningful negative control is evidence, not a claim of exhaustive requirements coverage.
+
+Run `harness/completion-gate.mjs --cwd <absolute-workspace> --task-id <task-id> --evidence <absolute-evidence-JSON-path>` to verify *actual* DONE. Without `--evidence`, the command reports `STRUCTURAL_ONLY_NOT_GOAL_PASS` even if `ok=true`. `--evidence` must bind every acceptance observation, validation gate, all mandatory diff checklist items and a fresh SHA-256 input manifest. Record unavailable/skipped conditions explicitly; never mark DONE from build or tests alone.
