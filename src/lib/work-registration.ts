@@ -47,6 +47,17 @@ const workspaceOwners = new Map<string, string>();
 const workspaceGenerations = new Map<string, number>();
 const activeLeases = new Map<string, ToolLease>();
 const idleTimeoutHandlers = new Map<string, () => void>();
+const onReleasedCallbacks = new Set<(registration: WorkRegistration) => void>();
+/** Subsystems may revoke resources owned by the stopped work execution. */
+export function onWorkRegistrationReleased(callback: (registration: WorkRegistration) => void): () => void {
+  onReleasedCallbacks.add(callback);
+  return () => onReleasedCallbacks.delete(callback);
+}
+export function isLeaseActive(lease: ToolLease): boolean {
+  return activeLeases.get(lease.leaseId) === lease
+    && registrations.get(lease.workId)?.generation === lease.generation;
+}
+
 let epochPromise: Promise<number> | null = null;
 
 function positiveEnvMs(name: string, fallback: number): number {
@@ -250,7 +261,17 @@ function releaseRegistration(
     }
   }
 
+  // Remove authority before signaling resource cleanup. A browser invocation
+  // resuming after an awaited operation must observe that this lease is stale.
   registrations.delete(executionId);
+  for (const callback of onReleasedCallbacks) {
+    try { callback(registration); } catch (error) {
+      appendActivity({
+        kind: "system", action: "work_resource_revoke_failed", status: "error",
+        work_id: executionId, summary: error instanceof Error ? error.message : String(error),
+      });
+    }
+  }
   if (workspaceOwners.get(registration.workspace) === executionId) {
     workspaceOwners.delete(registration.workspace);
   }
