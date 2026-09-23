@@ -141,6 +141,17 @@ Add any newly discovered inherited file to this register with its **real callers
 
 **Shared invariants:** every file/path binding and actual project mutation stays within the explicitly confirmed absolute Workspace; Job support roots are read/execute support, not mutation destinations. Maintain work-handle authority, Job lifecycle/stop behavior, lazy loading, current MCP compatibility, and the established public Job flow. Shell command string checks are not an OS sandbox: characterize their limitations and test indirect/path-constructed escapes rather than claiming guaranteed isolation.
 
+### Approved three-file upgrade plan (2026-09-23)
+
+**Scope:** preserve current module implementations, file names, public API, active callers and Job behavior. Change only `src/lib/path-security.ts`, `src/lib/patch.ts`, `src/tools/filesystem.ts` and their focused tests.
+
+1. **Path boundary:** reject non-absolute Workspace roots and invalid path argument types; revalidate destinations after creating their parent directories. Keep existing read-only support-root behavior and scope lifecycle. Test symlink escape and out-of-Workspace refusal.
+2. **Patch correctness:** require numbered hunks to match actual context/removal lines before splicing; reject invalid/empty patch hunks. Preserve GPT explicit multi-file format and existing exported functions.
+3. **Grouped filesystem safety:** preflight all explicit multi-file operations before the first mutation; reject duplicate targets and existing `Add File` destinations; report errors without implying transaction-level atomicity on unforeseen I/O failures. Keep `filesystem.ts` result envelope and add revalidation at mutation time.
+4. **Validation gate:** update targeted pure patch and disposable-Workspace filesystem tests; then build, validate Job packs, run test suite and inspect CI for the current commit. Cross-platform junction/TOCTOU and real operator acceptance remain explicitly pending unless actually tested.
+
+**Non-goals:** full patch engine rewrite, global filesystem transaction layer, added dependencies or claims of OS sandbox/atomicity.
+
 ### Selective-improvement criteria
 
 Keep current modules and algorithms unless targeted tests demonstrate a defect or measurable overhead. Make the smallest change that resolves the issue, preserving API and current patch format semantics. Priorities: (1) Workspace and work-handle containment, (2) prevention of unintended file mutation and accurate errors, (3) regression coverage of the current local coding workflow, (4) maintainability without new abstractions. Do not pursue greenfield designs or rewrite internals merely to improve style or provenance.
