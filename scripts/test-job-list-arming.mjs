@@ -21,7 +21,7 @@ const fakeServer = {
 };
 
 const admissionRuntime = new AdmissionRuntime();
-const jobRuntime = new JobRuntime(repoRoot, path.join(repoRoot, "jobs"));
+const jobRuntime = new JobRuntime(path.join(repoRoot, "jobs"));
 registerJobTools(fakeServer, jobRuntime, undefined, admissionRuntime);
 
 const jobList = registered.get("job_list");

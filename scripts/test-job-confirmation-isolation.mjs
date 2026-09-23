@@ -25,7 +25,7 @@ function makeSession() {
   };
 
   const admission = new AdmissionRuntime();
-  const runtime = new JobRuntime(repoRoot, jobsRoot);
+  const runtime = new JobRuntime(jobsRoot);
   registerJobTools(server, runtime, undefined, admission);
 
   return {

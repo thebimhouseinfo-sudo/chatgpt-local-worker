@@ -34,7 +34,7 @@ const server = {
 };
 
 const admission = new AdmissionRuntime();
-const runtime = new JobRuntime(repoRoot, jobsRoot);
+const runtime = new JobRuntime(jobsRoot);
 registerJobTools(server, runtime, undefined, admission);
 const jobSelect = registered.get("job_select")?.callback;
 assert.ok(jobSelect, "job_select was not registered");

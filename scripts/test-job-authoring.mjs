@@ -76,7 +76,7 @@ assert.equal(
   true
 );
 
-const runtime = new JobRuntime(tempRoot);
+const runtime = new JobRuntime();
 const listing = await runtime.list("test authoring");
 const defaultJob = listing.jobs.find((job) => job.id === "dev-coding");
 const customJob = listing.jobs.find((job) => job.id === "test-job");
