@@ -19,7 +19,7 @@ ChatGPT
   → actual project work
 ```
 
-The execution core owns only the local capabilities required by Job Packs: filesystem/search/edit, shell/processes, git, workspace/context handling, node_repl, and deterministic validation. Automatic checkpoints are internal filesystem safety. Standalone rewind, Codex-specific hooks/Computer Use, Admin UI, Ponytail, and upstream MCP bridging are retired and must not be treated as optional runtime families.
+The execution core owns only the local capabilities required by Job Packs: filesystem/search/edit, shell/processes, git, workspace/context handling, node_repl, and deterministic validation. Automatic checkpoints are internal filesystem safety. Standalone rewind, Codex-specific hooks/Computer Use, Admin UI, Ponytail and generic upstream MCP bridging remain retired. The only sanctioned exception is the explicitly opted-in, version-pinned Vercel agent-browser **outbound** MCP client for dev-coding localhost UI QA; it is disabled by default, never a Job preload, and must not give other Jobs browser privileges.
 
 Job Packs own workflow/policy/SOP, specialist skills or business rules, deterministic harnesses, and completion criteria.
 
