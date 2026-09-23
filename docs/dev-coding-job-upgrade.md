@@ -191,7 +191,7 @@ This may include:
 
 Tests should validate behavior, not merely reproduce implementation details.
 
-Do not weaken existing tests to make a broken implementation pass.
+Do not weaken existing **or newly generated** tests to make a broken implementation pass. For bug fixes, establish red-green evidence: the new regression test fails against the pre-fix behavior and passes after the fix. When pre-fix replay is unsafe/unavailable or the task is a new feature/refactor, document why and require a credible negative control (such as an isolated mutation or seeded fault) proving the test can detect the intended violation. Test implementation changes after seeing failures require explicit justification, a fresh negative control and retained prior evidence; never quietly change assertions to fit the output.
 
 ### Step 4 — Local QA/QC
 
@@ -321,7 +321,7 @@ remaining_goal_gap:
 next_action:
 ```
 
-This state may live in the active conversation/task notes; it does not require a new large orchestration subsystem.
+This state MUST be persisted in the confirmed Workspace (not only in conversation/task notes) using a minimal atomic JSON checkpoint under `.gptworker/dev-coding/<task-id-or-execution-id>/state.json` (or a repository-consistent equivalent verified during P0). The corresponding folder must be ignored by Git by default. Persist after each meaningful iteration and before an external handoff; include task/goal and acceptance-signal IDs, baseline revision/dirty-worktree fingerprint, attempt count, last failing check and result, observed evidence references, current hypothesis, last code/test changes, remaining gaps, elapsed execution time, stop reason, and next action. Never persist secrets or raw browser data. On chat reset/resume, validate the active workspace, task ID, work-handle generation, source revision and changed-file fingerprint before trusting the checkpoint; detect drift and request a fresh check/replan rather than blindly replaying a stale action. Keep bounded history (e.g. last 8 attempts) and write atomically via temporary file plus rename with normal Workspace path protections. Do not build a second Job state/orchestration subsystem.
 
 ### Stop conditions
 
@@ -331,6 +331,14 @@ The loop ends only in one of these states:
 - `BLOCKED` — progress requires unavailable credentials, external service, missing product decision, inaccessible dependency, or another user decision;
 - `FAILED_VALIDATION` — a required validation cannot be made to pass within the allowed task scope and the remaining failure is reported with evidence;
 - `ENVIRONMENT_LIMIT` — the environment cannot execute a required check, and this limitation is explicitly reported.
+
+### Explicit iteration budget and failure handling
+
+Default per-task execution budget: **8 meaningful implementation/repair iterations and 45 minutes of active execution**, configurable by the authorized task contract. In addition, stop or change approach after **2 repeats of an identical failure signature without new causal evidence**. Runtime/tool timeouts must remain individually bounded. Reaching a budget does not imply PASS: persist current state and report `FAILED_VALIDATION`, `BLOCKED`, or `ENVIRONMENT_LIMIT` as evidence warrants. No unbounded recursive retries. A future chat may resume from a validated checkpoint with an explicitly renewed budget.
+
+### Non-destructive rollback policy
+
+Before editing, record baseline commit and dirty/untracked state, then use the existing filesystem checkpoint safeguards where available. Track agent-owned changed paths and patches independently from user-owned changes. On Goal FAIL or budget exhaustion, **preserve partial work and evidence by default**; tell the user what changed, which checks failed, what remains, and the precise scoped restore options. Never run `git reset --hard`, `git clean`, mass revert, or automatic branch rollback against a dirty worktree. An explicit user-approved rollback may reverse only demonstrably agent-owned changes without destroying intervening user modifications; otherwise mark the case as needing manual conflict resolution.
 
 Do not stop merely because code was written, a patch was generated, or one test suite passed.
 
@@ -358,7 +366,8 @@ Generated tests/scripts must:
 - return meaningful non-zero exit codes on failure;
 - be runnable locally before relying on CI;
 - avoid network/external dependencies unless the product genuinely requires them;
-- avoid secrets and machine-specific assumptions.
+- avoid secrets and machine-specific assumptions;
+- preserve test integrity: record test source revision/hash and red-green evidence (or justified negative control); never count an unproven generated test alone as sufficient Goal evidence.
 
 ---
 
@@ -418,6 +427,8 @@ A task may only be reported as complete when:
 
 Do not equate `N/A` or `UNAVAILABLE` with PASS.
 
+`DIFF_REVIEW=PASS` requires recorded evidence for every applicable item: all changed files are in approved scope; no user-owned or unrelated edits were overwritten; `git diff --check` succeeds; no disabled/relaxed/deleted tests or weakened lint/type/security config without explicit justification; no debug leftovers, secrets, accidental generated artifacts, broad formatting churn, or comment-out-instead-of-fix; changed callers/interfaces and dependency effects were inspected. A required failed or unchecked item yields FAIL/UNVERIFIED, not the agent's unsupported subjective PASS. Capture a compact machine-readable checklist and link it to the actual revision/diff fingerprint.
+
 ---
 
 ## 10. Browser capability — official Vercel agent-browser MCP stdio
@@ -455,7 +466,7 @@ The paths above are *inspection targets*, not permission to touch all of them. R
 
 ### 10.2 Upstream contract and strict v1 allowlist
 
-Before implementing the adapter, pin and record a tested upstream version; verify `agent-browser mcp`, its advertised `tools/list` names, JSON schemas, tool profiles, `allowedDomains`, session configuration, and installation/diagnostic commands against that version. Do **not** assume that names or flags listed here are permanent API guarantees.
+Before implementing the adapter, pin and record a tested **exact** upstream version in a repository-owned compatibility manifest (version, package lock/install command, tested MCP schemas/profile flags, contract date and evidence); verify `agent-browser mcp`, its advertised `tools/list` names, JSON schemas, tool profiles, `allowedDomains`, session configuration, and installation/diagnostic commands against that version. Do **not** assume that names or flags listed here are permanent API guarantees.
 
 Start with upstream `core` but expose **only** the verified counterparts of:
 
@@ -472,6 +483,8 @@ Start with upstream `core` but expose **only** the verified counterparts of:
 | `browser_close` | `agent_browser_close` |
 
 The adapter maps verified schemas, validates every incoming operation and arguments, forwards only explicitly selected fields, and checks the allowlist **again on every `tools/call`**, not only at `tools/list`. Never forward arbitrary `extraArgs`, JavaScript `eval`, additional upstream profiles (`network`, `state`, `debug`, `tabs`, `react`, `mobile`), or `--tools all` in v1. Do not accidentally make disabled tools discoverable through generic upstream passthrough.
+
+**Upstream compatibility ownership:** P0/B0 implementer records the precise upstream version after validating the actual release; do not invent a version before audit. Keep the global optional installer aligned with this exact recorded version rather than fetching an unreviewed latest release. Re-audit before every intentional upstream version bump, whenever a schema/doctor compatibility check fails, and on a quarterly maintenance review. If upstream changes unexpectedly, fail closed (`UNAVAILABLE`, no browser tools), retain the last known compatible version, and do not silently update. CI mock tests cover the frozen schema; an opt-in real-browser smoke check validates a deliberate upgrade.
 
 ### 10.3 Permissions and safety
 
@@ -534,7 +547,7 @@ Browser is optional at installation time but may be **required by a specific tas
 
 | Phase | Work | Acceptance gate |
 | --- | --- | --- |
-| **B0 — Contract audit** | Verify pinned upstream MCP command/tool schemas/profile flags, SDK transport, existing caller mapping; freeze permission/URL/session/screenshot contracts and tests. | Every v1 operation has validated input/output schema; no alternate work-handle path. |
+| **B0 — Contract audit** | Verify and pin exact upstream MCP version, tool schemas/profile flags, SDK transport and existing caller mapping; freeze security contracts and tests. | Every v1 operation has validated schemas; compatibility manifest and fallback policy recorded. |
 | **B1 — Setup and capability** | Optional `setup.bat` YES/NO; config; installed-vs-healthy check; DISABLED/UNAVAILABLE/READY/ACTIVE state. | Skip/install/uninstall/broken browser each produce expected nonblocking diagnostics. |
 | **B2 — MCP stdio adapter** | Reuse SDK `StdioClientTransport`; initialize, tools/list, allowlisted tools/call, structured text/image/errors, deadlines and robust close. | Mock upstream tests prove mapping, denied eval/extraArgs, timeout/crash handling and no accidental exposure. |
 | **B3 — Work gateway integration** | Lazy `browser` family, work lease/Job permission, execution-scoped session, origin and artifact policy, cleanup. | First authorized call starts browser; unauthorized Custom Job denied; job_stop revokes session and child. |
@@ -544,6 +557,8 @@ Browser is optional at installation time but may be **required by a specific tas
 Use the same repository-owned scripts and existing CI architecture. Run deterministic mock-adapter/security/lifecycle tests on normal CI; gate real Chromium-dependent smoke tests on environments with an explicitly installed browser rather than causing failure for users who opted out.
 
 ---
+
+**Effort and sequencing:** B0 is the highest integration uncertainty and blocks B1/B2. Use relative effort envelopes rather than unsupported delivery dates: B0 **M (external/schema risk HIGH)**; B1 **M (Windows packaging risk MEDIUM)**; B2 **L (MCP image/lifecycle risk HIGH)**; B3 **L (dynamic discovery and revocation risk HIGH)**; B4 **M (goal-evidence risk MEDIUM)**; B5 **L (Windows/end-to-end environment risk HIGH)**. B1 may start only after B0's official installer contract is frozen; B3 depends on B1 and B2; B4 depends on B3; B5 follows all. Re-estimate after B0 inspection, not as a guaranteed calendar commitment.
 
 ## 12. Browser non-goals and extension points
 
