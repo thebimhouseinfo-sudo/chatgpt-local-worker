@@ -187,7 +187,7 @@ After activation, follow the selected Job Pack's `JOB.md` and `SKILL.md`. The co
 Run pack validators and task-appropriate deterministic checks. A file write or generated output alone is not completion evidence.
 
 - `layla`: validate the produced artifact according to its file type and task, and preserve source data unless overwrite/delete was explicitly requested or clearly safe.
-- `dev-coding`: review the final diff and run `git diff --check` when operating in Git; bundle-backed work must leave `TASKS.md` reflecting real progress/status.
+- `dev-coding`: review a task-scoped snapshot diff even without Git; optionally run `git diff --check` when Git use is authorized; claim DONE only with fresh acceptance evidence and the Goal completion gate, not structural green alone. The bundle-backed task ledger must reflect real progress/status.
 - `dev-planing`: the planning bundle must pass `bundle-lint` and expose unresolved decisions rather than hide them.
 - `mto`: validate source resolution, write target, audit JSON, report, template/source authority, preservation of manual fields where applicable, and unresolved review items. Draft runs must retain the warning in reviewer-facing output.
 
@@ -324,3 +324,7 @@ Do not:
 - execute before explicit JOB/FOLDER confirmation;
 - infer missing domain policy;
 - build a swarm/multi-agent hierarchy merely around Job Packs.
+
+## Optional dev-coding browser QA
+
+Vercel agent-browser is an **opt-in** dev-coding-only localhost/approved-preview QA capability, not a general upstream-MCP bridge. On NO, failed health, schema drift or incompatible Node, browser operations must be absent from the advertised MCP `work_tool` schema and any stale calls must fail closed. The Worker must remain functional without browser/Chromium. Browser processes start lazily after an authorized operation, are execution-scoped, and must terminate on work release/stop/expiry. Other Jobs and Custom Jobs have no browser authority. The target Workspace need not contain Git. Browser enablement requires explicit setup preference, pinned installed version, current MCP schema-health evidence and a newly established MCP session/reconnect when the advertised schema changes.
