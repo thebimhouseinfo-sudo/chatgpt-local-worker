@@ -166,7 +166,8 @@ For a greenfield proposal, record a compact design spec **before coding**: requi
 
 `patch.ts` review checklist:
 - [x] Preliminary inspection of current GPTWorker implementation, immediate filesystem integration, existing patch tests and accessible upstream implementation.
-- [ ] Pin precise upstream baseline and complete direct/static/dynamic caller map.
+- [x] Map direct integration from `filesystem.ts` and indirect Work Gateway, work-handle/Workspace, Job and existing-test dependencies; capture current external result shapes.
+- [ ] Pin precise upstream baseline; finish checking dynamic instructions/harness and any externally authored Custom Job consumers.
 - [ ] Reproduce numbered-hunk mismatch, multi-file partial failure, insertion/deletion diff, multi-hunk behavior and CRLF handling in isolated tests.
 - [ ] Run real-file create/edit/patch/rollback-related acceptance in a disposable confirmed Workspace; verify out-of-Workspace and symlink/junction mutation rejection.
 - [ ] Write a requirements-first greenfield design alternative and compare KEEP, targeted REFACTOR and GREENFIELD REWRITE for correctness, simplicity, safety, performance, compatibility and implementation/test cost.
@@ -235,6 +236,33 @@ For a greenfield proposal, record a compact design spec **before coding**: requi
 - LF, CRLF, UTF-8, empty file, trailing-newline and no-newline-at-EOF behavior.
 - Confirmed Workspace rejection including canonical symlink/junction escape cases.
 - Caller-contract tests through `filesystem.ts`, not only pure patch helpers.
+
+#### `patch.ts` integration impact and migration boundary
+
+**Review type: source-level integration mapping; implementation and runtime acceptance are still pending.** GPTWorker `src/lib/patch.ts` exposes four runtime functions, all imported directly by `src/tools/filesystem.ts`: `applyUnifiedPatchToText`, `applyMultiFilePatch`, `isMultiFilePatch` and `buildSimpleDiff`. `MultiPatchResult` is a TypeScript interface available to consumers. The immediate production dependency appears deliberately narrow: `filesystem.ts` is the adapter between the patch implementation and the public MCP/Job execution surface.
+
+| Integration | Current relationship | Rewrite boundary / action |
+|---|---|---|
+| `src/tools/filesystem.ts` | Directly imports four patch exports; `edit_file` calls `buildSimpleDiff`; `apply_patch` routes single/multi-file inputs, performs some filesystem I/O, emits structured result and activity log | **Direct impact:** adapt at this boundary, preserving user-facing names/input/output until all actual consumers are migrated |
+| `src/lib/path-security.ts` | `patch.ts` calls `validatePath` for multi-file targets; `filesystem.ts` also validates single-file/base paths | **Security contract:** preserve absolute confirmed-Workspace mutation validation; revalidate targets near commit after preflight and test canonical symlink/junction escapes |
+| `src/tools/work-gateway.ts` | Advertises `apply_patch` and `edit_file` in the filesystem family and lazily imports `filesystem.ts` | **Indirect dependency:** no anticipated API changes if filesystem tool names/schema remain stable; regression-test lazy dispatch |
+| `src/server-factory.ts` | Supplies work-handle lease and `runWithWorkspaceScope` to tool invocation | **Indirect security dependency:** do not modify authorization plumbing to rewrite a local patch engine; integration-test scoped invocation |
+| `src/lib/tool-result.ts`, `src/lib/activity-log.ts` | Used by `filesystem.ts` to publish results and activity, not directly imported by `patch.ts` | **Result/observability dependency:** retain outward result semantics or migrate and test them deliberately |
+| `jobs/dev-coding/job.yaml` and other Jobs/Custom Jobs | Dev Coding preloads filesystem; actual consumers can reach `apply_patch` via generic `work_tool` | **Contract dependency:** preserve public operation name, input fields and successful/error result interpretation; inspect relevant skills/harness and do not infer all Custom Job usage from repository source |
+| `scripts/test-patch.mjs`, `scripts/test-tools.mjs`, `scripts/test-filesystem-core.mjs`, `scripts/test-work-gateway.mjs` | Direct helper tests, one multi-file on-disk smoke test, filesystem end-to-end callback test and lazy-gateway dispatch coverage | **Test dependency:** revise the invalid numbered-hunk fixture; add negative, transaction/recovery and workspace-boundary tests; maintain positive integration coverage |
+
+**Observed public compatibility points:** `apply_patch({ path, patch, dry_run })` returns `{ path, diff, dry_run }` for single-file and `{ files: [{ path, operation, ok, diff?, error? }], dry_run, multi_file: true }` for multi-file, wrapped by `toolResult`; overall multi-file `ok` is false when any operation reports failure. `edit_file` reports `diff`, `replacements`, and `dry_run`. Preserve these shapes for compatibility, or migrate consumers and tests explicitly; report true commit/rollback state instead of implying all-or-nothing success.
+
+**Important implementation constraint:** `edit_file` currently depends on `patch.ts` **only for diff output**, not for exact replacement. Replacing the patch engine must not inadvertently alter `edit_file` text-replacement semantics. Consider separating presentation-only diff generation into a small pure helper if that reduces coupling without duplicating logic.
+
+**Recommended migration plan:**
+1. Capture current outward `filesystem.ts` contracts and job/harness patch instructions. Add tests for both single-file and explicit multi-file formats **through `work_tool`** as well as pure helpers.
+2. Implement new pure parse/apply/preview logic behind an adapter exporting the four current names. Keep the existing `filesystem.ts` MCP operation/schema, `work-gateway.ts` family mapping and `server-factory.ts` lease/Workspace wrapper unchanged initially.
+3. Isolate on-disk multi-file staging/commit/recovery. Preflight all targets/content before mutation; detect changes between preflight and commit; validate the confirmed Workspace immediately before each mutation and address symlink/junction and path-swap race limitations. Do not promise unconditional atomicity or perfect rollback.
+4. Add real-file acceptance in a disposable confirmed absolute Workspace: positive add/update/delete, dry-run, mismatch, duplicate target, partial-write fault injection and recovery, outside path, symlink/junction. Test `edit_file` diff separately.
+5. Run targeted patch/filesystem/work-gateway/job tests, TypeScript build, `validate:jobs`, the default test suite and applicable CI. Only after these pass remove the old internal implementation. If unexpectedly broad compatibility requirements surface, revisit REFACTOR instead of forcing greenfield.
+
+**Blast radius assessment:** **small at the direct import layer, moderate at the behavioral layer, high for file-integrity failure modes**. No justified need to rewrite MCP transport, Job Runtime or Work Gateway merely for this change. Runtime behavior through dynamic/externally authored Custom Jobs cannot be exhaustively proven from static repository inspection alone.
 
 ### Working sequence and completion rule
 
