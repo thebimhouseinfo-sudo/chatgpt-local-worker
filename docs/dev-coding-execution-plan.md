@@ -1,6 +1,7 @@
 # Dev Coding Upgrade — Executable Implementation Plan
 
-**Status:** READY FOR IMPLEMENTATION (plan only; source code unchanged).  
+**Status:** READY FOR IMPLEMENTATION (plan only; source code unchanged).
+**Task ledger:** [Dev Coding Upgrade — TASK LIST](./dev-coding-task-list.md) — DC-001–DC-050, dependency order, files, gates, status and evidence requirements.  
 **Parent:** [Dev Coding Job Upgrade](./dev-coding-job-upgrade.md)  
 **Repository:** `thebimhouseinfo-sudo/chatgpt-local-worker`  
 **Architecture decision:** Use the **official Vercel `agent-browser mcp` stdio server** via the existing `@modelcontextprotocol/sdk` client; no custom browser engine, Chromium shell, replacement MCP server or ad-hoc CLI-output parser.
