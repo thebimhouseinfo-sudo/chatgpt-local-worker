@@ -35,7 +35,7 @@ const server = {
   },
 };
 
-registerShellTools(server, root, 15);
+registerShellTools(server, 15);
 
 for (const required of [
   "run_command",

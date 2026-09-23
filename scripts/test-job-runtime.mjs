@@ -4,7 +4,7 @@ import { fileURLToPath } from "node:url";
 import { JobRuntime } from "../dist/jobs/job-runtime.js";
 
 const repoRoot = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
-const runtime = new JobRuntime(repoRoot, path.join(repoRoot, "jobs"));
+const runtime = new JobRuntime(path.join(repoRoot, "jobs"));
 
 const listing = await runtime.list("repo lisp");
 assert.equal(listing.jobs.length, 4);

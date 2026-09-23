@@ -77,7 +77,6 @@ function createCaptureServer(): FamilyCache & { server: McpServer } {
 async function registerFamily(
   family: ToolFamily,
   server: McpServer,
-  workspaceRoot: string,
   shellTimeout: number
 ): Promise<void> {
   switch (family) {
@@ -88,7 +87,7 @@ async function registerFamily(
     }
     case "shell": {
       const module = await import("./shell.js");
-      module.registerShellTools(server, workspaceRoot, shellTimeout);
+      module.registerShellTools(server, shellTimeout);
       return;
     }
     case "context": {
@@ -140,7 +139,6 @@ export interface WorkToolResolver {
 }
 
 export function createWorkToolResolver(
-  workspaceRoot: string,
   shellTimeout: number
 ): WorkToolResolver {
   const loaded = new Map<ToolFamily, FamilyCache>();
@@ -163,7 +161,6 @@ export function createWorkToolResolver(
       await registerFamily(
         family,
         capture.server,
-        workspaceRoot,
         shellTimeout
       );
 
@@ -277,10 +274,9 @@ export function getWorkGatewayTelemetry() {
 
 export function registerWorkGateway(
   server: McpServer,
-  workspaceRoot: string,
   shellTimeout: number
 ): WorkToolResolver {
-  const resolver = createWorkToolResolver(workspaceRoot, shellTimeout);
+  const resolver = createWorkToolResolver(shellTimeout);
   const exposed = WORK_TOOL_OPERATIONS;
 
   server.registerTool(

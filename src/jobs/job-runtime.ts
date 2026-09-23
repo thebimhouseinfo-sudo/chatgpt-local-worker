@@ -110,10 +110,7 @@ export class JobRuntime {
 
   private readonly explicitJobsRoot?: string;
 
-  constructor(
-    private readonly workspaceRoot: string,
-    jobsRoot?: string
-  ) {
+  constructor(jobsRoot?: string) {
     this.explicitJobsRoot = jobsRoot ? path.resolve(jobsRoot) : undefined;
   }
 

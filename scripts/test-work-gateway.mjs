@@ -14,7 +14,7 @@ try {
   const file = path.join(tmpDir, "sample.txt");
   await fs.writeFile(file, "hello gateway\n", "utf8");
 
-  const resolver = createWorkToolResolver(tmpDir, 30);
+  const resolver = createWorkToolResolver(30);
   let status = resolver.status();
   if (status.loaded_families.length !== 0 || status.loaded_tool_count !== 0) {
     throw new Error("resolver must start with zero execution families loaded");
@@ -78,7 +78,7 @@ try {
     },
   };
 
-  const gatewayResolver = registerWorkGateway(fakeServer, tmpDir, 30);
+  const gatewayResolver = registerWorkGateway(fakeServer, 30);
   if (gatewayResolver.status().loaded_families.length !== 0) {
     throw new Error("registering work_tool must not preload an execution family");
   }

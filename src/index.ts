@@ -70,7 +70,6 @@ console.log(
 );
 
 const sessionManager = createSessionManager({
-  workspaceRoot,
   shellTimeout: SHELL_TIMEOUT,
   port: PORT,
   serverInstructions: instructionContext.instructionsText,

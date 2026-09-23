@@ -29,7 +29,7 @@ assert.equal(
 const tmpDir = await fs.mkdtemp(path.join(os.tmpdir(), "gptworker-r2-map-"));
 try {
   setDefaultCwd(tmpDir);
-  const resolver = createWorkToolResolver(tmpDir, 30);
+  const resolver = createWorkToolResolver(30);
 
   for (const operation of WORK_TOOL_OPERATIONS) {
     const resolved = await resolver.resolve(operation);

@@ -95,7 +95,6 @@ function configureToolRegistration(server: McpServer): void {
 }
 
 export function createMcpServer(
-  workspaceRoot: string,
   shellTimeout: number,
   serverInstructions: string
 ): McpServer {
@@ -127,10 +126,9 @@ export function createMcpServer(
   // considering GPTWorker for ordinary work. It returns ACTIVE/CONTROL/INACTIVE.
   registerAdmissionTool(server, admissionRuntime);
 
-  const jobRuntime = new JobRuntime(workspaceRoot);
+  const jobRuntime = new JobRuntime();
   const workResolver = registerWorkGateway(
     server,
-    workspaceRoot,
     shellTimeout
   );
 

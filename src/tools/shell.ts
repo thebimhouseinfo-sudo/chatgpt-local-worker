@@ -381,7 +381,6 @@ async function startManagedProcess(
 
 export function registerShellTools(
   server: McpServer,
-  _startupCwd: string,
   timeoutSec: number
 ): void {
   server.registerTool(

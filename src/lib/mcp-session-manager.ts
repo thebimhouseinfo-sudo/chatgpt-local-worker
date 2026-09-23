@@ -72,7 +72,6 @@ export interface McpSession {
 }
 
 export interface SessionManagerConfig {
-  workspaceRoot: string;
   shellTimeout: number;
   port: number;
   serverInstructions: string;
@@ -205,7 +204,6 @@ export function createSessionManager(config: SessionManagerConfig): SessionManag
 
   async function buildSession(preferredSessionId?: string): Promise<McpSession> {
     const mcpServer = createMcpServer(
-      config.workspaceRoot,
       config.shellTimeout,
       config.serverInstructions
     );
