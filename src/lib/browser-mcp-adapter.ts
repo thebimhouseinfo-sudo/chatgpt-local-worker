@@ -75,8 +75,13 @@ async function startup(lease: ToolLease): Promise<Session> {
   if (current && !current.closed) return current;
   // One isolated stdio server + upstream browser session per confirmed execution.
   const id = "gptworker-" + randomUUID();
+  // The official npm global shim is agent-browser.cmd on Windows.
+  // Node's shell:false spawn cannot reliably start a .cmd shim directly.
+  // Invoke cmd.exe with only fixed literals; no user-controlled shell input.
+  const win = process.platform === "win32";
   const transport = new StdioClientTransport({
-    command: "agent-browser", args: ["mcp"],
+    command: win ? (process.env.ComSpec || "cmd.exe") : "agent-browser",
+    args: win ? ["/d", "/s", "/c", "agent-browser", "mcp"] : ["mcp"],
     env: { ...process.env, AGENT_BROWSER_SESSION: id, AGENT_BROWSER_HEADED: "false" },
     stderr: "pipe",
   });
