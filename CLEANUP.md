@@ -118,9 +118,9 @@ The group reflects the previous cleanup's provenance assessment, **not** an exac
 | `src/lib/path-security.ts` | Absolute/canonical paths, symlink/junction behavior and scoped authority | **SOURCE REVIEW COMPLETE**; Windows/TOCTOU integration pending | **TARGETED SECURITY HARDENING approved; no rewrite** |
 | `src/index.ts` | HTTP/MCP entry, startup/shutdown and any remaining unnecessary inherited wiring | **SOURCE REVIEW COMPLETE** | **KEEP unchanged** |
 | `src/server-factory.ts` | Tool registration, leases and scope/authority wiring | **SOURCE REVIEW COMPLETE** | **KEEP unchanged** |
-| `src/lib/instruction-context.ts` | Instruction assembly and consumer-specific runtime context | NOT STARTED | UNDECIDED |
-| `start.ps1` | Actual launcher modes/callers; remaining complexity versus operator needs | NOT STARTED | UNDECIDED |
-| `openai-tunnel.ps1` | Active tunnel setup, diagnostics and recovery; remove only provably unnecessary branches | NOT STARTED | UNDECIDED |
+| `src/lib/instruction-context.ts` | Instruction assembly and consumer-specific runtime context | **SOURCE REVIEW COMPLETE** | **KEEP unchanged proposed** |
+| `start.ps1` | Actual launcher modes/callers; remaining complexity versus operator needs | **SOURCE REVIEW COMPLETE**; Windows acceptance pending | **KEEP; optional narrow -Force ownership safeguard** |
+| `openai-tunnel.ps1` | Active tunnel setup, diagnostics and recovery; remove only provably unnecessary branches | **SOURCE REVIEW COMPLETE**; Windows/tunnel acceptance pending | **KEEP; targeted download/credential tests only** |
 
 Add any newly discovered inherited file to this register with its **real callers**; do not silently expand or narrow scope.
 
@@ -497,6 +497,42 @@ For a greenfield proposal, record a compact design spec **before coding**: requi
 - **`src/lib/path-security.ts`: KEEP architecture; approve targeted security hardening only.** Strengthen canonical path containment, symlink/junction and nonexistent descendant handling, correct Windows path-edge behavior and mutation-boundary verification, with real tests. Keep current exports, signatures, absolute path requirement, AsyncLocalStorage per-work scope, confirmed Workspace write authority and separate read-only active Job support roots. Do not claim this is an OS sandbox. Coordinate only directly necessary calls in the already approved patch/filesystem security group; do not rewrite unrelated modules.
 - **`src/index.ts`: KEEP unchanged.** Error-handling, /health exposure and shutdown ideas from the review remain observations for tests only, not an authorization to refactor or change this file. If a severe defect is discovered, document it separately before proposing any change.
 - **`src/server-factory.ts`: KEEP unchanged.** Retain existing Tool Lease and Work Handle gate, registration contracts, lazy gateway and session-scoped Job/admission boundaries. Tests may exercise this module, but no changes are approved here; any necessary serious defect fix requires a separately documented decision.
+
+#### Review 11 — `src/lib/instruction-context.ts`
+
+**Status: SOURCE REVIEW COMPLETE; runtime smoke tests pending. No code changes.** GPTWorker current blob `35386a596c852f155317cb70b4b6a41f811f29fc`. Compared current accessible upstream `hoangcoderr/chatgpt-local-coder/src/lib/instruction-context.ts` (do not assume exact original fork point). Current module is 62 lines and GPTWorker-specific slim control-plane startup context, not upstream's eagerly built project memory.
+
+**Actual caller and responsibilities:** `src/index.ts` imports `buildInstructionContext`, `summarizeInstructionContext` and type `InstructionContext`. `buildInstructionContext(opts)` consumes startup Workspace root(s), PID and Node/platform environment, then calls `buildServerInstructions` in `src/lib/quickstart.ts`. The generated `instructionsText` is passed to MCP Session Manager and then Server Factory. `summarizeInstructionContext` populates HTTP `/health` telemetry.
+
+**KEEP:** startup roots are configuration context, *not* admission or work authority. Module does not eagerly read project files, project-local instruction documents, skills or Git state while idle. Its current `contextText` and `instructionBytes` provide bounded startup description. Keep its exports and text contract. Updating help/content belongs in `quickstart.ts` if a separate product requirement emerges, not in an unnecessary new context builder.
+
+**Provisional decision:** KEEP unchanged; no evidence of duplicate functionality worth removing or meaningful functionality warranting rewrite. Acceptance: startup instruction mode stays control-plane, no eager project reads and health summary remains compatible with `index.ts` and `scripts/run-all-tests.mjs`.
+
+#### Review 12 — `start.ps1`
+
+**Status: SOURCE REVIEW COMPLETE; Windows/PowerShell and Tray invocation acceptance pending. No code changes.** Current blob `3c62d904f0845750fb03d6e3b2d9c6713b33c561`. Compared accessible upstream script; GPTWorker has simplified prior interactive server/admin UI setup in favor of local Worker and Tray-driven detached launch.
+
+**Confirmed callers and dependencies:** GPTWorker Tray (`gptworker-tray.ps1`) calls `start.ps1 -Port $WorkerPort -Detach` via its hidden PowerShell launch function. The script itself invokes Node `dist/index.js`, optionally `npm run build` when dist is missing or older than source/config inputs, reads `.env`, creates idle `worker-state.json` when absent and can create `.env` from `.env.example`. Manual operators use normal foreground startup and optional `-Force`; `openai-tunnel.ps1` instructs operators to run `start.ps1` when backend health fails. `scripts/test-idle-runtime.mjs` checks exact presence of the Detach/Node launch flow and Tray's invocation string.
+
+**KEEP valuable behavior:** correct script-root anchoring, configurable port, rebuild-on-change, initial env and worker-state creation, foreground mode, detached Node startup, stderr/stdout files under local AppData, early exit diagnostics and collision handling. No redundant public script or substantial abandoned launcher branch is established from source/callers.
+
+**Narrow security candidate for approval if user wants:** `-Force` currently kills whichever listener PID is found on the selected port without verifying it is a GPTWorker Node process started from the expected source directory. The non-Force branch also treats any listener as likely GPTWorker and exits 0. A process identity/executable/path or authenticated local health check before termination and proper foreign-port error would mitigate accidental termination, but owner verification must be robust on Windows; do not infer that a bare `/health` status 200 is strong PID identity. Preserve `-Detach`, build behavior and existing Tray interfaces if this focused fix is approved.
+
+**Tests:** Windows PowerShell 5.1 launch, empty .env startup, fresh/stale build, foreign process occupying port with and without `-Force`, foreground run, detached run/early exit, Unicode/spaced source directories, Tray shutdown/restart compatibility. Current source inspection does not constitute executing those tests.
+
+**Provisional decision:** KEEP script; do not rewrite, merge or remove branches. Treat optional `-Force` process ownership check as a separate tiny safety change requiring explicit approval.
+
+#### Review 13 — `openai-tunnel.ps1`
+
+**Status: SOURCE REVIEW COMPLETE; real Windows tunnel client/download/Doctor tests pending. No code changes.** Current blob `047d594c13cc55e6b7f7fbc68d98145bf982bfc3`. Accessible upstream version has older installer/setup flows and `codex-local` profile. GPTWorker actively uses a dedicated `gptworker` profile, v0.0.14 version pin, a two-stage setup wizard and detached runtime integration. Accessible upstream HEAD is not the known historical fork baseline.
+
+**Confirmed callers and live features:** `gptworker-tray.ps1` launches `openai-tunnel.ps1 -Port $WorkerPort -Detach`; `setup-test.bat` uses `-Init -WizardPreview`; `scripts/test-idle-runtime.mjs` asserts ASCII-safe PowerShell 5.1 source, `-Detach`, stable GPTWorker profile, profile-file argument quoting, Tray call strings and setup guidance. Operator options include `-Init`, `-Doctor`, `-Force`, port/health port overrides, `-NoBrowser`, wizard parameters and foreground run. The script manages `.env` credentials, dedicated YAML profile, download/versioning of tunnel-client.exe, checks `/health` and tunnel `/readyz`, detects foreign PID on health port before stopping, exports credentials through environment for tunnel-client and supports detached logging.
+
+**KEEP:** split setup/normal run/Doctor/preview modes are actual runtime or test surfaces; deletion solely to shorten the 637-line script risks breaking Tray and first-time onboarding. Pin tunnel client/profile identity and preserve ASCII-safe syntax for legacy Windows PowerShell. Do not merge this script with `start.ps1`; backend and tunnel have distinct lifecycles.
+
+**Review/testing concerns:** verify downloaded ZIP/exe integrity and safe extraction when installing/upgrading, failure rollback if previously installed exe is removed before a failed download, source trust of binary, .env access permissions and secret-bearing errors/logs. Verify `-Force` never stops a non-tunnel process, health probe matches expected identity to the extent supported, and detach quoting works for source/profile paths containing spaces. These are test or optional narrowly scoped security-hardening ideas, not proven production failures. Support wizard and all options remain in scope; current tests largely assert required source strings rather than run a real tunnel.
+
+**Provisional decision:** KEEP the existing tunnel script and all live modes. Only consider targeted security/reliability changes after Windows/live-client tests show a material issue; no full rewrite or low-value code pruning.
 
 ### Working sequence and completion rule — review all, plan once, implement by dependency group
 
