@@ -2,6 +2,8 @@
 
 Status: **Implementation-ready draft** — browser architecture decision integrated (official agent-browser MCP stdio; B0–B5 gates). Upstream commands/tool schemas require B0 verification before implementation.
 
+**Detailed execution plan:** [`docs/dev-coding-execution-plan.md`](./dev-coding-execution-plan.md) — implementation task ledger P0–P5/B0–B5, optional official Vercel installer in `setup.bat`, per-server conditional MCP discovery gate (browser operations absent when disabled/unhealthy), permission/lease/session checks, and Windows acceptance A01–A20.
+
 ## 1. Goal
 
 Upgrade the existing `dev-coding` Job into a practical, self-checking coding agent.
