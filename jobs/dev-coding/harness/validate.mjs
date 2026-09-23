@@ -11,7 +11,8 @@ const requiredSkills = [
 ].map((name) => `skills/${name}`);
 const requiredHarness = [
   "planning-bundle-check.mjs","inspect-repo.mjs","execution-preflight.mjs","task-plan-lint.mjs","quality-gate.mjs",
-  "diff-gate.mjs","change-audit.mjs","dependency-gate.mjs","completion-gate.mjs","validate.mjs"
+  "diff-gate.mjs","change-audit.mjs","dependency-gate.mjs","completion-gate.mjs","validate.mjs",
+  "task-session.mjs","negative-control.mjs"
 ].map((name) => `harness/${name}`);
 const requiredFiles = [...requiredSkills, ...requiredHarness, "templates/TASK_PLAN.md"];
 for (const rel of requiredFiles) {
