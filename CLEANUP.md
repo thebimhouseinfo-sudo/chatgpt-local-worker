@@ -109,7 +109,7 @@ The group reflects the previous cleanup's provenance assessment, **not** an exac
 | File | Current responsibility / review focus | Review state | Decision |
 |---|---|---|---|
 | `src/lib/patch.ts` | Patch parser, hunk matching, diff generation and multi-file mutation | **DESIGN REVIEW**; targeted runtime tests pending | **GREENFIELD REWRITE preferred candidate; not final** |
-| `src/lib/mcp-session-manager.ts` | MCP transport, sessions and recovery; identify indispensable state/compatibility paths | NOT STARTED | UNDECIDED |
+| `src/lib/mcp-session-manager.ts` | MCP transport, sessions and recovery; identify indispensable state/compatibility paths | **SOURCE REVIEW COMPLETE**; runtime concurrency/SDK acceptance pending | **KEEP capabilities; REFACTOR vs GREENFIELD undecided** |
 | `src/lib/tool-result.ts` | Shared result envelope/schema; enumerate consumers and minimum required contract | NOT STARTED | UNDECIDED |
 | `src/lib/tool-annotations.ts` | MCP annotations and presentation-only auto-approve hints | NOT STARTED | UNDECIDED |
 | `src/lib/activity-log.ts` | Active tool/session/runtime logging; identify duplicate or unconsumed paths | NOT STARTED | UNDECIDED |
@@ -267,6 +267,38 @@ For a greenfield proposal, record a compact design spec **before coding**: requi
 5. Run targeted patch/filesystem/work-gateway/job tests, TypeScript build, `validate:jobs`, the default test suite and applicable CI. Only after these pass remove the old internal implementation. If unexpectedly broad compatibility requirements surface, revisit REFACTOR instead of forcing greenfield.
 
 **Blast radius assessment:** **small at the direct import layer, moderate at the behavioral layer, high for file-integrity failure modes**. No justified need to rewrite MCP transport, Job Runtime or Work Gateway merely for this change. Runtime behavior through dynamic/externally authored Custom Jobs cannot be exhaustively proven from static repository inspection alone.
+
+#### Review 02 — `src/lib/mcp-session-manager.ts`
+
+**Status: SOURCE REVIEW COMPLETE; concurrency/transport fault-injection and runtime acceptance PENDING. No implementation changes.** Compared current GPTWorker module with accessible upstream `hoangcoderr/chatgpt-local-coder/src/lib/mcp-session-manager.ts`; examined current `src/index.ts`, `src/server-factory.ts`, `src/lib/mcp-discover-compat.ts`, and relevant existing tests. A current-upstream comparison is not proof of the precise historical fork baseline.
+
+**Actual interface and caller map:**
+- `src/index.ts` directly imports `createSessionManager`, `consumeSessionTransportError`, `extractRequestId`, and `isInitializeRequest`. The manager's live API includes `get`, `count`, `createNew`, `handleExisting`, `tryRecoverStale`, `sendSessionNotFound`, `sendBadRequest`, `startCleanup`, and `stopCleanup`. Preserve these exported function names, type contracts and caller-visible semantics if rewriting in place.
+- `src/server-factory.ts` is used inside `buildSession` to create an MCP server for each transport; each new MCP server instantiates its own admission/job orchestration. MCP transport recovery must therefore not be represented as recovering old in-memory Job/work state.
+- `src/lib/activity-log.ts` receives session init/delete/removal/expiry/recovery and transport events. `src/lib/mcp-discover-compat.ts` is a separate active compatibility shim called by `index.ts` before stateful session creation; do not remove or merge it without protocol-level tests.
+- `scripts/test-idle-runtime.mjs` currently asserts some recovery-function names exist in source; `scripts/test-mcp-discover-compat.mjs` covers stateless discovery fallback. These do **not** constitute exhaustive tests of recovery, concurrent HTTP requests or timed cleanup.
+
+**Required behavior:**
+- Session creation and routing through SDK Streamable HTTP transport for POST, GET/SSE, and DELETE.
+- Keep GET/SSE out of the per-session serialized POST/DELETE operation chain to avoid blocking subsequent tool requests.
+- Correct session-ID and protocol-version handling, TTL expiry, explicit DELETE grace, recovery of stale MCP connection when enabled, error responses and useful logging.
+- No Codex hooks, MCP upstream proxy or GitHub-specific logic. Current GPTWorker has already retired upstream-specific proxy/hook dependencies.
+
+**Design/safety issues requiring tests, not yet confirmed runtime defects:**
+1. `tryRecoverStale` can build pending recovery state and perform loopback HTTP initialize/initialized before handling the original request. Model concurrent recovery requests for the same stale ID, duplicate pending builds, warm-up failure and stale transport teardown. Evaluate whether a per-ID single-flight promise and an explicit recovery state machine would be simpler/safer.
+2. `stopCleanup` clears the periodic cleanup interval but does not presently drain DELETE grace timers or close tracked transports. Specify shutdown ownership and safe cleanup semantics, including any active in-flight requests.
+3. Closing a transport and retaining its session entry for recovery differs from a genuinely usable open transport. Validate behavior after SSE disconnect, DELETE, TTL expiry, SDK close events and restart.
+4. `withSessionIdHeader` mutates `req.headers` **and** `req.rawHeaders` to satisfy current SDK/Hono conversion. Preserve this compatibility only if required by the pinned SDK/client integration; test supported/unsupported protocol-version negotiation instead of casually removing the shim.
+5. In-memory maps for sessions, pending recoveries, operation queues, delete timers and recent transport errors have related lifetimes. Check orphaned state, duplicate disposal, memory growth and one-time error consumption. Do not assume that deleting a queue map entry cancels an already-running operation.
+6. After stale-ID recovery, `createMcpServer` establishes a **new** admission/Job runtime; document that the same MCP session identifier is not a guarantee of restored Job authority, execution id or work progress.
+
+**Greenfield rewrite-in-place alternative:** preserve `src/lib/mcp-session-manager.ts` and its current exported names/signatures. Design a compact session record and explicit lifecycle states (new/active/recovering/closing/closed), clear ownership of timers/transports, single-flight stale recovery per session ID, and testable transport/clock/loopback seams without multiplying production layers. Prefer SDK-native facilities whenever proven compatible. Keep existing `index.ts` routing, `server-factory.ts` and discover fallback unchanged unless a necessary integration fix is evidenced. Evaluate KEEP or targeted REFACTOR against GREENFIELD REWRITE after behavior/SDK tests; do not decide based on code provenance.
+
+**Dependency cluster:** MCP session manager + `index.ts` router + `server-factory.ts` construction boundary + active protocol compatibility + logging. These are a review and test cluster, **not** an instruction to rewrite every member.
+
+**Acceptance tests before final decision:** initialize and normal request flow; concurrent POST/DELETE; long-lived GET/SSE plus concurrent POST; explicit DELETE grace with in-flight tool; TTL expiry; recovery enabled/disabled and concurrent stale-ID requests; loopback init/notification failure; duplicate/invalid protocol headers; session cleanup/shutdown; no leaked pending recovery or timers; modern `server/discover` fallback; separation of transport recovery from Job authority. Include real HTTP/SDK integration, not just source-string tests.
+
+**Provisional decision:** **KEEP functional capabilities; REFACTOR vs GREENFIELD REWRITE undecided** pending transport-level evidence. This module is more protocol-coupled than `patch.ts`; implementation replacement is warranted only if requirements-first design demonstrably reduces complexity without degrading client compatibility.
 
 ### Working sequence and completion rule — review all, plan once, implement by dependency group
 
