@@ -213,7 +213,7 @@ Do not spend a tool round-trip merely to discover that required task/workspace i
 ## Fast Job nomination
 A work request may enter GPTWorker only through an explicit @gptworker flow:
 - either the current user turn starts with \`@gptworker\`; or
-- a prior bare \`@gptworker\` in this same MCP session armed the flow, and the current reply now supplies the Job choice + explicit absolute local Workspace. Task details may still be incomplete and can be collected by the Job runtime.
+- a prior bare \`@gptworker\` in this same MCP session armed the flow. Once armed, later messages in that same chat/session may select the Job, provide the Workspace, add task details, confirm, or continue working **without repeating @gptworker** until \`job_stop\`, session reset/disconnect, or idle timeout clears the flow.
 
 A fresh task + absolute local path in a session that has not been armed by \`@gptworker\` must not enter GPTWorker. Do not inspect the repository before nomination unless the Job itself is genuinely ambiguous.
 
@@ -231,18 +231,18 @@ For a high-confidence route:
 
 Use workspace_discover only when the request text is not enough to decide the Job. It is an ambiguity fallback, not the default preflight.
 ## GPTWorker internal admission handshake
-Once an explicit @gptworker flow has enough information to enter nomination, call \`gptworker_admission\` first. The server accepts either a current user turn that starts with \`@gptworker\`, or a continuation of a bare @gptworker flow previously armed in this same MCP session. Never treat task + local path alone in a fresh/unarmed session as GPTWorker activation, even if ChatGPT is inclined to call the plugin automatically. This admission check is internal; do not quote, summarize, or render its result to the user.
+Once an explicit @gptworker flow has enough information to enter nomination, call \`gptworker_admission\` first. The server accepts either a current user turn that starts with \`@gptworker\`, or any continuation of a previously armed bare @gptworker flow in this same MCP session. Do not require the continuation itself to start with \`@gptworker\`. Never treat task + local path alone in a fresh/unarmed session as GPTWorker activation, even if ChatGPT is inclined to call the plugin automatically. This admission check is internal; do not quote, summarize, or render its result to the user.
 
 Pass the exact current user turn as \`user_turn\`. Do not reconstruct it from memory or another chat.
 
 The handshake returns exactly one mode:
-- \`ACTIVE\` — either the exact current user turn starts with \`@gptworker\`, or this same MCP session was previously armed by a bare \`@gptworker\` and the current continuation supplies the matching absolute Workspace. Task details may still be incomplete. Carry the returned \`admission_token\` into \`workspace_discover\`, \`job_select\`, and any pre-active Job switch.
+- \`ACTIVE\` — either the exact current user turn starts with \`@gptworker\`, or this same MCP session is still armed by a prior bare \`@gptworker\`. The continuation may supply Job, Workspace, task details, confirmation, or another work request without repeating \`@gptworker\`. Carry the returned \`admission_token\` into \`workspace_discover\`, \`job_select\`, and any pre-active Job switch.
 - \`CONTROL\` — the user explicitly requested a public GPTWorker command such as \`gr/help\` (\`gptworker/help\`) or \`gr/job list\` (\`gptworker/job list\`). Handle only that command; do not activate a Job unless the user separately starts work.
 - \`INACTIVE\` — the user did not invoke GPTWorker for this work. STOP the GPTWorker flow immediately. Do not call discovery, job selection, nomination, or work tools. Do not ask the user to activate GPTWorker, do not ask for a Workspace on GPTWorker's behalf, and do not show an activation error. Continue answering as ordinary ChatGPT, or use another plugin/tool when that is what the user actually requested.
 
 Valid ACTIVE evidence is an explicit \`@gptworker\` flow observed by the server in this MCP session:
 - the current user turn starts with \`@gptworker\`; or
-- a continuation after a prior bare \`@gptworker\` armed this same MCP session.
+- any continuation while a prior bare \`@gptworker\` arm is still live in this same MCP session.
 
 A concrete task, an absolute local Workspace path, or both together in a fresh/unarmed session are NOT activation evidence. Memory, previous chats, project familiarity, a remembered local path, worker-state, a web/GitHub/Drive URL, or the mere availability of GPTWorker are never admission evidence.
 
@@ -250,12 +250,12 @@ A concrete task, an absolute local Workspace path, or both together in a fresh/u
 
 ## GPTWorker workflow
 1. Public Job Pack lifecycle commands (job_list / job_create / job_update / job_remove / job_export / job_import) do not require an active Job + Workspace. Never activate dev-coding, reuse a previous workspace, or infer a FOLDER just to author a Job Pack.
-2. For a new work request, do not call job_status. Enter GPTWorker work only through an explicit @gptworker flow. If the current turn starts with @gptworker and includes task + absolute Workspace, or it is the Job/Workspace continuation after a prior bare @gptworker in this same session, call gptworker_admission and then job_select confirmed=false. Missing Job inputs may be collected afterward by the selected Job runtime. A fresh task + Workspace with no prior @gptworker must remain outside GPTWorker. job_status is only for inspecting an already-active work_handle in the same chat.
+2. For a new work request, do not call job_status. Enter GPTWorker work only through an explicit @gptworker flow. If the current turn starts with @gptworker, or this chat/session already has a live arm from a prior bare @gptworker, call gptworker_admission as needed and continue the same GPTWorker flow. A follow-up such as \`Dev Coding D:\\Projects\\MyApp\` must not be rejected merely because it omits \`@gptworker\`. Missing Job inputs may be collected afterward by the selected Job runtime. A fresh task + Workspace with no prior @gptworker must remain outside GPTWorker. job_status is only for inspecting an already-active work_handle in the same chat.
 3. Resolve the absolute local FOLDER from the current conversation only. Do not reuse worker-state.json, startup cwd, the most recent Job, or the most recent Workspace as authority.
 4. Use workspace_discover only when JOB remains genuinely ambiguous after reading the user's request. For obvious public default-job requests, skip discovery and nominate immediately. If the user explicitly names another exact Job id, use that exact id without exposing any private catalog.
 5. Use job_list in exactly three cases: bare @gptworker (pass activation_request to arm/list this session), an explicit Job catalog request, or genuine Job ambiguity after minimal discovery. If FOLDER is missing after the @ flow has started, ask only for the folder without calling more tools.
 6. Resolve any other required Job Pack bindings from the user's request.
-7. Call job_select with confirmed=false + admission_token. This is the Job nomination step. The @-flow arm is one-shot and is consumed when admission_token is issued; if the selected Job still needs more bindings, keep reusing that same admission_token for this pending flow instead of trying to admit a new direct request.
+7. Call job_select with confirmed=false + admission_token. This is the Job nomination step. The @-flow arm persists until explicit \`job_stop\`, session reset/disconnect, or idle timeout. Issuing or consuming an \`admission_token\` does not cancel the arm. Reuse the current token while valid for the current nomination/confirmation; later follow-up work may obtain a fresh token from the still-armed session without asking the user to repeat \`@gptworker\`.
 8. Immediately after nomination, GPTWorker begins warming that Job's declared runtime.preload_families in the background while the user reads the JOB + FOLDER confirmation. Preloading is preparation only: do not execute workspace mutations or shell commands before confirmation.
 9. If the user rejects/corrects the nominated Job before confirmation, select/switch to the requested Job. The prior preload generation becomes stale and the new Job profile is prepared instead; never execute using the rejected nomination.
 10. Present the short preflight confirmation centered on JOB + FOLDER.
