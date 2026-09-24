@@ -8,7 +8,7 @@ const context = await fs.readFile("src/tools/context.ts", "utf8");
 const tray = await fs.readFile("gptworker-tray.ps1", "utf8");
 const start = await fs.readFile("start.ps1", "utf8");
 const tunnel = await fs.readFile("openai-tunnel.ps1", "utf8");
-const setupTest = await fs.readFile("setup-test.bat", "utf8");
+const setupTest = (await fs.readFile("setup-test.bat", "utf8")) + "\n" + (await fs.readFile("scripts/setup-test-flow.ps1", "utf8"));
 const packageJson = JSON.parse(await fs.readFile("package.json", "utf8"));
 const packageLock = JSON.parse(await fs.readFile("package-lock.json", "utf8"));
 
@@ -155,14 +155,22 @@ for (const required of [
 }
 
 for (const required of [
-  "không cần biết lập trình",
-  "Tunnels: Read + Use",
-  "KHÔNG chọn Read Only",
-  "KHÔNG cần cấp All cho toàn bộ API key",
-  "gõ bất kỳ chữ nào",
+  "PHẦN A · TẠO TUNNEL",
+  "Create / New tunnel",
+  "Tunnel ID",
+  "PHẦN B · TẠO API KEY CHO GPTWORKER",
+  "+ Create new secret key",
+  "Permissions",
+  "Restricted",
+  "Read + Use",
   "Kết nối GPTWorker với ChatGPT",
 ]) {
   assert.equal(setupTest.includes(required), true, `setup-test UX contract missing: ${required}`);
 }
+assert.equal(
+  setupTest.includes("gõ gì cũng được"),
+  false,
+  "setup-test should behave like the real installer instead of telling users to enter dummy values"
+);
 
 console.log("test-idle-runtime: ok — control plane is local-only and lazy");
