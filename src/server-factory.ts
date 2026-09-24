@@ -10,7 +10,7 @@ import { runWithWorkspaceScope } from "./lib/path-security.js";
 import { getCustomJobsRoot, getDefaultJobsRoot } from "./lib/worker-home.js";
 import { acquireToolLease, releaseToolLease } from "./lib/work-registration.js";
 import { requiresWorkHandle, toolFamily } from "./lib/tool-work-policy.js";
-import { getBrowserCapability } from "./lib/browser-capability.js";
+import { getBrowserAdvertisement, getBrowserCapability } from "./lib/browser-capability.js";
 import { runWithBrowserLease } from "./lib/browser-mcp-adapter.js";
 
 function configureToolRegistration(server: McpServer): void {
@@ -128,7 +128,7 @@ export function createMcpServer(
   const workResolver = registerWorkGateway(
     server,
     shellTimeout,
-    { browserAdvertised: getBrowserCapability().advertised }
+    { browserAdvertised: getBrowserAdvertisement().advertised }
   );
 
   // Once a Job is nominated, warm its declared tool families in the
