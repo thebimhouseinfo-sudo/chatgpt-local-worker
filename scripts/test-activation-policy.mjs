@@ -283,7 +283,7 @@ assert.throws(
       activationRequest: `Sửa app ở ${workspace}`,
       bindings: { workspace },
     }),
-  /start with @gptworker/
+  /literal @gptworker invocation or trusted bare-plugin invocation evidence/
 );
 
 assert.throws(
@@ -293,7 +293,7 @@ assert.throws(
       activationRequest: "Đừng gọi @gptworker trong câu này",
       bindings: { workspace },
     }),
-  /start with @gptworker/,
+  /literal @gptworker invocation or trusted bare-plugin invocation evidence/,
   "mid-sentence mention must not satisfy the low-level activation proof"
 );
 
