@@ -364,16 +364,17 @@ export function registerJobTools(
           .string()
           .optional()
           .describe(
-            "Bare @gptworker only: exact current user text containing literal @gptworker. Arms this MCP session for the following Job+Workspace continuation."
+            "Bare @gptworker only: exact current user text containing literal @gptworker. Arms this chat flow and returns an opaque continuation token that must be carried internally across later turns."
           ),
       },
       annotations: toolAnnotations("read"),
     },
     async ({ query, activation_request }) =>
       safe("job_list", async () => {
+        let continuationToken: string | undefined;
         if (activation_request) {
-          const armed = admissionRuntime.armExplicitAt(activation_request);
-          if (!armed) {
+          continuationToken = admissionRuntime.armExplicitAt(activation_request);
+          if (!continuationToken) {
             throw new Error(
               "ACTIVATION_REQUIRED: activation_request for bare Job listing must contain literal @gptworker."
             );
@@ -394,7 +395,10 @@ export function registerJobTools(
                   description,
                 }))
             ),
-            at_flow_armed: admissionRuntime.isExplicitAtFlowArmed(),
+            at_flow_armed: admissionRuntime.isExplicitAtFlowArmed(continuationToken),
+            continuation_token: continuationToken,
+            continuation_instruction:
+              "Internal only: carry continuation_token into future gptworker_admission calls in this same chat flow. Never render it to the user.",
           };
         }
 
