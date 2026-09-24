@@ -14,7 +14,6 @@ import {
 } from "../jobs/job-authoring.js";
 import { JOB_PRELOAD_FAMILIES } from "../lib/runtime-families.js";
 import { clearWorkerState } from "../lib/worker-state.js";
-import type { AdmissionRuntime } from "../lib/activation-policy.js";
 import { toolAnnotations } from "../lib/tool-annotations.js";
 import { toolError, toolResult } from "../lib/tool-result.js";
 import {
@@ -61,13 +60,11 @@ const CONFIRMATION_PROOF_TTL_MS = 30 * 60 * 1000;
 interface SharedConfirmationProof {
   jobId: string;
   bindings: Record<string, string>;
-  admissionToken: string;
   createdAt: number;
 }
 
-// Confirmation authority follows the opaque admission+confirmation token pair,
-// not one transport session. This survives legitimate MCP transport rotation
-// while preventing another admission flow from reusing a confirmation proof.
+// Confirmation authority is the nomination's own opaque confirmation token.
+// Execution authority is still created only after explicit confirmation.
 const SHARED_PENDING_CONFIRMATIONS = new Map<string, SharedConfirmationProof>();
 
 const WELCOME_DEFAULT_IDS = new Set(
@@ -212,8 +209,7 @@ export interface JobPreparationLifecycle {
 async function persistActiveSelection(
   result: any,
   runtime: JobRuntime,
-  lifecycle: JobPreparationLifecycle | undefined,
-  admissionRuntime: AdmissionRuntime
+  lifecycle: JobPreparationLifecycle | undefined
 ) {
   await validateResolvedWorkspace(result);
   if (result?.state?.phase !== "active") return result;
@@ -227,8 +223,7 @@ async function persistActiveSelection(
   const registration = await createWorkRegistration(jobId, workspace, () => {
     runtime.stop();
     lifecycle?.clear();
-    // Idle expiry ends this armed GPTWorker chat flow just like explicit stop.
-    admissionRuntime.clear();
+    // Idle expiry revokes active work through the work-registration lifecycle.
   });
 
   return {
@@ -244,8 +239,7 @@ async function persistActiveSelection(
 export function registerJobTools(
   server: McpServer,
   runtime: JobRuntime,
-  lifecycle: JobPreparationLifecycle | undefined,
-  admissionRuntime: AdmissionRuntime
+  lifecycle?: JobPreparationLifecycle
 ): void {
   let sessionRuntime = runtime;
 
@@ -265,18 +259,8 @@ export function registerJobTools(
     return pendingRemovalConfirmations.get(token);
   }
 
-  function rememberConfirmation(
-    result: any,
-    admissionToken: string
-  ): void {
-    // A fresh nomination supersedes only proofs that belong to the same
-    // admission flow. Other chats/admissions remain independent.
-    for (const [key, proof] of SHARED_PENDING_CONFIRMATIONS) {
-      if (proof.admissionToken === admissionToken) {
-        SHARED_PENDING_CONFIRMATIONS.delete(key);
-      }
-    }
-
+  function rememberConfirmation(result: any): void {
+    // A fresh nomination supersedes stale confirmation proofs for this runtime.
     const token = result?.confirmation_token;
     const jobId = result?.job?.id;
     const bindings = result?.state?.bindings;
@@ -285,35 +269,24 @@ export function registerJobTools(
     SHARED_PENDING_CONFIRMATIONS.set(token, {
       jobId,
       bindings: { ...bindings },
-      admissionToken,
       createdAt: Date.now(),
     });
   }
 
-  function getConfirmationProof(
-    token: string | undefined,
-    admissionToken: string | undefined
-  ) {
+  function getConfirmationProof(token: string | undefined) {
     const now = Date.now();
     for (const [key, proof] of SHARED_PENDING_CONFIRMATIONS) {
       if (now - proof.createdAt > CONFIRMATION_PROOF_TTL_MS) {
         SHARED_PENDING_CONFIRMATIONS.delete(key);
       }
     }
-
-    if (!token || !admissionToken) return undefined;
-    const proof = SHARED_PENDING_CONFIRMATIONS.get(token);
-    if (!proof || proof.admissionToken !== admissionToken) return undefined;
-    return proof;
+    if (!token) return undefined;
+    return SHARED_PENDING_CONFIRMATIONS.get(token);
   }
 
   function cancelConfirmationProof(token: string | undefined): void {
     if (!token) return;
-    const proof = SHARED_PENDING_CONFIRMATIONS.get(token);
     SHARED_PENDING_CONFIRMATIONS.delete(token);
-    if (proof) {
-      admissionRuntime.consume(proof.admissionToken);
-    }
   }
 
   async function bindRuntimeToWorkspace(
@@ -352,40 +325,30 @@ export function registerJobTools(
     {
       title: "Job List",
       description:
-        "Direct target for exact gr/job list or gptworker/job list. Also list available Job Packs for bare @gptworker when activation_request is supplied. Public enumeration returns only visible Jobs; private/hidden Jobs are never exposed by Welcome, explicit Job list, suggestion ids, descriptions, or tool metadata. Hidden Jobs remain directly selectable by exact id when the user explicitly invokes one. Never route gr/job list through gptworker_control. Do not call this tool merely because an ordinary chat request resembles a Job.",
+        "GPTWorker Job catalog and Welcome surface. Use surface=welcome immediately after the user invokes/clicks GPTWorker. Use surface=catalog only for explicit gr/job list or gptworker/job list. Public enumeration never exposes private/hidden Jobs.",
       inputSchema: {
+        surface: z
+          .enum(["welcome", "catalog"])
+          .optional()
+          .default("catalog")
+          .describe(
+            "welcome for GPTWorker invocation; catalog for explicit Job-list commands"
+          ),
         query: z
           .string()
           .optional()
           .describe(
             "Optional user wording/keyword for suggestion scoring among public visible Jobs only"
           ),
-        activation_request: z
-          .string()
-          .optional()
-          .describe(
-            "Bare GPTWorker plugin invocation only: pass the exact current user text/connector link metadata for this invocation, even when the UI chip does not serialize literal @gptworker text. Arms this chat flow and returns an opaque continuation token for internal continuation."
-          ),
       },
       annotations: toolAnnotations("read"),
     },
-    async ({ query, activation_request }) =>
+    async ({ surface, query }) =>
       safe("job_list", async () => {
-        let continuationToken: string | undefined;
-        if (activation_request) {
-          continuationToken = /@gptworker\b/i.test(activation_request)
-            ? admissionRuntime.armExplicitAt(activation_request)
-            : admissionRuntime.armPluginInvocation(activation_request);
-          if (!continuationToken) {
-            throw new Error(
-              "ACTIVATION_REQUIRED: activation_request for bare GPTWorker invocation is missing."
-            );
-          }
-        }
         const rawResult = await sessionRuntime.list(query);
         const result = publicJobListing(rawResult);
 
-        if (activation_request) {
+        if (surface === "welcome") {
           const welcomeJobs = welcomeJobsFromListing(result.jobs);
           return {
             welcome_text: buildGptworkerWelcome(
@@ -397,10 +360,8 @@ export function registerJobTools(
                   description,
                 }))
             ),
-            at_flow_armed: admissionRuntime.isExplicitAtFlowArmed(continuationToken),
-            continuation_token: continuationToken,
-            continuation_instruction:
-              "Internal only: carry continuation_token into future gptworker_admission calls in this same chat flow. Never render it to the user.",
+            prepare_mode: true,
+            required_before_nomination: ["job", "workspace", "task"],
           };
         }
 
@@ -725,7 +686,7 @@ export function registerJobTools(
     {
       title: "Job Select",
       description:
-        "Select/configure/activate one Job Pack only after gptworker_admission returned ACTIVE. Requires its admission_token; direct entry without the handshake is rejected. Two-phase by default: nominate first, show confirmation, then activate only after explicit user confirmation. ACTIVE response returns work_handle; carry it to every execution tool call.",
+        "Nominate and activate one Job Pack after GPT has conversationally collected the Job, concrete task/objective, and absolute local Workspace. Do not call before a Workspace is known. First call with confirmed=false to show confirmation; only confirmed=true creates active execution authority/work_handle.",
       inputSchema: {
         job: z
           .string()
@@ -739,12 +700,6 @@ export function registerJobTools(
           .optional()
           .default(false)
           .describe("Set true only after explicit user confirmation"),
-        admission_token: z
-          .string()
-          .min(1)
-          .describe(
-            "Opaque ACTIVE token returned by gptworker_admission. Required before Job nomination/activation."
-          ),
         confirmation_token: z
           .string()
           .optional()
@@ -758,15 +713,15 @@ export function registerJobTools(
       job,
       bindings,
       confirmed,
-      admission_token,
       confirmation_token,
     }) =>
       safe("job_select", async () => {
-        admissionRuntime.activation(admission_token, bindings);
-        const validatedWorkspace = await bindRuntimeToWorkspace(bindings);
-        if (validatedWorkspace) {
-          admissionRuntime.bindWorkspace(admission_token, validatedWorkspace);
+        if (!bindings?.workspace) {
+          throw new Error(
+            "PREPARE_INCOMPLETE: collect JOB + absolute FOLDER + TASK before job_select."
+          );
         }
+        await bindRuntimeToWorkspace(bindings);
 
         if (!confirmed) {
           const current = await sessionRuntime.status();
@@ -788,7 +743,7 @@ export function registerJobTools(
             });
           }
 
-          rememberConfirmation(selected, admission_token);
+          rememberConfirmation(selected);
           await validateResolvedWorkspace(selected);
 
           if (
@@ -800,7 +755,7 @@ export function registerJobTools(
               preload_families: selected.job.preload_families ?? [],
             });
             return {
-              ...(await persistActiveSelection(selected, sessionRuntime, lifecycle, admissionRuntime)),
+              ...(await persistActiveSelection(selected, sessionRuntime, lifecycle)),
               tool_preload: {
                 status: "warming",
                 job_id: selected.job.id,
@@ -814,16 +769,12 @@ export function registerJobTools(
           const prepared = await persistActiveSelection(
             selected,
             sessionRuntime,
-            lifecycle,
-            admissionRuntime
+            lifecycle
           );
-          if ((prepared as any)?.work_handle) {
-            admissionRuntime.consume(admission_token);
-          }
           return prepared;
         }
 
-        const proof = getConfirmationProof(confirmation_token, admission_token);
+        const proof = getConfirmationProof(confirmation_token);
         if (!proof) {
           throw new Error(
             "Confirmation token missing/stale. Run job_select with confirmed=false, show the returned prompt, then retry after explicit user confirmation."
@@ -888,8 +839,7 @@ export function registerJobTools(
           () => {
             activationRuntime.stop();
             lifecycle?.clear();
-            admissionRuntime.clear();
-          }
+            }
         );
 
         let selected: any;
@@ -910,7 +860,6 @@ export function registerJobTools(
         }
 
         SHARED_PENDING_CONFIRMATIONS.delete(confirmation_token!);
-        admissionRuntime.consume(admission_token);
 
         return {
           ...selected,
@@ -934,17 +883,16 @@ export function registerJobTools(
         bindings: BindingsSchema.optional(),
         execution_id: z.string().optional().describe("Current work execution id, if an active registration exists"),
         authority_token: z.string().optional().describe("Current work authority token"),
-        admission_token: z.string().optional().describe(
-          "ACTIVE token from gptworker_admission; required when switching before an active work_handle exists"
-        ),
       },
       annotations: toolAnnotations("edit"),
     },
-    async ({ job, bindings, execution_id, authority_token, admission_token }) =>
+    async ({ job, bindings, execution_id, authority_token }) =>
       safe("job_switch", async () => {
         const isPreActiveSwitch = !execution_id && !authority_token;
-        if (isPreActiveSwitch) {
-          admissionRuntime.activation(admission_token, bindings);
+        if (isPreActiveSwitch && !bindings?.workspace) {
+          throw new Error(
+            "PREPARE_INCOMPLETE: switching a pending Job requires an absolute FOLDER."
+          );
         }
 
         let activeHandle:
@@ -979,22 +927,16 @@ export function registerJobTools(
 
         const persistentState = await clearWorkerState();
         const validatedWorkspace = await bindRuntimeToWorkspace(bindings, true);
-        if (isPreActiveSwitch && validatedWorkspace) {
-          admissionRuntime.bindWorkspace(admission_token, validatedWorkspace);
-        }
 
         lifecycle?.clear();
         const selected = await sessionRuntime.switch(job, bindings);
-        if (admission_token) {
-          rememberConfirmation(selected?.current, admission_token);
-        }
+        rememberConfirmation(selected?.current);
         await validateResolvedWorkspace(selected?.current);
 
         const current = await persistActiveSelection(
           selected?.current,
           sessionRuntime,
-          lifecycle,
-          admissionRuntime
+          lifecycle
         );
 
         if (
@@ -1008,8 +950,7 @@ export function registerJobTools(
         }
 
         if (isPreActiveSwitch && (current as any)?.work_handle) {
-          admissionRuntime.consume(admission_token);
-        }
+          }
 
         return {
           ...selected,
@@ -1056,7 +997,6 @@ export function registerJobTools(
           );
           const stopped = sessionRuntime.stop();
           lifecycle?.clear();
-          admissionRuntime.clear();
           pendingRemovalConfirmations.clear();
 
           return {
