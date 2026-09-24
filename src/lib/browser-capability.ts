@@ -67,6 +67,38 @@ export function getBrowserCapability(options: {
   return { status: "READY", enabled: true, advertised: true };
 }
 
+export function getBrowserAdvertisement(options: {
+  configPath?: string;
+  nodeMajor?: number;
+} = {}): BrowserCapability {
+  const configPath = options.configPath || path.join(getWorkerDataRoot(), "browser-capability.json");
+  let config: any;
+  try {
+    config = JSON.parse(fs.readFileSync(configPath, "utf8"));
+  } catch {
+    return { status: "DISABLED", enabled: false, advertised: false };
+  }
+  if (config?.enabled !== true) return { status: "DISABLED", enabled: false, advertised: false };
+  if (config.schema_version !== 1 || config.candidate_version !== PINNED_AGENT_BROWSER_VERSION) {
+    return { status: "UNAVAILABLE", enabled: true, advertised: false, reason: "Unrecognized browser config/version" };
+  }
+  if (config.last_setup_status !== "READY" || config.mcp_contract_version !== 1) {
+    return { status: "UNAVAILABLE", enabled: true, advertised: false, reason: "Pinned browser MCP schema has not passed verified setup" };
+  }
+  const checked = Date.parse(config.mcp_verified_at);
+  if (!Number.isFinite(checked) || checked > Date.now() + 60_000 ||
+      Date.now() - checked > 24 * 60 * 60_000) {
+    return { status: "UNAVAILABLE", enabled: true, advertised: false, reason: "Browser MCP schema verification is missing or stale; rerun setup" };
+  }
+  const major = options.nodeMajor ?? Number.parseInt(process.versions.node.split(".")[0], 10);
+  if (major < MIN_NODE_MAJOR) {
+    return { status: "UNAVAILABLE", enabled: true, advertised: false, reason: "agent-browser requires Node.js >=24" };
+  }
+  // Fast schema-advertisement check only. The real CLI probe still runs when a
+  // browser operation is actually requested.
+  return { status: "READY", enabled: true, advertised: true };
+}
+
 export function assertBrowserCapability(): void {
   const capability = getBrowserCapability();
   if (!capability.advertised) throw new Error(`BROWSER_UNAVAILABLE: ${capability.reason || capability.status}`);
