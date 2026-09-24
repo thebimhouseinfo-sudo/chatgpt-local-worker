@@ -229,7 +229,7 @@ assert.ok(!MCP_QUICKSTART.includes("admission_token"));
 assert.ok(!MCP_QUICKSTART.includes("MCP transport/session rotation"));
 assert.ok(!MCP_QUICKSTART.includes("workspace_discover:"));
 
-assert.ok(MCP_QUICKSTART.includes("Private/hidden Jobs must never be named, described, suggested, or enumerated on public surfaces."));
+assert.ok(MCP_QUICKSTART.includes("Private/hidden Jobs must never be named, described, suggested, or enumerated on public surfaces"));
 assert.ok(!MCP_QUICKSTART.toLowerCase().includes("mto"), "model-facing quickstart must not reveal private Job identity");
 assert.ok(!instructions.toLowerCase().includes("mto"), "initialize instructions must not reveal private Job identity");
 assert.ok(!MCP_QUICKSTART.includes("## GPTWorker root command surface"));
