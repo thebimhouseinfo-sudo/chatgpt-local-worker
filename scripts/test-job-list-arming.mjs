@@ -50,6 +50,18 @@ assert.ok(payload.includes("Layla"));
 assert.ok(!payload.toLowerCase().includes('"id":"mto"'));
 assert.ok(!payload.includes("HVAC quantity takeoff"));
 
+const pluginOnlyWelcome = await jobList.callback({
+  activation_request: "app://asdk_app_6aaeb24d3828819194758365e87e916a",
+});
+const pluginOnlyData =
+  pluginOnlyWelcome.structuredContent?.data ??
+  pluginOnlyWelcome.structuredContent ??
+  pluginOnlyWelcome;
+assert.equal(pluginOnlyData.at_flow_armed, true);
+assert.ok(pluginOnlyData.welcome_text.includes("Dev Coding"));
+assert.ok(!pluginOnlyData.welcome_text.includes("gr/help"));
+
+
 // The following work request can now continue without repeating @.
 const workspace = repoRoot;
 const continuation = admissionRuntime.check({
