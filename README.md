@@ -2,146 +2,65 @@
 
 # GPTWorker
 
-**ChatGPT-controlled local work on Windows, with confirmed Workspace boundaries and Job Packs.**
+**Cho phép ChatGPT làm việc trực tiếp với file và project trên máy Windows của bạn.**
 
-Designed by **Nam Trịnh**
+[English](README.en.md)
+
+**Thiết kế bởi Nam Trịnh**
 
 </div>
 
-GPTWorker connects ChatGPT to a local Windows worker through the OpenAI Secure MCP Tunnel. It lets ChatGPT work with local projects and files while keeping every active Job inside a folder that the user explicitly supplied and confirmed.
+## Tải và cài đặt
 
-The normal interface is ChatGPT. After the one-time installation, GPTWorker runs quietly from the Windows tray.
+**[Tải GPTWorker-Setup-1.1.1.exe](https://github.com/thebimhouseinfo-sudo/chatgpt-local-worker/releases/latest/download/GPTWorker-Setup-1.1.1.exe)**
 
-## What GPTWorker does
+Chạy file cài đặt và làm theo hướng dẫn trên màn hình. Bạn có thể tự chọn thư mục cài đặt.
 
-GPTWorker provides three public Job Packs:
+GPTWorker sẽ tự xử lý các thành phần cần thiết như Node.js, Git tùy chọn, runtime dependencies, Secure MCP Tunnel và cấu hình chạy cùng Windows.
 
-- **Dev Coding** — code changes, debugging, refactoring, build/test work and optional browser QA.
-- **Dev Planing** — repository analysis, architecture review, implementation plans and task breakdowns.
-- **Layla** — general local-file work across documents, spreadsheets, presentations, PDFs and mixed folders.
+Cuối quá trình cài đặt, GPTWorker sẽ mở hướng dẫn kết nối với ChatGPT.
 
-A private/domain-specific Job Pack may also be installed without appearing in the public Welcome list.
+## Cách dùng
 
-The everyday flow is intentionally simple:
+Sau khi cài xong, GPTWorker chạy ở Windows tray.
+
+Trong ChatGPT:
 
 ```text
-Windows sign-in
-→ GPTWorker starts in the tray
-→ open ChatGPT
-→ @gptworker
-→ describe the task
-→ provide the local folder
-→ confirm JOB + FOLDER + TASK
-→ work
+@gptworker
 ```
 
-GPTWorker may infer the Job from the request, but it does not invent a folder. The Workspace must come from the user.
-
-## Safety model
-
-An active Job receives authority only after confirmation.
+Hoặc giao việc ngay:
 
 ```text
-JOB: Dev Coding
-FOLDER: D:\Projects\MyApp
-TASK: Fix the login bug and run the tests.
+@gptworker sửa lỗi đăng nhập
+```
+
+GPTWorker có 3 Job mặc định:
+
+- **Dev Coding** — sửa code, debug, refactor, build và test.
+- **Dev Planing** — đọc repo, review kiến trúc và lập kế hoạch.
+- **Layla** — công việc tổng quát với file và tài liệu.
+
+GPTWorker có thể tự chọn Job phù hợp, nhưng **không tự đoán thư mục làm việc**. Bạn phải tự cung cấp đường dẫn thư mục trước khi công việc bắt đầu.
+
+## An toàn
+
+Trước khi làm việc, GPTWorker luôn hiển thị:
+
+```text
+JOB: ...
+FOLDER: ...
+TASK: ...
 
 Xác nhận bắt đầu?
 ```
 
-After confirmation:
+Chỉ sau khi bạn xác nhận, GPTWorker mới được thao tác trong thư mục đã chọn.
 
-- filesystem operations stay inside the confirmed Workspace;
-- shell working directories and normal path references are checked against the same boundary;
-- Git commands, when used through shell, remain subject to that boundary;
-- changing Workspace requires a new user-supplied folder and confirmation;
-- stopping the Job revokes the active work authority.
+Các thao tác file, shell và Git được giới hạn trong thư mục làm việc đã xác nhận.
 
-GPTWorker is a trusted local worker, not a general OS sandbox. The Workspace boundary is designed to prevent an incorrect Job decision from silently targeting an unrelated project.
-
-## Installation
-
-### Recommended: Windows installer
-
-Use the Windows installer produced by the **Build Windows Installer** GitHub Actions workflow or attached to a tagged GitHub Release:
-
-```text
-GPTWorker-Setup-<version>.exe
-```
-
-The installer contains GPTWorker-owned files only. Third-party dependencies are installed from their normal sources during setup.
-
-The installation flow:
-
-1. installs GPTWorker under the current Windows user;
-2. checks Node.js and installs Node.js LTS through `winget` if needed;
-3. offers to install Git through `winget` when Git is missing;
-4. installs production npm dependencies;
-5. optionally installs the pinned Vercel `agent-browser` integration;
-6. starts the local Worker;
-7. guides the user through creating the OpenAI Secure MCP Tunnel;
-8. guides the user through creating the restricted API key required by the Tunnel;
-9. validates the Tunnel with the official tunnel client;
-10. registers the GPTWorker tray app for Windows auto-start;
-11. opens ChatGPT Settings and the visual Plugin connection guide.
-
-The setup console includes step-by-step instructions for users who are not familiar with the OpenAI Platform UI.
-
-### Tunnel/API permissions
-
-For the GPTWorker runtime API key:
-
-```text
-Permissions: Restricted
-Tunnels: Read + Use
-```
-
-Do not grant `All` merely for GPTWorker.
-
-The Tunnel ID and API key are stored locally in `.env`. Never commit that file.
-
-### Connect GPTWorker to ChatGPT
-
-At the end of setup, GPTWorker opens:
-
-- ChatGPT Settings → Plugins;
-- the local visual guide at `docs/setup-guide/index.html`.
-
-Create the ChatGPT Plugin/App using:
-
-```text
-Name: gptworker
-Connection: Tunnel
-Available tunnels: select the GPTWorker Tunnel
-Authentication: No Auth
-```
-
-Do not use `Server URL`, and do not paste the localhost MCP endpoint into ChatGPT.
-
-After connection, open a chat and invoke:
-
-```text
-@gptworker
-```
-
-## Daily use
-
-A bare invocation shows the public Job list:
-
-```text
-@gptworker
-```
-
-You can also describe the task immediately:
-
-```text
-@gptworker
-Tôi muốn sửa browser integration.
-```
-
-GPTWorker can infer the Job, but if the folder has not been supplied it asks for it. Job, folder and task may be provided across multiple conversational turns.
-
-Useful management commands:
+## Lệnh nhanh
 
 ```text
 gr/
@@ -155,86 +74,11 @@ gr/job import
 gr/job stop
 ```
 
-The longer `gptworker/...` forms remain compatibility aliases.
+## Browser QA
 
-## Windows tray
+Dev Coding có thể dùng Vercel `agent-browser` để kiểm tra web/app trên trình duyệt. Tính năng này là tùy chọn và chỉ được bật khi người dùng chọn cài.
 
-GPTWorker starts automatically for the current Windows user.
-
-The tray menu provides:
-
-```text
-Status: Connected | Working | Degraded
-Open setup guide
-Restart GPTWorker
-Exit GPTWorker
-```
-
-Operational logs are stored under:
-
-```text
-%LOCALAPPDATA%\GPTWorker\logs
-```
-
-If the tray reports `Degraded`, check the Worker and Tunnel logs there before changing configuration.
-
-## Optional browser QA
-
-Dev Coding can optionally use the official Vercel `agent-browser` MCP integration.
-
-The integration is opt-in and fail-closed:
-
-- it is not required for normal GPTWorker operation;
-- browser tools are not advertised when browser support is disabled or unhealthy;
-- the audited upstream version is pinned;
-- a real browser child is created only when an authorized browser operation is actually needed;
-- browser sessions are tied to the active work execution and are cleaned up when authority ends.
-
-The active maintenance contract is documented in:
-
-```text
-docs/browser-mcp-contract.md
-```
-
-## Git
-
-GPTWorker does not expose a dedicated Git tool family.
-
-If Git is installed and available in `PATH`, a Job may use normal Git commands through the guarded shell:
-
-```text
-git status
-git diff
-git log
-git add
-git commit
-git pull
-git push
-```
-
-If Git is not installed, GPTWorker continues to operate for non-Git tasks.
-
-## Repository layout
-
-```text
-dist/                         built Worker runtime
-src/                          TypeScript source
-jobs/                         bundled Job Packs
-docs/setup-guide/             end-user visual setup guide
-docs/browser-mcp-contract.md  pinned browser integration contract
-scripts/setup-flow.ps1        production setup flow
-scripts/build-release.ps1     Windows release builder
-installer/GPTWorker.iss       Inno Setup definition
-setup.bat                     setup launcher
-openai-tunnel.ps1             Secure MCP Tunnel helper
-gptworker-tray.ps1            Windows tray supervisor
-```
-
-Local runtime/configuration state such as `.env`, `worker-state.json`, logs and custom user data is excluded from Git.
-
-## Development
-
-The repository uses npm and `package-lock.json`.
+## Phát triển
 
 ```powershell
 npm ci
@@ -243,66 +87,20 @@ npm run validate:jobs
 npm test
 ```
 
-Run the broader target-architecture suite when changing runtime boundaries or tool mappings:
-
-```powershell
-npm run test:all
-```
-
-## Build the Windows installer
-
-Local Windows build:
+Build bộ cài Windows:
 
 ```powershell
 npm run release:windows
 ```
 
-The release builder:
+GitHub Actions cũng có workflow **Build Windows Installer** để tự tạo và publish file EXE.
 
-1. installs development dependencies;
-2. builds `dist/`;
-3. validates Job Packs;
-4. runs the test suite;
-5. creates a clean staging package containing only shipping files;
-6. installs Inno Setup when necessary;
-7. compiles the installer.
+## Giấy phép và ghi nhận
 
-Output:
+GPTWorker là một dự án độc lập. Giai đoạn đầu có tham khảo và tái sử dụng một số thành phần MIT từ `hoangcoderr/chatgpt-local-coder`.
 
-```text
-release\out\GPTWorker-Setup-<version>.exe
-```
+Các thành phần kế thừa tiếp tục tuân theo giấy phép và ghi nhận gốc.
 
-For normal releases, use the GitHub Actions workflow:
-
-```text
-Actions → Build Windows Installer → Run workflow
-```
-
-A manual run uploads the EXE as a workflow artifact. A tag matching `v*` also publishes the EXE as a GitHub Release asset.
-
-## Troubleshooting
-
-| Symptom | Check |
-| --- | --- |
-| Tray icon does not appear | Check `%LOCALAPPDATA%\GPTWorker\logs` and rerun the installer/setup if needed |
-| Tray status is `Degraded` | Use tray → Restart GPTWorker, then inspect Worker/Tunnel logs |
-| `@gptworker` is unavailable | Confirm the ChatGPT Plugin/App named `gptworker` is connected |
-| Tunnel doctor returns 401/403 | Confirm Tunnel and API key belong to the same intended organization/workspace and the key has Tunnels Read + Use |
-| ChatGPT asks for an MCP URL | Recreate the Plugin with Connection = Tunnel; do not use Server URL |
-| Wrong folder is shown before work | Do not confirm; provide the correct folder |
-| Git commands are unavailable | Install Git and ensure `git` is available in `PATH` |
-
-## Release status
-
-GPTWorker is considered feature-complete for the current product scope. Future changes should be maintenance, compatibility updates, security fixes, Job Pack additions, or explicitly scoped new features rather than reopening retired architecture by default.
-
-## Origins and acknowledgements
-
-GPTWorker is an independent project. Its early development studied and reused selected MIT-licensed components from [hoangcoderr/chatgpt-local-coder](https://github.com/hoangcoderr/chatgpt-local-coder), particularly parts of the MCP/local-execution foundation and Secure MCP Tunnel workflow.
-
-Selected inherited components remain under their original MIT terms and attribution.
-
-**GPTWorker — designed by Nam Trịnh.**
+**GPTWorker — thiết kế bởi Nam Trịnh.**
 
 MIT License.
