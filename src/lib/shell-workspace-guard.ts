@@ -66,6 +66,98 @@ function tokenizeCommand(command: string): string[] {
   return tokens;
 }
 
+function assertRedirectionsWorkspaceBound(
+  command: string,
+  workspaceRoot: string
+): void {
+  // Redirection targets are path-bearing syntax even when the whole nested
+  // command is itself quoted, e.g. cmd /c "echo x>D:\\outside\\file.txt".
+  const redirect =
+    /(?:^|[^>])(?:\d*>>?|<<?)\s*(?:"([^"]+)"|'([^']+)'|([^\s"';&|<>]+))/g;
+
+  for (const match of command.matchAll(redirect)) {
+    const candidate = (match[1] || match[2] || match[3] || "").trim();
+    if (!candidate) continue;
+
+    const cleaned = stripTokenPunctuation(candidate);
+    const absolute =
+      path.isAbsolute(cleaned) || looksLikeWindowsAbsolutePath(cleaned);
+    if (!absolute) {
+      // Relative redirection remains inside the process cwd, which is already
+      // forced to the confirmed Workspace.
+      continue;
+    }
+
+    if (looksLikeWindowsAbsolutePath(cleaned) && process.platform !== "win32") {
+      throw new Error(
+        "WORKSPACE_BOUNDARY: shell redirection references a foreign absolute Windows path outside the confirmed Workspace: " +
+          cleaned
+      );
+    }
+
+    assertPathInsideWorkspaceSync(cleaned, workspaceRoot);
+  }
+}
+
+function nestedShellPayloads(command: string): string[] {
+  const payloads: string[] = [];
+  // cmd.exe /c "..." and cmd /s /c "..." are especially important because
+  // the quoted payload otherwise hides redirection/path syntax from a naïve
+  // top-level token pass.
+  const cmdPattern =
+    /(?:^|[;&|]\s*|\s)(?:cmd|cmd\.exe)\b(?:(?![;&|]).)*?\/(?:c|k)\s+(?:"([^"]*)"|'([^']*)')/gi;
+  for (const match of command.matchAll(cmdPattern)) {
+    const payload = (match[1] ?? match[2] ?? "").trim();
+    if (payload) payloads.push(payload);
+  }
+
+  // Also unwrap the common PowerShell -Command quoted form. This does not
+  // attempt to interpret PowerShell; it merely exposes contained path-bearing
+  // syntax to the same Workspace guards.
+  const psPattern =
+    /(?:^|[;&|]\s*|\s)(?:pwsh|powershell)(?:\.exe)?\b(?:(?![;&|]).)*?-(?:command|c)\s+(?:"([^"]*)"|'([^']*)')/gi;
+  for (const match of command.matchAll(psPattern)) {
+    const payload = (match[1] ?? match[2] ?? "").trim();
+    if (payload) payloads.push(payload);
+  }
+
+  return payloads;
+}
+
+function assertNestedShellPayloadsWorkspaceBound(
+  command: string,
+  workspaceRoot: string
+): void {
+  const seen = new Set<string>();
+  const queue = nestedShellPayloads(command);
+  let depth = 0;
+
+  while (queue.length) {
+    if (++depth > 8) {
+      throw new Error("WORKSPACE_BOUNDARY: nested shell command depth exceeds safe limit.");
+    }
+    const payload = queue.shift()!;
+    if (seen.has(payload)) continue;
+    seen.add(payload);
+
+    assertRedirectionsWorkspaceBound(payload, workspaceRoot);
+    assertGitContextSwitchesWorkspaceBound(payload, workspaceRoot);
+
+    for (const candidate of extractPathLiterals(payload)) {
+      try {
+        assertPathInsideWorkspaceSync(candidate, workspaceRoot);
+      } catch {
+        throw new Error(
+          "WORKSPACE_BOUNDARY: nested shell command references an absolute path outside the confirmed Workspace: " +
+            candidate
+        );
+      }
+    }
+
+    queue.push(...nestedShellPayloads(payload));
+  }
+}
+
 function assertGitContextSwitchesWorkspaceBound(
   command: string,
   workspaceRoot: string
@@ -202,9 +294,11 @@ export function assertShellCommandWorkspaceBound(
 ): void {
   if (!command.trim()) throw new Error("Shell command is empty");
 
-  // Git can switch repository context without changing the process cwd.
-  // Guard these options explicitly before generic literal scanning.
+  // Path-bearing shell syntax must be rejected before spawning any shell.
+  // This includes nested cmd/PowerShell payloads and redirection targets.
+  assertRedirectionsWorkspaceBound(command, workspaceRoot);
   assertGitContextSwitchesWorkspaceBound(command, workspaceRoot);
+  assertNestedShellPayloadsWorkspaceBound(command, workspaceRoot);
 
   if (/(^|[\s'"=(:,;])\.\.[\\/]/.test(command)) {
     throw new Error(
