@@ -177,6 +177,51 @@ assert.throws(
   /WORKSPACE_BOUNDARY/
 );
 
+// Git repository-context switches are shell escape vectors even when the
+// process cwd itself remains inside the Workspace.
+for (const command of [
+  `git -C "${outside}" status`,
+  `git --git-dir "${path.join(outside, ".git")}" status`,
+  `git --git-dir="${path.join(outside, ".git")}" status`,
+  `git --work-tree "${outside}" status`,
+  `git --work-tree="${outside}" status`,
+  `GIT_DIR="${path.join(outside, ".git")}" git status`,
+  `GIT_WORK_TREE="${outside}" git status`,
+]) {
+  assert.throws(
+    () => assertShellCommandWorkspaceBound(command, workspace),
+    /WORKSPACE_BOUNDARY/,
+    `Git context escape must be rejected before execution: ${command}`
+  );
+}
+
+// Lowercase git -c is configuration, not a repository path option.
+assert.doesNotThrow(() =>
+  assertShellCommandWorkspaceBound(
+    'git -c core.quotepath=false status',
+    workspace
+  )
+);
+
+// On non-Windows runners, a Windows absolute path must still be recognized as
+// an absolute escape rather than treated as a harmless relative token.
+if (process.platform !== "win32") {
+  assert.throws(
+    () =>
+      assertShellCommandWorkspaceBound(
+        "git -C D:\\GPTWorker-Acceptance-Outside status",
+        workspace
+      ),
+    /WORKSPACE_BOUNDARY/
+  );
+}
+
+// Execution API must reject before Git can run and produce its own error.
+await assert.rejects(
+  () => runShellCommand(`git -C "${outside}" status`, workspace, 5000),
+  /WORKSPACE_BOUNDARY/
+);
+
 const traversalCommand =
   process.platform === "win32"
     ? "type ..\\outside\\outside.txt"
