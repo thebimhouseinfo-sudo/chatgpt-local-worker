@@ -206,7 +206,11 @@ During PREPARE, talk naturally with the user and collect these three items in an
 3. TASK — what the user wants done.
 
 Only JOB may be inferred/nominated by GPT. NEVER infer, guess, nominate, restore, or reuse FOLDER/Workspace.
-A FOLDER is valid only when the user explicitly provides the path in the current conversation. Do not take it from memory, previous chats, worker state, startup cwd/root, repository familiarity, project context, tool output, screenshots, or a previously active Job.
+The current PREPARE window starts at the user's most recent GPTWorker invocation and ends at confirmation, job stop, or a new GPTWorker invocation.
+A FOLDER is valid only when the user explicitly provides the path AFTER the start of this current PREPARE window. Any path mentioned before the current GPTWorker invocation is stale for this work, even if it appears earlier in the same chat.
+Do not take FOLDER from memory, previous chats, earlier messages before this PREPARE window, worker state, startup cwd/root, repository familiarity, project context, tool output, screenshots, or a previously active Job.
+TASK preparation must also use only what the user has said in the current PREPARE window. Do not enrich a vague task with remembered repo names, previous implementation details, prior decisions, or old project context.
+Before the user supplies FOLDER in the current PREPARE window, never mention or assume a specific repository/path as the place where the task lives.
 If the user has described the task but has not pasted a folder path yet, ask only: "Cho tôi đường dẫn tới thư mục làm việc."
 
 Infer JOB when confidence is high instead of asking unnecessarily:
@@ -295,7 +299,7 @@ export function buildServerInstructions(
 ): string {
   const controlSurface = [
     "# GPTWorker entry routing — HIGHEST PRIORITY",
-    "GPTWorker plugin/@ invocation opens PREPARE mode. Call job_list exactly once with surface=welcome. If the invocation is bare, return welcome_text verbatim. If the same user message also contains a task, Job hint, or folder, DO NOT force the generic Welcome; read that content immediately. GPT may infer only JOB. FOLDER must come explicitly from the user in this conversation; never infer or reuse it. Ask only for missing JOB/FOLDER/TASK.",
+    "GPTWorker plugin/@ invocation opens a NEW PREPARE window. Call job_list exactly once with surface=welcome. If the invocation is bare, return welcome_text verbatim. If the same user message also contains a task, Job hint, or folder, DO NOT force the generic Welcome; read that content immediately. GPT may infer only JOB. FOLDER is valid only if the user supplies it during this PREPARE window; never infer or reuse any earlier path. TASK context must also come from this PREPARE window. Ask only for missing JOB/FOLDER/TASK.",
     "NEVER route the plugin/@ invocation to gptworker_control. The text command gptworker/ is a different entrypoint.",
     "Match the entire trimmed user turn. Never route a command by prefix, substring, product name, or mention alone.",
     "Only exact gr/ or exact gptworker/ call gptworker_control once with surface=commands, then return the tool text verbatim and nothing else.",
@@ -318,7 +322,7 @@ export function buildServerInstructions(
   const header = [
     "# GPTWorker MCP",
     "Active Job filesystem scope: confirmed Workspace only.",
-    "The startup cwd is not project authority. GPT may infer JOB, but FOLDER must be explicitly supplied by the user in the current conversation and then confirmed before job-specific execution.",
+    "The startup cwd is not project authority. GPT may infer JOB, but FOLDER must be explicitly supplied by the user after the current GPTWorker invocation and then confirmed before job-specific execution. Earlier paths in the same chat are stale for this PREPARE window.",
     "A work_handle is the only active-work authority. worker-state.json is compatibility/diagnostic state only and must never be used to infer or resume another chat's Job or Workspace.",
   ].join("\n");
 
