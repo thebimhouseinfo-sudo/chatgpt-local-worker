@@ -19,17 +19,12 @@ export async function buildInstructionContext(
 ): Promise<InstructionContext> {
   const contextText = [
     "## GPTWorker control plane",
-    "GPTWorker starts idle. Startup folders are environment context only; they are not Job/work authority.",
+    "GPTWorker starts idle. Startup folders are internal environment data only; they are not Job/work authority and are not candidate work folders.",
     "Project files, project-local context, skills, and Git state are loaded only after an explicit GPTWorker Job flow requires them.",
     "",
     "## Runtime environment",
     `Platform: ${process.platform}`,
     `Node: ${process.version}`,
-    `MCP PID: ${opts.pid}`,
-    `Startup root: ${opts.workspaceRoot}`,
-    opts.workspaceRoots.length > 1
-      ? `Configured startup roots:\n${opts.workspaceRoots.map((root) => `- ${root}`).join("\n")}`
-      : "",
   ]
     .filter(Boolean)
     .join("\n");
