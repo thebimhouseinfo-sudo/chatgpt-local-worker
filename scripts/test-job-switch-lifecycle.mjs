@@ -6,7 +6,6 @@ import path from "node:path";
 const tempRoot = await fs.mkdtemp(path.join(os.tmpdir(), "gptworker-switch-lifecycle-"));
 process.env.LOCAL_WORKER_HOME = tempRoot;
 
-const { AdmissionRuntime } = await import("../dist/lib/activation-policy.js");
 const { registerJobTools } = await import("../dist/tools/jobs.js");
 const {
   releaseWorkRegistration,
@@ -58,21 +57,14 @@ const fakeRuntime = {
   },
 };
 
-const admission = new AdmissionRuntime();
-registerJobTools(server, fakeRuntime, undefined, admission);
-
-const admitted = admission.check({
-  userTurn: "@gptworker switch to no-confirm job",
-  hasConcreteTask: true,
-});
-assert.equal(admitted.mode, "ACTIVE");
+registerJobTools(server, fakeRuntime);
 
 const jobSwitch = registered.get("job_switch")?.callback;
 assert.ok(jobSwitch, "job_switch was not registered");
 
 const switched = await jobSwitch({
   job: "no-confirm",
-  admission_token: admitted.admission_token,
+  bindings: { workspace: tempRoot, task: "Switch lifecycle test" },
 });
 assert.equal(switched.structuredContent.ok, true);
 
@@ -84,12 +76,6 @@ assert.equal(
   "active job_switch result must carry a new work_handle"
 );
 assert.equal(typeof current?.work_handle?.authority_token, "string");
-
-assert.throws(
-  () => admission.validate(admitted.admission_token),
-  /ADMISSION_REQUIRED/,
-  "pre-active admission token must be consumed when job_switch creates active work"
-);
 
 const invalidWorkspace = path.join(tempRoot, "missing-workspace");
 const invalidSwitch = await jobSwitch({
@@ -116,6 +102,7 @@ assert.doesNotThrow(
 // must be released and the replacement active Job must receive a fresh handle.
 const switchedAgain = await jobSwitch({
   job: "no-confirm",
+  bindings: { workspace: tempRoot, task: "Switch lifecycle test again" },
   execution_id: current.work_handle.execution_id,
   authority_token: current.work_handle.authority_token,
 });
