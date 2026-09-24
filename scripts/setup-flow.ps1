@@ -192,7 +192,14 @@ try {
     if ($LASTEXITCODE -ne 0) { Fail "Không khởi động được Worker." }
 
     if (-not (Wait-Http "http://127.0.0.1:$WorkerPort/health" 20)) {
-        Fail "Worker không healthy trên port $WorkerPort. Xem %LOCALAPPDATA%\GPTWorker\logs\worker.err.log"
+        $workerErr = Join-Path $env:LOCALAPPDATA "GPTWorker\logs\worker.err.log"
+        if (Test-Path $workerErr) {
+            Write-Host ""
+            Write-Host "  --- worker.err.log ---" -ForegroundColor Yellow
+            Get-Content $workerErr -Tail 30 | ForEach-Object { Write-Host ("  " + $_) -ForegroundColor DarkYellow }
+            Write-Host "  ----------------------" -ForegroundColor Yellow
+        }
+        Fail "Worker không healthy trên port $WorkerPort."
     }
     Write-Ok "Worker đã sẵn sàng"
 
