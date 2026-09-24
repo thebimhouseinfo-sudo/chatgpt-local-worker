@@ -32,6 +32,7 @@ const admitted = admission.check({
   workspace: repoRoot,
 });
 assert.equal(admitted.mode, "ACTIVE");
+assert.equal(admission.isExplicitAtFlowArmed(), true);
 
 const jobSelect = registered.get("job_select")?.callback;
 const jobStop = registered.get("job_stop")?.callback;
@@ -64,6 +65,7 @@ assert.equal(
   "job_stop must cancel pending confirmation without a work_handle"
 );
 assert.equal(stopped.structuredContent.data?.state?.phase, "idle");
+assert.equal(admission.isExplicitAtFlowArmed(), false, "job_stop must clear the armed @gptworker flow");
 
 // Repeating the public stop command while this MCP session is already idle
 // should remain a harmless local no-op; it must not require another chat's handle.
