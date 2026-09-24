@@ -224,8 +224,9 @@ await assert.rejects(
 
 // Exact acceptance regression: a nested cmd.exe payload must not hide an
 // absolute redirection target from the Workspace guard.
+const nestedCmdTarget = path.join(outside, "shell-should-not-exist.txt");
 const nestedCmdEscape =
-  `cmd /d /s /c "echo boundary-test>${outsideFile}"`;
+  `cmd /d /s /c "echo boundary-test>${nestedCmdTarget}"`;
 assert.throws(
   () => assertShellCommandWorkspaceBound(nestedCmdEscape, workspace),
   /WORKSPACE_BOUNDARY/,
@@ -235,10 +236,10 @@ await assert.rejects(
   () => runShellCommand(nestedCmdEscape, workspace, 5000),
   /WORKSPACE_BOUNDARY/
 );
-assert.equal(
-  await fs.readFile(outsideFile, "utf8"),
-  "outside\n",
-  "outside file must remain untouched because rejection happens before spawn"
+await assert.rejects(
+  () => fs.access(nestedCmdTarget),
+  /ENOENT/,
+  "outside redirection target must not be created because rejection happens before spawn"
 );
 
 // Direct and nested PowerShell redirections must be subject to the same rule.
