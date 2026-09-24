@@ -194,7 +194,7 @@ export const GPTWORKER_IDLE_PROMPT = buildGptworkerWelcome();
 
 export const MCP_QUICKSTART = `
 ## GPTWorker PREPARE mode
-When the user invokes/clicks GPTWorker, call `job_list` exactly once with `surface="welcome"`, then return its `welcome_text` verbatim.
+When the user invokes/clicks GPTWorker, call \`job_list\` exactly once with \`surface="welcome"\`, then return its \`welcome_text\` verbatim.
 
 Invocation starts a conversational PREPARE phase. Do not require literal @gptworker text, an activation token, a continuation token, or all inputs in one message.
 
@@ -219,7 +219,7 @@ PREPARE is conversation only:
 - do not create a work_handle;
 - do not use gptworker_admission or workspace_discover.
 
-Only when JOB + absolute FOLDER + TASK are sufficiently known, call `job_select` with `confirmed=false`, mapping the task into the selected Job's required input key (for example `task` or `objective`).
+Only when JOB + absolute FOLDER + TASK are sufficiently known, call \`job_select\` with \`confirmed=false\`, mapping the task into the selected Job's required input key (for example \`task\` or \`objective\`).
 
 Then show the compact confirmation:
 JOB: <resolved job>
@@ -228,7 +228,7 @@ TASK: <resolved task>
 
 Xác nhận bắt đầu?
 
-Only after explicit user confirmation call `job_select` again with `confirmed=true` and the returned `confirmation_token`.
+Only after explicit user confirmation call \`job_select\` again with \`confirmed=true\` and the returned \`confirmation_token\`.
 
 Confirmed activation creates the work_handle. From that point, execution must use the work_handle and the confirmed Workspace boundary.
 
