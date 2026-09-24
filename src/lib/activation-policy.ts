@@ -21,6 +21,7 @@ export interface AdmissionCheckInput {
   userTurn: string;
   hasConcreteTask?: boolean;
   workspace?: string;
+  continuationToken?: string;
 }
 
 export interface AdmissionDecision {
@@ -33,6 +34,7 @@ export interface AdmissionDecision {
   trigger?: ActivationTrigger;
   workspace?: string;
   admission_token?: string;
+  continuation_token?: string;
   next:
     | "continue_gptworker"
     | "run_control_command_only"
@@ -46,10 +48,12 @@ interface AdmissionProof {
   request: string;
   invocationRequest: string;
   workspace?: string;
+  continuationToken?: string;
   createdAt: number;
 }
 
 interface ArmedAtFlow {
+  token: string;
   invocationRequest: string;
   createdAt: number;
 }
@@ -65,6 +69,7 @@ const ARMED_FLOW_TTL_MS = 10 * 60 * 1000;
 // the same admission_token survive that transport churn while still requiring
 // possession of the opaque token and honoring TTL/workspace binding.
 const SHARED_ADMISSIONS = new Map<string, AdmissionProof>();
+const SHARED_ARMED_FLOWS = new Map<string, ArmedAtFlow>();
 
 function normalizedPath(value: string): string {
   let normalized = path.resolve(value.trim());
@@ -96,6 +101,7 @@ function isPublicControlCommand(userTurn: string): boolean {
 export class AdmissionRuntime {
   private armedAtFlow: ArmedAtFlow | undefined;
   private readonly ownedAdmissionTokens = new Set<string>();
+  private readonly ownedContinuationTokens = new Set<string>();
 
   private cleanup(): void {
     const now = Date.now();
@@ -104,27 +110,42 @@ export class AdmissionRuntime {
         SHARED_ADMISSIONS.delete(token);
       }
     }
+    for (const [token, flow] of SHARED_ARMED_FLOWS) {
+      if (now - flow.createdAt > ARMED_FLOW_TTL_MS) {
+        SHARED_ARMED_FLOWS.delete(token);
+      }
+    }
     if (
       this.armedAtFlow &&
-      now - this.armedAtFlow.createdAt > ARMED_FLOW_TTL_MS
+      !SHARED_ARMED_FLOWS.has(this.armedAtFlow.token)
     ) {
       this.armedAtFlow = undefined;
     }
   }
 
-  armExplicitAt(userTurn: string): boolean {
+  armExplicitAt(userTurn: string): string | undefined {
     this.cleanup();
     const request = userTurn?.trim();
-    if (!request || !/@gptworker\b/i.test(request)) return false;
-    this.armedAtFlow = {
+    if (!request || !/@gptworker\b/i.test(request)) return undefined;
+    if (this.armedAtFlow) {
+      SHARED_ARMED_FLOWS.delete(this.armedAtFlow.token);
+      this.ownedContinuationTokens.delete(this.armedAtFlow.token);
+    }
+    const token = randomUUID();
+    const flow: ArmedAtFlow = {
+      token,
       invocationRequest: request,
       createdAt: Date.now(),
     };
-    return true;
+    SHARED_ARMED_FLOWS.set(token, flow);
+    this.ownedContinuationTokens.add(token);
+    this.armedAtFlow = flow;
+    return token;
   }
 
-  isExplicitAtFlowArmed(): boolean {
+  isExplicitAtFlowArmed(continuationToken?: string): boolean {
     this.cleanup();
+    if (continuationToken) return SHARED_ARMED_FLOWS.has(continuationToken);
     return Boolean(this.armedAtFlow);
   }
 
@@ -152,9 +173,10 @@ export class AdmissionRuntime {
 
     let invocationRequest: string | undefined;
     let workspace: string | undefined;
+    let continuationToken: string | undefined;
 
     if (isExplicitGptworkerInvocation(userTurn)) {
-      this.armExplicitAt(userTurn);
+      continuationToken = this.armExplicitAt(userTurn);
       invocationRequest = userTurn;
       const candidate = input.workspace?.trim();
       if (
@@ -164,20 +186,34 @@ export class AdmissionRuntime {
       ) {
         workspace = path.resolve(candidate);
       }
-    } else if (this.armedAtFlow) {
-      // Once this chat/session was explicitly armed by @gptworker, subsequent
-      // turns remain part of the GPTWorker flow even when Job, Workspace and
-      // task arrive in separate messages. A Workspace is bound only when the
-      // current turn actually supplies a matching absolute path.
-      invocationRequest = this.armedAtFlow.invocationRequest;
-      const candidate = input.workspace?.trim();
-      const validWorkspace =
-        Boolean(candidate) &&
-        path.isAbsolute(candidate!) &&
-        includesPath(userTurn, candidate!);
+    } else {
+      const suppliedToken = input.continuationToken?.trim();
+      const sharedFlow = suppliedToken
+        ? SHARED_ARMED_FLOWS.get(suppliedToken)
+        : undefined;
+      const flow = sharedFlow || this.armedAtFlow;
 
-      if (validWorkspace) {
-        workspace = path.resolve(candidate!);
+      if (flow) {
+        // Continuation authority is bound to an opaque token so legitimate MCP
+        // transport/session rotation does not lose the chat flow, while an
+        // unrelated chat cannot inherit the arm merely because the Worker
+        // process is shared.
+        invocationRequest = flow.invocationRequest;
+        continuationToken = flow.token;
+        flow.createdAt = Date.now();
+        SHARED_ARMED_FLOWS.set(flow.token, flow);
+        this.armedAtFlow = flow;
+        this.ownedContinuationTokens.add(flow.token);
+
+        const candidate = input.workspace?.trim();
+        const validWorkspace =
+          Boolean(candidate) &&
+          path.isAbsolute(candidate!) &&
+          includesPath(userTurn, candidate!);
+
+        if (validWorkspace) {
+          workspace = path.resolve(candidate!);
+        }
       }
     }
 
@@ -198,6 +234,7 @@ export class AdmissionRuntime {
       request: userTurn,
       invocationRequest,
       workspace,
+      continuationToken,
       createdAt: Date.now(),
     });
     this.ownedAdmissionTokens.add(token);
@@ -206,7 +243,13 @@ export class AdmissionRuntime {
     // short-lived authorities for concrete nomination/confirmation, but minting
     // or consuming one does NOT require the user to repeat @gptworker. The arm
     // is cleared only by explicit job_stop/clear() or idle expiry.
-    if (this.armedAtFlow) this.armedAtFlow.createdAt = Date.now();
+    if (continuationToken) {
+      const flow = SHARED_ARMED_FLOWS.get(continuationToken);
+      if (flow) {
+        flow.createdAt = Date.now();
+        SHARED_ARMED_FLOWS.set(continuationToken, flow);
+      }
+    }
 
     return {
       mode: "ACTIVE",
@@ -215,6 +258,7 @@ export class AdmissionRuntime {
       trigger: "explicit_gptworker",
       workspace,
       admission_token: token,
+      continuation_token: continuationToken,
       next: "continue_gptworker",
     };
   }
@@ -307,6 +351,10 @@ export class AdmissionRuntime {
       SHARED_ADMISSIONS.delete(token);
     }
     this.ownedAdmissionTokens.clear();
+    for (const token of this.ownedContinuationTokens) {
+      SHARED_ARMED_FLOWS.delete(token);
+    }
+    this.ownedContinuationTokens.clear();
     this.armedAtFlow = undefined;
   }
 }
