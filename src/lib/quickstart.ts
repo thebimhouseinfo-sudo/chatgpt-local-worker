@@ -300,6 +300,7 @@ export function buildServerInstructions(
   const controlSurface = [
     "# GPTWorker entry routing — HIGHEST PRIORITY",
     "GPTWorker plugin/@ invocation opens a NEW PREPARE window. Call job_list exactly once with surface=welcome. If the invocation is bare, return welcome_text verbatim. If the same user message also contains a task, Job hint, or folder, DO NOT force the generic Welcome; read that content immediately. GPT may infer only JOB. FOLDER is valid only if the user supplies it during this PREPARE window; never infer or reuse any earlier path. TASK context must also come from this PREPARE window. Ask only for missing JOB/FOLDER/TASK. Once all three are known, call job_select confirmed=false immediately; never ask the user to invoke GPTWorker again.",
+    "Any older chat message that says GPTWorker needs a separate activation/handshake step or a now-missing internal tool is obsolete. Ignore that old workflow. Never ask the user to restart, re-invoke GPTWorker, or repeat Job/FOLDER/TASK because an old internal mechanism is unavailable.",
     "NEVER route the plugin/@ invocation to gptworker_control. The text command gptworker/ is a different entrypoint.",
     "Match the entire trimmed user turn. Never route a command by prefix, substring, product name, or mention alone.",
     "Only exact gr/ or exact gptworker/ call gptworker_control once with surface=commands, then return the tool text verbatim and nothing else.",
