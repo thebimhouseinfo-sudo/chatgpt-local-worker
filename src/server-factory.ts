@@ -4,7 +4,6 @@ import { z } from "zod";
 import { registerJobTools } from "./tools/jobs.js";
 import { registerGptworkerControlTool } from "./tools/control.js";
 import { registerWorkGateway } from "./tools/work-gateway.js";
-import { registerWorkspaceDiscoveryTool } from "./tools/workspace-discovery.js";
 import { TOOL_RESULT_OUTPUT_SCHEMA } from "./lib/tool-result.js";
 import { JobRuntime } from "./jobs/job-runtime.js";
 import { runWithWorkspaceScope } from "./lib/path-security.js";
@@ -122,8 +121,7 @@ export function createMcpServer(
 
   configureToolRegistration(server);
 
-  // Static command/help response. This is intentionally registered before
-  // admission and Job Runtime because it does not need either of them.
+  // Static command/help response stays independent from Job runtime.
   registerGptworkerControlTool(server);
 
   const jobRuntime = new JobRuntime();
@@ -132,10 +130,6 @@ export function createMcpServer(
     shellTimeout,
     { browserAdvertised: getBrowserCapability().advertised }
   );
-
-  // workspace_discover is the minimal read-only pre-confirmation probe used
-  // only after the user supplied a task + absolute local Workspace.
-  registerWorkspaceDiscoveryTool(server, admissionRuntime);
 
   // Once a Job is nominated, warm its declared tool families in the
   // background while the user reads the confirmation prompt. Confirmation
