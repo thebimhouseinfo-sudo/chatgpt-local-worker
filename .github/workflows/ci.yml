@@ -43,7 +43,6 @@ jobs:
           [scriptblock]::Create((Get-Content -Raw './wait-tray-ready.ps1')) | Out-Null
           [scriptblock]::Create((Get-Content -Raw './wait-runtime-ready.ps1')) | Out-Null
           [scriptblock]::Create((Get-Content -Raw './scripts/setup-flow.ps1')) | Out-Null
-          [scriptblock]::Create((Get-Content -Raw './scripts/setup-test-flow.ps1')) | Out-Null
           [scriptblock]::Create((Get-Content -Raw './scripts/build-release.ps1')) | Out-Null
 
       - name: Setup preview accepts arbitrary credential text
