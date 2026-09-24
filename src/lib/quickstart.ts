@@ -282,7 +282,7 @@ export function buildServerInstructions(
 ): string {
   const controlSurface = [
     "# GPTWorker entry routing — HIGHEST PRIORITY",
-    "GPTWorker plugin/@ invocation opens PREPARE mode. Call job_list exactly once with surface=welcome, then return welcome_text verbatim.",
+    "GPTWorker plugin/@ invocation opens PREPARE mode. Call job_list exactly once with surface=welcome. If the invocation is bare, return welcome_text verbatim. If the same user message also contains a task, Job hint, or folder, DO NOT force the generic Welcome; read that content immediately, infer what you can, and ask only for missing JOB/FOLDER/TASK.",
     "NEVER route the plugin/@ invocation to gptworker_control. The text command gptworker/ is a different entrypoint.",
     "Match the entire trimmed user turn. Never route a command by prefix, substring, product name, or mention alone.",
     "Only exact gr/ or exact gptworker/ call gptworker_control once with surface=commands, then return the tool text verbatim and nothing else.",
@@ -315,7 +315,7 @@ export function buildServerInstructions(
     "## Runtime pointers",
     `Startup root: ${workspaceRoot}`,
     `Startup roots: ${workspaceRoots.join("; ")}`,
-    "GPTWorker plugin/@ invocation — call job_list once with surface=welcome, then return approved welcome_text verbatim; NEVER route it to gptworker_control",
+    "GPTWorker plugin/@ invocation — call job_list once with surface=welcome; bare invocation returns welcome_text, while invocation plus user content continues PREPARE from that content; NEVER route it to gptworker_control",
     "Only exact gr/ (or gptworker/) and exact gr/help (or gptworker/help) use gptworker_control. Every gr/job ... or gptworker/job ... command routes to its dedicated Job lifecycle tool/flow.",
     "User-facing Welcome, Help, root menu, confirmation, and folder prompts must never introduce technical path wording such as absolute path, absolute local folder, thư mục tuyệt đối, or đường dẫn tuyệt đối; internal path validation remains unchanged.",
   ].join("\n");
