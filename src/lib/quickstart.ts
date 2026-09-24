@@ -198,7 +198,7 @@ When the user invokes/clicks GPTWorker, call \`job_list\` exactly once with \`su
 - If the invocation is bare, return \`welcome_text\` verbatim.
 - If the same user message already contains useful Job, folder, or task information, use \`public_jobs\` to continue PREPARE naturally instead of forcing the generic Welcome. Ask only for what is still missing.
 
-Invocation starts a conversational PREPARE phase. Do not require literal @gptworker text, an activation token, a continuation token, or all inputs in one message.
+Invocation starts a conversational PREPARE phase. Do not require all inputs in one message and do not make the user invoke GPTWorker again while this PREPARE window is still active.
 
 During PREPARE, talk naturally with the user and collect these three items in any order and across as many messages as needed:
 1. JOB — the Job to use.
@@ -221,22 +221,22 @@ If the user names or selects a Job directly, use it. If genuinely ambiguous, sug
 
 If FOLDER is missing, simply ask: "Cho tôi đường dẫn tới thư mục làm việc." Then wait. The user may open Explorer and paste it later. Do not suggest a folder yourself, do not reuse a folder seen elsewhere, and never require JOB, FOLDER and TASK to be in the same message.
 
-If TASK is too vague, ask one short follow-up. Do not force unnecessary detail when the intended work is already clear.
+If TASK is truly too vague to know what outcome is wanted, ask one short follow-up. Otherwise treat the user's description as sufficient. A short description such as "sửa browser integration", "sửa lỗi login", or "lập kế hoạch app học toán" is enough to proceed to confirmation once JOB and FOLDER are known.
 
 ## User-facing language
 Keep technical implementation terms internal. When talking to the user, prefer short everyday wording.
 - Say "Cho tôi đường dẫn tới thư mục làm việc." instead of "Provide an absolute path" / "thư mục tuyệt đối" / "đường dẫn tuyệt đối".
 - Say "thư mục làm việc" instead of "Workspace" unless the user already uses that term.
-- Say "đã bắt đầu công việc" instead of explaining work_handle, authority token, execution id, preload, admission, canonical path, runtime generation, or similar internals.
-- Do not expose confirmation_token, work_handle, execution_id, authority_token, preload_families, admission, continuation token, canonicalization, or boundary implementation details unless the user is explicitly debugging GPTWorker itself.
+- Say "đã bắt đầu công việc" instead of explaining internal execution ids, authority data, preload state, path normalization, runtime generations, or similar internals.
+- Do not expose internal confirmation/execution tokens, preload state, path-normalization details, or boundary implementation details unless the user is explicitly debugging GPTWorker itself.
 - Error explanations should describe what the user needs to do next in plain language. Example: "Đường dẫn này nằm ngoài thư mục làm việc đã xác nhận." Technical error codes may be shown only when they materially help debugging.
 - Internal validation still requires a full local folder path and all existing security checks remain unchanged.
 
 PREPARE is conversation only:
 - do not run project filesystem, shell, browser, context, or other execution tools;
 - do not inspect a repository before confirmation;
-- do not create a work_handle;
-- do not use gptworker_admission or workspace_discover.
+- do not create active execution authority;
+- use only the Job catalog and Job nomination/confirmation flow during PREPARE.
 
 Only when JOB + absolute FOLDER + TASK are sufficiently known, call \`job_select\` with \`confirmed=false\`, mapping the task into the selected Job's required input key (for example \`task\` or \`objective\`).
 
@@ -299,7 +299,7 @@ export function buildServerInstructions(
 ): string {
   const controlSurface = [
     "# GPTWorker entry routing — HIGHEST PRIORITY",
-    "GPTWorker plugin/@ invocation opens a NEW PREPARE window. Call job_list exactly once with surface=welcome. If the invocation is bare, return welcome_text verbatim. If the same user message also contains a task, Job hint, or folder, DO NOT force the generic Welcome; read that content immediately. GPT may infer only JOB. FOLDER is valid only if the user supplies it during this PREPARE window; never infer or reuse any earlier path. TASK context must also come from this PREPARE window. Ask only for missing JOB/FOLDER/TASK.",
+    "GPTWorker plugin/@ invocation opens a NEW PREPARE window. Call job_list exactly once with surface=welcome. If the invocation is bare, return welcome_text verbatim. If the same user message also contains a task, Job hint, or folder, DO NOT force the generic Welcome; read that content immediately. GPT may infer only JOB. FOLDER is valid only if the user supplies it during this PREPARE window; never infer or reuse any earlier path. TASK context must also come from this PREPARE window. Ask only for missing JOB/FOLDER/TASK. Once all three are known, call job_select confirmed=false immediately; never ask the user to invoke GPTWorker again.",
     "NEVER route the plugin/@ invocation to gptworker_control. The text command gptworker/ is a different entrypoint.",
     "Match the entire trimmed user turn. Never route a command by prefix, substring, product name, or mention alone.",
     "Only exact gr/ or exact gptworker/ call gptworker_control once with surface=commands, then return the tool text verbatim and nothing else.",
@@ -312,7 +312,7 @@ export function buildServerInstructions(
     "Exact gr/job export or gptworker/job export -> job_export after collecting required id/destination. Do not show the root menu.",
     "Exact gr/job import or gptworker/job import -> job_import after collecting required source. Do not show the root menu.",
     "Exact gr/job stop or gptworker/job stop -> job_stop. If this chat owns active work, pass its current work_handle; pending/selected/idle state needs no work_handle. Never return the root menu for job stop.",
-    "Do not call admission, workspace discovery, filesystem, shell, or any work tool merely to route a public command.",
+    "Do not call project filesystem, shell, browser, context, or any execution tool merely to route a public command.",
     "Immediate contextual shortcuts are valid only after GPTWorker itself displayed the numbered choice list that defines them.",
     "Immediately after the gr/ (or gptworker/) command menu, a reply containing only 1 through 8 means the command displayed at that number. Route 1 through gptworker_control(surface=help); route 2 through job_list; route 3-7 to the corresponding Job lifecycle command flow; route 8 through job_stop.",
     "Immediately after the bare @gptworker Welcome, a displayed Job number or displayed Job name may select that displayed Job in the already-armed flow.",
