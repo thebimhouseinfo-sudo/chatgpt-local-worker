@@ -2,7 +2,6 @@ import assert from "node:assert/strict";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 import { JobRuntime } from "../dist/jobs/job-runtime.js";
-import { AdmissionRuntime } from "../dist/lib/activation-policy.js";
 import { registerJobTools } from "../dist/tools/jobs.js";
 
 const repoRoot = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
@@ -22,17 +21,8 @@ const server = {
   },
 };
 
-const admission = new AdmissionRuntime();
 const runtime = new JobRuntime(jobsRoot);
-registerJobTools(server, runtime, undefined, admission);
-
-const admitted = admission.check({
-  userTurn: `@gptworker đọc ${repoRoot} và lên kế hoạch`,
-  hasConcreteTask: true,
-  workspace: repoRoot,
-});
-assert.equal(admitted.mode, "ACTIVE");
-assert.equal(admission.isExplicitAtFlowArmed(), true);
+registerJobTools(server, runtime);
 
 const jobSelect = registered.get("job_select")?.callback;
 const jobStop = registered.get("job_stop")?.callback;
@@ -46,7 +36,6 @@ const nominated = await jobSelect({
     objective: "Plan pending work then cancel it",
   },
   confirmed: false,
-  admission_token: admitted.admission_token,
 });
 assert.equal(nominated.structuredContent.ok, true);
 assert.equal(
@@ -65,19 +54,12 @@ assert.equal(
   "job_stop must cancel pending confirmation without a work_handle"
 );
 assert.equal(stopped.structuredContent.data?.state?.phase, "idle");
-assert.equal(admission.isExplicitAtFlowArmed(), false, "job_stop must clear the armed @gptworker flow");
 
 // Repeating the public stop command while this MCP session is already idle
 // should remain a harmless local no-op; it must not require another chat's handle.
 const stoppedAgain = await jobStop({});
 assert.equal(stoppedAgain.structuredContent.ok, true);
 assert.equal(stoppedAgain.structuredContent.data?.state?.phase, "idle");
-
-assert.throws(
-  () => admission.validate(admitted.admission_token),
-  /ADMISSION_REQUIRED/,
-  "stopping pending work must clear its admission token"
-);
 
 // The cancelled confirmation token must no longer be usable.
 const confirmAfterStop = await jobSelect({
@@ -87,7 +69,6 @@ const confirmAfterStop = await jobSelect({
     objective: "Plan pending work then cancel it",
   },
   confirmed: true,
-  admission_token: admitted.admission_token,
   confirmation_token: confirmationToken,
 });
 assert.equal(confirmAfterStop.structuredContent.ok, false);
