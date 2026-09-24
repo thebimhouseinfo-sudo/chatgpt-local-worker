@@ -17,11 +17,131 @@ function looksLikeAbsolutePath(value: string): boolean {
   const token = stripTokenPunctuation(value);
   if (!token) return false;
 
-  if (process.platform === "win32") {
-    return /^[A-Za-z]:[\\/]/.test(token) || /^\\\\[^\\]+\\[^\\]+/.test(token);
+  if (looksLikeWindowsAbsolutePath(token)) return true;
+  return token.startsWith("/");
+}
+
+function looksLikeWindowsAbsolutePath(value: string): boolean {
+  const token = stripTokenPunctuation(value);
+  return /^[A-Za-z]:[\\/]/.test(token) || /^\\\\[^\\]+\\[^\\]+/.test(token);
+}
+
+function tokenizeCommand(command: string): string[] {
+  const tokens: string[] = [];
+  let buffer = "";
+  let quote: "'" | '"' | null = null;
+
+  for (let i = 0; i < command.length; i++) {
+    const ch = command[i];
+    if (quote) {
+      if (ch === quote) {
+        quote = null;
+      } else {
+        buffer += ch;
+      }
+      continue;
+    }
+    if (ch === "'" || ch === '"') {
+      quote = ch;
+      continue;
+    }
+    if (/\s/.test(ch)) {
+      if (buffer) {
+        tokens.push(buffer);
+        buffer = "";
+      }
+      continue;
+    }
+    if (";&|".includes(ch)) {
+      if (buffer) {
+        tokens.push(buffer);
+        buffer = "";
+      }
+      tokens.push(ch);
+      continue;
+    }
+    buffer += ch;
+  }
+  if (buffer) tokens.push(buffer);
+  return tokens;
+}
+
+function assertGitContextSwitchesWorkspaceBound(
+  command: string,
+  workspaceRoot: string
+): void {
+  const tokens = tokenizeCommand(command);
+  const separators = new Set([";", "&", "|", "&&", "||"]);
+
+  for (let i = 0; i < tokens.length; i++) {
+    const token = tokens[i].toLowerCase();
+    const base = token.replace(/^.*[\\/]/, "");
+    if (base !== "git" && base !== "git.exe") continue;
+
+    for (let j = i + 1; j < tokens.length && !separators.has(tokens[j]); j++) {
+      const current = tokens[j];
+      const lower = current.toLowerCase();
+      let candidate: string | null = null;
+
+      if (lower === "-c") {
+        // Git -c is config, NOT a path-changing option.
+        j++;
+        continue;
+      }
+      if (lower === "-C".toLowerCase()) {
+        candidate = tokens[++j] ?? null;
+      } else if (lower === "--git-dir" || lower === "--work-tree") {
+        candidate = tokens[++j] ?? null;
+      } else if (lower.startsWith("--git-dir=")) {
+        candidate = current.slice("--git-dir=".length);
+      } else if (lower.startsWith("--work-tree=")) {
+        candidate = current.slice("--work-tree=".length);
+      }
+
+      if (candidate === null) continue;
+      if (!candidate.trim()) {
+        throw new Error("WORKSPACE_BOUNDARY: Git path option is missing its path.");
+      }
+
+      const cleaned = stripTokenPunctuation(candidate);
+      const absolute =
+        path.isAbsolute(cleaned) || looksLikeWindowsAbsolutePath(cleaned);
+
+      if (!absolute) {
+        throw new Error(
+          "WORKSPACE_BOUNDARY: Git repository context options require an absolute path inside the confirmed Workspace: " +
+            cleaned
+        );
+      }
+
+      // On Windows this performs canonical realpath/junction enforcement.
+      // On non-Windows, a Windows-style path is necessarily foreign to the
+      // local Workspace and must be rejected rather than normalized as relative.
+      if (looksLikeWindowsAbsolutePath(cleaned) && process.platform !== "win32") {
+        throw new Error(
+          "WORKSPACE_BOUNDARY: Git repository context references a foreign absolute Windows path: " +
+            cleaned
+        );
+      }
+
+      assertPathInsideWorkspaceSync(cleaned, workspaceRoot);
+    }
   }
 
-  return token.startsWith("/");
+  // Environment-based Git context switching is equivalent to -C/--git-dir.
+  const envPattern =
+    /(?:^|[;&|]\s*|\s)(GIT_DIR|GIT_WORK_TREE)\s*=\s*(?:"([^"]+)"|'([^']+)'|([^\s;&|]+))/gi;
+  for (const match of command.matchAll(envPattern)) {
+    const candidate = (match[2] || match[3] || match[4] || "").trim();
+    if (!candidate) continue;
+    if (looksLikeWindowsAbsolutePath(candidate) && process.platform !== "win32") {
+      throw new Error(
+        "WORKSPACE_BOUNDARY: Git environment references a foreign absolute Windows path: " +
+          candidate
+      );
+    }
+    assertPathInsideWorkspaceSync(candidate, workspaceRoot);
+  }
 }
 
 function extractPathLiterals(command: string): string[] {
@@ -82,6 +202,10 @@ export function assertShellCommandWorkspaceBound(
   workspaceRoot: string
 ): void {
   if (!command.trim()) throw new Error("Shell command is empty");
+
+  // Git can switch repository context without changing the process cwd.
+  // Guard these options explicitly before generic literal scanning.
+  assertGitContextSwitchesWorkspaceBound(command, workspaceRoot);
 
   if (/(^|[\s'"=(:,;])\.\.[\\/]/.test(command)) {
     throw new Error(
