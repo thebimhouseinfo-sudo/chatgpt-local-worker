@@ -25,6 +25,7 @@ $ProfileDir = Join-Path $ScriptDir "profiles"
 $ProfileFile = Join-Path $ProfileDir "$ProfileName.yaml"
 $ZipName = "tunnel-client-$TUNNEL_VERSION-windows-amd64.zip"
 $DownloadUrl = "https://github.com/openai/tunnel-client/releases/download/$TUNNEL_VERSION/$ZipName"
+$TunnelZipSha256 = "784ab8da7b5a88f0109f1fd8aaf0a1c86067430b896dddf307ef7e3cc49fa1a5"
 $TunnelsUrl = "https://platform.openai.com/settings/organization/tunnels"
 $ApiKeysUrl = "https://platform.openai.com/settings/organization/api-keys"
 
@@ -98,10 +99,76 @@ function Install-TunnelClient {
 
     Write-Host "Dang tai tunnel-client $TUNNEL_VERSION ..." -ForegroundColor Yellow
     New-Item -ItemType Directory -Force -Path $BinDir | Out-Null
-    $zipPath = Join-Path $env:TEMP $ZipName
 
-    Invoke-WebRequest -Uri $DownloadUrl -OutFile $zipPath -UseBasicParsing
-    Expand-Archive -Path $zipPath -DestinationPath $BinDir -Force
+    # Use a unique temp file for every attempt so a truncated/stale ZIP from a
+    # previous failed setup can never be reused.
+    $zipPath = Join-Path $env:TEMP ("gptworker-" + [guid]::NewGuid().ToString("N") + "-" + $ZipName)
+    $downloadOk = $false
+
+    try {
+        for ($attempt = 1; $attempt -le 3; $attempt++) {
+            Remove-Item $zipPath -Force -ErrorAction SilentlyContinue
+            Write-Host ("Tai tunnel-client (lan {0}/3)..." -f $attempt) -ForegroundColor DarkGray
+
+            try {
+                # curl.exe follows GitHub release redirects reliably on Windows
+                # and fails on HTTP errors. Fall back to Invoke-WebRequest when
+                # curl is unavailable.
+                $curl = Get-Command curl.exe -ErrorAction SilentlyContinue
+                if ($curl) {
+                    & $curl.Source -fL --retry 2 --retry-delay 2 --connect-timeout 20 -o $zipPath $DownloadUrl
+                    if ($LASTEXITCODE -ne 0) {
+                        throw "curl.exe download failed with exit code $LASTEXITCODE"
+                    }
+                } else {
+                    Invoke-WebRequest -Uri $DownloadUrl -OutFile $zipPath -UseBasicParsing
+                }
+
+                if (-not (Test-Path $zipPath)) {
+                    throw "File ZIP khong duoc tao."
+                }
+
+                $fileInfo = Get-Item $zipPath
+                if ($fileInfo.Length -lt 1000000) {
+                    throw "File tai ve qua nho ($($fileInfo.Length) bytes), co the la trang loi thay vi ZIP."
+                }
+
+                # ZIP files begin with PK. This catches HTML/error payloads early.
+                $stream = [System.IO.File]::OpenRead($zipPath)
+                try {
+                    $b1 = $stream.ReadByte()
+                    $b2 = $stream.ReadByte()
+                } finally {
+                    $stream.Dispose()
+                }
+                if ($b1 -ne 0x50 -or $b2 -ne 0x4B) {
+                    throw "File tai ve khong co ZIP signature PK."
+                }
+
+                $actualHash = (Get-FileHash -Algorithm SHA256 $zipPath).Hash.ToLowerInvariant()
+                if ($actualHash -ne $TunnelZipSha256) {
+                    throw "SHA256 khong khop. Expected $TunnelZipSha256, got $actualHash"
+                }
+
+                $downloadOk = $true
+                break
+            } catch {
+                Write-Host ("Tai tunnel-client that bai: {0}" -f $_.Exception.Message) -ForegroundColor Yellow
+                if ($attempt -lt 3) {
+                    Start-Sleep -Seconds 2
+                }
+            }
+        }
+
+        if (-not $downloadOk) {
+            throw "Khong tai duoc tunnel-client hop le sau 3 lan thu."
+        }
+
+        Write-Host "ZIP da xac minh SHA256." -ForegroundColor Green
+        Expand-Archive -Path $zipPath -DestinationPath $BinDir -Force
+    } finally {
+        Remove-Item $zipPath -Force -ErrorAction SilentlyContinue
+    }
 
     $candidates = Get-ChildItem -Path $BinDir -Recurse -Filter "tunnel-client.exe" -ErrorAction SilentlyContinue
     if ($candidates.Count -eq 0) {
