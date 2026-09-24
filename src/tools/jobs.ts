@@ -360,8 +360,11 @@ export function registerJobTools(
                   description,
                 }))
             ),
+            public_jobs: result.jobs,
             prepare_mode: true,
             required_before_nomination: ["job", "workspace", "task"],
+            instruction:
+              "Use public_jobs to infer the best Job from the user's intent. If the invocation was bare, render welcome_text. If the user already supplied useful task/job/folder details, continue PREPARE naturally and ask only for missing information.",
           };
         }
 
