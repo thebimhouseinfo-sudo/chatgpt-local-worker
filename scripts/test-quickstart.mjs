@@ -208,9 +208,9 @@ assert.ok(instructions.startsWith("# GPTWorker entry routing — HIGHEST PRIORIT
 assert.ok(instructions.includes("gptworker_control once with surface=commands"));
 assert.ok(instructions.includes("gptworker_control once with surface=help"));
 assert.ok(instructions.includes("return the tool text verbatim and nothing else"));
-assert.ok(instructions.includes("BARE @gptworker IS THE JOB WELCOME ENTRYPOINT, NOT A SYSTEM COMMAND"));
-assert.ok(instructions.includes("NEVER call gptworker_control for @gptworker"));
-assert.ok(instructions.includes("@gptworker and gptworker/ are different entrypoints"));
+assert.ok(instructions.includes("BARE GPTWORKER PLUGIN INVOCATION IS THE JOB WELCOME ENTRYPOINT, NOT A SYSTEM COMMAND"));
+assert.ok(instructions.includes("NEVER call gptworker_control for the GPTWorker plugin chip/bare @gptworker invocation"));
+assert.ok(instructions.includes("plugin invocation and the text command gptworker/ are different entrypoints"));
 assert.ok(instructions.includes("Never route a command by prefix, substring, product name, or mention alone."));
 assert.ok(instructions.includes("NEVER call gptworker_control for any gr/job"));
 assert.ok(instructions.includes("Exact gr/job stop or gptworker/job stop -> job_stop."));
@@ -228,6 +228,9 @@ assert.ok(MCP_QUICKSTART.includes("Reply with \`welcome_text\` verbatim"));
 assert.ok(MCP_QUICKSTART.includes("call \`job_list\` exactly once"));
 assert.ok(MCP_QUICKSTART.includes("without repeating @gptworker"));
 assert.ok(MCP_QUICKSTART.includes("continuation_token"));
+assert.ok(MCP_QUICKSTART.includes("plugin/app link"));
+assert.ok(MCP_QUICKSTART.includes("contains no literal @gptworker text"));
+
 assert.ok(MCP_QUICKSTART.includes("MCP transport/session rotation"));
 assert.ok(MCP_QUICKSTART.includes("Never render, summarize, or expose that token"));
 
@@ -266,8 +269,8 @@ assert.ok(!runtimeContext.instructionsText.includes(GPTWORKER_ROOT_MENU));
 assert.ok(!runtimeContext.instructionsText.includes(GPTWORKER_HELP));
 assert.ok(runtimeContext.instructionsText.includes("gptworker_control once with surface=commands"));
 assert.ok(runtimeContext.instructionsText.includes("gptworker_control once with surface=help"));
-assert.ok(runtimeContext.instructionsText.includes("BARE @gptworker IS THE JOB WELCOME ENTRYPOINT"));
-assert.ok(runtimeContext.instructionsText.indexOf("BARE @gptworker IS THE JOB WELCOME ENTRYPOINT") <
+assert.ok(runtimeContext.instructionsText.includes("BARE GPTWORKER PLUGIN INVOCATION IS THE JOB WELCOME ENTRYPOINT"));
+assert.ok(runtimeContext.instructionsText.indexOf("BARE GPTWORKER PLUGIN INVOCATION IS THE JOB WELCOME ENTRYPOINT") <
           runtimeContext.instructionsText.indexOf("Only exact gr/"));
 
 
