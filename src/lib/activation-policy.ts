@@ -8,6 +8,7 @@ export interface ActivationGateInput {
   trigger: ActivationTrigger | undefined;
   activationWorkspace?: string;
   activationRequest?: string;
+  trustedPluginInvocation?: boolean;
   bindings?: Record<string, string>;
 }
 
@@ -41,12 +42,15 @@ export interface AdmissionDecision {
     | "stop_gptworker_continue_normal_chat_or_requested_plugin";
 }
 
+type InvocationEvidence = "literal_at" | "plugin_invocation";
+
 interface AdmissionProof {
   token: string;
   mode: "ACTIVE";
   trigger: ActivationTrigger;
   request: string;
   invocationRequest: string;
+  invocationEvidence: InvocationEvidence;
   workspace?: string;
   continuationToken?: string;
   createdAt: number;
@@ -55,6 +59,7 @@ interface AdmissionProof {
 interface ArmedAtFlow {
   token: string;
   invocationRequest: string;
+  invocationEvidence: InvocationEvidence;
   createdAt: number;
 }
 
@@ -138,13 +143,10 @@ export class AdmissionRuntime {
     }
   }
 
-  armExplicitAt(userTurn: string): string | undefined {
-    this.cleanup();
-    const request = userTurn?.trim();
-    if (!request || !/@gptworker\b/i.test(request)) return undefined;
-    // GPTWorker is a single-user local control plane. A new explicit
-    // @gptworker invocation supersedes any previous unconfirmed arm so later
-    // transport rotation has one unambiguous flow to recover.
+  private armFlow(request: string, invocationEvidence: InvocationEvidence): string {
+    // GPTWorker is a single-user local control plane. A new explicit entry
+    // supersedes any previous unconfirmed arm so later transport rotation has
+    // one unambiguous flow to recover.
     SHARED_ARMED_FLOWS.clear();
     this.ownedContinuationTokens.clear();
     this.armedAtFlow = undefined;
@@ -152,12 +154,29 @@ export class AdmissionRuntime {
     const flow: ArmedAtFlow = {
       token,
       invocationRequest: request,
+      invocationEvidence,
       createdAt: Date.now(),
     };
     SHARED_ARMED_FLOWS.set(token, flow);
     this.ownedContinuationTokens.add(token);
     this.armedAtFlow = flow;
     return token;
+  }
+
+  armExplicitAt(userTurn: string): string | undefined {
+    this.cleanup();
+    const request = userTurn?.trim();
+    if (!request || !/@gptworker\b/i.test(request)) return undefined;
+    return this.armFlow(request, "literal_at");
+  }
+
+  armPluginInvocation(userTurn: string): string | undefined {
+    this.cleanup();
+    const request = userTurn?.trim();
+    if (!request) return undefined;
+    // This method is intentionally not used by ordinary admission checks.
+    // Only the bare-plugin job_list entrypoint may call it.
+    return this.armFlow(request, "plugin_invocation");
   }
 
   isExplicitAtFlowArmed(continuationToken?: string): boolean {
@@ -255,6 +274,10 @@ export class AdmissionRuntime {
       trigger: "explicit_gptworker",
       request: userTurn,
       invocationRequest,
+      invocationEvidence:
+        continuationToken
+          ? SHARED_ARMED_FLOWS.get(continuationToken)?.invocationEvidence ?? "literal_at"
+          : "literal_at",
       workspace,
       continuationToken,
       createdAt: Date.now(),
@@ -357,6 +380,7 @@ export class AdmissionRuntime {
       trigger: proof.trigger,
       activationWorkspace: proof.workspace,
       activationRequest: proof.invocationRequest,
+      trustedPluginInvocation: proof.invocationEvidence === "plugin_invocation",
       bindings,
     });
   }
@@ -395,9 +419,9 @@ export function validateActivationGate(input: ActivationGateInput): ActivationGa
     );
   }
 
-  if (!isExplicitGptworkerInvocation(request)) {
+  if (!isExplicitGptworkerInvocation(request) && !input.trustedPluginInvocation) {
     throw new Error(
-      "ACTIVATION_REQUIRED: explicit_gptworker requires the current user turn to start with @gptworker."
+      "ACTIVATION_REQUIRED: explicit_gptworker requires either a literal @gptworker invocation or trusted bare-plugin invocation evidence."
     );
   }
 
