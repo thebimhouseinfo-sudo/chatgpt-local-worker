@@ -194,7 +194,7 @@ export const GPTWORKER_IDLE_PROMPT = buildGptworkerWelcome();
 
 export const MCP_QUICKSTART = `
 ## Bare GPTWorker invocation — approved Welcome
-When the user invokes bare \`@gptworker\` with no concrete task + Workspace yet, call \`job_list\` exactly once with \`activation_request\` set to the exact current user text containing literal \`@gptworker\`.
+When the user explicitly invokes the GPTWorker plugin/chip with no concrete task + Workspace yet, call \`job_list\` exactly once with \`activation_request\` set to the exact current user text or connector/link representation. The UI may serialize the plugin chip without literal \`@gptworker\`; that is still a valid explicit bare GPTWorker invocation.
 
 For this bare @ flow, \`job_list\` returns \`welcome_text\` plus an internal opaque \`continuation_token\`. Reply with \`welcome_text\` verbatim and retain \`continuation_token\` only as hidden workflow state. Never render, summarize, or expose that token.
 
@@ -347,8 +347,8 @@ export function buildServerInstructions(
 ): string {
   const controlSurface = [
     "# GPTWorker entry routing — HIGHEST PRIORITY",
-    "BARE @gptworker IS THE JOB WELCOME ENTRYPOINT, NOT A SYSTEM COMMAND. It must call job_list exactly once with activation_request equal to the exact current user turn, then return welcome_text verbatim.",
-    "NEVER call gptworker_control for @gptworker. The strings @gptworker and gptworker/ are different entrypoints and must never be conflated.",
+    "BARE GPTWORKER PLUGIN INVOCATION IS THE JOB WELCOME ENTRYPOINT, NOT A SYSTEM COMMAND. This includes the visible @gptworker chip even when the underlying user payload is only a plugin/app link and contains no literal @gptworker text. It must call job_list exactly once with activation_request equal to the exact current user payload, then return welcome_text verbatim.",
+    "NEVER call gptworker_control for the GPTWorker plugin chip/bare @gptworker invocation. A plugin invocation and the text command gptworker/ are different entrypoints and must never be conflated.",
     "Match the entire trimmed user turn. Never route a command by prefix, substring, product name, or mention alone.",
     "Only exact gr/ or exact gptworker/ call gptworker_control once with surface=commands, then return the tool text verbatim and nothing else.",
     "For exact gr/help or gptworker/help call gptworker_control once with surface=help, then return the tool text verbatim and nothing else.",
@@ -380,7 +380,7 @@ export function buildServerInstructions(
     "## Runtime pointers",
     `Startup root: ${workspaceRoot}`,
     `Startup roots: ${workspaceRoots.join("; ")}`,
-    "bare @gptworker — call job_list once with activation_request, then return its approved welcome_text verbatim and nothing else; NEVER route bare @gptworker to gptworker_control",
+    "bare GPTWorker plugin/@ invocation — call job_list once with activation_request using the exact current payload (literal @ text or connector/app link), then return its approved welcome_text verbatim and nothing else; NEVER route it to gptworker_control",
     "Only exact gr/ (or gptworker/) and exact gr/help (or gptworker/help) use gptworker_control. Every gr/job ... or gptworker/job ... command routes to its dedicated Job lifecycle tool/flow.",
     "User-facing Welcome, Help, root menu, confirmation, and folder prompts must never introduce technical path wording such as absolute path, absolute local folder, thư mục tuyệt đối, or đường dẫn tuyệt đối; internal path validation remains unchanged.",
   ].join("\n");
