@@ -209,6 +209,10 @@ assert.ok(instructions.includes("gptworker_control once with surface=commands"))
 assert.ok(instructions.includes("gptworker_control once with surface=help"));
 assert.ok(instructions.includes("return the tool text verbatim and nothing else"));
 assert.ok(instructions.includes("GPTWorker plugin/@ invocation opens PREPARE mode"));
+assert.ok(instructions.includes("If the invocation is bare, return welcome_text verbatim"));
+assert.ok(instructions.includes("DO NOT force the generic Welcome"));
+assert.ok(instructions.includes("ask only for missing JOB/FOLDER/TASK"));
+
 assert.ok(instructions.includes("surface=welcome"));
 assert.ok(instructions.includes("NEVER route the plugin/@ invocation to gptworker_control"));
 assert.ok(instructions.includes("Never route a command by prefix, substring, product name, or mention alone."));
@@ -218,6 +222,9 @@ assert.ok(instructions.includes("Never return the root menu for job stop."));
 assert.ok(instructions.includes("Outside those immediately preceding choice lists, never interpret a bare number"));
 
 assert.ok(MCP_QUICKSTART.includes("## GPTWorker PREPARE mode"));
+assert.ok(MCP_QUICKSTART.includes("If the invocation is bare, return \`welcome_text\` verbatim"));
+assert.ok(MCP_QUICKSTART.includes("continue PREPARE naturally instead of forcing the generic Welcome"));
+
 assert.ok(MCP_QUICKSTART.includes("JOB + absolute FOLDER + TASK"));
 assert.ok(MCP_QUICKSTART.includes("Do not require literal @gptworker text"));
 assert.ok(MCP_QUICKSTART.includes("do not use gptworker_admission or workspace_discover"));
