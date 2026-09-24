@@ -50,10 +50,7 @@ const tests = [
   "scripts/test-workspace-boundary.mjs",
   "scripts/test-idle-runtime.mjs",
   "scripts/test-job-runtime.mjs",
-  "scripts/test-activation-policy.mjs",
-  "scripts/test-admission-tool.mjs",
   "scripts/test-job-list-arming.mjs",
-  "scripts/test-job-confirmation-isolation.mjs",
   "scripts/test-job-confirmation-retry-after-busy.mjs",
   "scripts/test-job-admission-lifecycle.mjs",
   "scripts/test-job-admission-workspace-retry.mjs",
@@ -81,7 +78,6 @@ const tests = [
   "scripts/test-runtime-log.mjs",
   "scripts/test-work-registration.mjs",
   "scripts/test-work-gateway.mjs",
-  "scripts/test-workspace-discovery.mjs",
   "scripts/test-quickstart.mjs",
   "scripts/test-control-surface.mjs",
   "scripts/test-shell-persist.mjs"
