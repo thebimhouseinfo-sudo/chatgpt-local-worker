@@ -1,6 +1,6 @@
 # Start GPTWorker MCP server. Project/workspace is selected later from ChatGPT.
 param(
-    [int]$Port = 3000,
+    [int]$Port = 43120,
     [switch]$Force,
     [switch]$Detach
 )
@@ -72,7 +72,7 @@ if (-not (Test-Path "worker-state.json")) {
 }
 
 $envPort = Get-DotEnvValue "PORT"
-if ($envPort -and $Port -eq 3000) { $Port = [int]$envPort }
+if ($envPort -and $Port -eq 43120) { $Port = [int]$envPort }
 $env:PORT = $Port
 
 $ChatGptAutoApprove = Get-DotEnvValue "CHATGPT_AUTO_APPROVE"
