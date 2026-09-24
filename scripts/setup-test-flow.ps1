@@ -73,12 +73,10 @@ $HadStartupValue = $false
 $OldStartupValue = $null
 
 try {
-    Write-Banner "GPTWorker · SETUP TEST" "Mô phỏng bản cài đặt ship — không cần Tunnel/API thật"
-    Write-Host "  Chế độ này dùng đúng runtime đã build trong dist/." -ForegroundColor White
-    Write-Host "  Tunnel ID và API key có thể nhập BẤT KỲ chữ nào." -ForegroundColor Yellow
-    Write-Host "  Hai giá trị thử chỉ tồn tại trong thư mục TEMP và không ghi vào .env thật." -ForegroundColor Yellow
-    Write-Host ""
-    Write-Host "  Phần Tunnel được mô phỏng local để toàn bộ health-check vẫn chạy như installer thật." -ForegroundColor Gray
+    Write-Banner "GPTWorker · SETUP TEST" "Kiểm tra toàn bộ trải nghiệm cài đặt trước khi thay setup thật"
+    Write-Host "  Luồng này chạy như bản cài đặt thật và dùng runtime đã build trong dist/." -ForegroundColor White
+    Write-Host "  Thông tin Tunnel/API trong lần chạy này chỉ dùng cho môi trường test." -ForegroundColor Gray
+    Write-Host "  Cấu hình GPTWorker thật trên máy sẽ không bị thay đổi." -ForegroundColor Gray
     Write-Host ""
     Read-Host "  Nhấn Enter để bắt đầu"
 
@@ -167,26 +165,50 @@ try {
     }
     Write-Ok "Worker healthy trên port test $WorkerPort"
 
-    Write-Step 6 8 "Nhập Tunnel ID và API key thử"
+    Write-Step 6 8 "Tạo Secure MCP Tunnel và API key"
+
+    Write-Host "  PHẦN A · TẠO TUNNEL" -ForegroundColor Cyan
+    Write-Host ""
+    Write-Host "  1. Trình duyệt sẽ mở trang OpenAI Platform · Tunnels." -ForegroundColor White
+    Write-Host "  2. Tạo một Tunnel mới và đặt tên dễ nhận ra, ví dụ: gptworker." -ForegroundColor White
+    Write-Host "  3. Nếu có mục chọn ChatGPT workspace, chọn đúng workspace sẽ dùng GPTWorker." -ForegroundColor White
+    Write-Host "  4. Đảm bảo quyền Tunnels có Read + Use." -ForegroundColor White
+    Write-Host "  5. Sau khi tạo xong, copy Tunnel ID." -ForegroundColor White
+    Write-Host "     Tunnel ID thật thường bắt đầu bằng: tunnel_..." -ForegroundColor DarkGray
+    Write-Host ""
     if (-not $NoBrowserOpen) {
         Start-Process "https://platform.openai.com/settings/organization/tunnels"
     }
-    do { $TunnelId = Read-Host "  Tunnel ID thử (gõ gì cũng được)" } while ([string]::IsNullOrWhiteSpace($TunnelId))
+    do { $TunnelId = Read-Host "  Dán Tunnel ID vào đây" } while ([string]::IsNullOrWhiteSpace($TunnelId))
+
+    Write-Host ""
+    Write-Host "  PHẦN B · TẠO API KEY CHO GPTWORKER" -ForegroundColor Cyan
+    Write-Host ""
+    Write-Host "  1. Trình duyệt sẽ mở trang OpenAI Platform · API Keys." -ForegroundColor White
+    Write-Host "  2. Chọn Create new secret key." -ForegroundColor White
+    Write-Host "  3. Nên đặt tên: gptworker-runtime." -ForegroundColor White
+    Write-Host "  4. Permissions: chọn Restricted." -ForegroundColor White
+    Write-Host "  5. Trong Tunnels, bật đủ Read + Use." -ForegroundColor White
+    Write-Host "  6. Tạo key và copy ngay khi OpenAI hiển thị." -ForegroundColor White
+    Write-Host "     API key thật thường bắt đầu bằng: sk-..." -ForegroundColor DarkGray
+    Write-Host ""
     if (-not $NoBrowserOpen) {
         Start-Process "https://platform.openai.com/settings/organization/api-keys"
     }
-    do { $ApiKey = Read-Host "  API key thử (gõ gì cũng được)" } while ([string]::IsNullOrWhiteSpace($ApiKey))
+    do { $ApiKey = Read-Host "  Dán API key vào đây" } while ([string]::IsNullOrWhiteSpace($ApiKey))
+
     @(
         "OPENAI_TUNNEL_ID=$TunnelId",
         "OPENAI_TUNNEL_API_KEY=$ApiKey"
     ) | Set-Content (Join-Path $TempRoot "fake-credentials.env") -Encoding UTF8
-    Write-Ok "Đã nhận 2 giá trị thử — chỉ lưu trong TEMP"
+    Write-Ok "Đã nhận thông tin Tunnel và API key cho phiên setup test"
 
     Write-Step 7 8 "Khởi động Tunnel mô phỏng và kiểm tra health"
     $mockScript = Join-Path $ScriptDir "scripts\setup-test-mock-tunnel.mjs"
     $tunnelOut = Join-Path $TempRoot "tunnel.out.log"
     $tunnelErr = Join-Path $TempRoot "tunnel.err.log"
-    $TunnelProcess = Start-Process -FilePath (Get-Command node).Source -ArgumentList @($mockScript, "--port", "$TunnelPort", "--worker-port", "$WorkerPort") -WorkingDirectory $ScriptDir -WindowStyle Hidden -RedirectStandardOutput $tunnelOut -RedirectStandardError $tunnelErr -PassThru
+    $mockArgs = '"{0}" --port {1} --worker-port {2}' -f $mockScript, $TunnelPort, $WorkerPort
+    $TunnelProcess = Start-Process -FilePath (Get-Command node).Source -ArgumentList $mockArgs -WorkingDirectory $ScriptDir -WindowStyle Hidden -RedirectStandardOutput $tunnelOut -RedirectStandardError $tunnelErr -PassThru
     if (-not (Wait-Http "http://127.0.0.1:$TunnelPort/readyz" 15 "ready")) {
         if (Test-Path $tunnelErr) { Get-Content $tunnelErr -Tail 30 }
         Fail "Tunnel mô phỏng không ready."
