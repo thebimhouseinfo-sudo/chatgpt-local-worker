@@ -38,6 +38,29 @@ assert.equal(
 );
 assert.equal(connectorArmRuntime.isExplicitAtFlowArmed(), true);
 
+const pluginRuntime = new AdmissionRuntime();
+const pluginToken = pluginRuntime.armPluginInvocation("app://asdk_app_example");
+assert.equal(typeof pluginToken, "string");
+const pluginContinuation = new AdmissionRuntime().check({
+  userTurn: `Dev Coding ${workspace}`,
+  hasConcreteTask: true,
+  workspace,
+});
+assert.equal(pluginContinuation.mode, "ACTIVE");
+assert.equal(pluginContinuation.continuation_token, pluginToken);
+const pluginProof = new AdmissionRuntime();
+const pluginAdmission = pluginProof.check({
+  userTurn: `Dev Coding ${workspace}`,
+  hasConcreteTask: true,
+  workspace,
+  continuationToken: pluginToken,
+});
+assert.equal(pluginAdmission.mode, "ACTIVE");
+assert.doesNotThrow(() =>
+  pluginProof.activation(pluginAdmission.admission_token, { workspace })
+);
+
+
 const control = fresh.check({ userTurn: "gptworker/job list" });
 assert.equal(control.mode, "CONTROL");
 assert.equal(control.claimed, false);
