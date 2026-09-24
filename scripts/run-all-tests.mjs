@@ -131,11 +131,19 @@ try {
   const tools = listJson?.result?.tools ?? [];
   const names = tools.map((tool) => tool.name);
 
-  for (const required of ["gptworker_control", "gptworker_admission", "job_select", "work_tool"]) {
+  for (const required of ["gptworker_control", "job_list", "job_select", "work_tool"]) {
     if (!names.includes(required)) throw new Error(`tools/list missing ${required}`);
   }
 
-  for (const retired of ["mcp_call", "mcp_servers", "mcp_tools", "ponytail_turn", "rewind"]) {
+  for (const retired of [
+    "gptworker_admission",
+    "workspace_discover",
+    "mcp_call",
+    "mcp_servers",
+    "mcp_tools",
+    "ponytail_turn",
+    "rewind",
+  ]) {
     if (names.includes(retired)) throw new Error(`tools/list exposes retired tool ${retired}`);
   }
 
