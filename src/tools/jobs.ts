@@ -360,7 +360,9 @@ export function registerJobTools(
                   description,
                 }))
             ),
-            public_jobs: result.jobs,
+            public_jobs: result.jobs.filter(
+              (job: any) => job?.status === "ready"
+            ),
             prepare_mode: true,
             required_before_nomination: ["job", "workspace", "task"],
             instruction:
