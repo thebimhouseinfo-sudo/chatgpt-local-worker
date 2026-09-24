@@ -83,13 +83,12 @@ function assertGitContextSwitchesWorkspaceBound(
       const lower = current.toLowerCase();
       let candidate: string | null = null;
 
-      if (lower === "-c") {
+      if (current === "-C") {
+        candidate = tokens[++j] ?? null;
+      } else if (lower === "-c") {
         // Git -c is config, NOT a path-changing option.
         j++;
         continue;
-      }
-      if (lower === "-C".toLowerCase()) {
-        candidate = tokens[++j] ?? null;
       } else if (lower === "--git-dir" || lower === "--work-tree") {
         candidate = tokens[++j] ?? null;
       } else if (lower.startsWith("--git-dir=")) {
