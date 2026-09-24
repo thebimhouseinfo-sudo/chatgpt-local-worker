@@ -169,12 +169,21 @@ try {
 
     Write-Host "  PHẦN A · TẠO TUNNEL" -ForegroundColor Cyan
     Write-Host ""
-    Write-Host "  1. Trình duyệt sẽ mở trang OpenAI Platform · Tunnels." -ForegroundColor White
-    Write-Host "  2. Tạo một Tunnel mới và đặt tên dễ nhận ra, ví dụ: gptworker." -ForegroundColor White
-    Write-Host "  3. Nếu có mục chọn ChatGPT workspace, chọn đúng workspace sẽ dùng GPTWorker." -ForegroundColor White
-    Write-Host "  4. Đảm bảo quyền Tunnels có Read + Use." -ForegroundColor White
-    Write-Host "  5. Sau khi tạo xong, copy Tunnel ID." -ForegroundColor White
-    Write-Host "     Tunnel ID thật thường bắt đầu bằng: tunnel_..." -ForegroundColor DarkGray
+    Write-Host "  Trình duyệt sẽ mở trang OpenAI Platform · Tunnels." -ForegroundColor White
+    Write-Host ""
+    Write-Host "  Làm lần lượt:" -ForegroundColor White
+    Write-Host "    1. Nếu đang ở trang Settings, nhìn menu bên trái và mở mục Tunnels." -ForegroundColor White
+    Write-Host "    2. Bấm nút tạo Tunnel mới (Create / New tunnel)." -ForegroundColor White
+    Write-Host "    3. Ở ô tên, nhập: gptworker" -ForegroundColor White
+    Write-Host "    4. Nếu có mục chọn ChatGPT workspace, chọn đúng workspace anh/chị sẽ dùng GPTWorker." -ForegroundColor White
+    Write-Host "    5. Nếu trang hỏi quyền hoặc access cho Tunnel:" -ForegroundColor White
+    Write-Host "         • bật Read" -ForegroundColor Green
+    Write-Host "         • bật Use" -ForegroundColor Green
+    Write-Host "       Nếu tài khoản này trực tiếp tạo/chỉnh Tunnel và UI có Manage thì bật thêm Manage." -ForegroundColor DarkGray
+    Write-Host "    6. Bấm Create hoặc Save." -ForegroundColor White
+    Write-Host "    7. Khi Tunnel đã tạo xong, mở chi tiết Tunnel nếu cần." -ForegroundColor White
+    Write-Host "    8. Tìm dòng Tunnel ID rồi bấm Copy, hoặc bôi đen và copy giá trị." -ForegroundColor White
+    Write-Host "       Tunnel ID thật thường bắt đầu bằng: tunnel_..." -ForegroundColor DarkGray
     Write-Host ""
     if (-not $NoBrowserOpen) {
         Start-Process "https://platform.openai.com/settings/organization/tunnels"
@@ -184,13 +193,25 @@ try {
     Write-Host ""
     Write-Host "  PHẦN B · TẠO API KEY CHO GPTWORKER" -ForegroundColor Cyan
     Write-Host ""
-    Write-Host "  1. Trình duyệt sẽ mở trang OpenAI Platform · API Keys." -ForegroundColor White
-    Write-Host "  2. Chọn Create new secret key." -ForegroundColor White
-    Write-Host "  3. Nên đặt tên: gptworker-runtime." -ForegroundColor White
-    Write-Host "  4. Permissions: chọn Restricted." -ForegroundColor White
-    Write-Host "  5. Trong Tunnels, bật đủ Read + Use." -ForegroundColor White
-    Write-Host "  6. Tạo key và copy ngay khi OpenAI hiển thị." -ForegroundColor White
-    Write-Host "     API key thật thường bắt đầu bằng: sk-..." -ForegroundColor DarkGray
+    Write-Host "  Trình duyệt sẽ mở trang OpenAI Platform · API Keys." -ForegroundColor White
+    Write-Host ""
+    Write-Host "  Làm lần lượt:" -ForegroundColor White
+    Write-Host "    1. Bấm nút + Create new secret key." -ForegroundColor White
+    Write-Host "    2. Ở ô Name, nhập: gptworker-runtime" -ForegroundColor White
+    Write-Host "    3. Ở phần Permissions, chọn Restricted." -ForegroundColor White
+    Write-Host "    4. Kéo xuống danh sách quyền bên dưới." -ForegroundColor White
+    Write-Host "    5. Tìm dòng hoặc nhóm có tên Tunnels." -ForegroundColor White
+    Write-Host "       Nếu danh sách dài, cứ cuộn xuống cho đến khi thấy Tunnels." -ForegroundColor DarkGray
+    Write-Host "    6. Ở Tunnels, bật đủ:" -ForegroundColor White
+    Write-Host "         • Read" -ForegroundColor Green
+    Write-Host "         • Use" -ForegroundColor Green
+    Write-Host "       Không chọn Read Only vì GPTWorker cần cả quyền Use." -ForegroundColor Yellow
+    Write-Host "       Không cần chọn All cho toàn bộ API key." -ForegroundColor DarkGray
+    Write-Host "    7. Kiểm tra lại đúng 2 quyền Tunnels: Read + Use." -ForegroundColor White
+    Write-Host "    8. Bấm Create secret key / Create key." -ForegroundColor White
+    Write-Host "    9. OpenAI sẽ chỉ hiện secret đầy đủ lúc vừa tạo." -ForegroundColor White
+    Write-Host "       Bấm Copy ngay và giữ cửa sổ đó mở cho đến khi đã dán key vào GPTWorker." -ForegroundColor Yellow
+    Write-Host "       API key thật thường bắt đầu bằng: sk-..." -ForegroundColor DarkGray
     Write-Host ""
     if (-not $NoBrowserOpen) {
         Start-Process "https://platform.openai.com/settings/organization/api-keys"
