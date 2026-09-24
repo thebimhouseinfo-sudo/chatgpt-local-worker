@@ -213,9 +213,8 @@ assert.ok(instructions.includes("If the invocation is bare, return welcome_text 
 assert.ok(instructions.includes("DO NOT force the generic Welcome"));
 assert.ok(instructions.includes("Ask only for missing JOB/FOLDER/TASK"));
 assert.ok(instructions.includes("GPT may infer only JOB"));
-assert.ok(instructions.includes("GPT MUST NEVER nominate, infer, suggest, autocomplete, restore, or reuse FOLDER"));
-assert.ok(instructions.includes("FOLDER is one-shot for the current JOB+TASK nomination only"));
-assert.ok(instructions.includes("changing JOB, materially changing TASK, rejecting a nomination, or starting a replacement nomination invalidates the previous FOLDER"));
+assert.ok(instructions.includes("GPT MUST NEVER nominate, infer, suggest, autocomplete, restore, or reuse a FOLDER that the user has not supplied"));
+assert.ok(instructions.includes("that same user-supplied FOLDER may be retained while the user changes JOB or refines TASK"));
 assert.ok(!instructions.includes("Startup root: C:\\GPTWorker"));
 assert.ok(!instructions.includes("Startup roots:"));
 assert.ok(instructions.includes("Startup filesystem roots are internal runtime data"));
@@ -252,11 +251,9 @@ assert.ok(MCP_QUICKSTART.includes('Cho tôi đường dẫn tới thư mục là
 assert.ok(MCP_QUICKSTART.includes("Only JOB may be inferred/nominated by GPT"));
 assert.ok(MCP_QUICKSTART.includes("FOLDER RULE — ABSOLUTE BEHAVIORAL RULE"));
 assert.ok(MCP_QUICKSTART.includes("GPT MUST NEVER nominate a folder/workspace"));
-assert.ok(MCP_QUICKSTART.includes("A FOLDER is never a persistent default"));
-assert.ok(MCP_QUICKSTART.includes("If JOB changes, discard any previously supplied FOLDER"));
-assert.ok(MCP_QUICKSTART.includes("If TASK changes materially, discard any previously supplied FOLDER"));
-assert.ok(MCP_QUICKSTART.includes("Never carry a FOLDER forward from an earlier nomination"));
-assert.ok(MCP_QUICKSTART.includes("Infer only JOB. Collect TASK from the user. Accept FOLDER only when the user explicitly supplies it for the current nomination"));
+assert.ok(MCP_QUICKSTART.includes("Once the user has explicitly supplied FOLDER in the current PREPARE window, GPT may keep using that same user-supplied FOLDER while the user changes JOB or refines TASK"));
+assert.ok(MCP_QUICKSTART.includes("GPT MUST NOT replace that user-supplied FOLDER with another path unless the user supplies a different folder"));
+assert.ok(MCP_QUICKSTART.includes("Infer only JOB. Collect TASK from the user. Accept FOLDER only when the user explicitly supplies it during the current PREPARE window"));
 
 assert.ok(MCP_QUICKSTART.includes("GPT MUST NEVER guess, infer, suggest, autocomplete, restore, reuse, or fill in a folder path"));
 assert.ok(MCP_QUICKSTART.includes("The only acceptable FOLDER is a path that the user personally provides AFTER the current GPTWorker invocation"));
