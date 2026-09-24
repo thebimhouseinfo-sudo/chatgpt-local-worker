@@ -346,9 +346,11 @@ export function buildServerInstructions(
   contextBlock?: string
 ): string {
   const controlSurface = [
-    "# GPTWorker static control surface — HIGHEST PRIORITY",
-    "Match the entire trimmed user turn. Never route a command by prefix alone.",
-    "For exact gr/ or gptworker/ call gptworker_control once with surface=commands, then return the tool text verbatim and nothing else.",
+    "# GPTWorker entry routing — HIGHEST PRIORITY",
+    "BARE @gptworker IS THE JOB WELCOME ENTRYPOINT, NOT A SYSTEM COMMAND. It must call job_list exactly once with activation_request equal to the exact current user turn, then return welcome_text verbatim.",
+    "NEVER call gptworker_control for @gptworker. The strings @gptworker and gptworker/ are different entrypoints and must never be conflated.",
+    "Match the entire trimmed user turn. Never route a command by prefix, substring, product name, or mention alone.",
+    "Only exact gr/ or exact gptworker/ call gptworker_control once with surface=commands, then return the tool text verbatim and nothing else.",
     "For exact gr/help or gptworker/help call gptworker_control once with surface=help, then return the tool text verbatim and nothing else.",
     "NEVER call gptworker_control for any gr/job ... or gptworker/job ... command.",
     "Exact gr/job list or gptworker/job list -> job_list.",
@@ -378,7 +380,7 @@ export function buildServerInstructions(
     "## Runtime pointers",
     `Startup root: ${workspaceRoot}`,
     `Startup roots: ${workspaceRoots.join("; ")}`,
-    "bare @gptworker — call job_list once with activation_request, then return its approved welcome_text verbatim and nothing else",
+    "bare @gptworker — call job_list once with activation_request, then return its approved welcome_text verbatim and nothing else; NEVER route bare @gptworker to gptworker_control",
     "Only exact gr/ (or gptworker/) and exact gr/help (or gptworker/help) use gptworker_control. Every gr/job ... or gptworker/job ... command routes to its dedicated Job lifecycle tool/flow.",
     "User-facing Welcome, Help, root menu, confirmation, and folder prompts must never introduce technical path wording such as absolute path, absolute local folder, thư mục tuyệt đối, or đường dẫn tuyệt đối; internal path validation remains unchanged.",
   ].join("\n");
