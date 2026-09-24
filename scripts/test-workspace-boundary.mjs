@@ -222,6 +222,36 @@ await assert.rejects(
   /WORKSPACE_BOUNDARY/
 );
 
+// Exact acceptance regression: a nested cmd.exe payload must not hide an
+// absolute redirection target from the Workspace guard.
+const nestedCmdEscape =
+  `cmd /d /s /c "echo boundary-test>${outsideFile}"`;
+assert.throws(
+  () => assertShellCommandWorkspaceBound(nestedCmdEscape, workspace),
+  /WORKSPACE_BOUNDARY/,
+  "nested cmd redirection outside Workspace must be rejected"
+);
+await assert.rejects(
+  () => runShellCommand(nestedCmdEscape, workspace, 5000),
+  /WORKSPACE_BOUNDARY/
+);
+assert.equal(
+  await fs.readFile(outsideFile, "utf8"),
+  "outside\n",
+  "outside file must remain untouched because rejection happens before spawn"
+);
+
+// Direct and nested PowerShell redirections must be subject to the same rule.
+for (const command of [
+  `echo bad > "${outsideFile}"`,
+  `powershell -NoProfile -Command "echo bad > ${outsideFile}"`,
+]) {
+  assert.throws(
+    () => assertShellCommandWorkspaceBound(command, workspace),
+    /WORKSPACE_BOUNDARY/
+  );
+}
+
 const traversalCommand =
   process.platform === "win32"
     ? "type ..\\outside\\outside.txt"
