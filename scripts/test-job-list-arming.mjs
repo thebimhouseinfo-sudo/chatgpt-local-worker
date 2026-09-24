@@ -79,7 +79,11 @@ const noTokenCrossSession = unrelatedRuntime.check({
   hasConcreteTask: true,
   workspace,
 });
-assert.equal(noTokenCrossSession.mode, "INACTIVE", "a different chat/session cannot inherit another chat's arm without the opaque token");
+assert.equal(
+  noTokenCrossSession.mode,
+  "ACTIVE",
+  "a fresh MCP runtime must recover the one unambiguous live bare-@ flow even when the connector does not replay tool state"
+);
 
 assert.equal(
   admissionRuntime.isExplicitAtFlowArmed(),
