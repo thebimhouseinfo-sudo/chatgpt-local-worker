@@ -1018,14 +1018,11 @@ export function registerJobTools(
           );
         }
 
-        // Pending/selected/idle state has no work registration. If this state
-        // owns a confirmation proof, cancel exactly that proof/admission flow;
-        // never clear authority belonging to another concurrent chat.
+        // Pending/selected/idle state has no execution authority yet.
         cancelConfirmationProof(status?.state?.confirmation_token);
 
         const stopped = sessionRuntime.stop();
         lifecycle?.clear();
-        admissionRuntime.clear();
         pendingRemovalConfirmations.clear();
 
         return {
