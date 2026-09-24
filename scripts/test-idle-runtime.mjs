@@ -10,6 +10,10 @@ const start = await fs.readFile("start.ps1", "utf8");
 const tunnel = await fs.readFile("openai-tunnel.ps1", "utf8");
 const packageJson = JSON.parse(await fs.readFile("package.json", "utf8"));
 const packageLock = JSON.parse(await fs.readFile("package-lock.json", "utf8"));
+const envExample = await fs.readFile(".env.example", "utf8");
+const setupFlow = await fs.readFile("scripts/setup-flow.ps1", "utf8");
+const buildRelease = await fs.readFile("scripts/build-release.ps1", "utf8");
+const installer = await fs.readFile("installer/GPTWorker.iss", "utf8");
 
 if (/[^\x00-\x7F]/.test(tunnel)) {
   throw new Error("openai-tunnel.ps1 must remain ASCII-safe for Windows PowerShell 5.1");
@@ -108,6 +112,25 @@ assert.equal(
   tray.includes('"openai-tunnel.ps1") -ExtraArgs @("-Port", "$WorkerPort", "-Detach")'),
   true
 );
+// GPTWorker owns a dedicated port pair so common dev ports remain free.
+assert.match(envExample, /^PORT=43120$/m);
+assert.match(envExample, /^OPENAI_TUNNEL_HEALTH_PORT=43121$/m);
+assert.equal(start.includes("[int]$Port = 43120"), true);
+assert.equal(tray.includes("else { 43120 }"), true);
+assert.equal(tray.includes("else { 43121 }"), true);
+assert.equal(tunnel.includes("else { 43120 }"), true);
+assert.equal(tunnel.includes("else { 43121 }"), true);
+assert.equal(setupFlow.includes("[int]$envPort -eq 3000"), true);
+assert.equal(setupFlow.includes("[int]$envTunnelPort -eq 8080"), true);
+assert.equal(setupFlow.includes("$WorkerPort = 43120"), true);
+assert.equal(setupFlow.includes("$TunnelPort = 43121"), true);
+
+// Windows installer and manual launchers must carry GPTWorker branding.
+assert.equal(buildRelease.includes('"gptworker icon.png"'), true);
+assert.equal(buildRelease.includes('"gptworker.ico"'), true);
+assert.equal(installer.includes("SetupIconFile="), true);
+assert.equal(installer.includes('IconFilename: "{app}\\\\gptworker.ico"'), true);
+
 assert.equal(start.includes("[switch]$Detach"), true);
 assert.equal(start.includes("Get-Command node"), true);
 assert.equal(start.includes("Start-Process -FilePath $nodeExe"), true);
