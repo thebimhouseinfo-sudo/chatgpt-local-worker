@@ -12,7 +12,6 @@ const jobsRoot = path.join(repoRoot, "jobs");
 process.env.DEFAULT_JOB_PACKS_PATH = jobsRoot;
 
 const { JobRuntime } = await import("../dist/jobs/job-runtime.js");
-const { AdmissionRuntime } = await import("../dist/lib/activation-policy.js");
 const { registerJobTools } = await import("../dist/tools/jobs.js");
 const {
   createWorkRegistration,
@@ -33,18 +32,10 @@ const server = {
   },
 };
 
-const admission = new AdmissionRuntime();
 const runtime = new JobRuntime(jobsRoot);
-registerJobTools(server, runtime, undefined, admission);
+registerJobTools(server, runtime);
 const jobSelect = registered.get("job_select")?.callback;
 assert.ok(jobSelect, "job_select was not registered");
-
-const admitted = admission.check({
-  userTurn: `@gptworker đọc ${repoRoot} và lên kế hoạch`,
-  hasConcreteTask: true,
-  workspace: repoRoot,
-});
-assert.equal(admitted.mode, "ACTIVE");
 
 const bindings = {
   workspace: repoRoot,
@@ -55,7 +46,6 @@ const nominated = await jobSelect({
   job: "dev-planing",
   bindings,
   confirmed: false,
-  admission_token: admitted.admission_token,
 });
 assert.equal(nominated.structuredContent.ok, true);
 const confirmationToken = nominated.structuredContent.data?.confirmation_token;
@@ -67,7 +57,6 @@ const blocked = await jobSelect({
   job: "dev-planing",
   bindings,
   confirmed: true,
-  admission_token: admitted.admission_token,
   confirmation_token: confirmationToken,
 });
 assert.equal(blocked.structuredContent.ok, false);
@@ -84,7 +73,6 @@ const retried = await jobSelect({
   job: "dev-planing",
   bindings,
   confirmed: true,
-  admission_token: admitted.admission_token,
   confirmation_token: confirmationToken,
 });
 assert.equal(
