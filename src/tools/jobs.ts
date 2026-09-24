@@ -691,14 +691,14 @@ export function registerJobTools(
     {
       title: "Job Select",
       description:
-        "Nominate and activate one Job Pack after GPT has conversationally collected the Job, concrete task/objective, and absolute local Workspace. Do not call before a Workspace is known. First call with confirmed=false to show confirmation; only confirmed=true creates active execution authority/work_handle.",
+        "Nominate and activate one Job Pack only after GPT has the Job, concrete task/objective, and a work-folder path explicitly supplied by the user in the current conversation. GPT may infer the Job, but MUST NEVER infer/reuse/restore Workspace from memory, prior chats, worker state, startup cwd, project context, or tool output. Do not call before the user has supplied the folder. First call with confirmed=false to show confirmation; only confirmed=true creates active execution authority/work_handle.",
       inputSchema: {
         job: z
           .string()
           .min(1)
           .describe("Exact job id/name/alias. /job <id> should map here."),
         bindings: BindingsSchema.optional().describe(
-          "Concrete input/output values keyed by the selected job's job.yaml fields. workspace must be the absolute local folder being opened for this task."
+          "Concrete input/output values keyed by the selected job's job.yaml fields. workspace must exactly come from the folder path the user supplied for this task in the current conversation; never infer or reuse it."
         ),
         confirmed: z
           .boolean()
