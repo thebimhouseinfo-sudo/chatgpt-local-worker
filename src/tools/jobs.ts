@@ -77,6 +77,32 @@ const HIDDEN_WELCOME_IDS = new Set(
   GPTWORKER_HIDDEN_WELCOME_JOB_IDS.map((id) => id.toLowerCase())
 );
 
+function publicJobListing(result: any) {
+  const jobs = Array.isArray(result?.jobs)
+    ? result.jobs.filter((job: any) => {
+        const id = String(job?.id || "").toLowerCase();
+        return !HIDDEN_WELCOME_IDS.has(id);
+      })
+    : [];
+
+  const visibleIds = new Set(
+    jobs.map((job: any) => String(job?.id || "").toLowerCase())
+  );
+
+  return {
+    ...result,
+    jobs,
+    suggested_job_ids: Array.isArray(result?.suggested_job_ids)
+      ? result.suggested_job_ids.filter((id: string) =>
+          visibleIds.has(String(id).toLowerCase())
+        )
+      : [],
+    note:
+      (result?.note ? String(result.note) + " " : "") +
+      "Private/hidden Job ids are never exposed by public Job enumeration.",
+  };
+}
+
 function welcomeJobsFromListing(jobs: any[]): Array<{
   id: string;
   name: string;
@@ -323,7 +349,7 @@ export function registerJobTools(
     {
       title: "Job List",
       description:
-        "Direct target for exact gr/job list or gptworker/job list. Also list available Job Packs for bare @gptworker when activation_request is supplied: the response returns the approved Welcome with fixed Default Jobs 1-3 plus existing eligible Custom Jobs; mto is hidden from Welcome. For explicit job-list commands, omit activation_request and return the full Job catalog. Never route gr/job list through gptworker_control. Do not call this tool merely because an ordinary chat request resembles a Job.",
+        "Direct target for exact gr/job list or gptworker/job list. Also list available Job Packs for bare @gptworker when activation_request is supplied. Public enumeration returns only visible Jobs; private/hidden Jobs such as mto are never exposed by Welcome, explicit Job list, or suggestion ids. Hidden Jobs remain directly selectable by exact id when the user explicitly invokes them. Never route gr/job list through gptworker_control. Do not call this tool merely because an ordinary chat request resembles a Job.",
       inputSchema: {
         query: z
           .string()
@@ -350,7 +376,8 @@ export function registerJobTools(
             );
           }
         }
-        const result = await sessionRuntime.list(query);
+        const rawResult = await sessionRuntime.list(query);
+        const result = publicJobListing(rawResult);
 
         if (activation_request) {
           const welcomeJobs = welcomeJobsFromListing(result.jobs);
