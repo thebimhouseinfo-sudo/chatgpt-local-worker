@@ -47,7 +47,8 @@ try {
   );
   assert.equal(await fs.readFile(file, "utf8"), "user-edited\n");
   await fs.writeFile(file, "agent-edited\n");
-  assert.equal((await restoreAgentEdit(workspace, "TASK-001", file, { approved: true })).restored, file);
+  const restored = (await restoreAgentEdit(workspace, "TASK-001", file, { approved: true })).restored;
+  assert.equal(await fs.realpath(restored), await fs.realpath(file));
   assert.equal(await fs.readFile(file, "utf8"), "original\n");
 
   await restoreAgentEdit(workspace, "TASK-001", newFile, { approved: true });
