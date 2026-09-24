@@ -144,9 +144,9 @@ function Get-DotEnvValue([string]$Name) {
 }
 
 $WorkerPortValue = Get-DotEnvValue "PORT"
-$WorkerPort = if ($WorkerPortValue) { [int]$WorkerPortValue } else { 3000 }
+$WorkerPort = if ($WorkerPortValue) { [int]$WorkerPortValue } else { 43120 }
 $TunnelHealthValue = Get-DotEnvValue "OPENAI_TUNNEL_HEALTH_PORT"
-$TunnelHealthPort = if ($TunnelHealthValue) { [int]$TunnelHealthValue } else { 8080 }
+$TunnelHealthPort = if ($TunnelHealthValue) { [int]$TunnelHealthValue } else { 43121 }
 
 $script:WorkerLauncher = $null
 $script:TunnelLauncher = $null
