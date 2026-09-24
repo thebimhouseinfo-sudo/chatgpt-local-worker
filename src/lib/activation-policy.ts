@@ -71,6 +71,21 @@ const ARMED_FLOW_TTL_MS = 10 * 60 * 1000;
 const SHARED_ADMISSIONS = new Map<string, AdmissionProof>();
 const SHARED_ARMED_FLOWS = new Map<string, ArmedAtFlow>();
 
+function uniqueSharedArmedFlow(): ArmedAtFlow | undefined {
+  const now = Date.now();
+  const live: ArmedAtFlow[] = [];
+  for (const [token, flow] of SHARED_ARMED_FLOWS) {
+    if (now - flow.createdAt > ARMED_FLOW_TTL_MS) {
+      SHARED_ARMED_FLOWS.delete(token);
+      continue;
+    }
+    live.push(flow);
+    if (live.length > 1) return undefined;
+  }
+  return live[0];
+}
+
+
 function normalizedPath(value: string): string {
   let normalized = path.resolve(value.trim());
   if (process.platform === "win32") normalized = normalized.toLowerCase();
@@ -127,10 +142,12 @@ export class AdmissionRuntime {
     this.cleanup();
     const request = userTurn?.trim();
     if (!request || !/@gptworker\b/i.test(request)) return undefined;
-    if (this.armedAtFlow) {
-      SHARED_ARMED_FLOWS.delete(this.armedAtFlow.token);
-      this.ownedContinuationTokens.delete(this.armedAtFlow.token);
-    }
+    // GPTWorker is a single-user local control plane. A new explicit
+    // @gptworker invocation supersedes any previous unconfirmed arm so later
+    // transport rotation has one unambiguous flow to recover.
+    SHARED_ARMED_FLOWS.clear();
+    this.ownedContinuationTokens.clear();
+    this.armedAtFlow = undefined;
     const token = randomUUID();
     const flow: ArmedAtFlow = {
       token,
@@ -191,7 +208,12 @@ export class AdmissionRuntime {
       const sharedFlow = suppliedToken
         ? SHARED_ARMED_FLOWS.get(suppliedToken)
         : undefined;
-      const flow = sharedFlow || this.armedAtFlow;
+      // ChatGPT may rotate MCP sessions between user turns and may not replay
+      // prior tool structuredContent. GPTWorker is a single-user local worker,
+      // so when there is exactly ONE live armed flow in this process we may
+      // safely reattach a fresh MCP runtime to that unambiguous flow.
+      // If more than one live arm exists, fail closed rather than guessing.
+      const flow = sharedFlow || this.armedAtFlow || uniqueSharedArmedFlow();
 
       if (flow) {
         // Continuation authority is bound to an opaque token so legitimate MCP
