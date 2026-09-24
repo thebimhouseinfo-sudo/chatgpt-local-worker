@@ -54,6 +54,40 @@ const continuation = admissionRuntime.check({
   workspace,
 });
 assert.equal(continuation.mode, "ACTIVE");
+assert.equal(
+  admissionRuntime.isExplicitAtFlowArmed(),
+  true,
+  "minting an admission token must not consume the bare @gptworker arm"
+);
+
+// Job, Workspace and task may arrive on separate turns after the one bare @.
+const jobOnly = admissionRuntime.check({
+  userTurn: "Dev Coding",
+  hasConcreteTask: false,
+});
+assert.equal(jobOnly.mode, "ACTIVE");
+assert.equal(jobOnly.workspace, undefined);
+
+const folderOnly = admissionRuntime.check({
+  userTurn: workspace,
+  hasConcreteTask: false,
+  workspace,
+});
+assert.equal(folderOnly.mode, "ACTIVE");
+assert.equal(path.resolve(folderOnly.workspace), path.resolve(workspace));
+
+const taskOnly = admissionRuntime.check({
+  userTurn: "sửa lỗi boundary shell",
+  hasConcreteTask: true,
+});
+assert.equal(taskOnly.mode, "ACTIVE");
+
+admissionRuntime.consume(jobOnly.admission_token);
+assert.equal(
+  admissionRuntime.isExplicitAtFlowArmed(),
+  true,
+  "consuming one admission token must not require the user to repeat @gptworker"
+);
 
 // A separate MCP session remains unarmed.
 const otherAdmission = new AdmissionRuntime();
