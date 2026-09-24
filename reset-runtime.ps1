@@ -1,6 +1,6 @@
 param(
-    [int]$WorkerPort = 3000,
-    [int]$TunnelHealthPort = 8080
+    [int]$WorkerPort = 43120,
+    [int]$TunnelHealthPort = 43121
 )
 
 $ErrorActionPreference = "Stop"
