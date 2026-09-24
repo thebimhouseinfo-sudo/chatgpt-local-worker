@@ -66,10 +66,13 @@ export type JobPhase =
 
 type JobPackSource = "custom" | "default" | "explicit";
 
-interface LoadedJobPack {
+interface LoadedJobMeta {
   dir: string;
   source: JobPackSource;
   meta: JobMeta;
+}
+
+interface LoadedJobPack extends LoadedJobMeta {
   job_md: string;
   skill_md: string;
 }
@@ -120,6 +123,25 @@ export class JobRuntime {
   ): Promise<string> {
     const buf = await fs.readFile(filePath);
     return buf.subarray(0, maxBytes).toString("utf-8");
+  }
+
+  private async loadMetaFromDir(
+    dir: string,
+    source: JobPackSource
+  ): Promise<LoadedJobMeta> {
+    const metaPath = path.join(dir, "job.yaml");
+    let raw: unknown;
+
+    try {
+      raw = JSON.parse(await this.readText(metaPath, 80_000));
+    } catch (error) {
+      const message = error instanceof Error ? error.message : String(error);
+      throw new Error(
+        `Cannot parse ${metaPath}. Job Runtime v0.1 expects JSON-compatible YAML: ${message}`
+      );
+    }
+
+    return { dir, source, meta: JobMetaSchema.parse(raw) };
   }
 
   private async loadPackFromDir(
@@ -176,6 +198,50 @@ export class JobRuntime {
     return packs;
   }
 
+  private async metasFromRoot(
+    root: string,
+    source: JobPackSource
+  ): Promise<LoadedJobMeta[]> {
+    let entries;
+    try {
+      entries = await fs.readdir(root, { withFileTypes: true });
+    } catch {
+      return [];
+    }
+
+    const metas: LoadedJobMeta[] = [];
+    for (const entry of entries) {
+      if (!entry.isDirectory()) continue;
+      const dir = path.join(root, entry.name);
+      try {
+        metas.push(await this.loadMetaFromDir(dir, source));
+      } catch (error) {
+        console.warn(
+          `[JobRuntime] Skipping invalid ${source} pack metadata ${dir}:`,
+          error instanceof Error ? error.message : error
+        );
+      }
+    }
+    return metas;
+  }
+
+  private async allMeta(): Promise<LoadedJobMeta[]> {
+    if (this.explicitJobsRoot) {
+      return (await this.metasFromRoot(this.explicitJobsRoot, "explicit"))
+        .sort((a, b) => a.meta.id.localeCompare(b.meta.id));
+    }
+
+    const roots = getJobPackRoots();
+    const defaults = await this.metasFromRoot(roots.defaults, "default");
+    const custom = await this.metasFromRoot(roots.custom, "custom");
+    const defaultIds = new Set(defaults.map((pack) => pack.meta.id));
+    const validCustom = custom.filter((pack) => !defaultIds.has(pack.meta.id));
+
+    return [...defaults, ...validCustom].sort((a, b) =>
+      a.meta.id.localeCompare(b.meta.id)
+    );
+  }
+
   private async allPacks(): Promise<LoadedJobPack[]> {
     if (this.explicitJobsRoot) {
       return (await this.packsFromRoot(this.explicitJobsRoot, "explicit"))
@@ -200,7 +266,7 @@ export class JobRuntime {
     );
   }
 
-  private publicMeta(pack: LoadedJobPack) {
+  private publicMeta(pack: LoadedJobMeta) {
     return {
       id: pack.meta.id,
       name: pack.meta.name,
@@ -318,7 +384,9 @@ export class JobRuntime {
   }
 
   async list(query?: string) {
-    const packs = await this.allPacks();
+    // Listing/Welcome needs only job.yaml metadata. Avoid loading JOB.md/SKILL.md
+    // for every Job just to render the catalog.
+    const packs = await this.allMeta();
     const q = normalize(query || "");
     const scored = packs.map((pack) => {
       if (!q) return { pack, score: 0 };
