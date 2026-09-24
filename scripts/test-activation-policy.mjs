@@ -169,7 +169,7 @@ assert.throws(
   /ADMISSION_REQUIRED/
 );
 
-// A fresh runtime/transport does not inherit another chat's arm implicitly.
+// A fresh MCP runtime may recover the one unambiguous live bare-@ flow.
 const otherTransport = new AdmissionRuntime();
 assert.equal(otherTransport.isExplicitAtFlowArmed(), false);
 const crossTransportDirect = otherTransport.check({
@@ -177,9 +177,13 @@ const crossTransportDirect = otherTransport.check({
   hasConcreteTask: true,
   workspace,
 });
-assert.equal(crossTransportDirect.mode, "INACTIVE");
+assert.equal(
+  crossTransportDirect.mode,
+  "ACTIVE",
+  "unique live bare-@ flow must survive transport rotation even without replayed tool state"
+);
 
-// But the hidden continuation token preserves this exact chat flow across MCP rotation.
+// The opaque token remains valid and binds to the same recovered flow when available.
 const crossTransportWithFlow = otherTransport.check({
   userTurn: `Đọc repo ${workspace} và lên kế hoạch`,
   hasConcreteTask: true,
@@ -228,6 +232,20 @@ assert.throws(
     ),
   /ADMISSION_REQUIRED/
 );
+
+// A new explicit bare @ invocation supersedes the previous unconfirmed arm,
+// preserving one unambiguous process-scoped flow for this local Worker.
+const superseding = new AdmissionRuntime();
+const replacementToken = superseding.armExplicitAt("@gptworker");
+assert.equal(typeof replacementToken, "string");
+assert.notEqual(replacementToken, continuationToken);
+const recoveredAfterReplace = new AdmissionRuntime().check({
+  userTurn: `Dev Coding ${workspace}`,
+  hasConcreteTask: true,
+  workspace,
+});
+assert.equal(recoveredAfterReplace.mode, "ACTIVE");
+assert.equal(recoveredAfterReplace.continuation_token, replacementToken);
 
 // Lower-level activation proof remains literal-@ based.
 assert.throws(
