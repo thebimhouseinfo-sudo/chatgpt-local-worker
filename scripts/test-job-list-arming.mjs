@@ -26,6 +26,9 @@ registerJobTools(fakeServer, jobRuntime, undefined, admissionRuntime);
 
 const jobList = registered.get("job_list");
 assert.ok(jobList, "job_list was not registered");
+const publicToolMetadata = JSON.stringify(jobList.config).toLowerCase();
+assert.ok(!publicToolMetadata.includes("mto"), "job_list public tool metadata must not reveal private Job identity");
+
 assert.equal(admissionRuntime.isExplicitAtFlowArmed(), false);
 
 const bareAtResult = await jobList.callback({
