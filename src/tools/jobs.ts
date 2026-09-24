@@ -364,7 +364,7 @@ export function registerJobTools(
           .string()
           .optional()
           .describe(
-            "Bare @gptworker only: exact current user text containing literal @gptworker. Arms this chat flow and returns an opaque continuation token that must be carried internally across later turns."
+            "Bare GPTWorker plugin invocation only: pass the exact current user text/connector link metadata for this invocation, even when the UI chip does not serialize literal @gptworker text. Arms this chat flow and returns an opaque continuation token for internal continuation."
           ),
       },
       annotations: toolAnnotations("read"),
@@ -373,10 +373,12 @@ export function registerJobTools(
       safe("job_list", async () => {
         let continuationToken: string | undefined;
         if (activation_request) {
-          continuationToken = admissionRuntime.armExplicitAt(activation_request);
+          continuationToken = /@gptworker\b/i.test(activation_request)
+            ? admissionRuntime.armExplicitAt(activation_request)
+            : admissionRuntime.armPluginInvocation(activation_request);
           if (!continuationToken) {
             throw new Error(
-              "ACTIVATION_REQUIRED: activation_request for bare Job listing must contain literal @gptworker."
+              "ACTIVATION_REQUIRED: activation_request for bare GPTWorker invocation is missing."
             );
           }
         }
