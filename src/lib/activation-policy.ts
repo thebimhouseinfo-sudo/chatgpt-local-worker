@@ -55,6 +55,9 @@ interface ArmedAtFlow {
 }
 
 const ADMISSION_TTL_MS = 30 * 60 * 1000;
+// A bare @gptworker arms this chat flow until explicit stop or idle expiry.
+// Match the active-work idle timeout so an abandoned armed flow cannot live forever.
+const ARMED_FLOW_TTL_MS = 10 * 60 * 1000;
 
 // Admission authority follows the opaque token, not one concrete MCP transport.
 // The OpenAI connector may legitimately rotate/recover transport sessions
@@ -103,7 +106,7 @@ export class AdmissionRuntime {
     }
     if (
       this.armedAtFlow &&
-      now - this.armedAtFlow.createdAt > ADMISSION_TTL_MS
+      now - this.armedAtFlow.createdAt > ARMED_FLOW_TTL_MS
     ) {
       this.armedAtFlow = undefined;
     }
@@ -197,10 +200,11 @@ export class AdmissionRuntime {
     });
     this.ownedAdmissionTokens.add(token);
 
-    // The explicit @ flow is one-shot for admitting a new Job/Workspace request.
-    // Once a token is minted, the token carries the current flow through
-    // nomination + confirmation; future direct requests must invoke @gptworker again.
-    this.armedAtFlow = undefined;
+    // Keep the explicit @ flow armed for this chat/session. Admission tokens are
+    // short-lived authorities for concrete nomination/confirmation, but minting
+    // or consuming one does NOT require the user to repeat @gptworker. The arm
+    // is cleared only by explicit job_stop/clear() or idle expiry.
+    this.armedAtFlow.createdAt = Date.now();
 
     return {
       mode: "ACTIVE",
