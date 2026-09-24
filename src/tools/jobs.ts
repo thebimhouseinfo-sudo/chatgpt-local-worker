@@ -349,13 +349,13 @@ export function registerJobTools(
     {
       title: "Job List",
       description:
-        "Direct target for exact gr/job list or gptworker/job list. Also list available Job Packs for bare @gptworker when activation_request is supplied. Public enumeration returns only visible Jobs; private/hidden Jobs such as mto are never exposed by Welcome, explicit Job list, or suggestion ids. Hidden Jobs remain directly selectable by exact id when the user explicitly invokes them. Never route gr/job list through gptworker_control. Do not call this tool merely because an ordinary chat request resembles a Job.",
+        "Direct target for exact gr/job list or gptworker/job list. Also list available Job Packs for bare @gptworker when activation_request is supplied. Public enumeration returns only visible Jobs; private/hidden Jobs are never exposed by Welcome, explicit Job list, suggestion ids, descriptions, or tool metadata. Hidden Jobs remain directly selectable by exact id when the user explicitly invokes one. Never route gr/job list through gptworker_control. Do not call this tool merely because an ordinary chat request resembles a Job.",
       inputSchema: {
         query: z
           .string()
           .optional()
           .describe(
-            "Optional user wording/keyword such as 'takeoff MTO' or 'repo lisp' for suggestion scoring only"
+            "Optional user wording/keyword for suggestion scoring among public visible Jobs only"
           ),
         activation_request: z
           .string()
