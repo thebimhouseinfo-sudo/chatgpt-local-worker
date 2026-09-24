@@ -21,3 +21,6 @@ Thumbs.db
 
 # Per-Workspace Dev Coding task state, snapshots and browser screenshots
 .gptworker/
+
+# Local release staging and compiled installers
+release/
