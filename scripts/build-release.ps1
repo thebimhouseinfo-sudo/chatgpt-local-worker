@@ -69,6 +69,32 @@ foreach ($file in $rootFiles) {
     Copy-Item $file (Join-Path $stage $file) -Force
 }
 
+# Generate a native Windows .ico from the branded PNG so installer,
+# Start Menu and Desktop shortcuts show the GPTWorker icon.
+Add-Type -AssemblyName System.Drawing
+$pngPath = Join-Path $stage "gptworker icon.png"
+$icoPath = Join-Path $stage "gptworker.ico"
+$source = [System.Drawing.Image]::FromFile($pngPath)
+$bitmap = [System.Drawing.Bitmap]::new(64, 64, [System.Drawing.Imaging.PixelFormat]::Format32bppArgb)
+$graphics = [System.Drawing.Graphics]::FromImage($bitmap)
+$graphics.Clear([System.Drawing.Color]::Transparent)
+$graphics.InterpolationMode = [System.Drawing.Drawing2D.InterpolationMode]::HighQualityBicubic
+$graphics.SmoothingMode = [System.Drawing.Drawing2D.SmoothingMode]::HighQuality
+$graphics.DrawImage($source, 0, 0, 64, 64)
+$handle = $bitmap.GetHicon()
+$icon = [System.Drawing.Icon]::FromHandle($handle)
+$stream = [System.IO.File]::Create($icoPath)
+try {
+    $icon.Save($stream)
+} finally {
+    $stream.Dispose()
+    $icon.Dispose()
+    $graphics.Dispose()
+    $bitmap.Dispose()
+    $source.Dispose()
+}
+if (-not (Test-Path $icoPath)) { throw "Failed to generate gptworker.ico" }
+
 foreach ($dir in @("dist", "jobs", "docs")) {
     if (-not (Test-Path $dir)) { throw "Release directory missing: $dir" }
     Copy-Item $dir (Join-Path $stage $dir) -Recurse -Force
