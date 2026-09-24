@@ -224,6 +224,10 @@ assert.ok(
 assert.ok(MCP_QUICKSTART.includes("Reply with \`welcome_text\` verbatim"));
 assert.ok(MCP_QUICKSTART.includes("call \`job_list\` exactly once"));
 assert.ok(MCP_QUICKSTART.includes("without repeating @gptworker"));
+assert.ok(MCP_QUICKSTART.includes("continuation_token"));
+assert.ok(MCP_QUICKSTART.includes("MCP transport/session rotation"));
+assert.ok(MCP_QUICKSTART.includes("Never render, summarize, or expose that token"));
+
 assert.ok(MCP_QUICKSTART.includes("Dev Coding D:\\Projects\\MyApp"));
 assert.ok(MCP_QUICKSTART.includes("must not be rejected merely because it omits"));
 assert.ok(!MCP_QUICKSTART.includes("arm is one-shot"));
