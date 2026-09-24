@@ -212,6 +212,9 @@ assert.ok(instructions.includes("GPTWorker plugin/@ invocation opens PREPARE mod
 assert.ok(instructions.includes("If the invocation is bare, return welcome_text verbatim"));
 assert.ok(instructions.includes("DO NOT force the generic Welcome"));
 assert.ok(instructions.includes("ask only for missing JOB/FOLDER/TASK"));
+assert.ok(instructions.includes("GPT may infer only JOB"));
+assert.ok(instructions.includes("FOLDER must come explicitly from the user in this conversation"));
+
 
 assert.ok(instructions.includes("surface=welcome"));
 assert.ok(instructions.includes("NEVER route the plugin/@ invocation to gptworker_control"));
@@ -227,6 +230,10 @@ assert.ok(MCP_QUICKSTART.includes("continue PREPARE naturally instead of forcing
 
 assert.ok(MCP_QUICKSTART.includes("JOB + absolute FOLDER + TASK"));
 assert.ok(MCP_QUICKSTART.includes('Cho tôi đường dẫn tới thư mục làm việc.'));
+assert.ok(MCP_QUICKSTART.includes("Only JOB may be inferred/nominated by GPT"));
+assert.ok(MCP_QUICKSTART.includes("NEVER infer, guess, nominate, restore, or reuse FOLDER/Workspace"));
+assert.ok(MCP_QUICKSTART.includes("A FOLDER is valid only when the user explicitly provides the path in the current conversation"));
+
 assert.ok(MCP_QUICKSTART.includes('Keep technical implementation terms internal'));
 assert.ok(MCP_QUICKSTART.includes('Say "thư mục làm việc" instead of "Workspace"'));
 assert.ok(MCP_QUICKSTART.includes('Do not expose confirmation_token, work_handle, execution_id, authority_token'));
