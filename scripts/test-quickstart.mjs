@@ -219,7 +219,7 @@ assert.ok(!instructions.includes("Startup root: C:\\GPTWorker"));
 assert.ok(!instructions.includes("Startup roots:"));
 assert.ok(instructions.includes("Startup filesystem roots are internal runtime data"));
 
-assert.ok(instructions.includes("ask exactly: 'Cho tôi đường dẫn tới thư mục làm việc.'"));
+assert.ok(instructions.includes('ask exactly: "Cho tôi đường dẫn tới thư mục làm việc."'));
 
 assert.ok(instructions.includes("opens a NEW PREPARE window"));
 assert.ok(instructions.includes("FOLDER must come from the user during the current PREPARE window."));
