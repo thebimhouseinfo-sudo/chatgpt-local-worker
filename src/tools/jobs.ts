@@ -691,14 +691,14 @@ export function registerJobTools(
     {
       title: "Job Select",
       description:
-        "Nominate and activate one Job Pack only after GPT has the Job, concrete task/objective, and a work-folder path explicitly supplied by the user in the current conversation. GPT may infer the Job, but MUST NEVER infer/reuse/restore Workspace from memory, prior chats, worker state, startup cwd, project context, or tool output. Do not call before the user has supplied the folder. First call with confirmed=false to show confirmation; only confirmed=true creates active execution authority/work_handle.",
+        "Nominate and activate one Job Pack only after GPT has the Job, concrete task/objective, and a work-folder path explicitly supplied by the user AFTER the most recent GPTWorker invocation (the current PREPARE window). GPT may infer the Job, but MUST NEVER infer/reuse/restore Workspace from any earlier message, memory, prior chat, worker state, startup cwd, project context, or tool output. Task details must also come from the current PREPARE window. Do not call before the user has supplied the folder in this PREPARE window. First call with confirmed=false to show confirmation; only confirmed=true creates active execution authority/work_handle.",
       inputSchema: {
         job: z
           .string()
           .min(1)
           .describe("Exact job id/name/alias. /job <id> should map here."),
         bindings: BindingsSchema.optional().describe(
-          "Concrete input/output values keyed by the selected job's job.yaml fields. workspace must exactly come from the folder path the user supplied for this task in the current conversation; never infer or reuse it."
+          "Concrete input/output values keyed by the selected job's job.yaml fields. workspace must exactly come from a folder path the user supplied after the most recent GPTWorker invocation; a path from before that invocation is stale and must not be reused."
         ),
         confirmed: z
           .boolean()
