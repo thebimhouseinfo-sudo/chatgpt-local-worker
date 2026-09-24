@@ -105,14 +105,19 @@ if ($SkipInstaller) {
 }
 
 Step "Ensuring Inno Setup is available"
-$iscc = Get-Command ISCC.exe -ErrorAction SilentlyContinue
-$programFilesX86 = [Environment]::GetFolderPath("ProgramFilesX86")
-$defaultIscc = Join-Path $programFilesX86 "Inno Setup 6\ISCC.exe"
-if (-not $iscc -and (Test-Path $defaultIscc)) {
-    $iscc = Get-Item $defaultIscc
+$isccPath = $null
+$isccCommand = Get-Command ISCC.exe -ErrorAction SilentlyContinue
+if ($isccCommand) {
+    $isccPath = $isccCommand.Source
 }
 
-if (-not $iscc) {
+$programFilesX86 = [Environment]::GetFolderPath("ProgramFilesX86")
+$defaultIscc = Join-Path $programFilesX86 "Inno Setup 6\ISCC.exe"
+if (-not $isccPath -and (Test-Path $defaultIscc)) {
+    $isccPath = $defaultIscc
+}
+
+if (-not $isccPath) {
     if (Get-Command winget -ErrorAction SilentlyContinue) {
         & winget install --id JRSoftware.InnoSetup --exact --silent --accept-source-agreements --accept-package-agreements
         if ($LASTEXITCODE -ne 0) { throw "Unable to install Inno Setup with winget." }
@@ -123,18 +128,22 @@ if (-not $iscc) {
         throw "Inno Setup is not installed and neither winget nor Chocolatey is available."
     }
 
-    if (-not (Test-Path $defaultIscc)) {
+    if (Test-Path $defaultIscc) {
+        $isccPath = $defaultIscc
+    } else {
         $candidate = Get-ChildItem "C:\Program Files*" -Filter ISCC.exe -Recurse -ErrorAction SilentlyContinue |
             Select-Object -First 1
-        if ($candidate) { $defaultIscc = $candidate.FullName }
+        if ($candidate) { $isccPath = $candidate.FullName }
     }
-    if (-not (Test-Path $defaultIscc)) { throw "Inno Setup installed but ISCC.exe was not found." }
-    $iscc = Get-Item $defaultIscc
+}
+
+if (-not $isccPath -or -not (Test-Path $isccPath)) {
+    throw "Inno Setup compiler ISCC.exe was not found."
 }
 
 Step "Compiling GPTWorker installer"
 $iss = Join-Path $RepoRoot "installer\GPTWorker.iss"
-& $iscc.FullName "/DAppVersion=$version" "/DRepoRoot=$RepoRoot" "/DOutputDir=$outputDir" $iss
+& $isccPath "/DAppVersion=$version" "/DRepoRoot=$RepoRoot" "/DOutputDir=$outputDir" $iss
 if ($LASTEXITCODE -ne 0) { throw "Inno Setup compiler failed." }
 
 $exe = Get-ChildItem $outputDir -Filter "GPTWorker-Setup-*.exe" |
