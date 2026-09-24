@@ -8,6 +8,7 @@ import {
 } from "../lib/path-security.js";
 import { toolAnnotations } from "../lib/tool-annotations.js";
 import { toolResult } from "../lib/tool-result.js";
+import { SHELL_WORKSPACE_GUARD_VERSION } from "../lib/shell-workspace-guard.js";
 import { getWorkerDataRoot } from "../lib/worker-home.js";
 
 export function registerContextTools(server: McpServer): void {
@@ -85,6 +86,7 @@ export function registerContextTools(server: McpServer): void {
         worker_data_root: getWorkerDataRoot(),
         pid: process.pid,
         node: process.version,
+        shell_workspace_guard_version: SHELL_WORKSPACE_GUARD_VERSION,
       });
     }
   );
