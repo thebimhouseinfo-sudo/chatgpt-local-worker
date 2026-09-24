@@ -198,7 +198,7 @@ When the user invokes bare \`@gptworker\` with no concrete task + Workspace yet,
 
 For this bare @ flow, \`job_list\` returns \`welcome_text\`. Reply with \`welcome_text\` verbatim. Do not rewrite it, add extra guidance, expose hidden Jobs, or substitute a generic "send task + path" message.
 
-The Welcome always contains the three fixed default Jobs in positions 1–3. Only existing eligible Custom Jobs are appended from position 4 onward. The private \`mto\` Job is never shown in Welcome.
+The Welcome always contains the three fixed default Jobs in positions 1–3. Only existing eligible public Custom Jobs are appended from position 4 onward. Private/hidden Jobs must never be named, described, suggested, or enumerated on public surfaces.
 
 Do not call gptworker_admission, job_status, workspace_discover, or any work tool for the bare invocation. Do not include the system command list here.
 
@@ -221,7 +221,7 @@ High-confidence default routing:
 - \`coding\`: fix/modify/implement/debug/refactor/build/test code, app, script, repo, Lisp, frontend/backend behavior.
 - \`planning\`: read/review/analyze a repo to create architecture/spec/implementation plan/TODO/task list without implementing source changes.
 - \`layla\`: general document/file/Office/PDF/spreadsheet/presentation organization, conversion, summarization, or mixed-file work.
-- \`mto\`: HVAC MTO, quantity takeoff, BOQ/EQM, equipment schedule/takeoff workflows.
+- If the user explicitly names another exact Job id, pass that exact id to the normal selection flow without enumerating or describing private Jobs first.
 
 For a high-confidence route:
 1. call gptworker_admission;
@@ -252,7 +252,7 @@ A concrete task, an absolute local Workspace path, or both together in a fresh/u
 1. Public Job Pack lifecycle commands (job_list / job_create / job_update / job_remove / job_export / job_import) do not require an active Job + Workspace. Never activate dev-coding, reuse a previous workspace, or infer a FOLDER just to author a Job Pack.
 2. For a new work request, do not call job_status. Enter GPTWorker work only through an explicit @gptworker flow. If the current turn starts with @gptworker and includes task + absolute Workspace, or it is the Job/Workspace continuation after a prior bare @gptworker in this same session, call gptworker_admission and then job_select confirmed=false. Missing Job inputs may be collected afterward by the selected Job runtime. A fresh task + Workspace with no prior @gptworker must remain outside GPTWorker. job_status is only for inspecting an already-active work_handle in the same chat.
 3. Resolve the absolute local FOLDER from the current conversation only. Do not reuse worker-state.json, startup cwd, the most recent Job, or the most recent Workspace as authority.
-4. Use workspace_discover only when JOB remains genuinely ambiguous after reading the user's request. For obvious coding/planning/layla/mto requests, skip discovery and nominate immediately.
+4. Use workspace_discover only when JOB remains genuinely ambiguous after reading the user's request. For obvious public default-job requests, skip discovery and nominate immediately. If the user explicitly names another exact Job id, use that exact id without exposing any private catalog.
 5. Use job_list in exactly three cases: bare @gptworker (pass activation_request to arm/list this session), an explicit Job catalog request, or genuine Job ambiguity after minimal discovery. If FOLDER is missing after the @ flow has started, ask only for the folder without calling more tools.
 6. Resolve any other required Job Pack bindings from the user's request.
 7. Call job_select with confirmed=false + admission_token. This is the Job nomination step. The @-flow arm is one-shot and is consumed when admission_token is issued; if the selected Job still needs more bindings, keep reusing that same admission_token for this pending flow instead of trying to admit a new direct request.
