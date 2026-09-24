@@ -194,7 +194,9 @@ export const GPTWORKER_IDLE_PROMPT = buildGptworkerWelcome();
 
 export const MCP_QUICKSTART = `
 ## GPTWorker PREPARE mode
-When the user invokes/clicks GPTWorker, call \`job_list\` exactly once with \`surface="welcome"\`, then return its \`welcome_text\` verbatim.
+When the user invokes/clicks GPTWorker, call \`job_list\` exactly once with \`surface="welcome"\`. This returns \`public_jobs\` plus \`welcome_text\`.
+- If the invocation is bare, return \`welcome_text\` verbatim.
+- If the same user message already contains useful Job, folder, or task information, use \`public_jobs\` to continue PREPARE naturally instead of forcing the generic Welcome. Ask only for what is still missing.
 
 Invocation starts a conversational PREPARE phase. Do not require literal @gptworker text, an activation token, a continuation token, or all inputs in one message.
 
