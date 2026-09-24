@@ -216,6 +216,11 @@ assert.ok(instructions.includes("GPT may infer only JOB"));
 assert.ok(instructions.includes("opens a NEW PREPARE window"));
 assert.ok(instructions.includes("FOLDER is valid only if the user supplies it during this PREPARE window"));
 assert.ok(instructions.includes("TASK context must also come from this PREPARE window"));
+assert.ok(instructions.includes("Once all three are known, call job_select confirmed=false immediately"));
+assert.ok(instructions.includes("never ask the user to invoke GPTWorker again"));
+assert.ok(!instructions.includes("gptworker_admission"));
+assert.ok(!instructions.includes("workspace_discover"));
+
 
 
 assert.ok(instructions.includes("surface=welcome"));
@@ -242,13 +247,19 @@ assert.ok(MCP_QUICKSTART.includes("never mention or assume a specific repository
 
 assert.ok(MCP_QUICKSTART.includes('Keep technical implementation terms internal'));
 assert.ok(MCP_QUICKSTART.includes('Say "thư mục làm việc" instead of "Workspace"'));
-assert.ok(MCP_QUICKSTART.includes('Do not expose confirmation_token, work_handle, execution_id, authority_token'));
+assert.ok(MCP_QUICKSTART.includes('Do not expose internal confirmation/execution tokens'));
 
-assert.ok(MCP_QUICKSTART.includes("Do not require literal @gptworker text"));
-assert.ok(MCP_QUICKSTART.includes("do not use gptworker_admission or workspace_discover"));
+assert.ok(MCP_QUICKSTART.includes("do not make the user invoke GPTWorker again while this PREPARE window is still active"));
 assert.ok(MCP_QUICKSTART.includes("job_select"));
 assert.ok(MCP_QUICKSTART.includes("confirmed=false"));
 assert.ok(MCP_QUICKSTART.includes("confirmed=true"));
+assert.ok(MCP_QUICKSTART.includes("As soon as JOB + user-supplied FOLDER + TASK are sufficiently known"));
+assert.ok(MCP_QUICKSTART.includes("Do not ask the user to invoke GPTWorker again"));
+assert.ok(MCP_QUICKSTART.includes('A short description such as "sửa browser integration"'));
+
+assert.ok(!MCP_QUICKSTART.includes("gptworker_admission"));
+assert.ok(!MCP_QUICKSTART.includes("workspace_discover"));
+assert.ok(!MCP_QUICKSTART.includes("admission_token"));
 assert.ok(!MCP_QUICKSTART.includes("continuation_token"));
 assert.ok(!MCP_QUICKSTART.includes("admission_token"));
 assert.ok(!MCP_QUICKSTART.includes("MCP transport/session rotation"));
