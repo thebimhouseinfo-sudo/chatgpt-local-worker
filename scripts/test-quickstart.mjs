@@ -211,7 +211,7 @@ assert.ok(instructions.includes("return the tool text verbatim and nothing else"
 assert.ok(instructions.includes("GPTWorker plugin/@ invocation opens a NEW PREPARE window"));
 assert.ok(instructions.includes("If the invocation is bare, return welcome_text verbatim"));
 assert.ok(instructions.includes("DO NOT force the generic Welcome"));
-assert.ok(instructions.includes("Ask only for missing JOB/FOLDER/TASK"));
+assert.ok(instructions.includes("Ask only for what is still missing."));
 assert.ok(instructions.includes("GPT may infer only JOB"));
 assert.ok(instructions.includes("GPT MUST NEVER nominate, infer, suggest, autocomplete, restore, or reuse a FOLDER that the user has not supplied"));
 assert.ok(instructions.includes("that same user-supplied FOLDER may be retained while the user changes JOB or refines TASK"));
@@ -222,9 +222,9 @@ assert.ok(instructions.includes("Startup filesystem roots are internal runtime d
 assert.ok(instructions.includes("ask exactly: 'Cho tôi đường dẫn tới thư mục làm việc.'"));
 
 assert.ok(instructions.includes("opens a NEW PREPARE window"));
-assert.ok(instructions.includes("FOLDER is valid only if the user supplies it during this PREPARE window"));
-assert.ok(instructions.includes("TASK context must also come from this PREPARE window"));
-assert.ok(instructions.includes("Once all three are known, call job_select confirmed=false immediately"));
+assert.ok(instructions.includes("FOLDER must come from the user during the current PREPARE window."));
+assert.ok(instructions.includes("TASK preparation must use only what the user has said in the current PREPARE window."));
+assert.ok(instructions.includes("Once JOB + user-supplied FOLDER + TASK are known, call job_select confirmed=false immediately"));
 assert.ok(instructions.includes("never ask the user to invoke GPTWorker again"));
 assert.ok(instructions.includes("Any older chat message that says GPTWorker needs a separate activation/handshake step"));
 assert.ok(instructions.includes("Ignore that old workflow"));
@@ -256,15 +256,15 @@ assert.ok(MCP_QUICKSTART.includes("GPT MUST NOT replace that user-supplied FOLDE
 assert.ok(MCP_QUICKSTART.includes("Infer only JOB. Collect TASK from the user. Accept FOLDER only when the user explicitly supplies it during the current PREPARE window"));
 
 assert.ok(MCP_QUICKSTART.includes("GPT MUST NEVER guess, infer, suggest, autocomplete, restore, reuse, or fill in a folder path"));
-assert.ok(MCP_QUICKSTART.includes("The only acceptable FOLDER is a path that the user personally provides AFTER the current GPTWorker invocation"));
+assert.ok(MCP_QUICKSTART.includes("The only acceptable FOLDER is a path that the user personally provides during the current PREPARE window"));
 assert.ok(MCP_QUICKSTART.includes("Even when GPT is certain which repository the user means, it MUST still ask the user for the folder path"));
 assert.ok(MCP_QUICKSTART.includes('you MUST ask exactly: "Cho tôi đường dẫn tới thư mục làm việc."'));
 
 
 assert.ok(MCP_QUICKSTART.includes("The current PREPARE window starts at the user's most recent GPTWorker invocation"));
 
-assert.ok(MCP_QUICKSTART.includes("Any path mentioned before the current GPTWorker invocation is stale for this work"));
-assert.ok(MCP_QUICKSTART.includes("TASK preparation must also use only what the user has said in the current PREPARE window"));
+assert.ok(MCP_QUICKSTART.includes("GPT MUST NEVER use a path merely because it appeared earlier in this chat"));
+assert.ok(MCP_QUICKSTART.includes("TASK preparation must use only what the user has said in the current PREPARE window"));
 assert.ok(MCP_QUICKSTART.includes("never mention or assume a specific repository/path as the place where the task lives"));
 
 assert.ok(MCP_QUICKSTART.includes('Keep technical implementation terms internal'));
@@ -275,8 +275,8 @@ assert.ok(MCP_QUICKSTART.includes("do not make the user invoke GPTWorker again w
 assert.ok(MCP_QUICKSTART.includes("job_select"));
 assert.ok(MCP_QUICKSTART.includes("confirmed=false"));
 assert.ok(MCP_QUICKSTART.includes("confirmed=true"));
-assert.ok(MCP_QUICKSTART.includes("As soon as JOB + user-supplied FOLDER + TASK are sufficiently known"));
-assert.ok(MCP_QUICKSTART.includes("Do not ask the user to invoke GPTWorker again"));
+assert.ok(MCP_QUICKSTART.includes("Only when JOB + absolute FOLDER + TASK are sufficiently known"));
+assert.ok(MCP_QUICKSTART.includes("do not make the user invoke GPTWorker again while this PREPARE window is still active"));
 assert.ok(MCP_QUICKSTART.includes('A short description such as "sửa browser integration"'));
 
 assert.ok(!MCP_QUICKSTART.includes("gptworker_admission"));
