@@ -21,22 +21,26 @@ async function contained(workspace, target) {
   if (!path.isAbsolute(target)) throw new Error("WORKSPACE_BOUNDARY: absolute file path required");
   const root = await canonicalWorkspace(workspace);
   const resolved = path.resolve(target);
-  const relative = path.relative(root, resolved);
-  if (relative === ".." || relative.startsWith(".." + path.sep) || path.isAbsolute(relative) || !relative) {
-    throw new Error("WORKSPACE_BOUNDARY: outside Workspace or Workspace root itself");
-  }
-  // Resolve the nearest existing ancestor, so junction/symlink escapes are rejected.
+
+  // Compare canonical paths only. On Windows, temp/workspace paths can be
+  // presented through junctions, aliases, or short/long path spellings; mixing
+  // a canonical Workspace with a lexical target causes false boundary rejects.
+  // Resolve the nearest existing ancestor first, then append missing segments.
   let cursor = resolved;
   const missing = [];
   while (true) {
     try {
       const real = await fs.realpath(cursor);
-      const candidate = path.join(real, ...missing);
+      const candidate = path.resolve(real, ...missing);
       const rel = path.relative(root, candidate);
       if (rel === ".." || rel.startsWith(".." + path.sep) || path.isAbsolute(rel) || !rel) {
-        throw new Error("WORKSPACE_BOUNDARY: symlink escapes Workspace");
+        throw new Error("WORKSPACE_BOUNDARY: outside Workspace or symlink/junction escape");
       }
-      return { root, absolute: resolved, relative: relative.split(path.sep).join("/") };
+      return {
+        root,
+        absolute: candidate,
+        relative: rel.split(path.sep).join("/"),
+      };
     } catch (error) {
       if (error.code !== "ENOENT") throw error;
       const parent = path.dirname(cursor);
