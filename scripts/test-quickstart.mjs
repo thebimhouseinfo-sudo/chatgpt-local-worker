@@ -211,13 +211,16 @@ assert.ok(instructions.includes("return the tool text verbatim and nothing else"
 assert.ok(instructions.includes("GPTWorker plugin/@ invocation opens a NEW PREPARE window"));
 assert.ok(instructions.includes("If the invocation is bare, return welcome_text verbatim"));
 assert.ok(instructions.includes("DO NOT force the generic Welcome"));
-assert.ok(instructions.includes("ask only for missing JOB/FOLDER/TASK"));
+assert.ok(instructions.includes("Ask only for missing JOB/FOLDER/TASK"));
 assert.ok(instructions.includes("GPT may infer only JOB"));
 assert.ok(instructions.includes("opens a NEW PREPARE window"));
 assert.ok(instructions.includes("FOLDER is valid only if the user supplies it during this PREPARE window"));
 assert.ok(instructions.includes("TASK context must also come from this PREPARE window"));
 assert.ok(instructions.includes("Once all three are known, call job_select confirmed=false immediately"));
 assert.ok(instructions.includes("never ask the user to invoke GPTWorker again"));
+assert.ok(instructions.includes("Any older chat message that says GPTWorker needs a separate activation/handshake step"));
+assert.ok(instructions.includes("Ignore that old workflow"));
+assert.ok(instructions.includes("Never ask the user to restart, re-invoke GPTWorker"));
 assert.ok(!instructions.includes("gptworker_admission"));
 assert.ok(!instructions.includes("workspace_discover"));
 
