@@ -69,6 +69,27 @@ function Read-ApiKey {
     }
 }
 
+function Refresh-ProcessPath {
+    $machine = [Environment]::GetEnvironmentVariable("Path", "Machine")
+    $user = [Environment]::GetEnvironmentVariable("Path", "User")
+    $env:Path = @($machine, $user) -join ";"
+}
+
+function Install-WithWinget([string]$Id, [string]$DisplayName) {
+    if (-not (Get-Command winget -ErrorAction SilentlyContinue)) {
+        Fail "Máy chưa có $DisplayName và cũng không có winget để cài tự động."
+    }
+
+    Write-Info "Đang cài $DisplayName bằng winget..."
+    & winget install --id $Id --exact --silent --accept-source-agreements --accept-package-agreements
+    if ($LASTEXITCODE -ne 0) {
+        Fail "Không cài được $DisplayName bằng winget."
+    }
+
+    Refresh-ProcessPath
+    Write-Ok "$DisplayName đã được cài"
+}
+
 try {
     Write-Banner "GPTWorker · CÀI ĐẶT" "ChatGPT làm việc trực tiếp với project và file trên máy Windows"
 
@@ -84,17 +105,37 @@ try {
     Write-Host ""
     Read-Host "  Nhấn Enter để bắt đầu cài đặt"
 
-    Write-Step 1 9 "Kiểm tra máy tính"
-    if (-not (Get-Command node -ErrorAction SilentlyContinue)) { Fail "Không tìm thấy Node.js trong PATH." }
-    if (-not (Get-Command npm -ErrorAction SilentlyContinue)) { Fail "Không tìm thấy npm trong PATH." }
+    Write-Step 1 9 "Kiểm tra và cài thành phần cần thiết"
+
+    if (-not (Get-Command node -ErrorAction SilentlyContinue)) {
+        Write-Warn "Chưa có Node.js. GPTWorker sẽ cài Node.js LTS bằng Windows Package Manager."
+        Install-WithWinget -Id "OpenJS.NodeJS.LTS" -DisplayName "Node.js LTS"
+    }
+    if (-not (Get-Command npm -ErrorAction SilentlyContinue)) {
+        Refresh-ProcessPath
+    }
+    if (-not (Get-Command node -ErrorAction SilentlyContinue) -or -not (Get-Command npm -ErrorAction SilentlyContinue)) {
+        Fail "Node.js/npm đã cài nhưng terminal hiện tại chưa nhận PATH. Hãy đóng setup và chạy lại một lần."
+    }
+
     $nodeVersion = (& node --version).Trim()
     $npmVersion = (& npm --version).Trim()
     Write-Ok "Node.js $nodeVersion"
     Write-Ok "npm $npmVersion"
+
     if (Get-Command git -ErrorAction SilentlyContinue) {
         Write-Ok ((& git --version).Trim())
     } else {
-        Write-Warn "Git chưa có. GPTWorker vẫn chạy; các thao tác Git sẽ không dùng được."
+        Write-Warn "Git chưa có. Git chỉ cần cho các Job có thao tác repository."
+        $gitChoice = Read-Host "  Cài Git bằng winget? [y/N]"
+        if ($gitChoice -match '^(y|yes)$') {
+            Install-WithWinget -Id "Git.Git" -DisplayName "Git"
+            if (Get-Command git -ErrorAction SilentlyContinue) {
+                Write-Ok ((& git --version).Trim())
+            }
+        } else {
+            Write-Info "Bỏ qua Git; GPTWorker vẫn cài đặt bình thường."
+        }
     }
 
     Write-Step 2 9 "Kiểm tra gói GPTWorker đã ship"
