@@ -1,4 +1,6 @@
 import path from "node:path";
+export const SHELL_WORKSPACE_GUARD_VERSION = "2026-09-24-redirection-v2";
+
 import {
   assertPathInsideWorkspaceSync,
   getActiveSupportRoots,
