@@ -1,6 +1,6 @@
 {
   "name": "chatgpt-local-worker",
-  "version": "1.1.0",
+  "version": "1.1.1",
   "description": "Stability-first ChatGPT-controlled local worker for Windows with Job Packs, reliable local execution, and OpenAI Secure MCP Tunnel transport",
   "repository": {
     "type": "git",
@@ -17,7 +17,7 @@
     "local-worker-mcp": "dist/index.js"
   },
   "scripts": {
-    "build": "tsc",
+    "build": "node -e \"require(\'node:fs\').rmSync(\'dist\',{recursive:true,force:true})\" && tsc",
     "validate:jobs": "node shared-harness/job-pack-validator.mjs",
     "test": "node scripts/run-default-tests.mjs",
     "test:all": "node scripts/run-all-tests.mjs",
