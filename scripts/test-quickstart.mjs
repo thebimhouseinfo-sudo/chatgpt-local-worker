@@ -226,6 +226,11 @@ assert.ok(MCP_QUICKSTART.includes("If the invocation is bare, return \`welcome_t
 assert.ok(MCP_QUICKSTART.includes("continue PREPARE naturally instead of forcing the generic Welcome"));
 
 assert.ok(MCP_QUICKSTART.includes("JOB + absolute FOLDER + TASK"));
+assert.ok(MCP_QUICKSTART.includes('Cho tôi đường dẫn tới thư mục làm việc.'));
+assert.ok(MCP_QUICKSTART.includes('Keep technical implementation terms internal'));
+assert.ok(MCP_QUICKSTART.includes('Say "thư mục làm việc" instead of "Workspace"'));
+assert.ok(MCP_QUICKSTART.includes('Do not expose confirmation_token, work_handle, execution_id, authority_token'));
+
 assert.ok(MCP_QUICKSTART.includes("Do not require literal @gptworker text"));
 assert.ok(MCP_QUICKSTART.includes("do not use gptworker_admission or workspace_discover"));
 assert.ok(MCP_QUICKSTART.includes("job_select"));
