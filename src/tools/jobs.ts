@@ -212,7 +212,8 @@ export interface JobPreparationLifecycle {
 async function persistActiveSelection(
   result: any,
   runtime: JobRuntime,
-  lifecycle?: JobPreparationLifecycle
+  lifecycle: JobPreparationLifecycle | undefined,
+  admissionRuntime: AdmissionRuntime
 ) {
   await validateResolvedWorkspace(result);
   if (result?.state?.phase !== "active") return result;
@@ -226,6 +227,8 @@ async function persistActiveSelection(
   const registration = await createWorkRegistration(jobId, workspace, () => {
     runtime.stop();
     lifecycle?.clear();
+    // Idle expiry ends this armed GPTWorker chat flow just like explicit stop.
+    admissionRuntime.clear();
   });
 
   return {
@@ -791,7 +794,7 @@ export function registerJobTools(
               preload_families: selected.job.preload_families ?? [],
             });
             return {
-              ...(await persistActiveSelection(selected, sessionRuntime, lifecycle)),
+              ...(await persistActiveSelection(selected, sessionRuntime, lifecycle, admissionRuntime)),
               tool_preload: {
                 status: "warming",
                 job_id: selected.job.id,
@@ -805,7 +808,8 @@ export function registerJobTools(
           const prepared = await persistActiveSelection(
             selected,
             sessionRuntime,
-            lifecycle
+            lifecycle,
+            admissionRuntime
           );
           if ((prepared as any)?.work_handle) {
             admissionRuntime.consume(admission_token);
@@ -878,6 +882,7 @@ export function registerJobTools(
           () => {
             activationRuntime.stop();
             lifecycle?.clear();
+            admissionRuntime.clear();
           }
         );
 
@@ -982,7 +987,8 @@ export function registerJobTools(
         const current = await persistActiveSelection(
           selected?.current,
           sessionRuntime,
-          lifecycle
+          lifecycle,
+          admissionRuntime
         );
 
         if (
