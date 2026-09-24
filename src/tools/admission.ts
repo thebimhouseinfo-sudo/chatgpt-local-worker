@@ -13,7 +13,7 @@ export function registerAdmissionTool(
     {
       title: "GPTWorker Admission",
       description:
-        "Internal non-user-facing admission handshake for GPTWorker work nomination only. Never call this tool for gr/, gr/help, gptworker/, gptworker/help, their immediate contextual numeric shortcuts, or any other public GPTWorker system command. GPTWorker work activation is @-flow-only: ACTIVE when the exact current user turn starts with @gptworker, or when a prior bare @gptworker armed this same MCP session and the current continuation supplies the required local folder (task details may still be incomplete). A fresh task plus local path in an unarmed session is always INACTIVE. CONTROL is only a defensive result if a public command is accidentally sent here; it is not a reason to call this tool. INACTIVE means GPTWorker must stop immediately; do not nominate a Job, do not inspect the workspace, and continue as normal ChatGPT or use the plugin/tool the user actually requested.",
+        "Internal non-user-facing admission handshake for GPTWorker work nomination only. Never call this tool for gr/, gr/help, gptworker/, gptworker/help, their immediate contextual numeric shortcuts, or any other public GPTWorker system command. GPTWorker work activation is @-flow-only: ACTIVE when the exact current user turn starts with @gptworker, or when a prior bare @gptworker armed this chat flow and the opaque continuation_token from that Welcome is supplied. The token is internal chat state and survives MCP transport rotation; never render it. A fresh task plus local path without a valid flow token is always INACTIVE.",
       inputSchema: {
         user_turn: z
           .string()
@@ -32,14 +32,22 @@ export function registerAdmissionTool(
           .describe(
             "For an armed-flow continuation, pass the exact absolute local Workspace from the current reply. It never activates a fresh/unarmed session."
           ),
+        continuation_token: z
+          .string()
+          .uuid()
+          .optional()
+          .describe(
+            "Opaque token returned by the prior bare @gptworker job_list call in this same chat flow. Carry internally across turns; never render to the user."
+          ),
       },
       annotations: toolAnnotations("read"),
     },
-    async ({ user_turn, has_concrete_task, workspace }) => {
+    async ({ user_turn, has_concrete_task, workspace, continuation_token }) => {
       const decision = admissionRuntime.check({
         userTurn: user_turn,
         hasConcreteTask: has_concrete_task,
         workspace,
+        continuationToken: continuation_token,
       });
 
       return toolResult("gptworker_admission", {
@@ -51,7 +59,7 @@ export function registerAdmissionTool(
             ? "STOP GPTWorker. Do not call any GPTWorker discovery/job/work tool. Continue the response as ordinary ChatGPT, or use another plugin/tool if that is what the user requested."
             : decision.mode === "CONTROL"
               ? "Handle only the explicit GPTWorker control command. Do not activate a Job unless the user separately starts work."
-              : "GPTWorker is admitted for this conversation flow. Carry admission_token into pre-confirmation discovery and Job nomination.",
+              : "GPTWorker is admitted for this conversation flow. Carry admission_token into pre-confirmation discovery/Job nomination and preserve continuation_token internally for later chat turns.",
       });
     }
   );
