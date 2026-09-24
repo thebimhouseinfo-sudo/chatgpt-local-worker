@@ -223,6 +223,11 @@ assert.ok(
 );
 assert.ok(MCP_QUICKSTART.includes("Reply with \`welcome_text\` verbatim"));
 assert.ok(MCP_QUICKSTART.includes("call \`job_list\` exactly once"));
+assert.ok(MCP_QUICKSTART.includes("without repeating @gptworker"));
+assert.ok(MCP_QUICKSTART.includes("Dev Coding D:\\Projects\\MyApp"));
+assert.ok(MCP_QUICKSTART.includes("must not be rejected merely because it omits"));
+assert.ok(!MCP_QUICKSTART.includes("arm is one-shot"));
+
 assert.ok(MCP_QUICKSTART.includes("Private/hidden Jobs must never be named, described, suggested, or enumerated on public surfaces."));
 assert.ok(!MCP_QUICKSTART.toLowerCase().includes("mto"), "model-facing quickstart must not reveal private Job identity");
 assert.ok(!instructions.toLowerCase().includes("mto"), "initialize instructions must not reveal private Job identity");
