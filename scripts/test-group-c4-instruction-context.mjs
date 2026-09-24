@@ -36,8 +36,9 @@ for (const forbidden of [
   );
 }
 
-assert.equal(ctx.instructionsText.includes("gptworker_admission"), true);
+assert.equal(ctx.instructionsText.includes("gptworker_admission"), false);
 assert.equal(ctx.instructionsText.includes("job_select"), true);
+assert.equal(ctx.instructionsText.includes("workspace_discover"), false);
 assert.equal(ctx.instructionsText.includes("work_tool"), true);
 assert.equal(ctx.instructionsText.includes("## GPTWorker control plane"), true);
 assert.equal(ctx.instructionBytes > 500, true);
