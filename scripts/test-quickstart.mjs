@@ -223,7 +223,9 @@ assert.ok(
 );
 assert.ok(MCP_QUICKSTART.includes("Reply with \`welcome_text\` verbatim"));
 assert.ok(MCP_QUICKSTART.includes("call \`job_list\` exactly once"));
-assert.ok(MCP_QUICKSTART.includes("private \`mto\` Job is never shown in Welcome"));
+assert.ok(MCP_QUICKSTART.includes("Private/hidden Jobs must never be named, described, suggested, or enumerated on public surfaces."));
+assert.ok(!MCP_QUICKSTART.toLowerCase().includes("mto"), "model-facing quickstart must not reveal private Job identity");
+assert.ok(!instructions.toLowerCase().includes("mto"), "initialize instructions must not reveal private Job identity");
 assert.ok(!MCP_QUICKSTART.includes("## GPTWorker root command surface"));
 assert.ok(!MCP_QUICKSTART.includes("## gptworker/help"));
 
