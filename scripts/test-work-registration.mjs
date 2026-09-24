@@ -9,8 +9,8 @@ process.env.LOCAL_WORKER_HOME = tempRoot;
 const work = await import("../dist/lib/work-registration.js");
 const pathSecurity = await import("../dist/lib/path-security.js");
 
-function comparablePath(value) {
-  const resolved = path.resolve(value);
+async function comparablePath(value) {
+  const resolved = await fs.realpath(path.resolve(value));
   return process.platform === "win32" ? resolved.toLowerCase() : resolved;
 }
 
@@ -34,7 +34,7 @@ assert.throws(
 );
 
 const validated = work.validateWorkHandle(regA.executionId, regA.authorityToken);
-assert.equal(comparablePath(validated.workspace), comparablePath(wsA));
+assert.equal(await comparablePath(validated.workspace), await comparablePath(wsA));
 
 const lease = work.acquireToolLease(
   "read_text_file",
@@ -64,8 +64,8 @@ await Promise.all([
   }),
 ]);
 assert.deepEqual(
-  new Set(observed.map(comparablePath)),
-  new Set([wsA, wsB].map(comparablePath))
+  new Set(await Promise.all(observed.map(comparablePath))),
+  new Set(await Promise.all([wsA, wsB].map(comparablePath)))
 );
 
 work.releaseWorkRegistration(regA.executionId, regA.authorityToken);
