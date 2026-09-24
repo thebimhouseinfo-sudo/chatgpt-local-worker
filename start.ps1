@@ -31,6 +31,11 @@ function Get-DotEnvValue([string]$Name) {
 function Test-WorkerBuildStale {
     if (-not (Test-Path "dist/index.js")) { return $true }
 
+    # A packaged release ships prebuilt dist and production dependencies only.
+    # Do not rebuild on the user's machine.
+    if (Test-Path "release-manifest.json") { return $false }
+    if (-not (Test-Path "src") -or -not (Test-Path "tsconfig.json")) { return $false }
+
     $distTime = (Get-Item "dist/index.js").LastWriteTimeUtc
     $inputs = @("src", "package.json", "package-lock.json", "tsconfig.json")
 
