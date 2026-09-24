@@ -39,9 +39,9 @@ Chọn Job bạn muốn sử dụng:
 `.trim();
 
 const GPTWORKER_WELCOME_AFTER_CUSTOM = `
-Hãy chọn Job và đưa tôi **thư mục làm việc** để bắt đầu.
+Hãy cho tôi biết bạn muốn làm gì. Bạn có thể chọn Job ở trên, hoặc để tôi tự gợi ý Job phù hợp.
 
-Ví dụ: \`2  C:\\Projects\\my-app\` hoặc  \`Dev Planing C:\\Projects\\my-app\`
+Khi tiện, hãy gửi **thư mục làm việc**. Bạn không cần đưa Job, thư mục và yêu cầu trong cùng một tin nhắn.
 
 Hoặc gõ \`gr/\` để xem các system commands.
 `.trim();
