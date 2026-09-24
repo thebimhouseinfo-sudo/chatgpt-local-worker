@@ -29,7 +29,10 @@ const server = {
 
 const fakeRuntime = {
   async status() {
-    return { state: { phase: "idle", bindings: {} }, active_job: null };
+    return {
+      state: { phase: "selected", bindings: { workspace: tempRoot } },
+      active_job: null,
+    };
   },
   async switch() {
     return {
