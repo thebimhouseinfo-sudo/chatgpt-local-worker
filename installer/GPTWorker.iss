@@ -42,6 +42,8 @@ SetupLogging=yes
 Source: "{#RepoRoot}\\release\\staging\\GPTWorker\\*"; DestDir: "{app}"; Flags: ignoreversion recursesubdirs createallsubdirs
 
 [Icons]
+Name: "{group}\\GPTWorker"; Filename: "{win}\\System32\\wscript.exe"; Parameters: """{app}\\gptworker-tray.vbs"""; WorkingDir: "{app}"; Comment: "Launch GPTWorker tray"
+Name: "{userdesktop}\\GPTWorker"; Filename: "{win}\\System32\\wscript.exe"; Parameters: """{app}\\gptworker-tray.vbs"""; WorkingDir: "{app}"; Comment: "Launch GPTWorker tray"
 Name: "{group}\\GPTWorker Setup Guide"; Filename: "{app}\\docs\\setup-guide\\index.html"
 Name: "{group}\\Uninstall GPTWorker"; Filename: "{uninstallexe}"
 
