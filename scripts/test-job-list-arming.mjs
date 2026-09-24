@@ -129,4 +129,23 @@ assert.ok(!customPayload.includes("private custom workflow"));
 assert.ok(!customPayload.includes("Draft Job"));
 assert.ok(!customPayload.includes("Another Default"));
 
+// Explicit gr/job list is also a public enumeration surface. Private MTO must
+// stay hidden there, including suggestion ids, while other custom Jobs remain.
+const explicitList = await customJobList.callback({ query: "mto rename" });
+const explicitPayload = explicitList.structuredContent?.data ?? explicitList.structuredContent ?? explicitList;
+const explicitText = JSON.stringify(explicitPayload);
+assert.ok(explicitText.includes("Rename"));
+assert.ok(!explicitText.includes("private custom workflow"));
+assert.ok(!explicitText.toLowerCase().includes('"id":"mto"'));
+assert.ok(!explicitText.toLowerCase().includes('"mto"'));
+
+// Hiding from enumeration must not remove the Job from runtime resolution.
+// Direct invocation remains a separate job_select path, not job_list.
+const directMtoRuntime = new JobRuntime(path.join(repoRoot, "jobs"));
+const directMto = await directMtoRuntime.select({
+  job: "mto",
+  bindings: { workspace: repoRoot, task: "private mto task" },
+});
+assert.equal(directMto.job.id, "mto");
+
 console.log("test-job-list-arming: ok");
