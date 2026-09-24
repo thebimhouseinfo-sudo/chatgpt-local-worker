@@ -39,6 +39,24 @@ function Get-DotEnvValue([string]$Name) {
     return (($line -split "=", 2)[1].Trim()).Trim("'").Trim('"')
 }
 
+function Set-DotEnvValue([string]$Name, [string]$Value) {
+    if (-not (Test-Path ".env")) {
+        Copy-Item ".env.example" ".env"
+    }
+    $lines = Get-Content ".env"
+    $found = $false
+    $out = foreach ($line in $lines) {
+        if ($line -match "^\s*$Name\s*=" -and -not $line.TrimStart().StartsWith("#")) {
+            $found = $true
+            "$Name=$Value"
+        } else {
+            $line
+        }
+    }
+    if (-not $found) { $out += "$Name=$Value" }
+    Set-Content ".env" -Value $out -Encoding UTF8
+}
+
 function Wait-Http([string]$Url, [int]$Seconds = 20, [string]$Contains = "") {
     $deadline = (Get-Date).AddSeconds($Seconds)
     do {
@@ -165,12 +183,24 @@ try {
         Write-Ok "Đã tạo worker-state.json"
     }
 
-    $WorkerPort = 3000
+    # GPTWorker owns a dedicated low-collision port pair. Existing installs
+    # using the old generic defaults are migrated automatically.
     $envPort = Get-DotEnvValue "PORT"
-    if ($envPort) { $WorkerPort = [int]$envPort }
-    $TunnelPort = 8080
+    if (-not $envPort -or [int]$envPort -eq 3000) {
+        $WorkerPort = 43120
+        Set-DotEnvValue "PORT" "$WorkerPort"
+    } else {
+        $WorkerPort = [int]$envPort
+    }
+
     $envTunnelPort = Get-DotEnvValue "OPENAI_TUNNEL_HEALTH_PORT"
-    if ($envTunnelPort) { $TunnelPort = [int]$envTunnelPort }
+    if (-not $envTunnelPort -or [int]$envTunnelPort -eq 8080) {
+        $TunnelPort = 43121
+        Set-DotEnvValue "OPENAI_TUNNEL_HEALTH_PORT" "$TunnelPort"
+    } else {
+        $TunnelPort = [int]$envTunnelPort
+    }
+    Write-Info "GPTWorker ports: MCP $WorkerPort · Tunnel health $TunnelPort"
 
     Write-Step 4 9 "Tùy chọn browser cho Dev Coding"
     Write-Host "  Vercel agent-browser giúp Dev Coding thao tác trên trình duyệt khi cần." -ForegroundColor Gray
