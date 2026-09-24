@@ -12,7 +12,7 @@
 
 ## Tải và cài đặt
 
-**[Tải GPTWorker-Setup-1.1.1.exe](https://github.com/thebimhouseinfo-sudo/chatgpt-local-worker/releases/latest/download/GPTWorker-Setup-1.1.1.exe)**
+**[Tải GPTWorker-Setup-1.1.2.exe](https://github.com/thebimhouseinfo-sudo/chatgpt-local-worker/releases/latest/download/GPTWorker-Setup-1.1.2.exe)**
 
 Chạy file cài đặt và làm theo hướng dẫn trên màn hình. Bạn có thể tự chọn thư mục cài đặt.
 
