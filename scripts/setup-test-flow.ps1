@@ -80,7 +80,7 @@ try {
     Write-Host ""
     Read-Host "  Nhấn Enter để bắt đầu"
 
-    Write-Step 1 8 "Kiểm tra máy tính"
+    Write-Step 1 9 "Kiểm tra máy tính"
     if (-not (Get-Command node -ErrorAction SilentlyContinue)) { Fail "Không tìm thấy Node.js trong PATH." }
     if (-not (Get-Command npm -ErrorAction SilentlyContinue)) { Fail "Không tìm thấy npm trong PATH." }
     $nodeVersion = (& node --version).Trim()
@@ -93,7 +93,7 @@ try {
         Write-Warn "Git chưa có. GPTWorker vẫn chạy; các thao tác Git sẽ không dùng được."
     }
 
-    Write-Step 2 8 "Kiểm tra gói runtime đã ship"
+    Write-Step 2 9 "Kiểm tra gói runtime đã ship"
     if (-not (Test-Path "dist\index.js")) {
         Fail "Không tìm thấy dist\index.js. Đây là setup dành cho gói đã build sẵn."
     }
@@ -102,7 +102,7 @@ try {
     Write-Ok "dist\index.js có sẵn — KHÔNG build lại"
     Write-Info "Không chạy npm test / validate:jobs trong installer"
 
-    Write-Step 3 8 "Tạo sandbox cài đặt và cài runtime dependencies"
+    Write-Step 3 9 "Tạo sandbox cài đặt và cài runtime dependencies"
     New-Item -ItemType Directory -Force -Path $TempRoot | Out-Null
     Copy-Item "dist" (Join-Path $TempRoot "dist") -Recurse -Force
     Copy-Item "jobs" (Join-Path $TempRoot "jobs") -Recurse -Force
@@ -115,7 +115,7 @@ try {
     if ($LASTEXITCODE -ne 0) { Fail "npm install --omit=dev thất bại." }
     Write-Ok "Runtime dependencies đã sẵn sàng trong sandbox"
 
-    Write-Step 4 8 "Tùy chọn browser cho Dev Coding"
+    Write-Step 4 9 "Tùy chọn browser cho Dev Coding"
     Write-Host "  Vercel agent-browser là tùy chọn." -ForegroundColor Gray
     $choice = Read-Host "  Cài/kiểm tra browser giống setup thật? [y/N]"
     if ($choice -match '^(y|yes)$') {
@@ -132,7 +132,7 @@ try {
         Write-Info "Bỏ qua browser optional"
     }
 
-    Write-Step 5 8 "Khởi động Worker từ dist đã ship"
+    Write-Step 5 9 "Khởi động Worker từ dist đã ship"
     $envFile = Join-Path $TempRoot ".env"
     @(
         "PORT=$WorkerPort",
@@ -165,7 +165,7 @@ try {
     }
     Write-Ok "Worker healthy trên port test $WorkerPort"
 
-    Write-Step 6 8 "Tạo Secure MCP Tunnel và API key"
+    Write-Step 6 9 "Tạo Secure MCP Tunnel và API key"
 
     Write-Host "  PHẦN A · TẠO TUNNEL" -ForegroundColor Cyan
     Write-Host ""
@@ -224,7 +224,7 @@ try {
     ) | Set-Content (Join-Path $TempRoot "fake-credentials.env") -Encoding UTF8
     Write-Ok "Đã nhận thông tin Tunnel và API key cho phiên setup test"
 
-    Write-Step 7 8 "Khởi động Tunnel mô phỏng và kiểm tra health"
+    Write-Step 7 9 "Khởi động Tunnel mô phỏng và kiểm tra health"
     $mockScript = Join-Path $ScriptDir "scripts\setup-test-mock-tunnel.mjs"
     $tunnelOut = Join-Path $TempRoot "tunnel.out.log"
     $tunnelErr = Join-Path $TempRoot "tunnel.err.log"
@@ -238,7 +238,7 @@ try {
     if (-not (Wait-Http "http://127.0.0.1:$TunnelPort/healthz" 5)) { Fail "Tunnel /healthz không phản hồi." }
     Write-Ok "Tunnel /healthz = OK"
 
-    Write-Step 8 8 "Kiểm tra autostart và bảo toàn cấu hình thật"
+    Write-Step 8 9 "Kiểm tra autostart và bảo toàn cấu hình thật"
     try {
         $OldStartupValue = (Get-ItemProperty -Path $StartupKey -Name $StartupName -ErrorAction Stop).$StartupName
         $HadStartupValue = $true
@@ -253,6 +253,39 @@ try {
     }
     Write-Ok ".env thật không thay đổi"
 
+    Write-Step 9 9 "Kết nối GPTWorker với ChatGPT"
+
+    $guidePath = Join-Path $ScriptDir "docs\setup-guide\index.html"
+
+    Write-Host "  Trình duyệt sẽ mở ChatGPT Settings và trang hướng dẫn bằng hình." -ForegroundColor White
+    Write-Host ""
+    Write-Host "  Làm lần lượt:" -ForegroundColor White
+    Write-Host "    1. Trong ChatGPT Settings, mở Plugins." -ForegroundColor White
+    Write-Host "    2. Bật Developer mode nếu chưa bật." -ForegroundColor White
+    Write-Host "    3. Mở trang Plugins và bấm nút + để tạo plugin mới." -ForegroundColor White
+    Write-Host "    4. Name: gptworker" -ForegroundColor White
+    Write-Host "    5. Connection: chọn Tunnel." -ForegroundColor White
+    Write-Host "       Không chọn Server URL." -ForegroundColor Yellow
+    Write-Host "    6. Ở Available tunnels, chọn đúng Tunnel của GPTWorker." -ForegroundColor White
+    Write-Host "    7. Authentication: chọn No Auth." -ForegroundColor White
+    Write-Host "    8. Không dùng Use tunnel ID instead." -ForegroundColor Yellow
+    Write-Host "    9. Tick ô xác nhận ở cuối rồi bấm Connect / Create." -ForegroundColor White
+    Write-Host "   10. Sau khi tạo xong, mở chat mới và gọi @gptworker." -ForegroundColor White
+    Write-Host ""
+    Write-Info "Trang hướng dẫn bằng hình sẽ mở để đối chiếu từng bước."
+
+    if (-not $NoBrowserOpen) {
+        Start-Process "https://chatgpt.com/#settings/Plugins"
+        if (Test-Path $guidePath) {
+            Start-Process $guidePath
+        } else {
+            Write-Warn "Không tìm thấy docs\setup-guide\index.html."
+        }
+    }
+
+    Write-Host ""
+    Read-Host "  Khi đã xem xong phần kết nối ChatGPT, nhấn Enter để hoàn tất test"
+
     Write-Host ""
     Write-Host "╔══════════════════════════════════════════════════════════════════════╗" -ForegroundColor Green
     Write-Host "║                    ✔  SETUP TEST PASSED                            ║" -ForegroundColor Green
@@ -264,6 +297,7 @@ try {
     Write-Host "║  ✔ Tunnel mock + health contract                                   ║" -ForegroundColor Green
     Write-Host "║  ✔ Windows startup registration                                    ║" -ForegroundColor Green
     Write-Host "║  ✔ .env thật không bị thay đổi                                     ║" -ForegroundColor Green
+    Write-Host "║  ✔ mở ChatGPT Settings + hướng dẫn tạo plugin                      ║" -ForegroundColor Green
     Write-Host "╚══════════════════════════════════════════════════════════════════════╝" -ForegroundColor Green
     Write-Host ""
     Write-Host "  Khi luồng này được chốt, setup.bat thật sẽ dùng cùng thứ tự bước," -ForegroundColor White
