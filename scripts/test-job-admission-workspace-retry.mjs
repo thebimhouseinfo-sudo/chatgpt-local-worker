@@ -4,7 +4,6 @@ import os from "node:os";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 import { JobRuntime } from "../dist/jobs/job-runtime.js";
-import { AdmissionRuntime } from "../dist/lib/activation-policy.js";
 import { registerJobTools } from "../dist/tools/jobs.js";
 
 const repoRoot = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
@@ -29,16 +28,8 @@ const server = {
   },
 };
 
-const admission = new AdmissionRuntime();
 const runtime = new JobRuntime(jobsRoot);
-registerJobTools(server, runtime, undefined, admission);
-
-const admitted = admission.check({
-  userTurn: "@gptworker đọc repo và lên kế hoạch",
-  hasConcreteTask: true,
-});
-assert.equal(admitted.mode, "ACTIVE");
-assert.equal(admitted.workspace, undefined);
+registerJobTools(server, runtime);
 
 const jobSelect = registered.get("job_select")?.callback;
 assert.ok(jobSelect, "job_select was not registered");
@@ -51,7 +42,6 @@ const invalidAttempt = await jobSelect({
     objective: "Plan the repository",
   },
   confirmed: false,
-  admission_token: admitted.admission_token,
 });
 assert.equal(invalidAttempt.structuredContent.ok, false);
 assert.match(
@@ -59,8 +49,7 @@ assert.match(
   /does not exist or is not a directory/
 );
 
-// Correcting a typo/path mistake must reuse the same admission token.
-// A failed workspace validation must not permanently bind the token.
+// Correcting a typo/path mistake simply retries nomination; no admission token is involved.
 const correctedAttempt = await jobSelect({
   job: "dev-planing",
   bindings: {
@@ -68,12 +57,11 @@ const correctedAttempt = await jobSelect({
     objective: "Plan the repository",
   },
   confirmed: false,
-  admission_token: admitted.admission_token,
 });
 assert.equal(
   correctedAttempt.structuredContent.ok,
   true,
-  "corrected valid Workspace must remain usable with the same @ admission token"
+  "corrected valid Workspace must remain usable after the invalid path attempt"
 );
 assert.equal(
   correctedAttempt.structuredContent.data?.state?.phase,
