@@ -113,9 +113,21 @@ if (-not $iscc -and (Test-Path $defaultIscc)) {
 }
 
 if (-not $iscc) {
-    Need "winget" "Inno Setup is not installed and winget is unavailable."
-    & winget install --id JRSoftware.InnoSetup --exact --silent --accept-source-agreements --accept-package-agreements
-    if ($LASTEXITCODE -ne 0) { throw "Unable to install Inno Setup." }
+    if (Get-Command winget -ErrorAction SilentlyContinue) {
+        & winget install --id JRSoftware.InnoSetup --exact --silent --accept-source-agreements --accept-package-agreements
+        if ($LASTEXITCODE -ne 0) { throw "Unable to install Inno Setup with winget." }
+    } elseif (Get-Command choco -ErrorAction SilentlyContinue) {
+        & choco install innosetup -y --no-progress
+        if ($LASTEXITCODE -ne 0) { throw "Unable to install Inno Setup with Chocolatey." }
+    } else {
+        throw "Inno Setup is not installed and neither winget nor Chocolatey is available."
+    }
+
+    if (-not (Test-Path $defaultIscc)) {
+        $candidate = Get-ChildItem "C:\Program Files*" -Filter ISCC.exe -Recurse -ErrorAction SilentlyContinue |
+            Select-Object -First 1
+        if ($candidate) { $defaultIscc = $candidate.FullName }
+    }
     if (-not (Test-Path $defaultIscc)) { throw "Inno Setup installed but ISCC.exe was not found." }
     $iscc = Get-Item $defaultIscc
 }
