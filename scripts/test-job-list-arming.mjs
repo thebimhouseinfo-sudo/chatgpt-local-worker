@@ -111,7 +111,7 @@ const customRuntime = {
           source: "default",
         },
       ],
-      suggested_job_ids: [],
+      suggested_job_ids: ["mto", "rename"],
       job_roots: {},
       note: "test",
     };
