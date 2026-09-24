@@ -37,13 +37,15 @@ VersionInfoProductName=GPTWorker
 VersionInfoProductVersion={#AppVersion}
 LicenseFile={#RepoRoot}\\LICENSE
 SetupLogging=yes
+SetupIconFile={#RepoRoot}\\release\\staging\\GPTWorker\\gptworker.ico
+UninstallDisplayIcon={app}\\gptworker.ico
 
 [Files]
 Source: "{#RepoRoot}\\release\\staging\\GPTWorker\\*"; DestDir: "{app}"; Flags: ignoreversion recursesubdirs createallsubdirs
 
 [Icons]
-Name: "{group}\\GPTWorker"; Filename: "{win}\\System32\\wscript.exe"; Parameters: """{app}\\gptworker-tray.vbs"""; WorkingDir: "{app}"; Comment: "Launch GPTWorker tray"
-Name: "{userdesktop}\\GPTWorker"; Filename: "{win}\\System32\\wscript.exe"; Parameters: """{app}\\gptworker-tray.vbs"""; WorkingDir: "{app}"; Comment: "Launch GPTWorker tray"
+Name: "{group}\\GPTWorker"; Filename: "{win}\\System32\\wscript.exe"; Parameters: """{app}\\gptworker-tray.vbs"""; WorkingDir: "{app}"; IconFilename: "{app}\\gptworker.ico"; Comment: "Launch GPTWorker tray"
+Name: "{userdesktop}\\GPTWorker"; Filename: "{win}\\System32\\wscript.exe"; Parameters: """{app}\\gptworker-tray.vbs"""; WorkingDir: "{app}"; IconFilename: "{app}\\gptworker.ico"; Comment: "Launch GPTWorker tray"
 Name: "{group}\\GPTWorker Setup Guide"; Filename: "{app}\\docs\\setup-guide\\index.html"
 Name: "{group}\\Uninstall GPTWorker"; Filename: "{uninstallexe}"
 
