@@ -12,7 +12,7 @@ export function registerGptworkerControlTool(server: McpServer): void {
     {
       title: "GPTWorker Static Control",
       description:
-        "Ultra-light static root-menu/help surface. Use ONLY when the entire trimmed user command is exactly gr/ or gptworker/ (surface=commands), or exactly gr/help or gptworker/help (surface=help). NEVER use this tool for gr/job ... or gptworker/job ... commands; those route to their dedicated Job tools. No Job scan, admission, filesystem, workspace, runtime loading, or state changes. Return the tool text to the user verbatim and nothing else.",
+        "Ultra-light static root-menu/help surface. Use ONLY when the entire trimmed user command is exactly gr/ or gptworker/ (surface=commands), or exactly gr/help or gptworker/help (surface=help). NEVER use this tool for bare @gptworker; @gptworker is the Job Welcome entrypoint and must use job_list with activation_request. NEVER use this tool for gr/job ... or gptworker/job ... commands; those route to their dedicated Job tools. No Job scan, admission, filesystem, workspace, runtime loading, or state changes. Return the tool text to the user verbatim and nothing else.",
       inputSchema: {
         surface: z
           .enum(["commands", "help"])
