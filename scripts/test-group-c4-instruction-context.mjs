@@ -17,7 +17,8 @@ assert.equal(ctx.workspaceRoot, repoRoot);
 assert.deepEqual(ctx.workspaceRoots, [repoRoot]);
 
 assert.equal(ctx.contextText.includes("## GPTWorker control plane"), true);
-assert.equal(ctx.contextText.includes("Startup root:"), true);
+assert.equal(ctx.contextText.includes("Startup root:"), false);
+assert.equal(ctx.contextText.includes(repoRoot), false);
 assert.equal(ctx.contextText.includes("Project files, project-local context, skills, and Git state are loaded only after"), true);
 
 for (const forbidden of [
