@@ -204,11 +204,14 @@ const instructions = buildServerInstructions(
 );
 
 assert.ok(instructions.includes("PROJECT CONTEXT SENTINEL"));
-assert.ok(instructions.startsWith("# GPTWorker static control surface — HIGHEST PRIORITY"));
+assert.ok(instructions.startsWith("# GPTWorker entry routing — HIGHEST PRIORITY"));
 assert.ok(instructions.includes("gptworker_control once with surface=commands"));
 assert.ok(instructions.includes("gptworker_control once with surface=help"));
 assert.ok(instructions.includes("return the tool text verbatim and nothing else"));
-assert.ok(instructions.includes("Match the entire trimmed user turn. Never route a command by prefix alone."));
+assert.ok(instructions.includes("BARE @gptworker IS THE JOB WELCOME ENTRYPOINT, NOT A SYSTEM COMMAND"));
+assert.ok(instructions.includes("NEVER call gptworker_control for @gptworker"));
+assert.ok(instructions.includes("@gptworker and gptworker/ are different entrypoints"));
+assert.ok(instructions.includes("Never route a command by prefix, substring, product name, or mention alone."));
 assert.ok(instructions.includes("NEVER call gptworker_control for any gr/job"));
 assert.ok(instructions.includes("Exact gr/job stop or gptworker/job stop -> job_stop."));
 assert.ok(instructions.includes("Never return the root menu for job stop."));
@@ -263,5 +266,9 @@ assert.ok(!runtimeContext.instructionsText.includes(GPTWORKER_ROOT_MENU));
 assert.ok(!runtimeContext.instructionsText.includes(GPTWORKER_HELP));
 assert.ok(runtimeContext.instructionsText.includes("gptworker_control once with surface=commands"));
 assert.ok(runtimeContext.instructionsText.includes("gptworker_control once with surface=help"));
+assert.ok(runtimeContext.instructionsText.includes("BARE @gptworker IS THE JOB WELCOME ENTRYPOINT"));
+assert.ok(runtimeContext.instructionsText.indexOf("BARE @gptworker IS THE JOB WELCOME ENTRYPOINT") <
+          runtimeContext.instructionsText.indexOf("Only exact gr/"));
+
 
 console.log("test-quickstart: ok");
