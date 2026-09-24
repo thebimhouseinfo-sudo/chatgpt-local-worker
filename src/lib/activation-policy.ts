@@ -206,7 +206,7 @@ export class AdmissionRuntime {
     // short-lived authorities for concrete nomination/confirmation, but minting
     // or consuming one does NOT require the user to repeat @gptworker. The arm
     // is cleared only by explicit job_stop/clear() or idle expiry.
-    this.armedAtFlow.createdAt = Date.now();
+    if (this.armedAtFlow) this.armedAtFlow.createdAt = Date.now();
 
     return {
       mode: "ACTIVE",
