@@ -213,6 +213,9 @@ assert.ok(instructions.includes("If the invocation is bare, return welcome_text 
 assert.ok(instructions.includes("DO NOT force the generic Welcome"));
 assert.ok(instructions.includes("Ask only for missing JOB/FOLDER/TASK"));
 assert.ok(instructions.includes("GPT may infer only JOB"));
+assert.ok(instructions.includes("GPT MUST NEVER nominate, infer, suggest, autocomplete, restore, or reuse FOLDER"));
+assert.ok(instructions.includes("ask exactly: 'Cho tôi đường dẫn tới thư mục làm việc.'"));
+
 assert.ok(instructions.includes("opens a NEW PREPARE window"));
 assert.ok(instructions.includes("FOLDER is valid only if the user supplies it during this PREPARE window"));
 assert.ok(instructions.includes("TASK context must also come from this PREPARE window"));
@@ -241,9 +244,16 @@ assert.ok(MCP_QUICKSTART.includes("continue PREPARE naturally instead of forcing
 assert.ok(MCP_QUICKSTART.includes("JOB + absolute FOLDER + TASK"));
 assert.ok(MCP_QUICKSTART.includes('Cho tôi đường dẫn tới thư mục làm việc.'));
 assert.ok(MCP_QUICKSTART.includes("Only JOB may be inferred/nominated by GPT"));
-assert.ok(MCP_QUICKSTART.includes("NEVER infer, guess, nominate, restore, or reuse FOLDER/Workspace"));
+assert.ok(MCP_QUICKSTART.includes("FOLDER RULE — ABSOLUTE BEHAVIORAL RULE"));
+assert.ok(MCP_QUICKSTART.includes("GPT MUST NEVER nominate a folder/workspace"));
+assert.ok(MCP_QUICKSTART.includes("GPT MUST NEVER guess, infer, suggest, autocomplete, restore, reuse, or fill in a folder path"));
+assert.ok(MCP_QUICKSTART.includes("The only acceptable FOLDER is a path that the user personally provides AFTER the current GPTWorker invocation"));
+assert.ok(MCP_QUICKSTART.includes("Even when GPT is certain which repository the user means, it MUST still ask the user for the folder path"));
+assert.ok(MCP_QUICKSTART.includes('you MUST ask exactly: "Cho tôi đường dẫn tới thư mục làm việc."'));
+
+
 assert.ok(MCP_QUICKSTART.includes("The current PREPARE window starts at the user's most recent GPTWorker invocation"));
-assert.ok(MCP_QUICKSTART.includes("A FOLDER is valid only when the user explicitly provides the path AFTER the start of this current PREPARE window"));
+
 assert.ok(MCP_QUICKSTART.includes("Any path mentioned before the current GPTWorker invocation is stale for this work"));
 assert.ok(MCP_QUICKSTART.includes("TASK preparation must also use only what the user has said in the current PREPARE window"));
 assert.ok(MCP_QUICKSTART.includes("never mention or assume a specific repository/path as the place where the task lives"));
