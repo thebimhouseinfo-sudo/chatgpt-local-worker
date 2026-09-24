@@ -30,12 +30,22 @@ for (const modulePath of [
 
 for (const required of [
   "registerWorkGateway(",
-  "registerAdmissionTool(server, admissionRuntime)",
-  "new AdmissionRuntime()",
-  "registerWorkspaceDiscoveryTool(",
+  "registerJobTools(",
   ".prepareJob(job.id",
 ]) {
   assert.equal(serverFactory.includes(required), true, `server factory missing: ${required}`);
+}
+
+for (const retired of [
+  "registerAdmissionTool(",
+  "new AdmissionRuntime()",
+  "registerWorkspaceDiscoveryTool(",
+]) {
+  assert.equal(
+    serverFactory.includes(retired),
+    false,
+    `server factory must not preload retired PREPARE admission/discovery path: ${retired}`
+  );
 }
 
 for (const lazyModule of [
