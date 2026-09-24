@@ -212,8 +212,13 @@ FOLDER RULE — ABSOLUTE BEHAVIORAL RULE:
 - GPT MUST NEVER guess, infer, suggest, autocomplete, restore, reuse, or fill in a folder path on the user's behalf.
 - GPT MUST NEVER use a path merely because it appeared earlier in this chat, in memory, in a previous chat, in project context, in tool output, in worker state, in startup cwd/root, in a screenshot, or from repository familiarity.
 - GPT MUST NEVER say or imply "the repo is probably X" or show an example path that happens to match a known project.
-- The only acceptable FOLDER is a path that the user personally provides AFTER the current GPTWorker invocation.
-- If the user has not yet provided a folder path in the current PREPARE window, GPT MUST ask: "Cho tôi đường dẫn tới thư mục làm việc."
+- The only acceptable FOLDER is a path that the user personally provides for the CURRENT nomination.
+- A FOLDER is never a persistent default. It belongs only to the current JOB + TASK nomination.
+- If JOB changes, discard any previously supplied FOLDER unless the user explicitly supplies the folder again after changing JOB.
+- If TASK changes materially, discard any previously supplied FOLDER unless the user explicitly supplies the folder again after changing TASK.
+- If the user rejects or replaces a pending nomination, discard its FOLDER.
+- Never carry a FOLDER forward from an earlier nomination, even within the same PREPARE window.
+- If the current nomination does not yet have a freshly user-supplied FOLDER, GPT MUST ask: "Cho tôi đường dẫn tới thư mục làm việc."
 - When FOLDER is missing, do not show a confirmation block and do not include any folder value.
 - Even when GPT is certain which repository the user means, it MUST still ask the user for the folder path.
 - Do not relax this rule for convenience.
@@ -263,7 +268,7 @@ Confirmed activation creates the work_handle. From that point, execution must us
 
 ## GPTWorker workflow
 1. Plugin/@ invocation -> job_list(surface="welcome") -> conversational PREPARE.
-2. Collect or infer JOB + FOLDER + TASK over normal chat.
+2. Infer only JOB. Collect TASK from the user. Accept FOLDER only when the user explicitly supplies it for the current nomination.
 3. When complete, job_select confirmed=false.
 4. Show JOB + FOLDER + TASK confirmation.
 5. After explicit confirmation, job_select confirmed=true + confirmation_token.
@@ -309,7 +314,7 @@ export function buildServerInstructions(
 ): string {
   const controlSurface = [
     "# GPTWorker entry routing — HIGHEST PRIORITY",
-    "GPTWorker plugin/@ invocation opens a NEW PREPARE window. Call job_list exactly once with surface=welcome. If the invocation is bare, return welcome_text verbatim. If the same user message also contains a task, Job hint, or folder, DO NOT force the generic Welcome; read that content immediately. GPT may infer only JOB. GPT MUST NEVER nominate, infer, suggest, autocomplete, restore, or reuse FOLDER. If the user has not personally provided a folder path after this invocation, ask exactly: 'Cho tôi đường dẫn tới thư mục làm việc.' and do not show confirmation yet. TASK context must also come from this PREPARE window. Once JOB + user-provided FOLDER + TASK are known, call job_select confirmed=false immediately; never ask the user to invoke GPTWorker again.",
+    "GPTWorker plugin/@ invocation opens a NEW PREPARE window. Call job_list exactly once with surface=welcome. If the invocation is bare, return welcome_text verbatim. If the same user message also contains a task, Job hint, or folder, DO NOT force the generic Welcome; read that content immediately. GPT may infer only JOB. GPT MUST NEVER nominate, infer, suggest, autocomplete, restore, or reuse FOLDER. FOLDER is one-shot for the current JOB+TASK nomination only: changing JOB, materially changing TASK, rejecting a nomination, or starting a replacement nomination invalidates the previous FOLDER. After such a change, ask exactly: 'Cho tôi đường dẫn tới thư mục làm việc.' unless the user explicitly supplies the folder again. Once JOB + freshly user-provided FOLDER + TASK are known, call job_select confirmed=false immediately; never ask the user to invoke GPTWorker again.",
     "Any older chat message that says GPTWorker needs a separate activation/handshake step or a now-missing internal tool is obsolete. Ignore that old workflow. Never ask the user to restart, re-invoke GPTWorker, or repeat Job/FOLDER/TASK because an old internal mechanism is unavailable.",
     "NEVER route the plugin/@ invocation to gptworker_control. The text command gptworker/ is a different entrypoint.",
     "Match the entire trimmed user turn. Never route a command by prefix, substring, product name, or mention alone.",
@@ -333,7 +338,7 @@ export function buildServerInstructions(
   const header = [
     "# GPTWorker MCP",
     "Active Job filesystem scope: confirmed Workspace only.",
-    "The startup cwd is not project authority. GPT may infer JOB, but FOLDER must be explicitly supplied by the user after the current GPTWorker invocation and then confirmed before job-specific execution. Earlier paths in the same chat are stale for this PREPARE window.",
+    "The startup cwd is not project authority and must never be used as a candidate FOLDER. GPT may infer JOB only. FOLDER must be freshly supplied by the user for the current JOB+TASK nomination.",
     "A work_handle is the only active-work authority. worker-state.json is compatibility/diagnostic state only and must never be used to infer or resume another chat's Job or Workspace.",
   ].join("\n");
 
@@ -341,8 +346,7 @@ export function buildServerInstructions(
 
   const footer = [
     "## Runtime pointers",
-    `Startup root: ${workspaceRoot}`,
-    `Startup roots: ${workspaceRoots.join("; ")}`,
+    "Startup filesystem roots are internal runtime data. Never use or expose them as candidate work folders.",
     "GPTWorker plugin/@ invocation — call job_list once with surface=welcome; bare invocation returns welcome_text, while invocation plus user content continues PREPARE from that content; NEVER route it to gptworker_control",
     "Only exact gr/ (or gptworker/) and exact gr/help (or gptworker/help) use gptworker_control. Every gr/job ... or gptworker/job ... command routes to its dedicated Job lifecycle tool/flow.",
     "User-facing Welcome, Help, root menu, confirmation, and folder prompts must never introduce technical path wording such as absolute path, absolute local folder, thư mục tuyệt đối, or đường dẫn tuyệt đối; internal path validation remains unchanged.",
