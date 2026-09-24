@@ -208,35 +208,26 @@ assert.ok(instructions.startsWith("# GPTWorker entry routing — HIGHEST PRIORIT
 assert.ok(instructions.includes("gptworker_control once with surface=commands"));
 assert.ok(instructions.includes("gptworker_control once with surface=help"));
 assert.ok(instructions.includes("return the tool text verbatim and nothing else"));
-assert.ok(instructions.includes("BARE GPTWORKER PLUGIN INVOCATION IS THE JOB WELCOME ENTRYPOINT, NOT A SYSTEM COMMAND"));
-assert.ok(instructions.includes("NEVER call gptworker_control for the GPTWorker plugin chip/bare @gptworker invocation"));
-assert.ok(instructions.includes("plugin invocation and the text command gptworker/ are different entrypoints"));
+assert.ok(instructions.includes("GPTWorker plugin/@ invocation opens PREPARE mode"));
+assert.ok(instructions.includes("surface=welcome"));
+assert.ok(instructions.includes("NEVER route the plugin/@ invocation to gptworker_control"));
 assert.ok(instructions.includes("Never route a command by prefix, substring, product name, or mention alone."));
 assert.ok(instructions.includes("NEVER call gptworker_control for any gr/job"));
 assert.ok(instructions.includes("Exact gr/job stop or gptworker/job stop -> job_stop."));
 assert.ok(instructions.includes("Never return the root menu for job stop."));
 assert.ok(instructions.includes("Outside those immediately preceding choice lists, never interpret a bare number"));
-assert.ok(
-  !instructions.includes(GPTWORKER_ROOT_MENU),
-  "root menu text must not bloat initialize instructions"
-);
-assert.ok(
-  !instructions.includes(GPTWORKER_HELP),
-  "Help text must not bloat initialize instructions"
-);
-assert.ok(MCP_QUICKSTART.includes("Reply with \`welcome_text\` verbatim"));
-assert.ok(MCP_QUICKSTART.includes("call \`job_list\` exactly once"));
-assert.ok(MCP_QUICKSTART.includes("without repeating @gptworker"));
-assert.ok(MCP_QUICKSTART.includes("continuation_token"));
-assert.ok(MCP_QUICKSTART.includes("plugin/app link"));
-assert.ok(MCP_QUICKSTART.includes("contains no literal @gptworker text"));
 
-assert.ok(MCP_QUICKSTART.includes("MCP transport/session rotation"));
-assert.ok(MCP_QUICKSTART.includes("Never render, summarize, or expose that token"));
-
-assert.ok(MCP_QUICKSTART.includes("Dev Coding D:\\Projects\\MyApp"));
-assert.ok(MCP_QUICKSTART.includes("must not be rejected merely because it omits"));
-assert.ok(!MCP_QUICKSTART.includes("arm is one-shot"));
+assert.ok(MCP_QUICKSTART.includes("## GPTWorker PREPARE mode"));
+assert.ok(MCP_QUICKSTART.includes("JOB + absolute FOLDER + TASK"));
+assert.ok(MCP_QUICKSTART.includes("Do not require literal @gptworker text"));
+assert.ok(MCP_QUICKSTART.includes("do not use gptworker_admission or workspace_discover"));
+assert.ok(MCP_QUICKSTART.includes("job_select"));
+assert.ok(MCP_QUICKSTART.includes("confirmed=false"));
+assert.ok(MCP_QUICKSTART.includes("confirmed=true"));
+assert.ok(!MCP_QUICKSTART.includes("continuation_token"));
+assert.ok(!MCP_QUICKSTART.includes("admission_token"));
+assert.ok(!MCP_QUICKSTART.includes("MCP transport/session rotation"));
+assert.ok(!MCP_QUICKSTART.includes("workspace_discover:"));
 
 assert.ok(MCP_QUICKSTART.includes("Private/hidden Jobs must never be named, described, suggested, or enumerated on public surfaces."));
 assert.ok(!MCP_QUICKSTART.toLowerCase().includes("mto"), "model-facing quickstart must not reveal private Job identity");
@@ -269,9 +260,8 @@ assert.ok(!runtimeContext.instructionsText.includes(GPTWORKER_ROOT_MENU));
 assert.ok(!runtimeContext.instructionsText.includes(GPTWORKER_HELP));
 assert.ok(runtimeContext.instructionsText.includes("gptworker_control once with surface=commands"));
 assert.ok(runtimeContext.instructionsText.includes("gptworker_control once with surface=help"));
-assert.ok(runtimeContext.instructionsText.includes("BARE GPTWORKER PLUGIN INVOCATION IS THE JOB WELCOME ENTRYPOINT"));
-assert.ok(runtimeContext.instructionsText.indexOf("BARE GPTWORKER PLUGIN INVOCATION IS THE JOB WELCOME ENTRYPOINT") <
-          runtimeContext.instructionsText.indexOf("Only exact gr/"));
+assert.ok(runtimeContext.instructionsText.includes("GPTWorker plugin/@ invocation opens PREPARE mode"));
+assert.ok(runtimeContext.instructionsText.includes("JOB + absolute FOLDER + TASK"));
 
 
 console.log("test-quickstart: ok");
