@@ -262,7 +262,7 @@ function Test-McpServer([int]$TargetPort) {
     }
 }
 
-function Show-ConnectorGuide([int]$UiPort = 8080) {
+function Show-ConnectorGuide([int]$UiPort = 43121) {
     Write-Host ""
     Write-Host "=== ChatGPT Plugin (chi lam 1 lan) ===" -ForegroundColor Cyan
     Write-Host "1. Mo ChatGPT Settings -> Plugins va bat Developer mode."
@@ -277,7 +277,7 @@ function Show-ConnectorGuide([int]$UiPort = 8080) {
     Write-Host "10. Windows len lai -> mo ChatGPT -> go @gptworker."
     Write-Host "11. Go gptworker/help va doc huong dan truoc Job dau tien."
     Write-Host ""
-    Write-Host "KHONG nhap http://127.0.0.1:3000/mcp vao ChatGPT." -ForegroundColor Yellow
+    Write-Host "KHONG nhap http://127.0.0.1:43120/mcp vao ChatGPT." -ForegroundColor Yellow
     Write-Host "Tunnel ID chi dung noi bo de GPTWorker khoi dong Secure MCP Tunnel; UI ChatGPT chon tunnel tu list." -ForegroundColor DarkGray
     Write-Host ""
     Write-Host "Tunnel UI: http://127.0.0.1:$UiPort/ui" -ForegroundColor Green
@@ -512,9 +512,9 @@ function Invoke-TunnelInit {
     Write-Host "Dang kiem tra Tunnel + API key..." -ForegroundColor Cyan
 
     $envPort = Get-DotEnvValue "PORT"
-    $resolvedPort = if ($Port -gt 0) { $Port } elseif ($envPort) { [int]$envPort } else { 3000 }
+    $resolvedPort = if ($Port -gt 0) { $Port } elseif ($envPort) { [int]$envPort } else { 43120 }
     $envHealth = Get-DotEnvValue "OPENAI_TUNNEL_HEALTH_PORT"
-    $resolvedHealth = if ($HealthPort -gt 0) { $HealthPort } elseif ($envHealth) { [int]$envHealth } else { 8080 }
+    $resolvedHealth = if ($HealthPort -gt 0) { $HealthPort } elseif ($envHealth) { [int]$envHealth } else { 43121 }
     $mcpPath = Get-McpPath
     $mcpUrl = "http://127.0.0.1:$resolvedPort$mcpPath"
     Ensure-Profile -McpUrl $mcpUrl -TunnelId $resolvedTunnelId -TargetHealthPort $resolvedHealth
@@ -589,9 +589,9 @@ if ($Init) {
 }
 
 $envPort = Get-DotEnvValue "PORT"
-$resolvedPort = if ($Port -gt 0) { $Port } elseif ($envPort) { [int]$envPort } else { 3000 }
+$resolvedPort = if ($Port -gt 0) { $Port } elseif ($envPort) { [int]$envPort } else { 43120 }
 $envHealth = Get-DotEnvValue "OPENAI_TUNNEL_HEALTH_PORT"
-$resolvedHealth = if ($HealthPort -gt 0) { $HealthPort } elseif ($envHealth) { [int]$envHealth } else { 8080 }
+$resolvedHealth = if ($HealthPort -gt 0) { $HealthPort } elseif ($envHealth) { [int]$envHealth } else { 43121 }
 $tunnelId = Get-DotEnvValue "OPENAI_TUNNEL_ID"
 $apiKey = Get-DotEnvValue "OPENAI_TUNNEL_API_KEY"
 
@@ -638,7 +638,7 @@ if ($existingPid -and (Test-TunnelHealthy $resolvedHealth)) {
         Write-Host ""
         Write-Host "[LOI] Port $resolvedHealth dang bi PID $existingPid chiem (khong phai tunnel healthy)" -ForegroundColor Red
         Write-Host "Chay lai voi -Force de tat process cu, hoac doi port trong .env:" -ForegroundColor Yellow
-        Write-Host "  OPENAI_TUNNEL_HEALTH_PORT=8081" -ForegroundColor Cyan
+        Write-Host "  OPENAI_TUNNEL_HEALTH_PORT=43121" -ForegroundColor Cyan
         exit 1
     }
 }
