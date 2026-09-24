@@ -208,7 +208,7 @@ assert.ok(instructions.startsWith("# GPTWorker entry routing — HIGHEST PRIORIT
 assert.ok(instructions.includes("gptworker_control once with surface=commands"));
 assert.ok(instructions.includes("gptworker_control once with surface=help"));
 assert.ok(instructions.includes("return the tool text verbatim and nothing else"));
-assert.ok(instructions.includes("GPTWorker plugin/@ invocation opens PREPARE mode"));
+assert.ok(instructions.includes("GPTWorker plugin/@ invocation opens a NEW PREPARE window"));
 assert.ok(instructions.includes("If the invocation is bare, return welcome_text verbatim"));
 assert.ok(instructions.includes("DO NOT force the generic Welcome"));
 assert.ok(instructions.includes("ask only for missing JOB/FOLDER/TASK"));
@@ -285,7 +285,7 @@ assert.ok(!runtimeContext.instructionsText.includes(GPTWORKER_ROOT_MENU));
 assert.ok(!runtimeContext.instructionsText.includes(GPTWORKER_HELP));
 assert.ok(runtimeContext.instructionsText.includes("gptworker_control once with surface=commands"));
 assert.ok(runtimeContext.instructionsText.includes("gptworker_control once with surface=help"));
-assert.ok(runtimeContext.instructionsText.includes("GPTWorker plugin/@ invocation opens PREPARE mode"));
+assert.ok(runtimeContext.instructionsText.includes("GPTWorker plugin/@ invocation opens a NEW PREPARE window"));
 assert.ok(runtimeContext.instructionsText.includes("JOB + absolute FOLDER + TASK"));
 
 
