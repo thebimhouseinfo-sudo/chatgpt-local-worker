@@ -37,6 +37,10 @@ const bareAtResult = await jobList.callback({
 const payload = JSON.stringify(bareAtResult);
 assert.ok(payload.includes('"at_flow_armed":true'));
 assert.equal(admissionRuntime.isExplicitAtFlowArmed(), true);
+const bareData = bareAtResult.structuredContent?.data ?? bareAtResult.structuredContent ?? bareAtResult;
+const continuationToken = bareData.continuation_token;
+assert.match(continuationToken, /^[0-9a-f-]{36}$/i);
+assert.ok(!bareData.welcome_text.includes(continuationToken), "opaque continuation token must never be rendered in Welcome");
 assert.ok(payload.includes('"welcome_text"'));
 assert.ok(!payload.includes('"jobs":'), "bare @ must not expose the catalog payload to ChatGPT");
 assert.ok(!payload.includes('"suggested_job_ids":'), "bare @ must return only the completed Welcome surface");
@@ -54,6 +58,29 @@ const continuation = admissionRuntime.check({
   workspace,
 });
 assert.equal(continuation.mode, "ACTIVE");
+
+// Simulate ChatGPT rotating to a fresh MCP server/runtime between turns.
+// The hidden token, not process-global guessing, must preserve this exact chat flow.
+const rotatedRuntime = new AdmissionRuntime();
+assert.equal(rotatedRuntime.isExplicitAtFlowArmed(), false);
+const rotatedContinuation = rotatedRuntime.check({
+  userTurn: `Dev Coding ${workspace}`,
+  hasConcreteTask: true,
+  workspace,
+  continuationToken,
+});
+assert.equal(rotatedContinuation.mode, "ACTIVE");
+assert.equal(path.resolve(rotatedContinuation.workspace), path.resolve(workspace));
+assert.equal(rotatedContinuation.continuation_token, continuationToken);
+
+const unrelatedRuntime = new AdmissionRuntime();
+const noTokenCrossSession = unrelatedRuntime.check({
+  userTurn: `Dev Coding ${workspace}`,
+  hasConcreteTask: true,
+  workspace,
+});
+assert.equal(noTokenCrossSession.mode, "INACTIVE", "a different chat/session cannot inherit another chat's arm without the opaque token");
+
 assert.equal(
   admissionRuntime.isExplicitAtFlowArmed(),
   true,
