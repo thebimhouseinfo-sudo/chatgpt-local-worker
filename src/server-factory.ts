@@ -3,10 +3,8 @@ import { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import { z } from "zod";
 import { registerJobTools } from "./tools/jobs.js";
 import { registerGptworkerControlTool } from "./tools/control.js";
-import { registerAdmissionTool } from "./tools/admission.js";
 import { registerWorkGateway } from "./tools/work-gateway.js";
 import { registerWorkspaceDiscoveryTool } from "./tools/workspace-discovery.js";
-import { AdmissionRuntime } from "./lib/activation-policy.js";
 import { TOOL_RESULT_OUTPUT_SCHEMA } from "./lib/tool-result.js";
 import { JobRuntime } from "./jobs/job-runtime.js";
 import { runWithWorkspaceScope } from "./lib/path-security.js";
@@ -128,14 +126,6 @@ export function createMcpServer(
   // admission and Job Runtime because it does not need either of them.
   registerGptworkerControlTool(server);
 
-  // Admission authority is scoped to this MCP server/session so tokens cannot
-  // authorize another chat/session.
-  const admissionRuntime = new AdmissionRuntime();
-
-  // The admission handshake is the first internal gate whenever ChatGPT is
-  // considering GPTWorker for ordinary work. It returns ACTIVE/CONTROL/INACTIVE.
-  registerAdmissionTool(server, admissionRuntime);
-
   const jobRuntime = new JobRuntime();
   const workResolver = registerWorkGateway(
     server,
@@ -167,7 +157,7 @@ export function createMcpServer(
     clear() {
       workResolver.clearPreparedJob();
     },
-  }, admissionRuntime);
+  });
 
   return server;
 }
