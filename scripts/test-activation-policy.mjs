@@ -30,10 +30,11 @@ assert.equal(
 );
 
 const connectorArmRuntime = new AdmissionRuntime();
+const connectorContinuationToken = connectorArmRuntime.armExplicitAt("connector mention: @gptworker");
 assert.equal(
-  connectorArmRuntime.armExplicitAt("connector mention: @gptworker"),
-  true,
-  "bare connector/job-list arming must preserve the previously working mention behavior"
+  typeof connectorContinuationToken,
+  "string",
+  "bare connector/job-list arming must mint an opaque continuation token"
 );
 assert.equal(connectorArmRuntime.isExplicitAtFlowArmed(), true);
 
@@ -75,7 +76,7 @@ assert.equal(
   "leading whitespace before @gptworker should preserve the normal invocation flow"
 );
 
-// A current-turn @gptworker request must not leave a stale arm behind either.
+// A current-turn @gptworker arms the chat flow until stop/timeout.
 const directAfterExplicit = fresh.check({
   userTurn: `Tiếp tục sửa ${workspace}`,
   hasConcreteTask: true,
@@ -83,24 +84,21 @@ const directAfterExplicit = fresh.check({
 });
 assert.equal(
   directAfterExplicit.mode,
-  "INACTIVE",
-  "explicit @gptworker admission must not arm future direct requests"
+  "ACTIVE",
+  "explicit @gptworker must keep later turns in the same chat flow active"
 );
 assert.equal(
   fresh.isExplicitAtFlowArmed(),
-  false,
-  "explicit admission must consume the temporary @ arm"
+  true,
+  "explicit admission must keep the @ flow armed"
 );
 
 // Bare @gptworker can arm the current transport/runtime for the next Job+Workspace reply.
 const continuationRuntime = new AdmissionRuntime();
 assert.equal(continuationRuntime.isExplicitAtFlowArmed(), false);
-assert.equal(
-  continuationRuntime.armExplicitAt("@gptworker"),
-  true,
-  "literal @gptworker must arm the current transport/runtime"
-);
-assert.equal(continuationRuntime.isExplicitAtFlowArmed(), true);
+const continuationToken = continuationRuntime.armExplicitAt("@gptworker");
+assert.equal(typeof continuationToken, "string");
+assert.equal(continuationRuntime.isExplicitAtFlowArmed(continuationToken), true);
 
 const continuationAdmission = continuationRuntime.check({
   userTurn: `2 ${workspace}`,
@@ -112,8 +110,7 @@ assert.equal(continuationAdmission.trigger, "explicit_gptworker");
 assert.equal(continuationAdmission.workspace, workspace);
 assert.equal(typeof continuationAdmission.admission_token, "string");
 
-// The @ arm is one-shot. After the first admitted continuation, a later
-// direct task+path in the same runtime must NOT inherit GPTWorker authority.
+// The @ arm persists across later messages in the same chat/runtime.
 const secondDirectAfterContinuation = continuationRuntime.check({
   userTurn: `Sửa tiếp repo ở ${workspace}`,
   hasConcreteTask: true,
@@ -121,13 +118,13 @@ const secondDirectAfterContinuation = continuationRuntime.check({
 });
 assert.equal(
   secondDirectAfterContinuation.mode,
-  "INACTIVE",
-  "armed @gptworker authority must be consumed after the first continuation"
+  "ACTIVE",
+  "armed @gptworker authority must persist until stop/timeout"
 );
 assert.equal(
   continuationRuntime.isExplicitAtFlowArmed(),
-  false,
-  "continuation admission must consume the temporary @ arm"
+  true,
+  "continuation admission must not consume the @ arm"
 );
 
 assert.equal(
@@ -172,7 +169,7 @@ assert.throws(
   /ADMISSION_REQUIRED/
 );
 
-// A fresh runtime/transport does not inherit the temporary bare-@ arm.
+// A fresh runtime/transport does not inherit another chat's arm implicitly.
 const otherTransport = new AdmissionRuntime();
 assert.equal(otherTransport.isExplicitAtFlowArmed(), false);
 const crossTransportDirect = otherTransport.check({
@@ -181,6 +178,16 @@ const crossTransportDirect = otherTransport.check({
   workspace,
 });
 assert.equal(crossTransportDirect.mode, "INACTIVE");
+
+// But the hidden continuation token preserves this exact chat flow across MCP rotation.
+const crossTransportWithFlow = otherTransport.check({
+  userTurn: `Đọc repo ${workspace} và lên kế hoạch`,
+  hasConcreteTask: true,
+  workspace,
+  continuationToken,
+});
+assert.equal(crossTransportWithFlow.mode, "ACTIVE");
+assert.equal(crossTransportWithFlow.continuation_token, continuationToken);
 
 // But once an opaque admission token has been minted, that token is the
 // authority carrier and must survive legitimate MCP transport rotation.
