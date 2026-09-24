@@ -165,8 +165,11 @@ export class AdmissionRuntime {
         workspace = path.resolve(candidate);
       }
     } else if (this.armedAtFlow) {
-      // Continuation is allowed only after an explicit @gptworker invocation
-      // was observed in this exact MCP session.
+      // Once this chat/session was explicitly armed by @gptworker, subsequent
+      // turns remain part of the GPTWorker flow even when Job, Workspace and
+      // task arrive in separate messages. A Workspace is bound only when the
+      // current turn actually supplies a matching absolute path.
+      invocationRequest = this.armedAtFlow.invocationRequest;
       const candidate = input.workspace?.trim();
       const validWorkspace =
         Boolean(candidate) &&
@@ -174,7 +177,6 @@ export class AdmissionRuntime {
         includesPath(userTurn, candidate!);
 
       if (validWorkspace) {
-        invocationRequest = this.armedAtFlow.invocationRequest;
         workspace = path.resolve(candidate!);
       }
     }
