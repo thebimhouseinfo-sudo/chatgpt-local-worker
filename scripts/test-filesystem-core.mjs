@@ -37,6 +37,7 @@ const expected = [
   "list_directory",
   "glob",
   "grep",
+  "recycle_file",
   "delete_file",
   "create_directory",
   "delete_directory",
