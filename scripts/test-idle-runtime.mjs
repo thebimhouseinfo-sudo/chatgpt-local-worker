@@ -125,6 +125,16 @@ assert.equal(setupFlow.includes("[int]$envTunnelPort -eq 8080"), true);
 assert.equal(setupFlow.includes("$WorkerPort = 43120"), true);
 assert.equal(setupFlow.includes("$TunnelPort = 43121"), true);
 
+// setup.bat/source install must rebuild from current source rather than trust shipped dist.
+assert.equal(setupFlow.includes('& npm ci --no-audit --no-fund'), true);
+assert.equal(setupFlow.includes('& npm run build'), true);
+assert.equal(setupFlow.includes('if (-not (Test-Path "src\\index.ts"))'), true);
+assert.equal(setupFlow.includes('Runtime dist có sẵn — không build lại'), false);
+assert.equal(buildRelease.includes('foreach ($dir in @("src", "jobs", "docs"))'), true);
+assert.equal(buildRelease.includes('foreach ($dir in @("dist", "jobs", "docs"))'), false);
+assert.equal(buildRelease.includes('"tsconfig.json"'), true);
+assert.equal(start.includes('if (Test-Path "release-manifest.json") { return $false }'), false);
+
 // Windows installer and manual launchers must carry GPTWorker branding.
 assert.equal(buildRelease.includes('"gptworker icon.png"'), true);
 assert.equal(buildRelease.includes('"gptworker.ico"'), true);
