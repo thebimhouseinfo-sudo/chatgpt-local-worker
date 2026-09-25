@@ -55,15 +55,40 @@ async function sendFileToRecycleBin(filePath: string): Promise<void> {
     throw new Error("Recycle Bin is supported only on Windows.");
   }
 
+  // Use the native Windows Shell API instead of Microsoft.VisualBasic.FileIO.
+  // Some Windows/PowerShell combinations do not expose UIOption reliably.
   const escapedPath = filePath.replace(/'/g, "''");
   const command = [
-    "Add-Type -AssemblyName Microsoft.VisualBasic",
-    "[Microsoft.VisualBasic.FileIO.FileSystem]::DeleteFile(",
-    "'" + escapedPath + "',",
-    "[Microsoft.VisualBasic.FileIO.UIOption]::OnlyErrorDialogs,",
-    "[Microsoft.VisualBasic.FileIO.RecycleOption]::SendToRecycleBin",
-    ")",
-  ].join(" ");
+    '$source = @"',
+    'using System;',
+    'using System.Runtime.InteropServices;',
+    'public static class GptWorkerRecycleBin {',
+    '  [StructLayout(LayoutKind.Sequential, CharSet = CharSet.Unicode)]',
+    '  public struct SHFILEOPSTRUCT {',
+    '    public IntPtr hwnd;',
+    '    public uint wFunc;',
+    '    [MarshalAs(UnmanagedType.LPWStr)] public string pFrom;',
+    '    [MarshalAs(UnmanagedType.LPWStr)] public string pTo;',
+    '    public ushort fFlags;',
+    '    [MarshalAs(UnmanagedType.Bool)] public bool fAnyOperationsAborted;',
+    '    public IntPtr hNameMappings;',
+    '    [MarshalAs(UnmanagedType.LPWStr)] public string lpszProgressTitle;',
+    '  }',
+    '  [DllImport("shell32.dll", CharSet = CharSet.Unicode)]',
+    '  private static extern int SHFileOperation(ref SHFILEOPSTRUCT FileOp);',
+    '  public static int Recycle(string path) {',
+    '    var op = new SHFILEOPSTRUCT();',
+    '    op.wFunc = 3;',
+    '    op.pFrom = path + "\\0\\0";',
+    '    op.fFlags = 0x0040 | 0x0010 | 0x0004;',
+    '    return SHFileOperation(ref op);',
+    '  }',
+    '}',
+    '"@',
+    'Add-Type -TypeDefinition $source',
+    "$result = [GptWorkerRecycleBin]::Recycle('" + escapedPath + "')",
+    'if ($result -ne 0) { throw "SHFileOperation recycle failed with code $result" }',
+  ].join("\n");
 
   const encoded = Buffer.from(command, "utf16le").toString("base64");
   await execFileAsync("powershell.exe", [
@@ -553,44 +578,63 @@ export function registerFilesystemTools(server: McpServer): void {
     }
   );
 
-  server.registerTool(
-    "recycle_file",
-    {
-      title: "Recycle File",
-      description:
-        "Move one file from the confirmed Workspace to the Windows Recycle Bin. This is recoverable and preferred over permanent deletion for user-data cleanup.",
-      inputSchema: { path: z.string() },
-      annotations: toolAnnotations("edit"),
-    },
-    async ({ path: filePath }) => {
-      const validPath = await validatePath(filePath);
-      await requireFile(validPath);
-      await sendFileToRecycleBin(validPath);
+  async function recycleWorkspaceFile(
+    toolName: "delete_file" | "recycle_file",
+    filePath: string
+  ) {
+    const validPath = await validatePath(filePath);
+    await requireFile(validPath);
+    await sendFileToRecycleBin(validPath);
 
-      const stillExists = await fs.stat(validPath).then(() => true).catch(() => false);
-      if (stillExists) {
-        throw new Error("Recycle operation completed but the source file still exists: " + validPath);
-      }
-
-      logToolActivity({
-        tool: "recycle_file",
-        action: "recycle",
-        target: validPath,
-        status: "ok",
-      });
-
-      return toolResult("recycle_file", {
-        path: validPath,
-        recoverable: true,
-      });
+    const stillExists = await fs.stat(validPath).then(() => true).catch(() => false);
+    if (stillExists) {
+      throw new Error("Recycle operation completed but the source file still exists: " + validPath);
     }
-  );
+
+    logToolActivity({
+      tool: toolName,
+      action: "recycle",
+      target: validPath,
+      status: "ok",
+    });
+
+    return toolResult(toolName, {
+      path: validPath,
+      recoverable: true,
+      deletion_mode: "recycle_bin",
+    });
+  }
 
   server.registerTool(
     "delete_file",
     {
       title: "Delete File",
-      description: "Delete one file inside the confirmed Workspace.",
+      description:
+        "Delete one file from the confirmed Workspace by moving it to the Windows Recycle Bin. This is the default Windows delete behavior and is recoverable.",
+      inputSchema: { path: z.string() },
+      annotations: toolAnnotations("edit"),
+    },
+    async ({ path: filePath }) => recycleWorkspaceFile("delete_file", filePath)
+  );
+
+  server.registerTool(
+    "recycle_file",
+    {
+      title: "Recycle File",
+      description:
+        "Compatibility alias for delete_file. Move one file from the confirmed Workspace to the Windows Recycle Bin.",
+      inputSchema: { path: z.string() },
+      annotations: toolAnnotations("edit"),
+    },
+    async ({ path: filePath }) => recycleWorkspaceFile("recycle_file", filePath)
+  );
+
+  server.registerTool(
+    "hard_delete_file",
+    {
+      title: "Hard Delete File",
+      description:
+        "Permanently delete one file inside the confirmed Workspace without using the Recycle Bin. Use only when the user explicitly requests hard delete, Shift+Delete, or permanent deletion.",
       inputSchema: { path: z.string() },
       annotations: toolAnnotations("destructive"),
     },
@@ -600,13 +644,17 @@ export function registerFilesystemTools(server: McpServer): void {
       await fs.unlink(validPath);
 
       logToolActivity({
-        tool: "delete_file",
-        action: "delete",
+        tool: "hard_delete_file",
+        action: "hard-delete",
         target: validPath,
         status: "ok",
       });
 
-      return toolResult("delete_file", { path: validPath });
+      return toolResult("hard_delete_file", {
+        path: validPath,
+        recoverable: false,
+        deletion_mode: "permanent",
+      });
     }
   );
 
