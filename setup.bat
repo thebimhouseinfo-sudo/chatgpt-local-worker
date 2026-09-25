@@ -2,7 +2,9 @@
 chcp 65001 >nul
 setlocal
 cd /d "%~dp0"
-title GPTWorker Setup
+title GPTWorker Source Setup
+
+echo [GPTWorker] Building current source before starting runtime...
 
 powershell -NoLogo -NoProfile -ExecutionPolicy Bypass -File "%~dp0scripts\setup-flow.ps1"
 set "EC=%ERRORLEVEL%"
