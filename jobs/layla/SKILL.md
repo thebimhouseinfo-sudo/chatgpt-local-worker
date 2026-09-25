@@ -76,6 +76,7 @@ After Gate 2, choose the best available method for the task.
 Examples:
 
 - direct filesystem tools for file organization/rename/copy/move work;
+- for duplicate cleanup or ordinary user-file removal on Windows, prefer `recycle_file`; this removes the item from the working folder but keeps it recoverable in the Windows Recycle Bin. Use permanent `delete_file` only when irreversible deletion is explicitly required and allowed;
 - text editing for TXT/Markdown/config-like files;
 - suitable local document/spreadsheet/presentation/PDF tooling or scripts;
 - shell commands or short helper scripts when they are the most reliable transformation method;
