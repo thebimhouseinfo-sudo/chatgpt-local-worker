@@ -51,6 +51,10 @@ for (const retired of [
   );
 }
 
+assert.equal(workGateway.includes('"hard_delete_file"'), true);
+assert.equal(workGateway.includes('"delete_file"'), true);
+assert.equal(workGateway.includes('"recycle_file"'), true);
+
 for (const lazyModule of [
   'import("./filesystem.js")',
   'import("./shell.js")',
