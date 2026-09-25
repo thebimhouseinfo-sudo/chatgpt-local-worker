@@ -20,7 +20,7 @@ interface FamilyCache {
 export const FAMILY_TOOLS = {
   filesystem: [
     "read_text_file", "write_file", "edit_file", "apply_patch",
-    "list_directory", "glob", "grep", "recycle_file", "delete_file",
+    "list_directory", "glob", "grep", "delete_file", "recycle_file", "hard_delete_file",
     "create_directory", "delete_directory", "copy_file", "move_file",
   ],
   shell: [
