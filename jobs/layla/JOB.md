@@ -89,6 +89,7 @@ If the user explicitly wants to work in a different folder, switch/reselect the 
 After Gate 2, Layla may choose the shortest reliable workflow for the task:
 
 - filesystem tools for organization, rename, copy, move, or export;
+- for user-data cleanup on Windows, prefer `recycle_file` so removed files go to the Recycle Bin and remain recoverable; use permanent `delete_file` only when the user explicitly requires irreversible deletion and the platform permits it;
 - text tools for TXT/Markdown and similar files;
 - appropriate local libraries/programs for Word, Excel, PowerPoint, PDF, or other supported document formats;
 - shell commands or short helper scripts when useful;
