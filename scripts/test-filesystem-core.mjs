@@ -37,14 +37,26 @@ const expected = [
   "list_directory",
   "glob",
   "grep",
-  "recycle_file",
   "delete_file",
+  "recycle_file",
+  "hard_delete_file",
   "create_directory",
   "delete_directory",
   "copy_file",
   "move_file",
 ];
 assert.deepEqual([...registered.keys()], expected);
+
+assert.match(
+  registered.get("delete_file").config.description,
+  /Recycle Bin/,
+  "normal delete must advertise Recycle Bin semantics"
+);
+assert.match(
+  registered.get("hard_delete_file").config.description,
+  /Permanently delete/,
+  "hard delete must be explicitly irreversible"
+);
 
 for (const retired of [
   "read_file_base64",
@@ -188,8 +200,17 @@ await runWithWorkspaceScope(root, [], async () => {
     /Workspace root/
   );
 
-  result = await call("delete_file", { path: moved });
-  assert.equal(result.structuredContent.ok, true);
+  if (process.platform === "win32") {
+    result = await call("delete_file", { path: moved });
+    assert.equal(result.structuredContent.ok, true);
+    assert.equal(result.structuredContent.data.recoverable, true);
+    assert.equal(result.structuredContent.data.deletion_mode, "recycle_bin");
+  } else {
+    result = await call("hard_delete_file", { path: moved });
+    assert.equal(result.structuredContent.ok, true);
+    assert.equal(result.structuredContent.data.recoverable, false);
+    assert.equal(result.structuredContent.data.deletion_mode, "permanent");
+  }
 
   result = await call("delete_directory", { path: dir });
   assert.equal(result.structuredContent.ok, true);
