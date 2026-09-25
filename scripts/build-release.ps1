@@ -49,6 +49,7 @@ New-Item -ItemType Directory -Force -Path $outputDir | Out-Null
 $rootFiles = @(
     "package.json",
     "package-lock.json",
+    "tsconfig.json",
     ".env.example",
     "LICENSE",
     "README.md",
@@ -95,7 +96,7 @@ try {
 }
 if (-not (Test-Path $icoPath)) { throw "Failed to generate gptworker.ico" }
 
-foreach ($dir in @("dist", "jobs", "docs")) {
+foreach ($dir in @("src", "jobs", "docs")) {
     if (-not (Test-Path $dir)) { throw "Release directory missing: $dir" }
     Copy-Item $dir (Join-Path $stage $dir) -Recurse -Force
 }
