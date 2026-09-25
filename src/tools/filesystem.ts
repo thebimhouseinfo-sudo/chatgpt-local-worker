@@ -1,4 +1,6 @@
 import fs from "node:fs/promises";
+import { execFile } from "node:child_process";
+import { promisify } from "node:util";
 import path from "node:path";
 import { z } from "zod";
 import type { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
@@ -17,6 +19,8 @@ import {
 import { globFiles, grepSearch } from "../lib/file-search.js";
 import { toolAnnotations } from "../lib/tool-annotations.js";
 import { toolResult } from "../lib/tool-result.js";
+
+const execFileAsync = promisify(execFile);
 
 function samePath(a: string, b: string): boolean {
   const left = path.resolve(a);
@@ -44,6 +48,34 @@ async function requireDirectory(dirPath: string): Promise<void> {
   if (!stat.isDirectory()) {
     throw new Error(`Path is not a directory: ${dirPath}`);
   }
+}
+
+async function sendFileToRecycleBin(filePath: string): Promise<void> {
+  if (process.platform !== "win32") {
+    throw new Error("Recycle Bin is supported only on Windows.");
+  }
+
+  const escapedPath = filePath.replace(/'/g, "''");
+  const command = [
+    "Add-Type -AssemblyName Microsoft.VisualBasic",
+    "[Microsoft.VisualBasic.FileIO.FileSystem]::DeleteFile(",
+    "'" + escapedPath + "',",
+    "[Microsoft.VisualBasic.FileIO.UIOption]::OnlyErrorDialogs,",
+    "[Microsoft.VisualBasic.FileIO.RecycleOption]::SendToRecycleBin",
+    ")",
+  ].join(" ");
+
+  const encoded = Buffer.from(command, "utf16le").toString("base64");
+  await execFileAsync("powershell.exe", [
+    "-NoLogo",
+    "-NoProfile",
+    "-NonInteractive",
+    "-EncodedCommand",
+    encoded,
+  ], {
+    windowsHide: true,
+    timeout: 30000,
+  });
 }
 
 async function applyExactEdit(
@@ -517,6 +549,39 @@ export function registerFilesystemTools(server: McpServer): void {
         pattern,
         output_mode,
         output,
+      });
+    }
+  );
+
+  server.registerTool(
+    "recycle_file",
+    {
+      title: "Recycle File",
+      description:
+        "Move one file from the confirmed Workspace to the Windows Recycle Bin. This is recoverable and preferred over permanent deletion for user-data cleanup.",
+      inputSchema: { path: z.string() },
+      annotations: toolAnnotations("edit"),
+    },
+    async ({ path: filePath }) => {
+      const validPath = await validatePath(filePath);
+      await requireFile(validPath);
+      await sendFileToRecycleBin(validPath);
+
+      const stillExists = await fs.stat(validPath).then(() => true).catch(() => false);
+      if (stillExists) {
+        throw new Error("Recycle operation completed but the source file still exists: " + validPath);
+      }
+
+      logToolActivity({
+        tool: "recycle_file",
+        action: "recycle",
+        target: validPath,
+        status: "ok",
+      });
+
+      return toolResult("recycle_file", {
+        path: validPath,
+        recoverable: true,
       });
     }
   );
