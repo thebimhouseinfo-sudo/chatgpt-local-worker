@@ -99,6 +99,14 @@ try {
   assert.ok(errEntry, "expected persisted error activity entry");
   assert.equal(errEntry.summary, "Bad Request: Server not initialized");
 
+  logMcpRequest({ method: "notifications/initialized" }, "sess-notify", 1, 202);
+  await flushRuntimeLog();
+  const notification = (await loadRuntimeLog(100)).find(
+    (e) => e.action === "notifications/initialized" && e.session_id === "sess-notify"
+  );
+  assert.ok(notification, "expected persisted MCP notification");
+  assert.equal(notification.details.http_status, 202);
+
   const summarized = summarizeToolArgs("custom_tool", {
     execution_id: "exec:dev-coding@test#123456:e1:g1",
     authority_token: "super-secret-authority-token-value",

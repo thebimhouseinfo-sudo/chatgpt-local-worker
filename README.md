@@ -80,6 +80,21 @@ Dev Coding có thể dùng Vercel `agent-browser` để kiểm tra web/app trên
 
 ## Phát triển
 
+### Log tự động
+
+GPTWorker ghi hoạt động MCP, công cụ, phiên làm việc và khởi động/dừng vào `.mcp-activity.jsonl` trong thư mục Worker (`LOCAL_WORKER_HOME`, hoặc thư mục khởi động). Log chứa thời gian, mã yêu cầu/phiên/công việc khi có, trạng thái và dữ liệu chẩn đoán đã che các dạng thông tin bí mật được nhận diện. Trạng thái HTTP không luôn phản ánh kết quả nghiệp vụ của công cụ; hãy đối chiếu sự kiện thực thi công việc.
+
+Ghi file chạy bất đồng bộ. Lỗi ghi log không được truyền vào thao tác đang chạy. Hàng đợi tối đa 1.000 bản ghi hoặc 4 MB; khi đầy, bản ghi mới bị bỏ để Worker tiếp tục hoạt động. Log là dữ liệu chẩn đoán có giới hạn, không bảo đảm lưu mọi sự kiện khi quá tải hoặc tiến trình bị tắt đột ngột.
+
+Các biến môi trường tùy chọn:
+
+- `ACTIVITY_LOG_PATH`: đường dẫn file log.
+- `ACTIVITY_LOG_ROTATE_BYTES`: ngưỡng xoay file, mặc định 20 MB; giữ một file cũ với đuôi `.1`. File có thể vượt ngưỡng nếu một bản ghi riêng lẻ lớn hơn ngưỡng.
+- `ACTIVITY_LOG_MAX_RECORD_BYTES`: giới hạn mỗi bản ghi, mặc định 32 KB, tối thiểu 256 byte. Bản ghi lớn được thay bằng thông báo rút gọn.
+- `ACTIVITY_LOG_DISABLED=true`: tắt ghi file log.
+
+### Kiểm tra và build
+
 ```powershell
 npm ci
 npm run build
