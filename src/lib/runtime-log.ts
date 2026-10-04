@@ -3,7 +3,22 @@ import path from "node:path";
 
 const DEFAULT_ROTATE_BYTES = 20 * 1024 * 1024;
 const DEFAULT_MAX_RECORD_BYTES = 32 * 1024;
+const MAX_PENDING_RECORDS = 1000;
+const MAX_PENDING_BYTES = 4 * 1024 * 1024;
 let writeQueue: Promise<void> = Promise.resolve();
+let pendingRecords = 0;
+let pendingBytes = 0;
+let droppedRecords = 0;
+let failedRecords = 0;
+
+export function getRuntimeLogStats() {
+  return {
+    pending_records: pendingRecords,
+    pending_bytes: pendingBytes,
+    dropped_records: droppedRecords,
+    failed_records: failedRecords,
+  };
+}
 
 function positiveEnv(name: string, fallback: number): number {
   const value = Number.parseInt(process.env[name] || "", 10);
@@ -41,10 +56,10 @@ async function rotateIfNeeded(filePath: string, nextBytes: number): Promise<void
   }
 }
 
-async function appendRecord(record: Record<string, unknown>): Promise<void> {
-  const filePath = getRuntimeLogPath();
+function serializeRecord(record: Record<string, unknown>): string {
   const line = `${JSON.stringify(record)}\n`;
-  const maxRecordBytes = positiveEnv("ACTIVITY_LOG_MAX_RECORD_BYTES", DEFAULT_MAX_RECORD_BYTES);
+  // A usable JSON envelope needs a minimum budget, even with tiny env values.
+  const maxRecordBytes = Math.max(256, positiveEnv("ACTIVITY_LOG_MAX_RECORD_BYTES", DEFAULT_MAX_RECORD_BYTES));
   const bounded = Buffer.byteLength(line, "utf8") > maxRecordBytes
     ? `${JSON.stringify({
         schema_version: record.schema_version,
@@ -53,23 +68,55 @@ async function appendRecord(record: Record<string, unknown>): Promise<void> {
         kind: record.kind,
         action: record.action,
         status: record.status,
+        pid: record.pid,
+        request_id: record.request_id,
+        session_id: record.session_id,
+        work_id: record.work_id,
+        lease_id: record.lease_id,
+        job_id: record.job_id,
+        workspace_key: record.workspace_key,
+        tool: record.tool,
         summary: "[record truncated]",
         details: { truncated: true },
       })}\n`
     : line;
+  if (Buffer.byteLength(bounded, "utf8") <= maxRecordBytes) return bounded;
+  return `${JSON.stringify({ schema_version: 1, summary: "[record truncated]", details: { truncated: true } })}\n`;
+}
 
+async function appendRecord(filePath: string, line: string): Promise<void> {
   await fs.mkdir(path.dirname(filePath), { recursive: true });
-  await rotateIfNeeded(filePath, Buffer.byteLength(bounded, "utf8"));
-  await fs.appendFile(filePath, bounded, "utf8");
+  await rotateIfNeeded(filePath, Buffer.byteLength(line, "utf8"));
+  await fs.appendFile(filePath, line, "utf8");
 }
 
 /** Queue logging work so file I/O cannot delay or fail the caller. */
 export function enqueueRuntimeLog(record: Record<string, unknown>): void {
-  if (isDisabled()) return;
-  writeQueue = writeQueue
-    .catch(() => undefined)
-    .then(() => appendRecord(record))
-    .catch(() => undefined);
+  try {
+    if (isDisabled()) return;
+    if (pendingRecords >= MAX_PENDING_RECORDS) {
+      droppedRecords += 1;
+      return;
+    }
+    const filePath = getRuntimeLogPath();
+    const line = serializeRecord(record);
+    const bytes = Buffer.byteLength(line, "utf8");
+    if (pendingBytes + bytes > MAX_PENDING_BYTES) {
+      droppedRecords += 1;
+      return;
+    }
+    pendingRecords += 1;
+    pendingBytes += bytes;
+    writeQueue = writeQueue
+      .then(() => appendRecord(filePath, line))
+      .catch(() => { failedRecords += 1; })
+      .finally(() => {
+        pendingRecords -= 1;
+        pendingBytes -= bytes;
+      });
+  } catch {
+    failedRecords += 1;
+  }
 }
 
 export async function flushRuntimeLog(): Promise<void> {

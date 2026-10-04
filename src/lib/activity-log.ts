@@ -57,6 +57,14 @@ function redactString(value: string): string {
 }
 
 export function sanitizeActivityValue(value: unknown, key = "", depth = 0): unknown {
+  try {
+    return sanitizeValue(value, key, depth);
+  } catch {
+    return "[UNAVAILABLE]";
+  }
+}
+
+function sanitizeValue(value: unknown, key: string, depth: number): unknown {
   if (SENSITIVE_KEY.test(key)) return "[REDACTED]";
   if (typeof value === "string") return redactString(value);
   if (value === null || typeof value === "number" || typeof value === "boolean") return value;
@@ -106,7 +114,11 @@ export function appendActivity(partial: Omit<ActivityEntry, "id" | "time"> & { t
       : partial.details,
   };
 
-  writeConsole(entry);
+  try {
+    writeConsole(entry);
+  } catch {
+    // A closed console pipe must not break the operation being observed.
+  }
   enqueueRuntimeLog(entry as unknown as Record<string, unknown>);
   return entry;
 }
@@ -361,7 +373,7 @@ export function logMcpRequest(
     return;
   }
 
-  if (rpc.method && !rpc.method.startsWith("notifications/")) {
+  if (rpc.method) {
     appendActivity({
       kind: "mcp",
       action: rpc.method,
