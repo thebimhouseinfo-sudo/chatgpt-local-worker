@@ -165,6 +165,18 @@ try {
     Assert-NoWorkerRunValue
     Assert-Sentinels
 
+    # Uninstall must report a failed task removal, not falsely claim success.
+    Install-StartupRegistration
+    $script:MockUnregisterFails = $true
+    $removeRefused = $false
+    try { Remove-StartupRegistration } catch { $removeRefused = $true }
+    Assert-True $removeRefused "Uninstall must report Task Scheduler removal errors"
+    Assert-True ([bool]$script:MockTask) "Uninstall failure unexpectedly removed mock task"
+    $script:MockUnregisterFails = $false
+    Remove-StartupRegistration
+    Assert-NoWorkerRunValue
+    Assert-Sentinels
+
     # Scheduler failure: fallback uses only GPTWorker Run, without deleting sentinels.
     $script:MockRegisterFails = $true
     1..2 | ForEach-Object {
