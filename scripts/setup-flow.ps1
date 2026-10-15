@@ -304,7 +304,7 @@ try {
         "-Port", "$WorkerPort",
         "-HealthPort", "$TunnelPort",
         "-Force"
-    ) | Out-Null
+    ) -WindowStyle Hidden -WorkingDirectory $ScriptDir -ErrorAction Stop | Out-Null
 
     if (-not (Wait-Http "http://127.0.0.1:$TunnelPort/readyz" 60 "ready")) {
         Fail "Secure MCP Tunnel chưa ready sau 60 giây."
