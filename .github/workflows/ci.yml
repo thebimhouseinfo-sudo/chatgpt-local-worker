@@ -82,6 +82,10 @@ jobs:
       - name: Shell executor smoke
         run: node scripts/test-shell-persist.mjs
 
+      - name: Windows startup and registry isolation regression
+        shell: powershell
+        run: .\\scripts\\test-windows-autostart.ps1
+
       - name: Validate tunnel script with Windows PowerShell 5.1
         shell: powershell
         run: |
