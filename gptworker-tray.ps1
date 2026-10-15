@@ -110,7 +110,18 @@ function Install-StartupRegistration {
     if ($taskInstalled) {
         # Preserve the Run key and every value except GPTWorker.
         if (Test-Path -LiteralPath $StartupKey) {
-            Remove-ItemProperty -Path $StartupKey -Name $StartupName -ErrorAction Stop
+            $runValues = Get-ItemProperty -Path $StartupKey -ErrorAction Stop
+            if ($runValues.PSObject.Properties[$StartupName]) {
+                try {
+                    Remove-ItemProperty -Path $StartupKey -Name $StartupName -ErrorAction Stop
+                } catch {
+                    # Do not leave two startup authorities if the Run value is locked.
+                    if (Get-Command Unregister-ScheduledTask -ErrorAction SilentlyContinue) {
+                        Unregister-ScheduledTask -TaskName $StartupTaskName -Confirm:$false -ErrorAction Stop
+                    }
+                    throw "Unable to remove the previous GPTWorker Run fallback: $($_.Exception.Message)"
+                }
+            }
         }
         Write-Host "[OK] GPTWorker auto-start registered (Task Scheduler only)." -ForegroundColor Green
         return
