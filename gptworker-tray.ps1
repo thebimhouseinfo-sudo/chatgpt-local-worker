@@ -154,13 +154,24 @@ function Install-StartupRegistration {
 
 function Remove-StartupRegistration {
     if (Test-Path -LiteralPath $StartupKey) {
-        Remove-ItemProperty -Path $StartupKey -Name $StartupName -ErrorAction SilentlyContinue
-    }
-    try {
-        if (Get-Command Unregister-ScheduledTask -ErrorAction SilentlyContinue) {
-            Unregister-ScheduledTask -TaskName $StartupTaskName -Confirm:$false -ErrorAction SilentlyContinue
+        $runValues = Get-ItemProperty -Path $StartupKey -ErrorAction Stop
+        if ($runValues.PSObject.Properties[$StartupName]) {
+            Remove-ItemProperty -Path $StartupKey -Name $StartupName -ErrorAction Stop
         }
-    } catch {}
+    }
+    if (-not (Get-Command Get-ScheduledTask -ErrorAction SilentlyContinue)) {
+        throw "Cannot verify removal of the GPTWorker scheduled task."
+    }
+    $task = Get-ScheduledTask -TaskName $StartupTaskName -ErrorAction SilentlyContinue
+    if ($task) {
+        if (-not (Get-Command Unregister-ScheduledTask -ErrorAction SilentlyContinue)) {
+            throw "Cannot remove the GPTWorker scheduled task."
+        }
+        Unregister-ScheduledTask -TaskName $StartupTaskName -Confirm:$false -ErrorAction Stop
+        if (Get-ScheduledTask -TaskName $StartupTaskName -ErrorAction SilentlyContinue) {
+            throw "The GPTWorker scheduled task still exists."
+        }
+    }
     Write-Host "[OK] GPTWorker Windows auto-start removed." -ForegroundColor Green
 }
 
