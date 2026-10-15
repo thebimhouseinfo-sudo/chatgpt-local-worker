@@ -38,68 +38,113 @@ trap {
 Write-TrayLog "Tray host starting. PID=$PID"
 Remove-Item $TrayReadyPath -Force -ErrorAction SilentlyContinue
 
-# Ensure any associated console window is hidden immediately
-try {
-    $hideConsoleDefinition = @'
-    [System.Runtime.InteropServices.DllImport("kernel32.dll")]
-    public static extern System.IntPtr GetConsoleWindow();
-    [System.Runtime.InteropServices.DllImport("user32.dll")]
-    public static extern bool ShowWindow(System.IntPtr hWnd, int nCmdShow);
-'@
-    $win32Console = Add-Type -MemberDefinition $hideConsoleDefinition -Name "Win32ConsoleHider" -Namespace "GPTWorker" -PassThru -ErrorAction SilentlyContinue
-    if ($win32Console) {
-        $hwnd = [GPTWorker.Win32ConsoleHider]::GetConsoleWindow()
-        if ($hwnd -ne [System.IntPtr]::Zero) {
-            [void][GPTWorker.Win32ConsoleHider]::ShowWindow($hwnd, 0)
-        }
+function Get-StartupLauncher {
+    $vbsPath = Join-Path $ScriptDir "gptworker-tray.vbs"
+    if (-not (Test-Path -LiteralPath $vbsPath)) {
+        throw "GPTWorker silent launcher is missing: $vbsPath"
     }
-} catch {}
+
+    $wscriptPath = Join-Path $env:WINDIR "System32\wscript.exe"
+    if (-not (Test-Path -LiteralPath $wscriptPath)) {
+        throw "Windows Script Host is missing: $wscriptPath"
+    }
+
+    return @{
+        Execute = $wscriptPath
+        Arguments = '"' + $vbsPath + '"'
+        WorkingDirectory = $ScriptDir
+    }
+}
 
 function Get-StartupCommand {
-    $vbsPath = Join-Path $ScriptDir "gptworker-tray.vbs"
-    if (Test-Path $vbsPath) {
-        return 'wscript.exe "' + $vbsPath + '"'
-    }
-    return 'powershell.exe -NoProfile -STA -WindowStyle Hidden -ExecutionPolicy Bypass -File "' + $PSCommandPath + '"'
+    $launcher = Get-StartupLauncher
+    return '"' + $launcher.Execute + '" ' + $launcher.Arguments
 }
 
 function Install-StartupRegistration {
-    # Keep HKCU Run as a simple fallback. The tray mutex makes duplicate launches harmless.
-    New-Item -Path $StartupKey -Force | Out-Null
-    New-ItemProperty -Path $StartupKey -Name $StartupName -Value (Get-StartupCommand) -PropertyType String -Force | Out-Null
-
-    # Primary startup path: a per-user scheduled task launched shortly after logon.
-    # The short delay avoids the common Windows sign-in race where networking,
-    # shell startup apps, or profile services are still settling.
+    # Exactly one startup authority: Task Scheduler when available, HKCU Run otherwise.
+    # Never recreate an existing Run key: doing so can destroy other applications' values.
+    $launcher = Get-StartupLauncher
     $taskInstalled = $false
-    try {
-        if (Get-Command Register-ScheduledTask -ErrorAction SilentlyContinue) {
-            $currentUser = [System.Security.Principal.WindowsIdentity]::GetCurrent().Name
-            $actionArgs = '-NoProfile -STA -WindowStyle Hidden -ExecutionPolicy Bypass -File "' + $PSCommandPath + '"'
-            $action = New-ScheduledTaskAction -Execute "powershell.exe" -Argument $actionArgs
-            $trigger = New-ScheduledTaskTrigger -AtLogOn -User $currentUser
-            try { $trigger.Delay = "PT10S" } catch {}
-            $principal = New-ScheduledTaskPrincipal -UserId $currentUser -LogonType Interactive -RunLevel Limited
-            $settings = New-ScheduledTaskSettingsSet -AllowStartIfOnBatteries -DontStopIfGoingOnBatteries -StartWhenAvailable -MultipleInstances IgnoreNew
 
-            Register-ScheduledTask -TaskName $StartupTaskName -Action $action -Trigger $trigger -Principal $principal -Settings $settings -Force -ErrorAction Stop | Out-Null
-            $taskInstalled = $true
-            Write-TrayLog "Scheduled startup task registered: $StartupTaskName"
+    try {
+        foreach ($cmd in @(
+            "Register-ScheduledTask",
+            "Get-ScheduledTask",
+            "New-ScheduledTaskAction",
+            "New-ScheduledTaskTrigger",
+            "New-ScheduledTaskPrincipal",
+            "New-ScheduledTaskSettingsSet"
+        )) {
+            if (-not (Get-Command $cmd -ErrorAction SilentlyContinue)) {
+                throw "Task Scheduler command unavailable: $cmd"
+            }
         }
+
+        $currentUser = [System.Security.Principal.WindowsIdentity]::GetCurrent().Name
+        $action = New-ScheduledTaskAction -Execute $launcher.Execute -Argument $launcher.Arguments -WorkingDirectory $launcher.WorkingDirectory
+        $trigger = New-ScheduledTaskTrigger -AtLogOn -User $currentUser
+        try { $trigger.Delay = "PT10S" } catch {}
+        $principal = New-ScheduledTaskPrincipal -UserId $currentUser -LogonType Interactive -RunLevel Limited
+        $settings = New-ScheduledTaskSettingsSet -AllowStartIfOnBatteries -DontStopIfGoingOnBatteries -StartWhenAvailable -MultipleInstances IgnoreNew
+
+        Register-ScheduledTask -TaskName $StartupTaskName -Action $action -Trigger $trigger -Principal $principal -Settings $settings -Force -ErrorAction Stop | Out-Null
+
+        # Register-ScheduledTask can return without ensuring that the expected action
+        # is persisted. Only disable the Run fallback after checking the actual task.
+        $registered = Get-ScheduledTask -TaskName $StartupTaskName -ErrorAction Stop
+        $registeredAction = @($registered.Actions) | Select-Object -First 1
+        if (-not $registeredAction -or
+            $registeredAction.Execute -ne $launcher.Execute -or
+            $registeredAction.Arguments -ne $launcher.Arguments -or
+            $registeredAction.WorkingDirectory -ne $launcher.WorkingDirectory) {
+            throw "Scheduled startup action verification failed for $StartupTaskName"
+        }
+
+        $taskInstalled = $true
+        Write-TrayLog "Scheduled startup task registered and verified: $StartupTaskName"
     } catch {
-        Write-TrayLog "Scheduled startup task registration failed; HKCU Run fallback remains active. $($_.Exception.Message)"
-        Write-Host "[WARN] Scheduled startup task could not be registered; HKCU Run fallback remains active." -ForegroundColor Yellow
+        Write-TrayLog "Scheduled startup task unavailable; checking safe Registry fallback. $($_.Exception.Message)"
     }
 
     if ($taskInstalled) {
-        Write-Host "[OK] GPTWorker auto-start registered (Task Scheduler + HKCU Run fallback)." -ForegroundColor Green
-    } else {
-        Write-Host "[OK] GPTWorker auto-start registered (HKCU Run fallback)." -ForegroundColor Green
+        # Preserve the Run key and every value except GPTWorker.
+        if (Test-Path -LiteralPath $StartupKey) {
+            Remove-ItemProperty -Path $StartupKey -Name $StartupName -ErrorAction Stop
+        }
+        Write-Host "[OK] GPTWorker auto-start registered (Task Scheduler only)." -ForegroundColor Green
+        return
     }
+
+    # Remove a previous GPTWorker task before activating Registry fallback,
+    # otherwise the old task and the new Run value would both launch at logon.
+    if (Get-Command Get-ScheduledTask -ErrorAction SilentlyContinue) {
+        $staleTask = Get-ScheduledTask -TaskName $StartupTaskName -ErrorAction SilentlyContinue
+        if ($staleTask) {
+            if (-not (Get-Command Unregister-ScheduledTask -ErrorAction SilentlyContinue)) {
+                throw "Cannot activate Registry fallback while the previous GPTWorker task exists."
+            }
+            Unregister-ScheduledTask -TaskName $StartupTaskName -Confirm:$false -ErrorAction Stop
+            if (Get-ScheduledTask -TaskName $StartupTaskName -ErrorAction SilentlyContinue) {
+                throw "Previous GPTWorker scheduled task still exists; Registry fallback was not installed."
+            }
+        }
+    } else {
+        throw "Cannot verify whether a previous GPTWorker scheduled task exists; refusing duplicate startup registration."
+    }
+
+    if (-not (Test-Path -LiteralPath $StartupKey)) {
+        New-Item -Path $StartupKey -ErrorAction Stop | Out-Null
+    }
+    New-ItemProperty -Path $StartupKey -Name $StartupName -Value (Get-StartupCommand) -PropertyType String -Force -ErrorAction Stop | Out-Null
+    Write-TrayLog "Registry fallback registered: $StartupName"
+    Write-Host "[OK] GPTWorker auto-start registered (HKCU Run fallback only)." -ForegroundColor Green
 }
 
 function Remove-StartupRegistration {
-    Remove-ItemProperty -Path $StartupKey -Name $StartupName -ErrorAction SilentlyContinue
+    if (Test-Path -LiteralPath $StartupKey) {
+        Remove-ItemProperty -Path $StartupKey -Name $StartupName -ErrorAction SilentlyContinue
+    }
     try {
         if (Get-Command Unregister-ScheduledTask -ErrorAction SilentlyContinue) {
             Unregister-ScheduledTask -TaskName $StartupTaskName -Confirm:$false -ErrorAction SilentlyContinue
